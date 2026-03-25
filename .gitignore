@@ -205,3 +205,15 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# ── Bonsai demo: downloaded/built artifacts ──
+models/
+bin/
+llama.cpp/
+mlx/
+.hf_cache/
+.prism_hf_token
+.openwebui/
+.webui_secret_key
+*.tar.gz
+*.zip

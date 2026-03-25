@@ -1,0 +1,238 @@
+# Bonsai Demo — Setup for Windows (PowerShell)
+# Usage:  .\setup.ps1
+#   or:   Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass; .\setup.ps1
+$ErrorActionPreference = "Stop"
+
+$PythonVersion = "3.11"
+$VenvDir = Join-Path $PSScriptRoot ".venv"
+$VenvPy  = Join-Path $VenvDir "Scripts\python.exe"
+
+$ReleaseTag = "prism-b8194-1179bfc"
+$BaseUrl = "https://github.com/PrismML-Eng/llama.cpp/releases/download/$ReleaseTag"
+
+$HfGgufRepo = "prism-ml/Bonsai-8B-gguf"
+
+# ── Helpers ──
+
+function Refresh-SessionPath {
+    $machine = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
+    $user    = [System.Environment]::GetEnvironmentVariable("Path", "User")
+    $merged  = "$machine;$user;$env:Path"
+    $seen = @{}; $unique = @()
+    foreach ($p in $merged -split ";") {
+        $key = $p.TrimEnd("\").ToLowerInvariant()
+        if ($key -and -not $seen.ContainsKey($key)) {
+            $seen[$key] = $true
+            $unique += $p
+        }
+    }
+    $env:Path = $unique -join ";"
+}
+
+function Find-CompatiblePython {
+    $pyLauncher = Get-Command py -CommandType Application -ErrorAction SilentlyContinue
+    if ($pyLauncher) {
+        foreach ($minor in @("3.13", "3.12", "3.11")) {
+            try {
+                $out = & $pyLauncher.Source "-$minor" --version 2>&1 | Out-String
+                if ($out -match "Python (3\.1[1-3])\.\d+") {
+                    $resolvedExe = (& $pyLauncher.Source "-$minor" -c "import sys; print(sys.executable)" 2>$null | Out-String).Trim()
+                    if ($resolvedExe -and (Test-Path $resolvedExe)) {
+                        return @{ Version = $Matches[1]; Path = $resolvedExe }
+                    }
+                }
+            } catch {}
+        }
+    }
+    foreach ($name in @("python3", "python")) {
+        foreach ($cmd in @(Get-Command $name -All -ErrorAction SilentlyContinue)) {
+            if (-not $cmd.Source -or $cmd.Source -like "*\WindowsApps\*") { continue }
+            try {
+                $out = & $cmd.Source --version 2>&1 | Out-String
+                if ($out -match "Python (3\.1[1-3])\.\d+") {
+                    return @{ Version = $Matches[1]; Path = $cmd.Source }
+                }
+            } catch {}
+        }
+    }
+    return $null
+}
+
+Write-Host ""
+Write-Host "========================================="
+Write-Host "   Bonsai Demo Setup (Windows)"
+Write-Host "========================================="
+Write-Host ""
+
+# ── 1. Check winget ──
+if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+    Write-Host "[ERR] winget is not available." -ForegroundColor Red
+    Write-Host "      Install from https://aka.ms/getwinget or install Python $PythonVersion and uv manually." -ForegroundColor Yellow
+    exit 1
+}
+
+# ── 2. Python ──
+Write-Host "==> Checking Python ..." -ForegroundColor Cyan
+$DetectedPython = Find-CompatiblePython
+if ($DetectedPython) {
+    Write-Host "[OK] Python $($DetectedPython.Version) found." -ForegroundColor Green
+} else {
+    Write-Host "==> Installing Python $PythonVersion ..." -ForegroundColor Cyan
+    $prevEAP = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try { winget install -e --id "Python.Python.$PythonVersion" --accept-package-agreements --accept-source-agreements } catch {}
+    $ErrorActionPreference = $prevEAP
+    Refresh-SessionPath
+    $DetectedPython = Find-CompatiblePython
+    if (-not $DetectedPython) {
+        Write-Host "[ERR] Python installation failed." -ForegroundColor Red
+        Write-Host "      Install Python $PythonVersion from https://www.python.org/downloads/" -ForegroundColor Yellow
+        exit 1
+    }
+}
+
+# ── 3. uv ──
+Write-Host "==> Checking uv ..." -ForegroundColor Cyan
+if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
+    Write-Host "==> Installing uv ..." -ForegroundColor Cyan
+    $prevEAP = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try { winget install --id=astral-sh.uv -e --accept-package-agreements --accept-source-agreements } catch {}
+    $ErrorActionPreference = $prevEAP
+    Refresh-SessionPath
+    if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
+        Write-Host "    Trying alternative installer ..." -ForegroundColor Yellow
+        powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+        Refresh-SessionPath
+    }
+}
+if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
+    Write-Host "[ERR] uv could not be installed." -ForegroundColor Red
+    Write-Host "      Install from https://docs.astral.sh/uv/" -ForegroundColor Yellow
+    exit 1
+}
+Write-Host "[OK] uv found." -ForegroundColor Green
+
+# ── 4. Create venv ──
+Write-Host "==> Setting up Python environment ..." -ForegroundColor Cyan
+if (Test-Path $VenvPy) {
+    Write-Host "[OK] Existing venv found." -ForegroundColor Green
+} else {
+    uv venv $VenvDir --python "$($DetectedPython.Path)"
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[ERR] Failed to create venv." -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "[OK] Created venv." -ForegroundColor Green
+}
+
+# ── 5. Install Python deps ──
+Write-Host "==> Installing Python dependencies ..." -ForegroundColor Cyan
+uv pip install --python $VenvPy huggingface-hub
+Write-Host "[OK] Dependencies installed." -ForegroundColor Green
+
+# ── 6. Detect GPU / CUDA version ──
+$CudaTag = "12.4"
+$NvidiaSmi = $null
+foreach ($p in @(
+    (Get-Command nvidia-smi -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source -ErrorAction SilentlyContinue),
+    "$env:ProgramFiles\NVIDIA Corporation\NVSMI\nvidia-smi.exe",
+    "$env:SystemRoot\System32\nvidia-smi.exe"
+)) {
+    if ($p -and (Test-Path $p)) {
+        try {
+            $out = & $p 2>&1 | Out-String
+            if ($out -match 'CUDA Version:\s+(\d+)\.(\d+)') {
+                $major = [int]$Matches[1]; $minor = [int]$Matches[2]
+                if ($major -ge 13)                    { $CudaTag = "13.1" }
+                elseif ($major -eq 12 -and $minor -ge 4) { $CudaTag = "12.4" }
+                $NvidiaSmi = $p
+                break
+            }
+        } catch {}
+    }
+}
+if ($NvidiaSmi) {
+    Write-Host "[OK] NVIDIA GPU detected (CUDA $CudaTag)" -ForegroundColor Green
+} else {
+    Write-Host "[WARN] No NVIDIA GPU detected. Binaries require a CUDA-capable GPU." -ForegroundColor Yellow
+}
+
+# ── 7. Download GGUF model ──
+Write-Host "==> Downloading model ..." -ForegroundColor Cyan
+$ModelsDir = Join-Path $PSScriptRoot "models\gguf"
+if (Test-Path "$ModelsDir\*.gguf") {
+    Write-Host "[OK] GGUF model already present." -ForegroundColor Green
+} else {
+    Write-Host ""
+    Write-Host "  Models are on private HuggingFace repos (will be made public later)." -ForegroundColor Yellow
+    Write-Host "  You need a read-only HF token -- ask the team or create one at:" -ForegroundColor Yellow
+    Write-Host "    https://huggingface.co/settings/tokens" -ForegroundColor Yellow
+    Write-Host ""
+    if ($env:PRISM_HF_TOKEN) {
+        $confirm = Read-Host "  PRISM_HF_TOKEN is already set. Use it? [Y/n]"
+        if ($confirm -match '^[nN]') { $env:PRISM_HF_TOKEN = "" }
+    }
+    if (-not $env:PRISM_HF_TOKEN) {
+        $env:PRISM_HF_TOKEN = Read-Host "  Paste your HuggingFace token (or press Enter to skip)"
+    }
+    if ($env:PRISM_HF_TOKEN) {
+        $HfCli = Join-Path $VenvDir "Scripts\huggingface-cli.exe"
+        & $HfCli download $HfGgufRepo --local-dir $ModelsDir --token $env:PRISM_HF_TOKEN
+        Write-Host "[OK] GGUF model downloaded." -ForegroundColor Green
+    } else {
+        Write-Host "[WARN] Skipping model download (no token)." -ForegroundColor Yellow
+    }
+}
+
+# ── 8. Download pre-built CUDA binaries ──
+Write-Host "==> Downloading llama.cpp binaries ..." -ForegroundColor Cyan
+$BinDir = Join-Path $PSScriptRoot "bin\cuda"
+if (Test-Path "$BinDir\llama-cli.exe") {
+    Write-Host "[OK] Binaries already present." -ForegroundColor Green
+} else {
+    $Asset = "llama-${ReleaseTag}-bin-win-cuda-${CudaTag}-x64.zip"
+    $Url = "$BaseUrl/$Asset"
+    $TmpZip = [System.IO.Path]::GetTempFileName() + ".zip"
+
+    Write-Host "    Downloading $Asset ..." -ForegroundColor Cyan
+    Invoke-WebRequest -Uri $Url -OutFile $TmpZip -UseBasicParsing
+
+    New-Item -ItemType Directory -Path $BinDir -Force | Out-Null
+    Expand-Archive -Path $TmpZip -DestinationPath $BinDir -Force
+    Remove-Item $TmpZip -Force
+
+    # Also download CUDA runtime DLLs
+    $DllAsset = "cudart-llama-bin-win-cuda-${CudaTag}-x64.zip"
+    $DllUrl = "$BaseUrl/$DllAsset"
+    $DllZip = [System.IO.Path]::GetTempFileName() + ".zip"
+
+    Write-Host "    Downloading CUDA runtime DLLs ..." -ForegroundColor Cyan
+    try {
+        Invoke-WebRequest -Uri $DllUrl -OutFile $DllZip -UseBasicParsing
+        Expand-Archive -Path $DllZip -DestinationPath $BinDir -Force
+        Remove-Item $DllZip -Force
+    } catch {
+        Write-Host "[WARN] Could not download CUDA DLLs. You may need to install CUDA toolkit." -ForegroundColor Yellow
+    }
+
+    Write-Host "[OK] Binaries installed to $BinDir" -ForegroundColor Green
+}
+
+# ── Done ──
+Write-Host ""
+Write-Host "========================================="
+Write-Host "   Setup complete!"
+Write-Host "========================================="
+Write-Host ""
+Write-Host "  Quick start (from this directory in PowerShell):" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "    # Find your model file"
+Write-Host "    `$model = (Get-ChildItem models\gguf\*.gguf | Select-Object -First 1).FullName"
+Write-Host ""
+Write-Host "    # Run inference"
+Write-Host "    bin\cuda\llama-cli.exe -m `$model -ngl 99 -c 8192 -p 'What is the capital of France?'"
+Write-Host ""
+Write-Host "    # Or start the chat server (open http://localhost:8080)"
+Write-Host "    bin\cuda\llama-server.exe -m `$model -ngl 99 -c 8192 --host 0.0.0.0 --port 8080"
+Write-Host ""
