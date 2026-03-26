@@ -178,6 +178,9 @@ if (Test-Path "$ModelsDir\*.gguf") {
     }
     if ($env:PRISM_HF_TOKEN) {
         $HfCli = Join-Path $VenvDir "Scripts\huggingface-cli.exe"
+        if (-not (Test-Path $HfCli)) {
+            $HfCli = Join-Path $VenvDir "Scripts\hf.exe"
+        }
         & $HfCli download $HfGgufRepo --local-dir $ModelsDir --token $env:PRISM_HF_TOKEN
         Write-Host "[OK] GGUF model downloaded." -ForegroundColor Green
     } else {
@@ -191,7 +194,7 @@ $BinDir = Join-Path $PSScriptRoot "bin\cuda"
 if (Test-Path "$BinDir\llama-cli.exe") {
     Write-Host "[OK] Binaries already present." -ForegroundColor Green
 } else {
-    $Asset = "llama-${ReleaseTag}-bin-win-cuda-${CudaTag}-x64.zip"
+    $Asset = "llama-prism-b1-1179bfc-bin-win-cuda-${CudaTag}-x64.zip"
     $Url = "$BaseUrl/$Asset"
     $TmpZip = [System.IO.Path]::GetTempFileName() + ".zip"
 
