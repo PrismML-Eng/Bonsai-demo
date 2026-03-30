@@ -6,6 +6,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$SCRIPT_DIR/common.sh"
+assert_single_model
 DEMO_DIR="$(resolve_demo_dir)"
 cd "$DEMO_DIR"
 

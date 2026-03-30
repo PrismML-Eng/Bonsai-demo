@@ -4,11 +4,28 @@
 
 # ── Model selection ──
 # Set BONSAI_MODEL to choose which model size to use.
-# Valid values: 8B (default), 4B, 1.7B   ("all" is only valid for download)
+# Valid values: 8B (default), 4B, 1.7B   ("all" is only valid for setup/download)
 BONSAI_MODEL="${BONSAI_MODEL:-8B}"
 ALL_MODEL_SIZES="8B 4B 1.7B"
 GGUF_MODEL_DIR="models/gguf/${BONSAI_MODEL}"
 MLX_MODEL_DIR="models/Bonsai-${BONSAI_MODEL}-mlx"
+
+# Call this at the top of any run/server script to validate BONSAI_MODEL
+assert_single_model() {
+    case "$BONSAI_MODEL" in
+        8B|4B|1.7B) return 0 ;;
+        all)
+            err "BONSAI_MODEL=all is only valid for setup/download."
+            echo "  Choose a specific model size:"
+            echo "    export BONSAI_MODEL=8B   # or 4B, 1.7B"
+            exit 1 ;;
+        *)
+            err "Unknown BONSAI_MODEL='${BONSAI_MODEL}'."
+            echo "  Valid values: 8B, 4B, 1.7B"
+            echo "  Example: export BONSAI_MODEL=8B"
+            exit 1 ;;
+    esac
+}
 
 # ── Colors ──
 if [ -t 1 ]; then
