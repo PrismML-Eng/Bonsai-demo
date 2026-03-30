@@ -55,8 +55,15 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-if [ -f "$DEMO_DIR/.venv/bin/activate" ]; then
-    . "$DEMO_DIR/.venv/bin/activate"
+ensure_venv "$DEMO_DIR"
+
+if ! command -v open-webui >/dev/null 2>&1; then
+    err "open-webui is not installed."
+    echo ""
+    echo "  Install it with:"
+    echo "    source .venv/bin/activate"
+    echo "    uv pip install open-webui"
+    exit 1
 fi
 
 # ── Start llama-server if not running ──
