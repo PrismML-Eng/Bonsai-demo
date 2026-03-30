@@ -25,8 +25,8 @@ The required inference kernels are not yet available in upstream llama.cpp or ML
 ### macOS / Linux
 
 ```bash
-git clone https://github.com/PrismML-Eng/demos.git
-cd demos
+git clone https://github.com/PrismML-Eng/Bonsai-demo.git
+cd Bonsai-demo
 
 # Set your HuggingFace token (required for private model repos)
 export PRISM_HF_TOKEN="hf_your_token_here"
@@ -38,8 +38,8 @@ export PRISM_HF_TOKEN="hf_your_token_here"
 ### Windows (PowerShell)
 
 ```powershell
-git clone https://github.com/PrismML-Eng/demos.git
-cd demos
+git clone https://github.com/PrismML-Eng/Bonsai-demo.git
+cd Bonsai-demo
 
 # Set your HuggingFace token
 $env:PRISM_HF_TOKEN = "hf_your_token_here"
@@ -172,7 +172,7 @@ All binaries are available from the [GitHub Release](https://github.com/PrismML-
 After setup, the directory looks like this:
 
 ```
-demos/
+Bonsai-demo/
 ├── README.md
 ├── setup.sh                        # macOS/Linux setup
 ├── setup.ps1                       # Windows setup
