@@ -38,7 +38,7 @@ Set `BONSAI_MODEL` to choose which size to download and run (default: `8B`).
 git clone https://github.com/PrismML-Eng/Bonsai-demo.git
 cd Bonsai-demo
 
-# (Optional) Choose a model size: 8B (default), 4B, 1.7B, or "all"
+# (Optional) Choose a model size: 8B (default), 4B, or 1.7B
 export BONSAI_MODEL=8B
 
 # Set your HuggingFace token (required while repos are private)
@@ -54,7 +54,7 @@ export PRISM_HF_TOKEN="hf_your_token_here"
 git clone https://github.com/PrismML-Eng/Bonsai-demo.git
 cd Bonsai-demo
 
-# (Optional) Choose a model size: 8B (default), 4B, 1.7B, or "all"
+# (Optional) Choose a model size: 8B (default), 4B, or 1.7B
 $env:BONSAI_MODEL = "8B"
 
 # Set your HuggingFace token (required while repos are private)
@@ -67,15 +67,11 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 ### Switching models
 
-You can download multiple sizes and switch between them instantly:
+You can download a different size and switch between them instantly — no full re-setup needed:
 
 ```bash
-# download the 4B model
-BONSAI_MODEL=4B ./setup.sh          
+BONSAI_MODEL=4B ./scripts/download_models.sh
 BONSAI_MODEL=4B ./scripts/run_llama.sh -p "Who are you? Introduce yourself in haiku"
-
-# download all three sizes
-BONSAI_MODEL=all ./setup.sh         
 ```
 ---
 
@@ -133,11 +129,11 @@ By default the scripts pass `-c 0`, which lets llama.cpp's `--fit` automatically
 
 *Estimates for Bonsai-8B (weights + KV cache + activations):*
 
-| Fallback Context    | Est. Memory Usage |
+| Context Size        | Est. Memory Usage |
 |---------------------|-------------------|
 | 8,192 tokens        | ~2.5 GB           |
 | 32,768 tokens       | ~5.9 GB           |
-| 65,536 tokens (max) | ~10.5 GB          |
+| 65,536 tokens       | ~10.5 GB          |
 
 Override with: `./scripts/run_llama.sh -c 8192 -p "Your prompt"`
 

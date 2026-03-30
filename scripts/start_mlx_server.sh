@@ -6,7 +6,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$SCRIPT_DIR/common.sh"
-assert_single_model
+assert_valid_model
 DEMO_DIR="$(resolve_demo_dir)"
 cd "$DEMO_DIR"
 
@@ -15,14 +15,10 @@ if [ "$(uname -s)" != "Darwin" ]; then
     exit 1
 fi
 
+assert_mlx_downloaded
+
 MODEL="$DEMO_DIR/$MLX_MODEL_DIR"
 PORT=8081
-
-if [ ! -d "$MODEL" ]; then
-    err "MLX model not found for ${BONSAI_MODEL}: $MODEL"
-    echo "  Run ./setup.sh or: BONSAI_MODEL=${BONSAI_MODEL} ./scripts/download_models.sh"
-    exit 1
-fi
 
 ensure_venv "$DEMO_DIR"
 

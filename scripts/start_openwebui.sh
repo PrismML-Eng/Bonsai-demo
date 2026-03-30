@@ -9,13 +9,16 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$SCRIPT_DIR/common.sh"
-assert_single_model
+assert_valid_model
+assert_gguf_downloaded
 DEMO_DIR="$(resolve_demo_dir)"
 cd "$DEMO_DIR"
 
 LLAMA_PORT=8080
 MLX_PORT=8081
 BG_PIDS=""
+_LLAMA_PREEXISTING=false
+_MLX_PREEXISTING=false
 
 # ── Find a free port for Open WebUI ──
 # Use 9090+ range to avoid conflicts with Cursor port-forwarding and RunPod
@@ -42,6 +45,12 @@ cleanup() {
         done
         wait 2>/dev/null || true
     fi
+    if [ "$_LLAMA_PREEXISTING" = true ]; then
+        info "llama-server on port $LLAMA_PORT was already running — leaving it up."
+    fi
+    if [ "$_MLX_PREEXISTING" = true ]; then
+        info "MLX server on port $MLX_PORT was already running — leaving it up."
+    fi
     info "Done."
 }
 trap cleanup EXIT INT TERM
@@ -52,6 +61,7 @@ fi
 
 # ── Start llama-server if not running ──
 if curl -s --max-time 2 "http://localhost:$LLAMA_PORT/health" >/dev/null 2>&1; then
+    _LLAMA_PREEXISTING=true
     info "llama-server already running on port $LLAMA_PORT"
 else
     # Find model + binary
@@ -94,6 +104,7 @@ if [ "$(uname -s)" != "Darwin" ]; then
     warn "MLX server skipped — only available on Apple Silicon (macOS)."
 elif [ "$(uname -s)" = "Darwin" ]; then
     if curl -s --max-time 2 "http://localhost:$MLX_PORT/v1/models" >/dev/null 2>&1; then
+        _MLX_PREEXISTING=true
         info "MLX server already running on port $MLX_PORT"
     elif [ -d "$DEMO_DIR/$MLX_MODEL_DIR" ] && python -c "import mlx_lm" 2>/dev/null; then
         step "Starting MLX server on port $MLX_PORT (Bonsai-${BONSAI_MODEL}) ..."

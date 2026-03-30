@@ -4,27 +4,41 @@
 
 # ── Model selection ──
 # Set BONSAI_MODEL to choose which model size to use.
-# Valid values: 8B (default), 4B, 1.7B   ("all" is only valid for setup/download)
+# Valid values: 8B (default), 4B, 1.7B
 BONSAI_MODEL="${BONSAI_MODEL:-8B}"
-ALL_MODEL_SIZES="8B 4B 1.7B"
 GGUF_MODEL_DIR="models/gguf/${BONSAI_MODEL}"
+
 MLX_MODEL_DIR="models/Bonsai-${BONSAI_MODEL}-mlx"
 
-# Call this at the top of any run/server script to validate BONSAI_MODEL
-assert_single_model() {
+# Validate BONSAI_MODEL — call at the top of every run/server script
+assert_valid_model() {
     case "$BONSAI_MODEL" in
         8B|4B|1.7B) return 0 ;;
-        all)
-            err "BONSAI_MODEL=all is only valid for setup/download."
-            echo "  Choose a specific model size:"
-            echo "    export BONSAI_MODEL=8B   # or 4B, 1.7B"
-            exit 1 ;;
         *)
-            err "Unknown BONSAI_MODEL='${BONSAI_MODEL}'."
-            echo "  Valid values: 8B, 4B, 1.7B"
+            err "Unknown BONSAI_MODEL='${BONSAI_MODEL}'. Valid values: 8B, 4B, 1.7B"
             echo "  Example: export BONSAI_MODEL=8B"
             exit 1 ;;
     esac
+}
+
+# Check GGUF model is downloaded — prompts to download if missing
+assert_gguf_downloaded() {
+    if ! ls "$GGUF_MODEL_DIR"/*.gguf >/dev/null 2>&1; then
+        err "GGUF model not found for Bonsai-${BONSAI_MODEL} (expected in ${GGUF_MODEL_DIR}/)."
+        echo "  Download it with:"
+        echo "    BONSAI_MODEL=${BONSAI_MODEL} ./scripts/download_models.sh"
+        exit 1
+    fi
+}
+
+# Check MLX model is downloaded — prompts to download if missing
+assert_mlx_downloaded() {
+    if [ ! -f "$MLX_MODEL_DIR/config.json" ]; then
+        err "MLX model not found for Bonsai-${BONSAI_MODEL} (expected in ${MLX_MODEL_DIR}/)."
+        echo "  Download it with:"
+        echo "    BONSAI_MODEL=${BONSAI_MODEL} ./scripts/download_models.sh"
+        exit 1
+    fi
 }
 
 # ── Colors ──
@@ -58,7 +72,7 @@ download() {
 # ── Smart context size for llama.cpp ──
 # Default: -c 0 lets llama.cpp's --fit auto-size KV cache to available memory.
 # Fallback: if -c 0 is not supported, pick a safe value from system RAM.
-# Max context: 65536 (16K base * 4x YaRN).
+# Max context: 65536.
 # Memory = ~1.1 GB weights + ~140 bytes/token KV cache + activations.
 #   8 GB  → -c  8192  (~2.5 GB total, leaves ~5 GB for OS)
 #  16 GB  → -c 32768  (~5.9 GB total, leaves ~10 GB for OS)

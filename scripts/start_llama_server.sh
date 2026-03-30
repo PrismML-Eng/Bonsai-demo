@@ -6,22 +6,26 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$SCRIPT_DIR/common.sh"
-assert_single_model
+assert_valid_model
 DEMO_DIR="$(resolve_demo_dir)"
 cd "$DEMO_DIR"
+assert_gguf_downloaded
 
 HOST="0.0.0.0"
 PORT=8080
+
+# ── Check port is free ──
+if curl -s --max-time 2 "http://localhost:$PORT/health" >/dev/null 2>&1; then
+    warn "llama-server is already running on port $PORT."
+    echo "  Stop it first with:  kill \$(lsof -ti TCP:$PORT)"
+    exit 1
+fi
 
 # ── Find model ──
 MODEL=""
 for _m in $GGUF_MODEL_DIR/*.gguf; do
     [ -f "$_m" ] && MODEL="$DEMO_DIR/$_m" && break
 done
-if [ -z "$MODEL" ]; then
-    err "GGUF model not found for ${BONSAI_MODEL}. Run ./setup.sh or: BONSAI_MODEL=${BONSAI_MODEL} ./scripts/download_models.sh"
-    exit 1
-fi
 
 # ── Find binary (search all known locations) ──
 BIN=""

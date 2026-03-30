@@ -106,9 +106,8 @@ _version_ge() {
     return 0
 }
 
-# ── Model selection (from common.sh values) ──
+# ── Model selection ──
 BONSAI_MODEL="${BONSAI_MODEL:-8B}"
-ALL_MODEL_SIZES="8B 4B 1.7B"
 
 echo ""
 echo "========================================="
@@ -256,20 +255,9 @@ info "Base deps installed (cmake, ninja, setuptools, huggingface-cli)."
 #  6. Download models from HuggingFace
 # ────────────────────────────────────────────────────
 step "Model download (BONSAI_MODEL=${BONSAI_MODEL}) ..."
-_skip_download=false
-if [ "$BONSAI_MODEL" = "all" ]; then
-    _all_present=true
-    for _s in $ALL_MODEL_SIZES; do
-        ls "models/gguf/${_s}"/*.gguf >/dev/null 2>&1 || { _all_present=false; break; }
-    done
-    [ "$_all_present" = true ] && _skip_download=true
-else
-    ls "models/gguf/${BONSAI_MODEL}"/*.gguf >/dev/null 2>&1 && _skip_download=true
-fi
-
-if [ "$_skip_download" = true ]; then
-    info "Models already present — skipping download."
-    echo "  (Delete models/ and re-run to re-download.)"
+if ls "models/gguf/${BONSAI_MODEL}"/*.gguf >/dev/null 2>&1; then
+    info "Model already present — skipping download."
+    echo "  (Delete models/gguf/${BONSAI_MODEL}/ and re-run to re-download.)"
 else
     BONSAI_MODEL="$BONSAI_MODEL" sh "$SCRIPT_DIR/scripts/download_models.sh"
 fi

@@ -2,13 +2,14 @@
 # Download Bonsai models from HuggingFace.
 #
 # Usage:
-#   BONSAI_MODEL=8B  ./scripts/download_models.sh   # download 8B (default)
-#   BONSAI_MODEL=4B  ./scripts/download_models.sh   # download 4B
-#   BONSAI_MODEL=all ./scripts/download_models.sh   # download all sizes
+#   ./scripts/download_models.sh              # download 8B (default)
+#   BONSAI_MODEL=4B ./scripts/download_models.sh   # download 4B
+#   BONSAI_MODEL=1.7B ./scripts/download_models.sh # download 1.7B
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$SCRIPT_DIR/common.sh"
+assert_valid_model
 DEMO_DIR="$(resolve_demo_dir)"
 cd "$DEMO_DIR"
 
@@ -105,13 +106,7 @@ download_size() {
 
 mkdir -p models
 
-if [ "$BONSAI_MODEL" = "all" ]; then
-    for _s in $ALL_MODEL_SIZES; do
-        download_size "$_s"
-    done
-else
-    download_size "$BONSAI_MODEL"
-fi
+download_size "$BONSAI_MODEL"
 
 if [ "$(uname -s)" != "Darwin" ]; then
     info "Skipping MLX models (macOS only)."
