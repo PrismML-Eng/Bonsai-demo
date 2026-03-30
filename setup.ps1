@@ -10,7 +10,8 @@ $VenvPy  = Join-Path $VenvDir "Scripts\python.exe"
 $ReleaseTag = "prism-b8194-1179bfc"
 $BaseUrl = "https://github.com/PrismML-Eng/llama.cpp/releases/download/$ReleaseTag"
 
-$HfGgufRepo = "prism-ml/Bonsai-8B-gguf"
+$BonsaiModel = if ($env:BONSAI_MODEL) { $env:BONSAI_MODEL } else { "8B" }
+$HfGgufRepo = "prism-ml/Bonsai-${BonsaiModel}-gguf"
 
 # ── Helpers ──
 
@@ -61,6 +62,7 @@ function Find-CompatiblePython {
 Write-Host ""
 Write-Host "========================================="
 Write-Host "   Bonsai Demo Setup (Windows)"
+Write-Host "   Model: $BonsaiModel"
 Write-Host "========================================="
 Write-Host ""
 
@@ -159,33 +161,42 @@ if ($NvidiaSmi) {
 }
 
 # ── 7. Download GGUF model ──
-Write-Host "==> Downloading model ..." -ForegroundColor Cyan
-$ModelsDir = Join-Path $PSScriptRoot "models\gguf"
-if (Test-Path "$ModelsDir\*.gguf") {
-    Write-Host "[OK] GGUF model already present." -ForegroundColor Green
-} else {
-    Write-Host ""
-    Write-Host "  Models are on private HuggingFace repos (will be made public later)." -ForegroundColor Yellow
-    Write-Host "  You need a read-only HF token -- ask the team or create one at:" -ForegroundColor Yellow
-    Write-Host "    https://huggingface.co/settings/tokens" -ForegroundColor Yellow
-    Write-Host ""
-    if ($env:PRISM_HF_TOKEN) {
-        $confirm = Read-Host "  PRISM_HF_TOKEN is already set. Use it? [Y/n]"
-        if ($confirm -match '^[nN]') { $env:PRISM_HF_TOKEN = "" }
+Write-Host "==> Downloading model ($BonsaiModel) ..." -ForegroundColor Cyan
+
+function Download-GgufModel($Size) {
+    $repo = "prism-ml/Bonsai-${Size}-gguf"
+    $dir = Join-Path $PSScriptRoot "models\gguf\$Size"
+    if (Test-Path "$dir\*.gguf") {
+        Write-Host "[OK] GGUF $Size already present." -ForegroundColor Green
+        return
     }
+    # ┌── TOKEN SECTION — remove this block once models are public ──┐
     if (-not $env:PRISM_HF_TOKEN) {
+        Write-Host ""
+        Write-Host "  Models are on private HuggingFace repos (will be made public later)." -ForegroundColor Yellow
+        Write-Host "  You need a read-only HF token -- ask the team or create one at:" -ForegroundColor Yellow
+        Write-Host "    https://huggingface.co/settings/tokens" -ForegroundColor Yellow
+        Write-Host ""
         $env:PRISM_HF_TOKEN = Read-Host "  Paste your HuggingFace token (or press Enter to skip)"
     }
-    if ($env:PRISM_HF_TOKEN) {
-        $HfCli = Join-Path $VenvDir "Scripts\huggingface-cli.exe"
-        if (-not (Test-Path $HfCli)) {
-            $HfCli = Join-Path $VenvDir "Scripts\hf.exe"
-        }
-        & $HfCli download $HfGgufRepo --local-dir $ModelsDir --token $env:PRISM_HF_TOKEN
-        Write-Host "[OK] GGUF model downloaded." -ForegroundColor Green
-    } else {
+    if (-not $env:PRISM_HF_TOKEN) {
         Write-Host "[WARN] Skipping model download (no token)." -ForegroundColor Yellow
+        return
     }
+    # └── END TOKEN SECTION ─────────────────────────────────────────┘
+    $HfCli = Join-Path $VenvDir "Scripts\huggingface-cli.exe"
+    if (-not (Test-Path $HfCli)) {
+        $HfCli = Join-Path $VenvDir "Scripts\hf.exe"
+    }
+    New-Item -ItemType Directory -Path $dir -Force | Out-Null
+    & $HfCli download $repo --local-dir $dir --token $env:PRISM_HF_TOKEN
+    Write-Host "[OK] GGUF $Size downloaded." -ForegroundColor Green
+}
+
+if ($BonsaiModel -eq "all") {
+    foreach ($sz in @("8B", "4B", "1.7B")) { Download-GgufModel $sz }
+} else {
+    Download-GgufModel $BonsaiModel
 }
 
 # ── 8. Download pre-built CUDA binaries ──
@@ -225,17 +236,8 @@ if (Test-Path "$BinDir\llama-cli.exe") {
 # ── Done ──
 Write-Host ""
 Write-Host "========================================="
-Write-Host "   Setup complete!"
+Write-Host "   Setup complete! (BONSAI_MODEL=$BonsaiModel)"
 Write-Host "========================================="
 Write-Host ""
-Write-Host "  Quick start (from this directory in PowerShell):" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "    # Find your model file"
-Write-Host "    `$model = (Get-ChildItem models\gguf\*.gguf | Select-Object -First 1).FullName"
-Write-Host ""
-Write-Host "    # Run inference"
-Write-Host "    bin\cuda\llama-cli.exe -m `$model -ngl 99 -c 8192 -p 'What is the capital of France?'"
-Write-Host ""
-Write-Host "    # Or start the chat server (open http://localhost:8080)"
-Write-Host "    bin\cuda\llama-server.exe -m `$model -ngl 99 -c 8192 --host 0.0.0.0 --port 8080"
+Write-Host "  See README.md for usage examples." -ForegroundColor Cyan
 Write-Host ""

@@ -14,12 +14,12 @@ if [ "$(uname -s)" != "Darwin" ]; then
     exit 1
 fi
 
-MODEL="$DEMO_DIR/models/Bonsai-8B-mlx"
+MODEL="$DEMO_DIR/$MLX_MODEL_DIR"
 PORT=8081
 
 if [ ! -d "$MODEL" ]; then
-    err "MLX model not found: $MODEL"
-    echo "  Run ./setup.sh or ./scripts/download_models.sh first."
+    err "MLX model not found for ${BONSAI_MODEL}: $MODEL"
+    echo "  Run ./setup.sh or: BONSAI_MODEL=${BONSAI_MODEL} ./scripts/download_models.sh"
     exit 1
 fi
 
@@ -30,7 +30,7 @@ mkdir -p "$HF_HOME/hub"
 
 echo ""
 echo "=== MLX server ==="
-echo "  Model: Bonsai-8B-mlx"
+echo "  Model: Bonsai-${BONSAI_MODEL}-mlx"
 echo "  Port:  $PORT"
 echo ""
 

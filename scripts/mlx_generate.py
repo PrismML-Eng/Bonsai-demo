@@ -1,17 +1,21 @@
 """Streaming MLX generate with colored prompt and stats table."""
 import argparse
+import os
 import sys
 
 import mlx.core as mx
 from mlx_lm import load, stream_generate
 from mlx_lm.generate import make_sampler
 
+_SIZE = os.environ.get("BONSAI_MODEL", "8B")
+_DEFAULT_MODEL = f"models/Bonsai-{_SIZE}-mlx"
+
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-p", "--prompt", required=True)
     parser.add_argument("-n", "--max-tokens", type=int, default=256)
-    parser.add_argument("--model", default="models/Bonsai-8B-mlx")
+    parser.add_argument("--model", default=_DEFAULT_MODEL)
     parser.add_argument("--temp", type=float, default=0.5)
     parser.add_argument("--top-p", type=float, default=0.85)
     args = parser.parse_args()

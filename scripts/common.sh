@@ -2,6 +2,14 @@
 # Shared helpers for Bonsai demo scripts.
 # Source this file: . "$(dirname "$0")/common.sh"
 
+# ── Model selection ──
+# Set BONSAI_MODEL to choose which model size to use.
+# Valid values: 8B (default), 4B, 1.7B   ("all" is only valid for download)
+BONSAI_MODEL="${BONSAI_MODEL:-8B}"
+ALL_MODEL_SIZES="8B 4B 1.7B"
+GGUF_MODEL_DIR="models/gguf/${BONSAI_MODEL}"
+MLX_MODEL_DIR="models/Bonsai-${BONSAI_MODEL}-mlx"
+
 # ── Colors ──
 if [ -t 1 ]; then
     _CLR_GREEN="\033[32m"

@@ -13,7 +13,7 @@ if [ "$(uname -s)" != "Darwin" ]; then
     exit 1
 fi
 
-MODEL="models/Bonsai-8B-mlx"
+MODEL="$MLX_MODEL_DIR"
 PROMPT=""
 EXTRA_ARGS=""
 
@@ -31,8 +31,8 @@ if [ -z "$PROMPT" ]; then
 fi
 
 if [ ! -d "$MODEL" ]; then
-    err "MLX model not found: $MODEL"
-    echo "  Run ./setup.sh or ./scripts/download_models.sh first."
+    err "MLX model not found for ${BONSAI_MODEL}: $MODEL"
+    echo "  Run ./setup.sh or: BONSAI_MODEL=${BONSAI_MODEL} ./scripts/download_models.sh"
     exit 1
 fi
 

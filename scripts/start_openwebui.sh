@@ -55,7 +55,7 @@ if curl -s --max-time 2 "http://localhost:$LLAMA_PORT/health" >/dev/null 2>&1; t
 else
     # Find model + binary
     _model=""
-    for _m in models/gguf/*.gguf models/Bonsai-8B.gguf; do
+    for _m in $GGUF_MODEL_DIR/*.gguf; do
         [ -f "$_m" ] && _model="$DEMO_DIR/$_m" && break
     done
     _bin=""
@@ -94,12 +94,12 @@ if [ "$(uname -s)" != "Darwin" ]; then
 elif [ "$(uname -s)" = "Darwin" ]; then
     if curl -s --max-time 2 "http://localhost:$MLX_PORT/v1/models" >/dev/null 2>&1; then
         info "MLX server already running on port $MLX_PORT"
-    elif [ -d "$DEMO_DIR/models/Bonsai-8B-mlx" ] && python -c "import mlx_lm" 2>/dev/null; then
-        step "Starting MLX server on port $MLX_PORT ..."
+    elif [ -d "$DEMO_DIR/$MLX_MODEL_DIR" ] && python -c "import mlx_lm" 2>/dev/null; then
+        step "Starting MLX server on port $MLX_PORT (Bonsai-${BONSAI_MODEL}) ..."
         export HF_HOME="$DEMO_DIR/.hf_cache"
         mkdir -p "$HF_HOME/hub"
         python -m mlx_lm.server \
-            --model "$DEMO_DIR/models/Bonsai-8B-mlx" \
+            --model "$DEMO_DIR/$MLX_MODEL_DIR" \
             --port "$MLX_PORT" \
             --temp 0.5 --top-p 0.85 \
             > /dev/null 2>&1 &

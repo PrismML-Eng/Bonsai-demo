@@ -1,9 +1,10 @@
 #!/bin/sh
 # Download Bonsai models from HuggingFace.
-# Requires PRISM_HF_TOKEN env var (private repos — will be made public later).
 #
-# Usage:  PRISM_HF_TOKEN=hf_xxx ./scripts/download_models.sh
-#   or:   ./scripts/download_models.sh   (will prompt if PRISM_HF_TOKEN not set)
+# Usage:
+#   BONSAI_MODEL=8B  ./scripts/download_models.sh   # download 8B (default)
+#   BONSAI_MODEL=4B  ./scripts/download_models.sh   # download 4B
+#   BONSAI_MODEL=all ./scripts/download_models.sh   # download all sizes
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -13,11 +14,9 @@ cd "$DEMO_DIR"
 
 VENV_PY="$DEMO_DIR/.venv/bin/python"
 
-# ── HuggingFace repos ──
-HF_GGUF_REPO="prism-ml/Bonsai-8B-gguf"
-HF_MLX_REPO="prism-ml/Bonsai-8B-mlx-1bit"
-
-# ── Resolve PRISM_HF_TOKEN: env var > saved file > prompt ──
+# ┌──────────────────────────────────────────────────────────────────┐
+# │ TOKEN SECTION — remove this block once models are public        │
+# └──────────────────────────────────────────────────────────────────┘
 if [ -z "$PRISM_HF_TOKEN" ] && [ -f "$DEMO_DIR/.prism_hf_token" ]; then
     PRISM_HF_TOKEN="$(cat "$DEMO_DIR/.prism_hf_token")"
 fi
@@ -33,14 +32,17 @@ fi
 
 if [ -z "$PRISM_HF_TOKEN" ]; then
     warn "No PRISM_HF_TOKEN provided. Skipping model download."
-    echo "  Set PRISM_HF_TOKEN and re-run, or download manually:"
-    echo "    GGUF: https://huggingface.co/$HF_GGUF_REPO"
-    echo "    MLX:  https://huggingface.co/$HF_MLX_REPO"
+    echo "  Set PRISM_HF_TOKEN and re-run, or download manually from:"
+    echo "    https://huggingface.co/prism-ml"
     exit 0
 fi
 
 export PRISM_HF_TOKEN
 export HF_TOKEN="$PRISM_HF_TOKEN"
+_HF_TOKEN_ARG="token=os.environ['PRISM_HF_TOKEN'],"
+# ┌──────────────────────────────────────────────────────────────────┐
+# │ END TOKEN SECTION                                               │
+# └──────────────────────────────────────────────────────────────────┘
 
 # ── Find Python with huggingface_hub ──
 PY=""
@@ -66,33 +68,53 @@ import os
 snapshot_download(
     repo_id='$_repo',
     local_dir='$_dest',
-    token=os.environ['PRISM_HF_TOKEN'],
+    $_HF_TOKEN_ARG
 )
 "
 }
 
+# ── Download GGUF + MLX for one model size ──
+download_size() {
+    _size="$1"
+    _gguf_repo="prism-ml/Bonsai-${_size}-gguf"
+    _mlx_repo="prism-ml/Bonsai-${_size}-mlx-1bit"
+    _gguf_dir="models/gguf/${_size}"
+    _mlx_dir="models/Bonsai-${_size}-mlx"
+
+    # GGUF
+    if [ -d "$_gguf_dir" ] && ls "$_gguf_dir"/*.gguf >/dev/null 2>&1; then
+        info "GGUF ${_size} already present in ${_gguf_dir}/"
+    else
+        step "Downloading GGUF ${_size} from ${_gguf_repo} ..."
+        mkdir -p "$_gguf_dir"
+        hf_download "$_gguf_repo" "$_gguf_dir"
+        info "GGUF ${_size} downloaded to ${_gguf_dir}/"
+    fi
+
+    # MLX (macOS only)
+    if [ "$(uname -s)" = "Darwin" ]; then
+        if [ -d "$_mlx_dir" ] && [ -f "$_mlx_dir/config.json" ]; then
+            info "MLX ${_size} already present in ${_mlx_dir}/"
+        else
+            step "Downloading MLX ${_size} from ${_mlx_repo} ..."
+            hf_download "$_mlx_repo" "$_mlx_dir"
+            info "MLX ${_size} downloaded to ${_mlx_dir}/"
+        fi
+    fi
+}
+
 mkdir -p models
 
-# ── Download GGUF model ──
-if [ -d "models/gguf" ] && ls models/gguf/*.gguf >/dev/null 2>&1; then
-    info "GGUF model already present in models/gguf/"
+if [ "$BONSAI_MODEL" = "all" ]; then
+    for _s in $ALL_MODEL_SIZES; do
+        download_size "$_s"
+    done
 else
-    step "Downloading GGUF model from $HF_GGUF_REPO ..."
-    hf_download "$HF_GGUF_REPO" "models/gguf"
-    info "GGUF model downloaded to models/gguf/"
+    download_size "$BONSAI_MODEL"
 fi
 
-# ── Download MLX model (macOS only — skip on Linux/Windows) ──
-if [ "$(uname -s)" = "Darwin" ]; then
-    if [ -d "models/Bonsai-8B-mlx" ] && [ -f "models/Bonsai-8B-mlx/config.json" ]; then
-        info "MLX model already present in models/Bonsai-8B-mlx/"
-    else
-        step "Downloading MLX model from $HF_MLX_REPO ..."
-        hf_download "$HF_MLX_REPO" "models/Bonsai-8B-mlx"
-        info "MLX model downloaded to models/Bonsai-8B-mlx/"
-    fi
-else
-    info "Skipping MLX model (macOS only)."
+if [ "$(uname -s)" != "Darwin" ]; then
+    info "Skipping MLX models (macOS only)."
 fi
 
 echo ""

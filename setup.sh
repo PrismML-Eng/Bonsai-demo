@@ -106,18 +106,22 @@ _version_ge() {
     return 0
 }
 
+# ── Model selection (from common.sh values) ──
+BONSAI_MODEL="${BONSAI_MODEL:-8B}"
+ALL_MODEL_SIZES="8B 4B 1.7B"
+
 echo ""
 echo "========================================="
 echo "   Bonsai Demo Setup"
+echo "   Model: ${BONSAI_MODEL}"
 echo "========================================="
 echo ""
 
-# ────────────────────────────────────────────────────
-#  1. HF Token (ask up front so the user isn't interrupted later)
-# ────────────────────────────────────────────────────
+# ┌──────────────────────────────────────────────────────────────────┐
+# │ TOKEN SECTION — remove this block once models are public        │
+# ┌──────────────────────────────────────────────────────────────────┘
 TOKEN_FILE="$SCRIPT_DIR/.prism_hf_token"
 
-# Check sources in order: env var > saved token file
 if [ -z "$PRISM_HF_TOKEN" ] && [ -f "$TOKEN_FILE" ]; then
     PRISM_HF_TOKEN="$(cat "$TOKEN_FILE")"
 fi
@@ -132,12 +136,14 @@ if [ -z "$PRISM_HF_TOKEN" ]; then
     echo ""
 fi
 
-# Save for future runs
 if [ -n "$PRISM_HF_TOKEN" ]; then
     printf '%s' "$PRISM_HF_TOKEN" > "$TOKEN_FILE"
     chmod 600 "$TOKEN_FILE"
 fi
 export PRISM_HF_TOKEN
+# └──────────────────────────────────────────────────────────────────┐
+# │ END TOKEN SECTION                                               │
+# └──────────────────────────────────────────────────────────────────┘
 
 # ────────────────────────────────────────────────────
 #  2. Detect platform
@@ -249,12 +255,23 @@ info "Base deps installed (cmake, ninja, setuptools, huggingface-cli)."
 # ────────────────────────────────────────────────────
 #  6. Download models from HuggingFace
 # ────────────────────────────────────────────────────
-step "Model download ..."
-if [ -d "models/gguf" ] || [ -d "models/Bonsai-8B-mlx" ]; then
+step "Model download (BONSAI_MODEL=${BONSAI_MODEL}) ..."
+_skip_download=false
+if [ "$BONSAI_MODEL" = "all" ]; then
+    _all_present=true
+    for _s in $ALL_MODEL_SIZES; do
+        ls "models/gguf/${_s}"/*.gguf >/dev/null 2>&1 || { _all_present=false; break; }
+    done
+    [ "$_all_present" = true ] && _skip_download=true
+else
+    ls "models/gguf/${BONSAI_MODEL}"/*.gguf >/dev/null 2>&1 && _skip_download=true
+fi
+
+if [ "$_skip_download" = true ]; then
     info "Models already present — skipping download."
     echo "  (Delete models/ and re-run to re-download.)"
 else
-    sh "$SCRIPT_DIR/scripts/download_models.sh"
+    BONSAI_MODEL="$BONSAI_MODEL" sh "$SCRIPT_DIR/scripts/download_models.sh"
 fi
 
 # ────────────────────────────────────────────────────
@@ -274,19 +291,7 @@ fi
 chmod +x "$SCRIPT_DIR"/scripts/*.sh 2>/dev/null || true
 
 echo ""
-echo "========================================="
-echo "   llama.cpp is ready!"
-echo "========================================="
-echo ""
-echo "  You can start using it now while MLX builds:"
-echo ""
-if [ "$OS" = "Darwin" ]; then
-    echo "    ./scripts/run_llama.sh -p \"What is the capital of France?\""
-else
-    echo "    ./scripts/run_llama.sh -p \"What is the capital of France?\""
-fi
-echo "    ./scripts/start_llama_server.sh    # chat UI at http://localhost:8080"
-echo ""
+info "llama.cpp is ready! You can start using it now while MLX builds."
 
 # ────────────────────────────────────────────────────
 #  8. MLX (macOS only) — clone and build from source
@@ -316,22 +321,8 @@ fi
 # ────────────────────────────────────────────────────
 echo ""
 echo "========================================="
-echo "   Setup complete!"
+echo "   Setup complete! (BONSAI_MODEL=${BONSAI_MODEL})"
 echo "========================================="
 echo ""
-
-if [ "$OS" = "Darwin" ]; then
-    echo "  llama.cpp (Metal):"
-    echo "    ./scripts/run_llama.sh -p \"What is the capital of France?\""
-    echo "    ./scripts/start_llama_server.sh    # chat UI at http://localhost:8080"
-    echo ""
-    echo "  MLX (Apple Silicon):"
-    echo "    source .venv/bin/activate"
-    echo "    ./scripts/run_mlx.sh -p \"What is the capital of France?\""
-    echo "    ./scripts/start_mlx_server.sh      # API at http://localhost:8081"
-else
-    echo "  llama.cpp (CUDA):"
-    echo "    ./scripts/run_llama.sh -p \"What is the capital of France?\""
-    echo "    ./scripts/start_llama_server.sh    # chat UI at http://localhost:8080"
-fi
+echo "  See README.md for usage examples."
 echo ""

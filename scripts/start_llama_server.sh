@@ -14,11 +14,11 @@ PORT=8080
 
 # ── Find model ──
 MODEL=""
-for _m in models/gguf/*.gguf models/Bonsai-8B.gguf; do
+for _m in $GGUF_MODEL_DIR/*.gguf; do
     [ -f "$_m" ] && MODEL="$DEMO_DIR/$_m" && break
 done
 if [ -z "$MODEL" ]; then
-    err "GGUF model not found. Run ./setup.sh or ./scripts/download_models.sh first."
+    err "GGUF model not found for ${BONSAI_MODEL}. Run ./setup.sh or: BONSAI_MODEL=${BONSAI_MODEL} ./scripts/download_models.sh"
     exit 1
 fi
 
