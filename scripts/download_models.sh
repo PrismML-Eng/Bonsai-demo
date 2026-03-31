@@ -5,10 +5,12 @@
 #   ./scripts/download_models.sh              # download 8B (default)
 #   BONSAI_MODEL=4B ./scripts/download_models.sh   # download 4B
 #   BONSAI_MODEL=1.7B ./scripts/download_models.sh # download 1.7B
+#   BONSAI_SKIP_MLX=1 ...                          # skip MLX weights (or auto-skip on Intel Mac)
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$SCRIPT_DIR/common.sh"
+. "$SCRIPT_DIR/mlx_skip.sh"
 assert_valid_model
 DEMO_DIR="$(resolve_demo_dir)"
 cd "$DEMO_DIR"
@@ -61,8 +63,8 @@ download_size() {
         info "GGUF ${_size} downloaded to ${_gguf_dir}/"
     fi
 
-    # MLX (macOS only)
-    if [ "$(uname -s)" = "Darwin" ]; then
+    # MLX (macOS + Apple Silicon only; skipped on Intel or when BONSAI_SKIP_MLX=1)
+    if [ "$(uname -s)" = "Darwin" ] && ! bonsai_should_skip_mlx; then
         if [ -d "$_mlx_dir" ] && [ -f "$_mlx_dir/config.json" ]; then
             info "MLX ${_size} already present in ${_mlx_dir}/"
         else
@@ -79,6 +81,8 @@ download_size "$BONSAI_MODEL"
 
 if [ "$(uname -s)" != "Darwin" ]; then
     info "Skipping MLX models (macOS only)."
+elif bonsai_should_skip_mlx; then
+    info "Skipping MLX weights (Intel macOS or BONSAI_SKIP_MLX=1)."
 fi
 
 echo ""

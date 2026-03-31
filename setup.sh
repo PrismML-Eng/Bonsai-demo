@@ -5,11 +5,13 @@
 # Usage:
 #   ./setup.sh                      (downloads 8B model by default)
 #   BONSAI_MODEL=4B ./setup.sh      (download a different model size)
+#   BONSAI_SKIP_MLX=1 ./setup.sh    (force GGUF-only: skip MLX on Apple Silicon too)
 set -e
 
 # ── Resolve paths ──
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
+. "$SCRIPT_DIR/scripts/mlx_skip.sh"
 
 VENV_DIR="$SCRIPT_DIR/.venv"
 VENV_PY="$VENV_DIR/bin/python"
@@ -120,7 +122,15 @@ echo ""
 #  2. Detect platform
 # ────────────────────────────────────────────────────
 OS="$(uname -s)"
-step "Detected platform: $OS"
+ARCH="$(uname -m)"
+step "Detected platform: $OS ($ARCH)"
+if [ "$OS" = "Darwin" ] && [ "$ARCH" = "x86_64" ]; then
+    case "${BONSAI_SKIP_MLX:-}" in
+        0|false|no)
+            warn "x86_64 macOS: MLX is unsupported; the MLX step will fail. Use GGUF: ./scripts/run_llama.sh — or omit BONSAI_SKIP_MLX=0."
+            ;;
+    esac
+fi
 
 # ────────────────────────────────────────────────────
 #  2. System dependencies
@@ -231,7 +241,8 @@ if ls "models/gguf/${BONSAI_MODEL}"/*.gguf >/dev/null 2>&1; then
     info "Model already present — skipping download."
     echo "  (Delete models/gguf/${BONSAI_MODEL}/ and re-run to re-download.)"
 else
-    BONSAI_MODEL="$BONSAI_MODEL" sh "$SCRIPT_DIR/scripts/download_models.sh"
+    BONSAI_MODEL="$BONSAI_MODEL" BONSAI_SKIP_MLX="${BONSAI_SKIP_MLX:-}" \
+        sh "$SCRIPT_DIR/scripts/download_models.sh"
 fi
 
 # ────────────────────────────────────────────────────
@@ -251,12 +262,16 @@ fi
 chmod +x "$SCRIPT_DIR"/scripts/*.sh 2>/dev/null || true
 
 echo ""
-info "llama.cpp is ready! You can start using it now while MLX builds."
+if bonsai_should_skip_mlx; then
+    info "llama.cpp is ready! (MLX skipped — Intel Mac or BONSAI_SKIP_MLX=1; use ./scripts/run_llama.sh.)"
+else
+    info "llama.cpp is ready! You can start using it now while MLX builds."
+fi
 
 # ────────────────────────────────────────────────────
 #  8. MLX (macOS only) — clone and build from source
 # ────────────────────────────────────────────────────
-if [ "$OS" = "Darwin" ]; then
+if [ "$OS" = "Darwin" ] && ! bonsai_should_skip_mlx; then
     step "Setting up MLX (Apple Silicon) ..."
     if [ -d "mlx" ]; then
         info "MLX repo already present."
@@ -274,6 +289,8 @@ if [ "$OS" = "Darwin" ]; then
         "safetensors==0.7.0" "tokenizers==0.22.2" "sentencepiece==0.2.1" \
         "protobuf==7.34.0" "numpy==2.4.2" "gguf==0.18.0"
     info "MLX installed."
+elif [ "$OS" = "Darwin" ]; then
+    step "Skipping MLX (Intel/x86_64 macOS or BONSAI_SKIP_MLX=1 — GGUF + llama.cpp only)."
 fi
 
 # ────────────────────────────────────────────────────
