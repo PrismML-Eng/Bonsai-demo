@@ -260,10 +260,10 @@ if [ "$OS" = "Darwin" ]; then
     step "Setting up MLX (Apple Silicon) ..."
 
     # MLX builds Metal GPU kernels, which requires the full Xcode app *and*
-    # the Metal Toolchain component. Three distinct failure modes are handled:
+    # the Metal Toolchain component. Two user-facing failure modes are handled:
     #   1. Only CLT installed (no metal binary at all)
-    #   2. Full Xcode installed but xcodebuild first-launch not completed
-    #   3. Xcode installed but Metal Toolchain component not downloaded
+    #   2. 'metal' compiler present but unusable (e.g. xcodebuild first-launch
+    #      not completed or Metal Toolchain component not downloaded)
     _metal_ok=false
     if xcrun metal --version >/dev/null 2>&1; then
         _metal_ok=true
@@ -291,6 +291,7 @@ if [ "$OS" = "Darwin" ]; then
             echo "  The Metal Toolchain component may not be installed."
             echo "  Run the following commands, then re-run ./setup.sh:"
             echo ""
+            echo "    sudo xcodebuild -license accept"
             echo "    xcodebuild -runFirstLaunch"
             echo "    xcodebuild -downloadComponent MetalToolchain"
         fi
