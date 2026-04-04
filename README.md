@@ -18,7 +18,7 @@ Using this demo you can run Bonsai language models locally on Mac (Metal), Linux
 - **[MLX](https://github.com/ml-explore/mlx)** (MLX format) — Python, optimized for Apple Silicon.
 
 The required inference kernels are not yet available in upstream llama.cpp or MLX. Pre-built binaries and source code come from our forks:
-- **llama.cpp:** [PrismML-Eng/llama.cpp](https://github.com/PrismML-Eng/llama.cpp) — [pre-built binaries](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b8194-1179bfc)
+- **llama.cpp:** [PrismML-Eng/llama.cpp](https://github.com/PrismML-Eng/llama.cpp) — [pre-built binaries](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b8196-f5dda72)
 - **MLX:** [PrismML-Eng/mlx](https://github.com/PrismML-Eng/mlx) (branch `prism`)
 
 ## Models
@@ -89,7 +89,7 @@ The setup script handles everything for you, even on a fresh machine:
 2. **Installs [uv](https://docs.astral.sh/uv/)** — fast Python package manager (user-local, not global)
 3. **Creates a Python venv** and runs `uv sync` — installs cmake, ninja, huggingface-cli from `pyproject.toml`
 4. **Downloads models** from HuggingFace (needs `PRISM_HF_TOKEN` while repos are private)
-5. **Downloads pre-built binaries** from [GitHub Release](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b8194-1179bfc) (or builds from source if you prefer)
+5. **Downloads pre-built binaries** from [GitHub Release](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b8196-f5dda72) (or builds from source if you prefer)
 6. **Builds MLX from source** (macOS only) — clones our fork, then `uv sync --extra mlx` for the full ML stack
 
 Re-running `setup.sh` is safe — it skips already-completed steps.
@@ -194,7 +194,7 @@ Requires Visual Studio Build Tools (or full Visual Studio) and CUDA toolkit.
 
 ## llama.cpp Pre-built Binary Downloads
 
-All binaries are available from the [GitHub Release](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b8194-1179bfc):
+All binaries are available from the [GitHub Release](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b8196-f5dda72):
 
 | Platform                |
 |-------------------------|

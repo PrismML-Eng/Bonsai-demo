@@ -7,7 +7,7 @@ $PythonVersion = "3.11"
 $VenvDir = Join-Path $PSScriptRoot ".venv"
 $VenvPy  = Join-Path $VenvDir "Scripts\python.exe"
 
-$ReleaseTag = "prism-b8194-1179bfc"
+$ReleaseTag = "prism-b8196-f5dda72"
 $BaseUrl = "https://github.com/PrismML-Eng/llama.cpp/releases/download/$ReleaseTag"
 
 $BonsaiModel = if ($env:BONSAI_MODEL) { $env:BONSAI_MODEL } else { "8B" }
@@ -191,7 +191,7 @@ $BinDir = Join-Path $PSScriptRoot "bin\cuda"
 if (Test-Path "$BinDir\llama-cli.exe") {
     Write-Host "[OK] Binaries already present." -ForegroundColor Green
 } else {
-    $Asset = "llama-prism-b1-1179bfc-bin-win-cuda-${CudaTag}-x64.zip"
+    $Asset = "llama-prism-b1-f5dda72-bin-win-cuda-${CudaTag}-x64.zip"
     $Url = "$BaseUrl/$Asset"
     $TmpZip = [System.IO.Path]::GetTempFileName() + ".zip"
 
