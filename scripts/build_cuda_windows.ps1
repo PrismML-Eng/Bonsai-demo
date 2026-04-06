@@ -115,7 +115,7 @@ try {
     $maxVramBytes = ($adapters | ForEach-Object { [long]$_.AdapterRAM } | Measure-Object -Maximum).Maximum
     if ($maxVramBytes -gt 0) {
         $maxVramGB = [math]::Round($maxVramBytes / 1GB, 1)
-        if ($maxVramGB -lt 16) {
+        if ($maxVramBytes -lt 16GB) {
             $buildJobs = 2
             Write-Host "  Detected GPU VRAM: ${maxVramGB} GB (< 16 GB) -- limiting CUDA build to -j $buildJobs" -ForegroundColor Yellow
         } else {
