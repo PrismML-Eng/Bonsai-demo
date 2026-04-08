@@ -45,7 +45,10 @@ case "$OS" in
                 _cuda_tag="13.1"
             elif [ "$_major" -eq 12 ] && [ "$_minor" -ge 8 ]; then
                 _cuda_tag="12.8"
+            elif [ "$_major" -eq 12 ]; then
+                _cuda_tag="12.4"
             else
+                warn "Detected CUDA $_cuda_ver — no matching build available, falling back to CUDA 12.4"
                 _cuda_tag="12.4"
             fi
             info "Detected CUDA $_cuda_ver → using build for CUDA $_cuda_tag"

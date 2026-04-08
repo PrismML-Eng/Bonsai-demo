@@ -137,7 +137,6 @@ Write-Host "[OK] Dependencies installed." -ForegroundColor Green
 # ── 6. Detect GPU: NVIDIA (CUDA) or AMD (HIP) ──
 $GpuType = $null
 $CudaTag = "12.4"
-$NvidiaSmi = $null
 foreach ($p in @(
     (Get-Command nvidia-smi -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source -ErrorAction SilentlyContinue),
     "$env:ProgramFiles\NVIDIA Corporation\NVSMI\nvidia-smi.exe",
@@ -148,10 +147,17 @@ foreach ($p in @(
             $out = & $p 2>&1 | Out-String
             if ($out -match 'CUDA Version:\s+(\d+)\.(\d+)') {
                 $major = [int]$Matches[1]; $minor = [int]$Matches[2]
-                if ($major -ge 13)                    { $CudaTag = "13.1" }
-                elseif ($major -eq 12 -and $minor -ge 4) { $CudaTag = "12.4" }
-                $NvidiaSmi = $p
-                $GpuType = "cuda"
+                if ($major -ge 13) {
+                    $CudaTag = "13.1"
+                    $GpuType = "cuda"
+                } elseif ($major -eq 12 -and $minor -ge 4) {
+                    $CudaTag = "12.4"
+                    $GpuType = "cuda"
+                } else {
+                    Write-Host "[WARN] Detected CUDA $major.$minor — no matching build available. Falling back to CUDA 12.4." -ForegroundColor Yellow
+                    $CudaTag = "12.4"
+                    $GpuType = "cuda"
+                }
                 break
             }
         } catch {}
@@ -161,7 +167,10 @@ if ($GpuType -eq "cuda") {
     Write-Host "[OK] NVIDIA GPU detected (CUDA $CudaTag)" -ForegroundColor Green
 } else {
     # Check for AMD HIP SDK
-    $HipPath = if ($env:HIP_PATH) { $env:HIP_PATH } else { $null }
+    $HipPath = $null
+    if ($env:HIP_PATH -and (Test-Path $env:HIP_PATH)) {
+        $HipPath = $env:HIP_PATH
+    }
     if (-not $HipPath) {
         # Check common install locations
         foreach ($candidate in @(
@@ -178,9 +187,9 @@ if ($GpuType -eq "cuda") {
     }
     if ($HipPath) {
         $GpuType = "hip"
-        Write-Host "[OK] AMD GPU detected (HIP SDK at $HipPath)" -ForegroundColor Green
+        Write-Host "[OK] AMD HIP/ROCm toolchain found at $HipPath" -ForegroundColor Green
     } else {
-        Write-Host "[WARN] No NVIDIA or AMD GPU detected. Binaries require a supported GPU." -ForegroundColor Yellow
+        Write-Host "[WARN] No NVIDIA or AMD GPU toolchain detected. Binaries require a supported GPU." -ForegroundColor Yellow
     }
 }
 
