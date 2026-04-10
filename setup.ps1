@@ -1,4 +1,4 @@
-# Bonsai Demo — Setup for Windows (PowerShell)
+﻿# Bonsai Demo — Setup for Windows (PowerShell)
 # Usage:  .\setup.ps1
 #   or:   Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass; .\setup.ps1
 $ErrorActionPreference = "Stop"
@@ -189,7 +189,8 @@ if ($GpuType -eq "cuda") {
         $GpuType = "hip"
         Write-Host "[OK] AMD HIP/ROCm toolchain found at $HipPath" -ForegroundColor Green
     } else {
-        Write-Host "[WARN] No NVIDIA or AMD GPU toolchain detected. Binaries require a supported GPU." -ForegroundColor Yellow
+        Write-Host "[WARN] No NVIDIA or AMD GPU toolchain detected. Will build CPU binary from source." -ForegroundColor Yellow
+        $GpuType = "cpu"
     }
 }
 
@@ -218,7 +219,7 @@ if ($BonsaiModel -eq "all") {
     Download-GgufModel $BonsaiModel
 }
 
-# ── 8. Download pre-built binaries (CUDA or HIP) ──
+# ── 8. Download pre-built binaries (CUDA or HIP) or build from source (CPU) ──
 Write-Host "==> Downloading llama.cpp binaries ..." -ForegroundColor Cyan
 if ($GpuType -eq "hip") {
     $BinDir = Join-Path $PSScriptRoot "bin\hip"
@@ -269,6 +270,37 @@ if ($GpuType -eq "hip") {
         }
 
         Write-Host "[OK] Binaries installed to $BinDir" -ForegroundColor Green
+    }
+}
+if ($GpuType -eq "cpu") {
+    $BinDir = Join-Path $PSScriptRoot "bin\cpu"
+    if (Test-Path "$BinDir\llama-cli.exe") {
+        Write-Host "[OK] CPU binaries already present." -ForegroundColor Green
+    } else {
+        Write-Host "==> Building llama.cpp from source for CPU ..." -ForegroundColor Cyan
+        Write-Host "    This will take 5-15 minutes." -ForegroundColor Yellow
+
+        # Check for the required build tools
+        if (-not (Get-Command cmake -ErrorAction SilentlyContinue)) {
+            Write-Host "[ERR] cmake is required to build CPU binaries. Install from https://cmake.org/download/" -ForegroundColor Red
+            exit 1
+        }
+        if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+            Write-Host "[ERR] git is required. Install from https://git-scm.com/" -ForegroundColor Red
+            exit 1
+        }
+
+        # Implement CPU support from llama.cpp repo
+        $LlamaSrc = Join-Path $PSScriptRoot "llama.cpp-cpu"
+        if (-not (Test-Path $LlamaSrc)) {
+            git clone https://github.com/PrismML-Eng/llama.cpp $LlamaSrc
+        }
+        cmake -B "$LlamaSrc\build" -S $LlamaSrc
+        cmake --build "$LlamaSrc\build" --config Release -j 4
+        New-Item -ItemType Directory -Path $BinDir -Force | Out-Null
+        Copy-Item "$LlamaSrc\build\bin\Release\llama-cli.exe" $BinDir
+        Copy-Item "$LlamaSrc\build\bin\Release\*.dll" $BinDir
+        Write-Host "[OK] CPU binaries built at $BinDir" -ForegroundColor Green
     }
 }
 
