@@ -61,8 +61,8 @@ download_size() {
         info "GGUF ${_size} downloaded to ${_gguf_dir}/"
     fi
 
-    # MLX (macOS only)
-    if [ "$(uname -s)" = "Darwin" ]; then
+    # MLX (macOS Apple Silicon only; skipped on Intel or when BONSAI_SKIP_MLX=1)
+    if [ "$(uname -s)" = "Darwin" ] && ! bonsai_should_skip_mlx; then
         if [ -d "$_mlx_dir" ] && [ -f "$_mlx_dir/config.json" ]; then
             info "MLX ${_size} already present in ${_mlx_dir}/"
         else
@@ -79,6 +79,8 @@ download_size "$BONSAI_MODEL"
 
 if [ "$(uname -s)" != "Darwin" ]; then
     info "Skipping MLX models (macOS only)."
+elif bonsai_should_skip_mlx; then
+    info "Skipping MLX weights (Intel macOS or BONSAI_SKIP_MLX=1)."
 fi
 
 echo ""

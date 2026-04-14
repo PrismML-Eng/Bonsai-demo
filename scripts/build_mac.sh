@@ -1,5 +1,5 @@
 #!/bin/sh
-# Build llama.cpp for Mac (Apple Silicon / Metal)
+# Build llama.cpp for Mac — Apple Silicon (Metal) or Intel (CPU only).
 # Prerequisites: Xcode command-line tools, cmake
 # Usage: ./scripts/build_mac.sh [path_to_llama_cpp_repo]
 set -e
@@ -26,21 +26,42 @@ if [ -d "$DEST" ]; then
     rm -rf "$DEST"
 fi
 
-# ── Build (native-optimized for this Mac) ──
-step "Building llama.cpp for Mac (Apple Silicon / Metal) ..."
+# ── Build (native for this Mac) ──
+MAC_ARCH="$(uname -m)"
 echo "  Repo:    $REPO_DIR"
 echo "  Targets: $TARGETS"
+echo "  Arch:    $MAC_ARCH"
 
 cd "$REPO_DIR"
-cmake -B build-mac \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_OSX_ARCHITECTURES=arm64 \
-    -DCMAKE_OSX_DEPLOYMENT_TARGET=14.0 \
-    -DGGML_METAL=ON \
-    -DGGML_METAL_EMBED_LIBRARY=ON \
-    -DBUILD_SHARED_LIBS=OFF \
-    -DGGML_STATIC=ON \
-    -DLLAMA_OPENSSL=OFF
+case "$MAC_ARCH" in
+    arm64)
+        step "Building llama.cpp (Apple Silicon + Metal) ..."
+        cmake -B build-mac \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=14.0 \
+            -DGGML_METAL=ON \
+            -DGGML_METAL_EMBED_LIBRARY=ON \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DGGML_STATIC=ON \
+            -DLLAMA_OPENSSL=OFF
+        ;;
+    x86_64)
+        step "Building llama.cpp (Intel macOS, CPU only — no Metal) ..."
+        cmake -B build-mac \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES=x86_64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 \
+            -DGGML_METAL=OFF \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DGGML_STATIC=ON \
+            -DLLAMA_OPENSSL=OFF
+        ;;
+    *)
+        err "Unsupported Mac architecture: $MAC_ARCH"
+        exit 1
+        ;;
+esac
 
 cmake --build build-mac --target $TARGETS -j$(sysctl -n hw.logicalcpu)
 cd - > /dev/null
