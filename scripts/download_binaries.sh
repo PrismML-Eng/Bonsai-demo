@@ -31,7 +31,7 @@ case "$OS" in
         case "$_arch" in
             x86_64)  _arch_tag="x64" ;;
             aarch64) _arch_tag="arm64" ;;
-            *)       _arch_tag="x64" ;;
+            *)       err "Unsupported Linux architecture: $_arch (supported: x86_64, aarch64)"; exit 1 ;;
         esac
 
         # ── Detect GPU: NVIDIA (CUDA), AMD (ROCm), or Vulkan ──

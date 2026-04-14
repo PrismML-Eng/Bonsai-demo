@@ -242,6 +242,12 @@ function Download-Binary($Asset, $BinDir) {
 # Detect Windows architecture
 $WinArch = if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -eq [System.Runtime.InteropServices.Architecture]::Arm64) { "arm64" } else { "x64" }
 
+# GPU backends only have x64 builds — fall back to CPU on ARM64
+if ($WinArch -eq "arm64" -and $GpuType -ne "cpu") {
+    Write-Host "[WARN] $GpuType detected but no ARM64 build available — falling back to CPU." -ForegroundColor Yellow
+    $GpuType = "cpu"
+}
+
 if ($GpuType -eq "hip") {
     $BinDir = Join-Path $PSScriptRoot "bin\hip"
     Download-Binary "llama-bin-win-hip-radeon-x64.zip" $BinDir

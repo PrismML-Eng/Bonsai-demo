@@ -12,9 +12,9 @@
   <a href="https://discord.gg/prismml"><b>Discord</b></a>
 </p>
 
-Using this demo you can run Bonsai language models locally on Mac (Metal), Linux/Windows (CUDA).
+Using this demo you can run Bonsai language models locally on Mac (Metal), Linux/Windows (CUDA, Vulkan, ROCm), or CPU.
 
-- **[llama.cpp](https://github.com/ggml-org/llama.cpp)** (GGUF) — C/C++, runs on Mac (Metal), Linux/Windows (CUDA), and CPU.
+- **[llama.cpp](https://github.com/ggml-org/llama.cpp)** (GGUF) — C/C++, runs on Mac (Metal), Linux/Windows (CUDA, Vulkan, ROCm/HIP), and CPU.
 - **[MLX](https://github.com/ml-explore/mlx)** (MLX format) — Python, optimized for Apple Silicon.
 
 The required inference kernels are not yet available in upstream llama.cpp or MLX. Pre-built binaries and source code come from our forks:
