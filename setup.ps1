@@ -147,16 +147,11 @@ foreach ($p in @(
             $out = & $p 2>&1 | Out-String
             if ($out -match 'CUDA Version:\s+(\d+)\.(\d+)') {
                 $major = [int]$Matches[1]; $minor = [int]$Matches[2]
-                if ($major -ge 13) {
-                    $CudaTag = "13.1"
-                    $GpuType = "cuda"
-                } elseif ($major -eq 12 -and $minor -ge 4) {
-                    $CudaTag = "12.4"
-                    $GpuType = "cuda"
-                } else {
-                    Write-Host "[WARN] Detected CUDA $major.$minor - no matching build available. Falling back to CUDA 12.4." -ForegroundColor Yellow
-                    $CudaTag = "12.4"
-                    $GpuType = "cuda"
+                # We only ship Windows CUDA 12.4 — any CUDA version >= 12.4 is compatible
+                $CudaTag = "12.4"
+                $GpuType = "cuda"
+                if ($major -lt 12 -or ($major -eq 12 -and $minor -lt 4)) {
+                    Write-Host "[WARN] Detected CUDA $major.$minor — older than 12.4, may not be compatible." -ForegroundColor Yellow
                 }
                 break
             }

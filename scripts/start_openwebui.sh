@@ -84,8 +84,8 @@ else
     if [ -n "$_model" ] && [ -n "$_bin" ]; then
         step "Starting llama-server on port $LLAMA_PORT ..."
         _bin_dir="$(cd "$(dirname "$_bin")" && pwd)"
-        LD_LIBRARY_PATH="$_bin_dir${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
         _ngl=$(bonsai_llama_ngl)
+        LD_LIBRARY_PATH="$_bin_dir${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
         "$_bin" -m "$_model" --host 0.0.0.0 --port "$LLAMA_PORT" -ngl "$_ngl" -c "$CTX_SIZE_DEFAULT" \
             --temp 0.5 --top-p 0.85 --top-k 20 --min-p 0 \
             --reasoning-budget 0 --reasoning-format none \
