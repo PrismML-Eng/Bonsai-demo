@@ -17,14 +17,18 @@ Using this demo you can run Bonsai language models locally on Mac (Metal), Linux
 - **[llama.cpp](https://github.com/ggml-org/llama.cpp)** (GGUF) — C/C++, runs on Mac (Metal), Linux/Windows (CUDA, Vulkan, ROCm/HIP), and CPU.
 - **[MLX](https://github.com/ml-explore/mlx)** (MLX format) — Python, optimized for Apple Silicon.
 
-The required inference kernels are not yet available in upstream llama.cpp or MLX. Pre-built binaries and source code come from our forks:
+Q1_0 support for CPU, Metal, and Vulkan backends is already merged into upstream llama.cpp. Additional backends (optimized x86 CPU, CUDA, AMD) are pending. In the meantime, our fork provides a more complete set of backends in one place:
 - **llama.cpp:** [PrismML-Eng/llama.cpp](https://github.com/PrismML-Eng/llama.cpp) — [pre-built binaries](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b8796-e2d6742)
 - **MLX:** [PrismML-Eng/mlx](https://github.com/PrismML-Eng/mlx) (branch `prism`)
 
-## News
-- llama.cpp CPU backend PR merged into main: https://github.com/ggml-org/llama.cpp/pull/21273
-- llama.cpp Metal backend PR pending: https://github.com/ggml-org/llama.cpp/pull/21528
-- MLX PR pending: https://github.com/ml-explore/mlx/pull/3161
+## Upstream Status
+| Backend | Status | PR |
+|---------|--------|----|
+| CPU (generic) | ✅ Merged | [#21273](https://github.com/ggml-org/llama.cpp/pull/21273) |
+| Metal | ✅ Merged | [#21528](https://github.com/ggml-org/llama.cpp/pull/21528) |
+| CPU (optimized x86) | ⏳ Pending | [#21636](https://github.com/ggml-org/llama.cpp/pull/21636) |
+| CUDA | ⏳ Pending | [#21629](https://github.com/ggml-org/llama.cpp/pull/21629) |
+| MLX | ⏳ Pending | [mlx#3161](https://github.com/ml-explore/mlx/pull/3161) |
 
 ## Models
 
