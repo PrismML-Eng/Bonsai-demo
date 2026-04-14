@@ -53,25 +53,28 @@ case "$OS" in
             _gpu_type="vulkan"
         fi
 
-        if [ "$_gpu_type" = "cuda" ]; then
-            if [ "$_arch_tag" != "x64" ]; then
-                warn "CUDA detected but no CUDA build available for $_arch_tag — falling back to CPU."
-                _gpu_type=""
-            else
-                _major="${_cuda_ver%%.*}"
-                _minor="${_cuda_ver#*.}"
-                if [ "$_major" -ge 13 ] || { [ "$_major" -eq 12 ] && [ "$_minor" -ge 8 ]; }; then
-                    _cuda_tag="12.8"
-                elif [ "$_major" -eq 12 ]; then
-                    _cuda_tag="12.4"
-                else
-                    warn "Detected CUDA $_cuda_ver — no matching build available, falling back to CUDA 12.4"
-                    _cuda_tag="12.4"
-                fi
-                info "Detected CUDA $_cuda_ver → using build for CUDA $_cuda_tag"
-            fi
+        # Guard CUDA/ROCm to x64 only (no arm64 builds available)
+        if [ "$_arch_tag" != "x64" ] && { [ "$_gpu_type" = "cuda" ] || [ "$_gpu_type" = "rocm" ]; }; then
+            warn "$_gpu_type detected but no $_gpu_type build available for $_arch_tag — falling back."
+            _gpu_type=""
         fi
 
+        # Resolve CUDA version tag
+        if [ "$_gpu_type" = "cuda" ]; then
+            _major="${_cuda_ver%%.*}"
+            _minor="${_cuda_ver#*.}"
+            if [ "$_major" -ge 13 ] || { [ "$_major" -eq 12 ] && [ "$_minor" -ge 8 ]; }; then
+                _cuda_tag="12.8"
+            elif [ "$_major" -eq 12 ]; then
+                _cuda_tag="12.4"
+            else
+                warn "Detected CUDA $_cuda_ver — no matching build, falling back to CUDA 12.4"
+                _cuda_tag="12.4"
+            fi
+            info "Detected CUDA $_cuda_ver → using build for CUDA $_cuda_tag"
+        fi
+
+        # Select asset
         if [ "$_gpu_type" = "cuda" ]; then
             ASSET="llama-${RELEASE_TAG}-bin-linux-cuda-${_cuda_tag}-x64.tar.gz"
             DEST="bin/cuda"

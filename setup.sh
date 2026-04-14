@@ -255,10 +255,12 @@ fi
 chmod +x "$SCRIPT_DIR"/scripts/*.sh 2>/dev/null || true
 
 echo ""
-if bonsai_should_skip_mlx; then
+if [ "$OS" = "Darwin" ] && ! bonsai_should_skip_mlx; then
+    info "llama.cpp is ready! You can start using it now while MLX builds."
+elif [ "$OS" = "Darwin" ]; then
     info "llama.cpp is ready! (MLX skipped — Intel Mac or BONSAI_SKIP_MLX=1; use ./scripts/run_llama.sh)"
 else
-    info "llama.cpp is ready! You can start using it now while MLX builds."
+    info "llama.cpp is ready!"
 fi
 
 # ────────────────────────────────────────────────────
