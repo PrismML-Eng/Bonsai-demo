@@ -80,13 +80,23 @@ download() {
 
 CTX_SIZE_DEFAULT=0
 
-# GPU layer offload: Intel macOS has no Metal, so use 0 (CPU only).
-# Everything else (Apple Silicon, CUDA, ROCm, Vulkan) gets full offload.
+# GPU layer offload: 99 = offload all layers to GPU, 0 = CPU only.
+# Override with BONSAI_NGL env var if needed.
 bonsai_llama_ngl() {
-    if [ "$(uname -s)" = "Darwin" ] && [ "$(uname -m)" = "x86_64" ]; then
-        echo 0
+    if [ -n "${BONSAI_NGL:-}" ]; then
+        echo "$BONSAI_NGL"
+    elif [ "$(uname -s)" = "Darwin" ] && [ "$(uname -m)" = "x86_64" ]; then
+        echo 0  # Intel Mac — no Metal
+    elif command -v nvidia-smi >/dev/null 2>&1 || command -v nvcc >/dev/null 2>&1; then
+        echo 99  # CUDA
+    elif command -v rocminfo >/dev/null 2>&1 || command -v hipcc >/dev/null 2>&1; then
+        echo 99  # ROCm/HIP
+    elif command -v vulkaninfo >/dev/null 2>&1; then
+        echo 99  # Vulkan
+    elif [ "$(uname -s)" = "Darwin" ]; then
+        echo 99  # Apple Silicon — Metal
     else
-        echo 99
+        echo 0   # CPU only
     fi
 }
 
