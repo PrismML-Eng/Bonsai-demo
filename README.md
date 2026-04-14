@@ -18,7 +18,7 @@ Using this demo you can run Bonsai language models locally on Mac (Metal), Linux
 - **[MLX](https://github.com/ml-explore/mlx)** (MLX format) — Python, optimized for Apple Silicon.
 
 The required inference kernels are not yet available in upstream llama.cpp or MLX. Pre-built binaries and source code come from our forks:
-- **llama.cpp:** [PrismML-Eng/llama.cpp](https://github.com/PrismML-Eng/llama.cpp) — [pre-built binaries](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b8196-f5dda72)
+- **llama.cpp:** [PrismML-Eng/llama.cpp](https://github.com/PrismML-Eng/llama.cpp) — [pre-built binaries](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b8796-e2d6742)
 - **MLX:** [PrismML-Eng/mlx](https://github.com/PrismML-Eng/mlx) (branch `prism`)
 
 ## News
@@ -94,7 +94,7 @@ The setup script handles everything for you, even on a fresh machine:
 2. **Installs [uv](https://docs.astral.sh/uv/)** — fast Python package manager (user-local, not global)
 3. **Creates a Python venv** and runs `uv sync` — installs cmake, ninja, huggingface-cli from `pyproject.toml`
 4. **Downloads models** from HuggingFace (needs `PRISM_HF_TOKEN` while repos are private)
-5. **Downloads pre-built binaries** from [GitHub Release](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b8196-f5dda72) (or builds from source if you prefer)
+5. **Downloads pre-built binaries** from [GitHub Release](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b8796-e2d6742) (or builds from source if you prefer)
 6. **Builds MLX from source** (macOS only) — clones our fork, then `uv sync --extra mlx` for the full ML stack
 
 Re-running `setup.sh` is safe — it skips already-completed steps.
@@ -170,13 +170,29 @@ uv pip install open-webui
 
 If you prefer to build llama.cpp from source instead of using pre-built binaries:
 
-### Mac
+### Mac (Apple Silicon — Metal)
 
 ```bash
 ./scripts/build_mac.sh
 ```
 
 Clones [PrismML-Eng/llama.cpp](https://github.com/PrismML-Eng/llama.cpp), builds with Metal, outputs to `bin/mac/`.
+
+### Mac (Intel — CPU only)
+
+```bash
+./scripts/build_mac.sh
+```
+
+The script auto-detects Intel vs Apple Silicon. On Intel Macs, it builds with `-DGGML_METAL=OFF` (CPU only). MLX is also skipped automatically since it requires Apple Silicon.
+
+### Linux (CPU only)
+
+```bash
+./scripts/build_cpu_linux.sh
+```
+
+Builds a CPU-only binary with no GPU dependencies. Works on both x64 and arm64. Outputs to `bin/cpu/`.
 
 ### Linux (CUDA)
 
@@ -185,6 +201,28 @@ Clones [PrismML-Eng/llama.cpp](https://github.com/PrismML-Eng/llama.cpp), builds
 ```
 
 Auto-detects CUDA version. Pass `--cuda-path /usr/local/cuda-12.8` to use a specific toolkit.
+
+### Linux (Vulkan)
+
+```bash
+# Install Vulkan SDK first (e.g. sudo apt install libvulkan-dev glslc)
+git clone -b prism https://github.com/PrismML-Eng/llama.cpp.git
+cd llama.cpp
+cmake -B build -DCMAKE_BUILD_TYPE=Release -DGGML_VULKAN=ON
+cmake --build build -j$(nproc)
+# Binaries in build/bin/
+```
+
+### Linux (ROCm / AMD GPU)
+
+```bash
+# Requires ROCm toolkit (hipcc)
+git clone -b prism https://github.com/PrismML-Eng/llama.cpp.git
+cd llama.cpp
+cmake -B build -DCMAKE_BUILD_TYPE=Release -DGGML_HIP=ON
+cmake --build build -j$(nproc)
+# Binaries in build/bin/
+```
 
 ### Windows (CUDA)
 
@@ -195,20 +233,42 @@ Auto-detects CUDA version. Pass `--cuda-path /usr/local/cuda-12.8` to use a spec
 Auto-detects CUDA toolkit. Pass `-CudaPath "C:\path\to\cuda"` to use a specific version.
 Requires Visual Studio Build Tools (or full Visual Studio) and CUDA toolkit.
 
+### Windows (CPU only)
+
+```powershell
+git clone -b prism https://github.com/PrismML-Eng/llama.cpp.git
+cd llama.cpp
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release
+# Binaries in build\bin\Release\
+```
+
+Requires Visual Studio Build Tools or full Visual Studio with C++ workload.
+
 ---
 
 ## llama.cpp Pre-built Binary Downloads
 
-All binaries are available from the [GitHub Release](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b8196-f5dda72):
+All binaries are available from the [GitHub Release](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b8796-e2d6742):
 
-| Platform                |
-|-------------------------|
-| macOS Apple Silicon     |
-| Linux x64 (CUDA 12.4)  |
-| Linux x64 (CUDA 12.8)  |
-| Linux x64 (CUDA 13.1)  |
-| Windows x64 (CUDA 12.4) |
-| Windows x64 (CUDA 13.1) |
+| Platform                          |
+|-----------------------------------|
+| macOS Apple Silicon (arm64)       |
+| macOS Apple Silicon (KleidiAI)    |
+| macOS Intel (x64)                 |
+| Linux x64 (CPU)                   |
+| Linux arm64 (CPU)                 |
+| Linux x64 (CUDA 12.4)            |
+| Linux x64 (CUDA 12.8)            |
+| Linux x64 (Vulkan)               |
+| Linux arm64 (Vulkan)             |
+| Linux x64 (ROCm 7.2)             |
+| Windows x64 (CPU)                |
+| Windows arm64 (CPU)              |
+| Windows x64 (CUDA 12.4)          |
+| Windows x64 (Vulkan)             |
+| Windows x64 (HIP/ROCm)           |
+| iOS (XCFramework)                 |
 
 ---
 
@@ -233,6 +293,7 @@ Bonsai-demo/
 │   ├── start_mlx_server.sh         # MLX server (port 8081)
 │   ├── start_openwebui.sh          # Open WebUI + auto-starts backends
 │   ├── build_mac.sh                # Build llama.cpp for Mac
+│   ├── build_cpu_linux.sh          # Build llama.cpp for Linux (CPU only)
 │   ├── build_cuda_linux.sh         # Build llama.cpp for Linux CUDA
 │   └── build_cuda_windows.ps1      # Build llama.cpp for Windows CUDA
 ├── models/                         # ← downloaded by setup
@@ -244,8 +305,12 @@ Bonsai-demo/
 │   ├── Bonsai-4B-mlx/             # MLX 4B model (macOS)
 │   └── Bonsai-1.7B-mlx/           # MLX 1.7B model (macOS)
 ├── bin/                            # ← downloaded or built by setup
-│   ├── mac/                        # macOS binaries
-│   └── cuda/                       # CUDA binaries
+│   ├── mac/                        # macOS binaries (Metal or CPU)
+│   ├── cuda/                       # CUDA binaries (Linux/Windows)
+│   ├── cpu/                        # CPU-only binaries (Linux/Windows)
+│   ├── vulkan/                     # Vulkan binaries
+│   ├── rocm/                       # ROCm binaries (AMD Linux)
+│   └── hip/                        # HIP binaries (AMD Windows)
 ├── mlx/                            # ← cloned by setup (macOS)
 └── .venv/                          # ← created by setup
 ```
