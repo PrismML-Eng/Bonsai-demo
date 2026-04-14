@@ -7,8 +7,8 @@ $PythonVersion = "3.11"
 $VenvDir = Join-Path $PSScriptRoot ".venv"
 $VenvPy  = Join-Path $VenvDir "Scripts\python.exe"
 
-$ReleaseTag = "prism-b8201-ba7e817"
-$WinAssetTag = "prism-b1-ba7e817"                    # Windows builds use shortened tag
+$ReleaseTag = "prism-b8796-e2d6742"
+$WinAssetTag = "prism-b1-e2d6742"                    # Windows builds use shortened tag
 $BaseUrl = "https://github.com/PrismML-Eng/llama.cpp/releases/download/$ReleaseTag"
 
 $BonsaiModel = if ($env:BONSAI_MODEL) { $env:BONSAI_MODEL } else { "8B" }
@@ -189,7 +189,8 @@ if ($GpuType -eq "cuda") {
         $GpuType = "hip"
         Write-Host "[OK] AMD HIP/ROCm toolchain found at $HipPath" -ForegroundColor Green
     } else {
-        Write-Host "[WARN] No NVIDIA or AMD GPU toolchain detected. Binaries require a supported GPU." -ForegroundColor Yellow
+        $GpuType = "cpu"
+        Write-Host "[INFO] No NVIDIA or AMD GPU toolchain detected. Will use CPU build." -ForegroundColor Yellow
     }
 }
 
@@ -218,58 +219,51 @@ if ($BonsaiModel -eq "all") {
     Download-GgufModel $BonsaiModel
 }
 
-# ── 8. Download pre-built binaries (CUDA or HIP) ──
+# ── 8. Download pre-built binaries ──
 Write-Host "==> Downloading llama.cpp binaries ..." -ForegroundColor Cyan
+
+function Download-Binary($Asset, $BinDir) {
+    if (Test-Path "$BinDir\llama-cli.exe") {
+        Write-Host "[OK] Binaries already present in $BinDir." -ForegroundColor Green
+        return
+    }
+    $Url = "$BaseUrl/$Asset"
+    $TmpZip = [System.IO.Path]::GetTempFileName() + ".zip"
+
+    Write-Host "    Downloading $Asset ..." -ForegroundColor Cyan
+    Invoke-WebRequest -Uri $Url -OutFile $TmpZip -UseBasicParsing
+
+    New-Item -ItemType Directory -Path $BinDir -Force | Out-Null
+    Expand-Archive -Path $TmpZip -DestinationPath $BinDir -Force
+    Remove-Item $TmpZip -Force
+
+    Write-Host "[OK] Binaries installed to $BinDir" -ForegroundColor Green
+}
+
 if ($GpuType -eq "hip") {
     $BinDir = Join-Path $PSScriptRoot "bin\hip"
-    if (Test-Path "$BinDir\llama-cli.exe") {
-        Write-Host "[OK] Binaries already present." -ForegroundColor Green
-    } else {
-        $Asset = "llama-bin-win-hip-radeon-x64.zip"
-        $Url = "$BaseUrl/$Asset"
-        $TmpZip = [System.IO.Path]::GetTempFileName() + ".zip"
+    Download-Binary "llama-bin-win-hip-radeon-x64.zip" $BinDir
+} elseif ($GpuType -eq "cuda") {
+    $BinDir = Join-Path $PSScriptRoot "bin\cuda"
+    Download-Binary "llama-${WinAssetTag}-bin-win-cuda-${CudaTag}-x64.zip" $BinDir
 
-        Write-Host "    Downloading $Asset ..." -ForegroundColor Cyan
-        Invoke-WebRequest -Uri $Url -OutFile $TmpZip -UseBasicParsing
+    # Also download CUDA runtime DLLs
+    $DllAsset = "cudart-llama-bin-win-cuda-${CudaTag}-x64.zip"
+    $DllUrl = "$BaseUrl/$DllAsset"
+    $DllZip = [System.IO.Path]::GetTempFileName() + ".zip"
 
-        New-Item -ItemType Directory -Path $BinDir -Force | Out-Null
-        Expand-Archive -Path $TmpZip -DestinationPath $BinDir -Force
-        Remove-Item $TmpZip -Force
-
-        Write-Host "[OK] Binaries installed to $BinDir" -ForegroundColor Green
+    Write-Host "    Downloading CUDA runtime DLLs ..." -ForegroundColor Cyan
+    try {
+        Invoke-WebRequest -Uri $DllUrl -OutFile $DllZip -UseBasicParsing
+        Expand-Archive -Path $DllZip -DestinationPath $BinDir -Force
+        Remove-Item $DllZip -Force
+    } catch {
+        Write-Host "[WARN] Could not download CUDA DLLs. You may need to install CUDA toolkit." -ForegroundColor Yellow
     }
 } else {
-    $BinDir = Join-Path $PSScriptRoot "bin\cuda"
-    if (Test-Path "$BinDir\llama-cli.exe") {
-        Write-Host "[OK] Binaries already present." -ForegroundColor Green
-    } else {
-        $Asset = "llama-${WinAssetTag}-bin-win-cuda-${CudaTag}-x64.zip"
-        $Url = "$BaseUrl/$Asset"
-        $TmpZip = [System.IO.Path]::GetTempFileName() + ".zip"
-
-        Write-Host "    Downloading $Asset ..." -ForegroundColor Cyan
-        Invoke-WebRequest -Uri $Url -OutFile $TmpZip -UseBasicParsing
-
-        New-Item -ItemType Directory -Path $BinDir -Force | Out-Null
-        Expand-Archive -Path $TmpZip -DestinationPath $BinDir -Force
-        Remove-Item $TmpZip -Force
-
-        # Also download CUDA runtime DLLs
-        $DllAsset = "cudart-llama-bin-win-cuda-${CudaTag}-x64.zip"
-        $DllUrl = "$BaseUrl/$DllAsset"
-        $DllZip = [System.IO.Path]::GetTempFileName() + ".zip"
-
-        Write-Host "    Downloading CUDA runtime DLLs ..." -ForegroundColor Cyan
-        try {
-            Invoke-WebRequest -Uri $DllUrl -OutFile $DllZip -UseBasicParsing
-            Expand-Archive -Path $DllZip -DestinationPath $BinDir -Force
-            Remove-Item $DllZip -Force
-        } catch {
-            Write-Host "[WARN] Could not download CUDA DLLs. You may need to install CUDA toolkit." -ForegroundColor Yellow
-        }
-
-        Write-Host "[OK] Binaries installed to $BinDir" -ForegroundColor Green
-    }
+    # CPU fallback
+    $BinDir = Join-Path $PSScriptRoot "bin\cpu"
+    Download-Binary "llama-bin-win-cpu-x64.zip" $BinDir
 }
 
 # ── Done ──
