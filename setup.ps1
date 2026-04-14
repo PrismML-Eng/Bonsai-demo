@@ -147,11 +147,12 @@ foreach ($p in @(
             $out = & $p 2>&1 | Out-String
             if ($out -match 'CUDA Version:\s+(\d+)\.(\d+)') {
                 $major = [int]$Matches[1]; $minor = [int]$Matches[2]
-                # We only ship Windows CUDA 12.4 — any CUDA version >= 12.4 is compatible
-                $CudaTag = "12.4"
-                $GpuType = "cuda"
-                if ($major -lt 12 -or ($major -eq 12 -and $minor -lt 4)) {
-                    Write-Host "[WARN] Detected CUDA $major.$minor — older than 12.4, may not be compatible." -ForegroundColor Yellow
+                if ($major -gt 12 -or ($major -eq 12 -and $minor -ge 4)) {
+                    $CudaTag = "12.4"
+                    $GpuType = "cuda"
+                } else {
+                    Write-Host "[WARN] Detected CUDA $major.$minor — older than 12.4, falling back to CPU." -ForegroundColor Yellow
+                    $GpuType = "cpu"
                 }
                 break
             }
@@ -183,9 +184,12 @@ if ($GpuType -eq "cuda") {
     if ($HipPath) {
         $GpuType = "hip"
         Write-Host "[OK] AMD HIP/ROCm toolchain found at $HipPath" -ForegroundColor Green
+    } elseif (Get-Command vulkaninfo -ErrorAction SilentlyContinue) {
+        $GpuType = "vulkan"
+        Write-Host "[OK] Vulkan SDK detected." -ForegroundColor Green
     } else {
         $GpuType = "cpu"
-        Write-Host "[INFO] No NVIDIA or AMD GPU toolchain detected. Will use CPU build." -ForegroundColor Yellow
+        Write-Host "[INFO] No GPU toolchain detected. Will use CPU build." -ForegroundColor Yellow
     }
 }
 
@@ -235,6 +239,9 @@ function Download-Binary($Asset, $BinDir) {
     Write-Host "[OK] Binaries installed to $BinDir" -ForegroundColor Green
 }
 
+# Detect Windows architecture
+$WinArch = if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -eq [System.Runtime.InteropServices.Architecture]::Arm64) { "arm64" } else { "x64" }
+
 if ($GpuType -eq "hip") {
     $BinDir = Join-Path $PSScriptRoot "bin\hip"
     Download-Binary "llama-bin-win-hip-radeon-x64.zip" $BinDir
@@ -255,10 +262,13 @@ if ($GpuType -eq "hip") {
     } catch {
         Write-Host "[WARN] Could not download CUDA DLLs. You may need to install CUDA toolkit." -ForegroundColor Yellow
     }
+} elseif ($GpuType -eq "vulkan") {
+    $BinDir = Join-Path $PSScriptRoot "bin\vulkan"
+    Download-Binary "llama-bin-win-vulkan-x64.zip" $BinDir
 } else {
-    # CPU fallback
+    # CPU fallback (arch-aware)
     $BinDir = Join-Path $PSScriptRoot "bin\cpu"
-    Download-Binary "llama-bin-win-cpu-x64.zip" $BinDir
+    Download-Binary "llama-bin-win-cpu-${WinArch}.zip" $BinDir
 }
 
 # ── Done ──
