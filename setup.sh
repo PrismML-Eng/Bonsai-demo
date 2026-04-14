@@ -241,7 +241,7 @@ fi
 #  7. llama.cpp pre-built binaries
 # ────────────────────────────────────────────────────
 _has_binaries=false
-for _d in bin/mac bin/cuda bin/rocm; do
+for _d in bin/mac bin/cuda bin/rocm bin/hip bin/vulkan bin/cpu; do
     ls "$_d"/llama-* >/dev/null 2>&1 && _has_binaries=true && break
 done
 
@@ -254,12 +254,16 @@ fi
 chmod +x "$SCRIPT_DIR"/scripts/*.sh 2>/dev/null || true
 
 echo ""
-info "llama.cpp is ready! You can start using it now while MLX builds."
+if bonsai_should_skip_mlx; then
+    info "llama.cpp is ready! (MLX skipped — Intel Mac or BONSAI_SKIP_MLX=1; use ./scripts/run_llama.sh)"
+else
+    info "llama.cpp is ready! You can start using it now while MLX builds."
+fi
 
 # ────────────────────────────────────────────────────
-#  8. MLX (macOS only) — clone and build from source
+#  8. MLX (macOS only, Apple Silicon) — clone and build from source
 # ────────────────────────────────────────────────────
-if [ "$OS" = "Darwin" ]; then
+if [ "$OS" = "Darwin" ] && ! bonsai_should_skip_mlx; then
     step "Setting up MLX (Apple Silicon) ..."
 
     # MLX builds Metal GPU kernels, which requires the full Xcode app *and*

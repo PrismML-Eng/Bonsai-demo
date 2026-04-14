@@ -18,7 +18,7 @@ done
 
 # ── Find binary (search all known locations) ──
 BIN=""
-for _d in bin/mac bin/cuda bin/rocm bin/hip llama.cpp/build/bin llama.cpp/build-mac/bin llama.cpp/build-cuda/bin; do
+for _d in bin/mac bin/cuda bin/rocm bin/hip bin/vulkan bin/cpu llama.cpp/build/bin llama.cpp/build-mac/bin llama.cpp/build-cuda/bin; do
     [ -f "$DEMO_DIR/$_d/llama-cli" ] && BIN="$DEMO_DIR/$_d/llama-cli" && break
 done
 if [ -z "$BIN" ]; then
@@ -30,11 +30,13 @@ fi
 BIN_DIR="$(cd "$(dirname "$BIN")" && pwd)"
 export LD_LIBRARY_PATH="$BIN_DIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
+NGL=$(bonsai_llama_ngl)
+
 info "Model:  $MODEL"
 info "Binary: $BIN"
-info "Using -c 0 (auto-fit to available memory)"
+info "Using -ngl $NGL, -c 0 (auto-fit to available memory)"
 
-"$BIN" -m "$MODEL" -ngl 99 -c "$CTX_SIZE_DEFAULT" --log-disable \
+"$BIN" -m "$MODEL" -ngl "$NGL" -c "$CTX_SIZE_DEFAULT" --log-disable \
     --temp 0.5 --top-p 0.85 --top-k 20 --min-p 0 \
     --reasoning-budget 0 --reasoning-format none \
     --chat-template-kwargs '{"enable_thinking": false}' \
@@ -42,7 +44,7 @@ info "Using -c 0 (auto-fit to available memory)"
 || {
     CTX_SIZE=$(get_context_size_fallback)
     warn "Auto-fit not supported, falling back to -c $CTX_SIZE"
-    "$BIN" -m "$MODEL" -ngl 99 -c "$CTX_SIZE" --log-disable \
+    "$BIN" -m "$MODEL" -ngl "$NGL" -c "$CTX_SIZE" --log-disable \
         --temp 0.5 --top-p 0.85 --top-k 20 --min-p 0 \
         --reasoning-budget 0 --reasoning-format none \
         --chat-template-kwargs '{"enable_thinking": false}' \

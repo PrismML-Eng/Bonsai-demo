@@ -29,7 +29,7 @@ done
 
 # ── Find binary (search all known locations) ──
 BIN=""
-for _d in bin/mac bin/cuda bin/rocm bin/hip llama.cpp/build/bin llama.cpp/build-mac/bin llama.cpp/build-cuda/bin; do
+for _d in bin/mac bin/cuda bin/rocm bin/hip bin/vulkan bin/cpu llama.cpp/build/bin llama.cpp/build-mac/bin llama.cpp/build-cuda/bin; do
     [ -f "$DEMO_DIR/$_d/llama-server" ] && BIN="$DEMO_DIR/$_d/llama-server" && break
 done
 if [ -z "$BIN" ]; then
@@ -51,7 +51,9 @@ echo "  API:  http://localhost:$PORT/v1/chat/completions"
 echo "  Press Ctrl+C to stop."
 echo ""
 
-exec "$BIN" -m "$MODEL" --host "$HOST" --port "$PORT" -ngl 99 -c "$CTX_SIZE_DEFAULT" \
+NGL=$(bonsai_llama_ngl)
+
+exec "$BIN" -m "$MODEL" --host "$HOST" --port "$PORT" -ngl "$NGL" -c "$CTX_SIZE_DEFAULT" \
     --temp 0.5 --top-p 0.85 --top-k 20 --min-p 0 \
     --reasoning-budget 0 --reasoning-format none \
     --chat-template-kwargs '{"enable_thinking": false}' \

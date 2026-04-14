@@ -10,18 +10,31 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 DEMO_DIR="$(resolve_demo_dir)"
 cd "$DEMO_DIR"
 
-RELEASE_TAG="prism-b8201-ba7e817"
+RELEASE_TAG="prism-b8796-e2d6742"
 BASE_URL="https://github.com/PrismML-Eng/llama.cpp/releases/download/$RELEASE_TAG"
 
 OS="$(uname -s)"
 
 case "$OS" in
     Darwin)
-        ASSET="llama-${RELEASE_TAG}-bin-macos-arm64.tar.gz"
+        _arch="$(uname -m)"
+        if [ "$_arch" = "arm64" ]; then
+            ASSET="llama-${RELEASE_TAG}-bin-macos-arm64.tar.gz"
+        else
+            ASSET="llama-${RELEASE_TAG}-bin-macos-x64.tar.gz"
+        fi
         DEST="bin/mac"
         ;;
     Linux)
-        # ── Detect GPU: NVIDIA (CUDA) or AMD (ROCm) ──
+        # ── Detect architecture ──
+        _arch="$(uname -m)"
+        case "$_arch" in
+            x86_64)  _arch_tag="x64" ;;
+            aarch64) _arch_tag="arm64" ;;
+            *)       _arch_tag="x64" ;;
+        esac
+
+        # ── Detect GPU: NVIDIA (CUDA), AMD (ROCm), or Vulkan ──
         _gpu_type=""
         _cuda_ver=""
 
@@ -36,14 +49,14 @@ case "$OS" in
             _gpu_type="cuda"
         elif command -v rocminfo >/dev/null 2>&1 || command -v rocm-smi >/dev/null 2>&1 || command -v hipcc >/dev/null 2>&1; then
             _gpu_type="rocm"
+        elif command -v vulkaninfo >/dev/null 2>&1; then
+            _gpu_type="vulkan"
         fi
 
         if [ "$_gpu_type" = "cuda" ]; then
             _major="${_cuda_ver%%.*}"
             _minor="${_cuda_ver#*.}"
-            if [ "$_major" -ge 13 ]; then
-                _cuda_tag="13.1"
-            elif [ "$_major" -eq 12 ] && [ "$_minor" -ge 8 ]; then
+            if [ "$_major" -ge 13 ] || { [ "$_major" -eq 12 ] && [ "$_minor" -ge 8 ]; }; then
                 _cuda_tag="12.8"
             elif [ "$_major" -eq 12 ]; then
                 _cuda_tag="12.4"
@@ -56,23 +69,16 @@ case "$OS" in
             DEST="bin/cuda"
         elif [ "$_gpu_type" = "rocm" ]; then
             info "Detected AMD ROCm → using ROCm 7.2 build"
-            ASSET="llama-${RELEASE_TAG}-bin-linux-rocm-7.2-x64.tar.gz"
+            ASSET="llama-${RELEASE_TAG}-bin-ubuntu-rocm-7.2-x64.tar.gz"
             DEST="bin/rocm"
+        elif [ "$_gpu_type" = "vulkan" ]; then
+            info "Detected Vulkan → using Vulkan build"
+            ASSET="llama-${RELEASE_TAG}-bin-ubuntu-vulkan-${_arch_tag}.tar.gz"
+            DEST="bin/vulkan"
         else
-            echo ""
-            echo "  No GPU auto-detected. Available builds:"
-            echo "    1) CUDA 12.4  (NVIDIA)"
-            echo "    2) CUDA 12.8  (NVIDIA)"
-            echo "    3) CUDA 13.1  (NVIDIA)"
-            echo "    4) ROCm 7.2   (AMD)"
-            printf "  Choose [1-4, default=2]: "
-            if [ -r /dev/tty ]; then read -r _choice </dev/tty; else read -r _choice; fi
-            case "$_choice" in
-                1) ASSET="llama-${RELEASE_TAG}-bin-linux-cuda-12.4-x64.tar.gz"; DEST="bin/cuda" ;;
-                3) ASSET="llama-${RELEASE_TAG}-bin-linux-cuda-13.1-x64.tar.gz"; DEST="bin/cuda" ;;
-                4) ASSET="llama-${RELEASE_TAG}-bin-linux-rocm-7.2-x64.tar.gz"; DEST="bin/rocm" ;;
-                *) ASSET="llama-${RELEASE_TAG}-bin-linux-cuda-12.8-x64.tar.gz"; DEST="bin/cuda" ;;
-            esac
+            info "No GPU detected → using CPU build ($_arch_tag)"
+            ASSET="llama-${RELEASE_TAG}-bin-ubuntu-${_arch_tag}.tar.gz"
+            DEST="bin/cpu"
         fi
         ;;
     *)

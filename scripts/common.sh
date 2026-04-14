@@ -80,6 +80,27 @@ download() {
 
 CTX_SIZE_DEFAULT=0
 
+# GPU layer offload: Intel macOS has no Metal, so use 0 (CPU only).
+# Everything else (Apple Silicon, CUDA, ROCm, Vulkan) gets full offload.
+bonsai_llama_ngl() {
+    if [ "$(uname -s)" = "Darwin" ] && [ "$(uname -m)" = "x86_64" ]; then
+        echo 0
+    else
+        echo 99
+    fi
+}
+
+# MLX is Apple Silicon only; skip on Intel Mac or when BONSAI_SKIP_MLX=1.
+bonsai_should_skip_mlx() {
+    case "${BONSAI_SKIP_MLX:-}" in
+        1|true|yes) return 0 ;;
+        0|false|no) return 1 ;;
+        *)
+            [ "$(uname -s)" = "Darwin" ] && [ "$(uname -m)" = "x86_64" ] && return 0
+            return 1 ;;
+    esac
+}
+
 get_context_size_fallback() {
     if [ "$(uname -s)" = "Darwin" ]; then
         _mem_gb=$(( $(sysctl -n hw.memsize) / 1073741824 ))

@@ -77,7 +77,7 @@ else
         [ -f "$_m" ] && _model="$DEMO_DIR/$_m" && break
     done
     _bin=""
-    for _d in bin/mac bin/cuda bin/rocm bin/hip llama.cpp/build/bin llama.cpp/build-mac/bin llama.cpp/build-cuda/bin; do
+    for _d in bin/mac bin/cuda bin/rocm bin/hip bin/vulkan bin/cpu llama.cpp/build/bin llama.cpp/build-mac/bin llama.cpp/build-cuda/bin; do
         [ -f "$DEMO_DIR/$_d/llama-server" ] && _bin="$DEMO_DIR/$_d/llama-server" && break
     done
 
@@ -85,7 +85,8 @@ else
         step "Starting llama-server on port $LLAMA_PORT ..."
         _bin_dir="$(cd "$(dirname "$_bin")" && pwd)"
         LD_LIBRARY_PATH="$_bin_dir${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
-        "$_bin" -m "$_model" --host 0.0.0.0 --port "$LLAMA_PORT" -ngl 99 -c "$CTX_SIZE_DEFAULT" \
+        _ngl=$(bonsai_llama_ngl)
+        "$_bin" -m "$_model" --host 0.0.0.0 --port "$LLAMA_PORT" -ngl "$_ngl" -c "$CTX_SIZE_DEFAULT" \
             --temp 0.5 --top-p 0.85 --top-k 20 --min-p 0 \
             --reasoning-budget 0 --reasoning-format none \
             --chat-template-kwargs '{"enable_thinking": false}' \
