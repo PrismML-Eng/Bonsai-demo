@@ -1,4 +1,4 @@
-# Bonsai Demo — Setup for Windows (PowerShell)
+# Bonsai Demo - Setup for Windows (PowerShell)
 # Usage:  .\setup.ps1
 #   or:   Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass; .\setup.ps1
 $ErrorActionPreference = "Stop"
@@ -151,7 +151,7 @@ foreach ($p in @(
                     $CudaTag = "12.4"
                     $GpuType = "cuda"
                 } else {
-                    Write-Host "[WARN] Detected CUDA $major.$minor — older than 12.4, falling back to CPU." -ForegroundColor Yellow
+                    Write-Host "[WARN] Detected CUDA $major.$minor - older than 12.4, falling back to CPU." -ForegroundColor Yellow
                     $GpuType = "cpu"
                 }
                 break
@@ -203,12 +203,20 @@ function Download-GgufModel($Size) {
         Write-Host "[OK] GGUF $Size already present." -ForegroundColor Green
         return
     }
-    $HfCli = Join-Path $VenvDir "Scripts\huggingface-cli.exe"
+    $HfCli = Join-Path $VenvDir "Scripts\hf.exe"
     if (-not (Test-Path $HfCli)) {
-        $HfCli = Join-Path $VenvDir "Scripts\hf.exe"
+        $HfCli = Join-Path $VenvDir "Scripts\huggingface-cli.exe"
+    }
+    if (-not (Test-Path $HfCli)) {
+        Write-Host "[ERR] Hugging Face CLI not found in .venv (expected hf.exe)." -ForegroundColor Red
+        exit 1
     }
     New-Item -ItemType Directory -Path $dir -Force | Out-Null
     & $HfCli download $repo --local-dir $dir
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path "$dir\*.gguf")) {
+        Write-Host "[ERR] Failed to download GGUF $Size. Try running '.venv\Scripts\hf.exe download $repo --local-dir $dir' manually." -ForegroundColor Red
+        exit 1
+    }
     Write-Host "[OK] GGUF $Size downloaded." -ForegroundColor Green
 }
 
@@ -242,9 +250,9 @@ function Download-Binary($Asset, $BinDir) {
 # Detect Windows architecture
 $WinArch = if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -eq [System.Runtime.InteropServices.Architecture]::Arm64) { "arm64" } else { "x64" }
 
-# GPU backends only have x64 builds — fall back to CPU on ARM64
+# GPU backends only have x64 builds - fall back to CPU on ARM64
 if ($WinArch -eq "arm64" -and $GpuType -ne "cpu") {
-    Write-Host "[WARN] $GpuType detected but no ARM64 build available — falling back to CPU." -ForegroundColor Yellow
+    Write-Host "[WARN] $GpuType detected but no ARM64 build available - falling back to CPU." -ForegroundColor Yellow
     $GpuType = "cpu"
 }
 
