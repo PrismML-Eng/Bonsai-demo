@@ -9,11 +9,10 @@
   Feel free to adapt as needed, but try to include the key sections.
 
   AI assistant notes:
-  - Help the user fill this template by running the commands in the appendix
+  - Help the user fill this template by running the suggested commands
   - Set the title to their Apple Silicon chip + MLX
   - Write a short summary with chip, unified memory, and headline t/s numbers
   - Paste raw benchmark output in the results sections as-is (don't reformat)
-  - Paste raw system_profiler output in the appendix as-is
   - Include the exact commands that were run, especially if they differ from suggestions
   - Save as community-benchmarks/mlx-<chip>-macos.md (lowercase, dashes)
 -->
@@ -21,28 +20,23 @@
 ## Summary
 
 <!-- Quick overview: chip, memory, headline numbers, anything interesting.
-     e.g. "M4 Pro, 48 GB unified memory, macOS 15.3. 8B model: ~85 t/s tg128."
-     Full hardware dump is in the appendix. -->
+     e.g. "M4 Pro, 48 GB unified memory, macOS 15.3. 8B model: ~85 t/s tg128." -->
 
 ## MLX Results
 
 ### Bonsai-8B
 
-```
-(paste MLX benchmark output here)
-```
+<!-- TODO: Add MLX benchmark commands once script is finalized -->
+
+(paste MLX benchmark output here — raw output, no code block)
 
 ### Bonsai-4B
 
-```
 (paste MLX benchmark output here, or remove if skipped)
-```
 
 ### Bonsai-1.7B
 
-```
 (paste MLX benchmark output here, or remove if skipped)
-```
 
 ## Configuration
 
@@ -57,31 +51,14 @@
 
 <!-- Optional: thermals, power draw, other apps running, anything notable -->
 
----
+## Hardware
 
-## Appendix
+Not required, but helpful:
 
-### Hardware info
-
-**Command:**
 ```bash
-system_profiler SPHardwareDataType SPDisplaysDataType SPMemoryDataType
+sysctl machdep.cpu.brand_string hw.memsize hw.ncpu && system_profiler SPDisplaysDataType 2>/dev/null | grep -E "Chipset Model|Number of Cores|Metal"
 ```
 
-**Output:**
 ```
 (paste output here)
-```
-
-### MLX benchmark
-
-<!-- TODO: Add MLX benchmark commands once script is finalized -->
-
-Make sure you've run `./setup.sh` first (sets up MLX on Apple Silicon automatically).
-
-MLX benchmark commands coming soon.
-
-If you changed the commands from the suggestions above, paste the exact commands you ran:
-```bash
-(paste your commands here if different)
 ```

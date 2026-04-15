@@ -10,11 +10,10 @@
   Feel free to adapt as needed, but try to include the key sections.
 
   AI assistant notes:
-  - Help the user fill this template by running the commands in the appendix
+  - Help the user fill this template by running the suggested commands
   - Set the title to their hardware + backend
   - Write a short summary with the key hardware specs and headline t/s numbers
-  - Paste raw llama-bench output in the results sections as-is (don't reformat)
-  - Paste raw hardware info output in the appendix as-is
+  - Paste raw llama-bench output as-is (don't reformat, no code blocks — it's a markdown table)
   - Include the exact commands that were run, especially if they differ from suggestions
   - Save as community-benchmarks/<backend>-<hardware>-<os>.md (lowercase, dashes)
 -->
@@ -22,28 +21,44 @@
 ## Summary
 
 <!-- Quick overview: hardware, backend, headline numbers, anything interesting.
-     e.g. "RTX 4090 + CUDA 12.8 on Ubuntu 24.04. 8B model: ~370 t/s tg128."
-     Full hardware dump is in the appendix. -->
+     e.g. "RTX 4090 + CUDA 12.8 on Ubuntu 24.04. 8B model: ~370 t/s tg128." -->
 
 ## llama-bench Results
 
+Run `./setup.sh` first, then find your `llama-bench` binary:
+```bash
+find bin/ llama.cpp/ -name "llama-bench" -type f 2>/dev/null
+```
+
 ### Bonsai-8B
 
+```bash
+# GPU (Metal / CUDA / Vulkan / ROCm) — adjust BENCH path:
+BENCH=bin/mac/llama-bench
+$BENCH -m models/gguf/8B/*.gguf -ngl 99 -fa 1
+
+# CPU only:
+# $BENCH -m models/gguf/8B/*.gguf -ngl 0 -fa 1 -t $(sysctl -n hw.logicalcpu)  # macOS
+# $BENCH -m models/gguf/8B/*.gguf -ngl 0 -fa 1 -t $(nproc)                     # Linux
 ```
-(paste llama-bench output here)
-```
+
+(paste llama-bench output here — raw markdown table, no code block)
 
 ### Bonsai-4B
 
+```bash
+$BENCH -m models/gguf/4B/*.gguf -ngl 99 -fa 1
 ```
+
 (paste llama-bench output here, or remove if skipped)
-```
 
 ### Bonsai-1.7B
 
+```bash
+$BENCH -m models/gguf/1.7B/*.gguf -ngl 99 -fa 1
 ```
+
 (paste llama-bench output here, or remove if skipped)
-```
 
 ## Configuration
 
@@ -60,64 +75,27 @@
 
 <!-- Optional: driver versions, cooling setup, power limits, thermals, anything notable -->
 
----
+## Hardware
 
-## Appendix
+Not required, but helpful. Pick the command for your OS:
 
-### Hardware info
-
-<!-- Paste the command you ran and its output -->
-
-**Command:**
+**macOS:**
 ```bash
-# macOS
-system_profiler SPHardwareDataType SPDisplaysDataType SPMemoryDataType
-
-# Linux
-# lscpu && free -h && (nvidia-smi 2>/dev/null || rocminfo 2>/dev/null || vulkaninfo --summary 2>/dev/null || true)
-
-# Windows (PowerShell)
-# Get-CimInstance Win32_Processor | Format-List Name,NumberOfCores,NumberOfLogicalProcessors
-# Get-CimInstance Win32_VideoController | Format-List Name,AdapterRAM,DriverVersion
-# [math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory/1GB)
+sysctl machdep.cpu.brand_string hw.memsize hw.ncpu && system_profiler SPDisplaysDataType 2>/dev/null | grep -E "Chipset Model|Number of Cores|Metal"
 ```
 
-**Output:**
+**Linux:**
+```bash
+lscpu | head -20 && free -h && (nvidia-smi 2>/dev/null || rocminfo 2>/dev/null || vulkaninfo --summary 2>/dev/null || true)
+```
+
+**Windows (PowerShell):**
+```powershell
+Get-CimInstance Win32_Processor | Format-List Name,NumberOfCores,NumberOfLogicalProcessors
+Get-CimInstance Win32_VideoController | Format-List Name,DriverVersion
+[math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory/1GB)
+```
+
 ```
 (paste output here)
-```
-
-### llama-bench
-
-Run `./setup.sh` first, then find your `llama-bench` binary:
-```bash
-find bin/ llama.cpp/ -name "llama-bench" -type f 2>/dev/null
-```
-
-Suggested commands (adjust path and flags as needed):
-
-**GPU (Metal / CUDA / Vulkan / ROCm):**
-```bash
-BENCH=bin/mac/llama-bench  # adjust to your binary path
-
-$BENCH -m models/gguf/8B/*.gguf   -ngl 99 -fa 1
-$BENCH -m models/gguf/4B/*.gguf   -ngl 99 -fa 1
-$BENCH -m models/gguf/1.7B/*.gguf -ngl 99 -fa 1
-```
-
-**CPU only:**
-```bash
-BENCH=bin/cpu/llama-bench  # adjust to your binary path
-
-# macOS
-$BENCH -m models/gguf/8B/*.gguf   -ngl 0 -fa 1 -t $(sysctl -n hw.logicalcpu)
-# Linux
-$BENCH -m models/gguf/8B/*.gguf   -ngl 0 -fa 1 -t $(nproc)
-```
-
-Repeat for 4B and 8B if they fit in memory.
-
-If you changed the commands from the suggestions above, paste the exact commands you ran:
-```bash
-(paste your commands here if different)
 ```
