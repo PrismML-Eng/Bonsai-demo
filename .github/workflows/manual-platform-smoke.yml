@@ -252,6 +252,42 @@ jobs:
       - name: llama-cli smoke test
         run: './scripts/run_llama.sh -c 256 -st -n 50 -p "The meaning of life is"'
 
+  linux-x86-vulkan:
+    name: Linux x86 Vulkan/lavapipe (hosted)
+    needs: [download-model]
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download models
+        if: ${{ !inputs.force_fresh_download }}
+        uses: actions/download-artifact@v4
+        with:
+          name: bonsai-models
+          path: models
+      - name: Install Vulkan (lavapipe CPU driver)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mesa-vulkan-drivers vulkan-tools
+          vulkaninfo --summary
+      - name: Log runner hardware
+        run: |
+          echo "Runner: $RUNNER_OS/$RUNNER_ARCH"
+          uname -a || true
+          lscpu || true
+          vulkaninfo --summary || true
+      - name: Cache binaries
+        uses: actions/cache@v4
+        with:
+          path: bin
+          key: ${{ runner.os }}-${{ runner.arch }}-vulkan-bonsai-bin-${{ hashFiles('scripts/download_binaries.sh', 'setup.sh') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-vulkan-bonsai-bin-
+      - name: Setup
+        run: ./setup.sh
+      - name: llama-cli Vulkan smoke test
+        run: './scripts/run_llama.sh -ngl 99 -c 256 -st -n 10 -p "The meaning of life is"'
+
   windows-arm-cpu:
     name: Windows ARM64 CPU (hosted)
     needs: [download-model]

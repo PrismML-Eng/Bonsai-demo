@@ -9,7 +9,7 @@
 
 ## PR Labels
 
-Add these labels to a PR to trigger the corresponding workflow. Only fires when the label is added, not on PR creation or push.
+Add these labels to a PR to trigger the corresponding workflow. Only fires when the label is added, not on PR creation or push. To re-run after new commits, remove the label and add it back.
 
 | Label | What it runs |
 |-------|-------------|
@@ -28,6 +28,7 @@ Always-on (run every time):
 | `windows-arm-cpu` | `windows-11-arm` | Windows | arm64 |
 | `macos-metal` | `macos-14` | macOS | arm64 (M1) |
 | `macos-intel-cpu` | `macos-15-intel` | macOS | x64 |
+| `linux-x86-vulkan` | `ubuntu-latest` + lavapipe | Linux | x64 (Vulkan on CPU) |
 
 Optional self-hosted (manual dispatch only, toggle in UI):
 
