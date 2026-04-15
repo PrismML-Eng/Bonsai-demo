@@ -109,6 +109,7 @@ jobs:
           path: |
             models
             bin
+            # macOS job runs MLX smoke test; setup.sh clones/builds ./mlx on Apple Silicon.
             mlx
           key: ${{ runner.os }}-${{ runner.arch }}-bonsai-${{ env.BONSAI_MODEL }}-${{ hashFiles('scripts/download_models.sh', 'scripts/download_binaries.sh', 'setup.sh', 'setup.ps1') }}
           restore-keys: |
