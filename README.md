@@ -118,6 +118,16 @@ All run scripts respect `BONSAI_MODEL` (default `8B`). Set it to run a different
 BONSAI_MODEL=4B ./scripts/run_llama.sh -p "Who are you? Introduce yourself in haiku"
 ```
 
+### llama.cpp (Windows PowerShell)
+
+```powershell
+.\scripts\run_llama.ps1 -p "What is the capital of France?"
+
+# Run a different model size
+$env:BONSAI_MODEL = "4B"
+.\scripts\run_llama.ps1 -p "Who are you? Introduce yourself in haiku"
+```
+
 ### MLX — Mac (Apple Silicon)
 
 ```bash
@@ -134,6 +144,12 @@ Start llama-server with its built-in chat UI:
 
 # Serve a different model size
 BONSAI_MODEL=4B ./scripts/start_llama_server.sh
+```
+
+For Windows PowerShell:
+
+```powershell
+.\scripts\start_llama_server.ps1
 ```
 
 ### Context Size
@@ -291,9 +307,11 @@ Bonsai-demo/
 │   ├── download_models.sh          # HuggingFace download
 │   ├── download_binaries.sh        # GitHub release download
 │   ├── run_llama.sh                # llama.cpp (auto-detects Mac/Linux)
+│   ├── run_llama.ps1               # llama.cpp (Windows PowerShell)
 │   ├── run_mlx.sh                  # MLX inference
 │   ├── mlx_generate.py             # MLX Python script
 │   ├── start_llama_server.sh       # llama.cpp server (port 8080)
+│   ├── start_llama_server.ps1      # llama.cpp server (Windows PowerShell)
 │   ├── start_mlx_server.sh         # MLX server (port 8081)
 │   ├── start_openwebui.sh          # Open WebUI + auto-starts backends
 │   ├── build_mac.sh                # Build llama.cpp for Mac
