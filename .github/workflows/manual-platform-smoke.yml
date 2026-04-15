@@ -113,7 +113,7 @@ jobs:
       - name: Setup
         run: ./setup.sh
       - name: llama-cli smoke test
-        run: './scripts/run_llama.sh -c 256 -st -n 10 -p "The meaning of life is"'
+        run: './scripts/run_llama.sh -c 256 -st -n 50 -p "The meaning of life is"'
 
   windows-x86-cpu:
     name: Windows x86 CPU (hosted)
@@ -149,19 +149,7 @@ jobs:
           .\setup.ps1
       - name: llama-cli smoke test
         shell: pwsh
-        run: |
-          $model = Get-ChildItem -Path "models\gguf\1.7B" -Filter *.gguf -File | Select-Object -First 1
-          if (-not $model) { throw "No GGUF model found in models\gguf\1.7B" }
-          $binCandidates = @(
-            "bin\cpu\llama-cli.exe",
-            "bin\cuda\llama-cli.exe",
-            "bin\hip\llama-cli.exe",
-            "bin\vulkan\llama-cli.exe"
-          )
-          $bin = $binCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-          if (-not $bin) { throw "llama-cli.exe not found under bin/" }
-          & $bin -m $model.FullName -ngl 0 -c 256 --log-disable -st -n 10 -p "The meaning of life is"
-          if ($LASTEXITCODE -ne 0) { throw "llama-cli smoke test failed" }
+        run: .\scripts\run_llama.ps1 -c 256 -st -n 50 -p "The meaning of life is"
 
   macos-metal:
     name: macOS Metal + MLX (hosted)
@@ -195,10 +183,12 @@ jobs:
             ${{ runner.os }}-${{ runner.arch }}-bonsai-bin-mlx-
       - name: Setup
         run: ./setup.sh
-      - name: llama-cli smoke test
-        run: './scripts/run_llama.sh -c 256 -st -n 10 -p "The meaning of life is"'
+      - name: llama-cli smoke test (CPU)
+        run: './scripts/run_llama.sh -ngl 0 -c 256 -st -n 50 -p "The meaning of life is"'
+      - name: llama-cli smoke test (Metal)
+        run: './scripts/run_llama.sh -ngl 99 -c 256 -st -n 50 -p "The meaning of life is"'
       - name: MLX smoke test
-        run: './scripts/run_mlx.sh -n 10 -p "The meaning of life is"'
+        run: './scripts/run_mlx.sh -n 50 -p "The meaning of life is"'
 
   macos-intel-cpu:
     name: macOS Intel CPU (hosted)
@@ -230,7 +220,7 @@ jobs:
       - name: Setup
         run: ./setup.sh
       - name: llama-cli smoke test
-        run: './scripts/run_llama.sh -c 256 -st -n 10 -p "The meaning of life is"'
+        run: './scripts/run_llama.sh -c 256 -st -n 50 -p "The meaning of life is"'
 
   linux-arm-cpu:
     name: Linux ARM64 CPU (hosted)
@@ -260,7 +250,7 @@ jobs:
       - name: Setup
         run: ./setup.sh
       - name: llama-cli smoke test
-        run: './scripts/run_llama.sh -c 256 -st -n 10 -p "The meaning of life is"'
+        run: './scripts/run_llama.sh -c 256 -st -n 50 -p "The meaning of life is"'
 
   windows-arm-cpu:
     name: Windows ARM64 CPU (hosted)
@@ -295,19 +285,7 @@ jobs:
           .\setup.ps1
       - name: llama-cli smoke test
         shell: pwsh
-        run: |
-          $model = Get-ChildItem -Path "models\gguf\1.7B" -Filter *.gguf -File | Select-Object -First 1
-          if (-not $model) { throw "No GGUF model found in models\gguf\1.7B" }
-          $binCandidates = @(
-            "bin\cpu\llama-cli.exe",
-            "bin\cuda\llama-cli.exe",
-            "bin\hip\llama-cli.exe",
-            "bin\vulkan\llama-cli.exe"
-          )
-          $bin = $binCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-          if (-not $bin) { throw "llama-cli.exe not found under bin/" }
-          & $bin -m $model.FullName -ngl 0 -c 256 --log-disable -st -n 10 -p "The meaning of life is"
-          if ($LASTEXITCODE -ne 0) { throw "llama-cli smoke test failed" }
+        run: .\scripts\run_llama.ps1 -c 256 -st -n 50 -p "The meaning of life is"
 
   # ──────────────────────────────────────────
   # Optional: Self-hosted runners
@@ -346,7 +324,7 @@ jobs:
       - name: Setup
         run: ./setup.sh
       - name: llama-cli smoke test
-        run: './scripts/run_llama.sh -c 256 -st -n 10 -p "The meaning of life is"'
+        run: './scripts/run_llama.sh -c 256 -st -n 50 -p "The meaning of life is"'
 
   windows-cuda:
     name: Windows CUDA (self-hosted, optional)
@@ -384,19 +362,7 @@ jobs:
           .\setup.ps1
       - name: llama-cli smoke test
         shell: pwsh
-        run: |
-          $model = Get-ChildItem -Path "models\gguf\1.7B" -Filter *.gguf -File | Select-Object -First 1
-          if (-not $model) { throw "No GGUF model found in models\gguf\1.7B" }
-          $binCandidates = @(
-            "bin\cuda\llama-cli.exe",
-            "bin\cpu\llama-cli.exe",
-            "bin\hip\llama-cli.exe",
-            "bin\vulkan\llama-cli.exe"
-          )
-          $bin = $binCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-          if (-not $bin) { throw "llama-cli.exe not found under bin/" }
-          & $bin -m $model.FullName -ngl 99 -c 256 --log-disable -st -n 10 -p "The meaning of life is"
-          if ($LASTEXITCODE -ne 0) { throw "llama-cli smoke test failed" }
+        run: .\scripts\run_llama.ps1 -c 256 -st -n 50 -p "The meaning of life is"
 
   linux-amd:
     name: Linux AMD ROCm (self-hosted, optional)
@@ -431,7 +397,7 @@ jobs:
       - name: Setup
         run: ./setup.sh
       - name: llama-cli smoke test
-        run: './scripts/run_llama.sh -c 256 -st -n 10 -p "The meaning of life is"'
+        run: './scripts/run_llama.sh -c 256 -st -n 50 -p "The meaning of life is"'
 
   windows-amd:
     name: Windows AMD HIP (self-hosted, optional)
@@ -469,18 +435,7 @@ jobs:
           .\setup.ps1
       - name: llama-cli smoke test
         shell: pwsh
-        run: |
-          $model = Get-ChildItem -Path "models\gguf\1.7B" -Filter *.gguf -File | Select-Object -First 1
-          if (-not $model) { throw "No GGUF model found in models\gguf\1.7B" }
-          $binCandidates = @(
-            "bin\hip\llama-cli.exe",
-            "bin\vulkan\llama-cli.exe",
-            "bin\cpu\llama-cli.exe"
-          )
-          $bin = $binCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-          if (-not $bin) { throw "llama-cli.exe not found under bin/" }
-          & $bin -m $model.FullName -ngl 99 -c 256 --log-disable -st -n 10 -p "The meaning of life is"
-          if ($LASTEXITCODE -ne 0) { throw "llama-cli smoke test failed" }
+        run: .\scripts\run_llama.ps1 -c 256 -st -n 50 -p "The meaning of life is"
 
   linux-vulkan:
     name: Linux Vulkan (self-hosted, optional)
@@ -515,7 +470,7 @@ jobs:
       - name: Setup
         run: ./setup.sh
       - name: llama-cli smoke test
-        run: './scripts/run_llama.sh -c 256 -st -n 10 -p "The meaning of life is"'
+        run: './scripts/run_llama.sh -c 256 -st -n 50 -p "The meaning of life is"'
 
   windows-vulkan:
     name: Windows Vulkan (self-hosted, optional)
@@ -553,14 +508,4 @@ jobs:
           .\setup.ps1
       - name: llama-cli smoke test
         shell: pwsh
-        run: |
-          $model = Get-ChildItem -Path "models\gguf\1.7B" -Filter *.gguf -File | Select-Object -First 1
-          if (-not $model) { throw "No GGUF model found in models\gguf\1.7B" }
-          $binCandidates = @(
-            "bin\vulkan\llama-cli.exe",
-            "bin\cpu\llama-cli.exe"
-          )
-          $bin = $binCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-          if (-not $bin) { throw "llama-cli.exe not found under bin/" }
-          & $bin -m $model.FullName -ngl 99 -c 256 --log-disable -st -n 10 -p "The meaning of life is"
-          if ($LASTEXITCODE -ne 0) { throw "llama-cli smoke test failed" }
+        run: .\scripts\run_llama.ps1 -c 256 -st -n 50 -p "The meaning of life is"
