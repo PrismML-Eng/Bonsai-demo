@@ -34,6 +34,9 @@ on:
         default: false
         type: boolean
 
+permissions:
+  contents: read
+
 env:
   BONSAI_MODEL: "1.7B"
   HF_TOKEN: ${{ secrets.PRISM_HF_TOKEN }}
