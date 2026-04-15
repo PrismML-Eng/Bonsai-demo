@@ -1,0 +1,243 @@
+name: Manual platform smoke tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      enable_linux_cuda:
+        description: "Run optional self-hosted Linux CUDA job"
+        required: false
+        default: false
+        type: boolean
+      enable_windows_cuda:
+        description: "Run optional self-hosted Windows CUDA job"
+        required: false
+        default: false
+        type: boolean
+      enable_linux_amd:
+        description: "Run optional self-hosted Linux AMD/ROCm job"
+        required: false
+        default: false
+        type: boolean
+      enable_windows_amd:
+        description: "Run optional self-hosted Windows AMD/HIP job"
+        required: false
+        default: false
+        type: boolean
+      enable_linux_vulkan:
+        description: "Run optional self-hosted Linux Vulkan job"
+        required: false
+        default: false
+        type: boolean
+      enable_windows_vulkan:
+        description: "Run optional self-hosted Windows Vulkan job"
+        required: false
+        default: false
+        type: boolean
+
+env:
+  BONSAI_MODEL: "1.7B"
+  HF_TOKEN: ${{ secrets.PRISM_HF_TOKEN }}
+  HUGGING_FACE_HUB_TOKEN: ${{ secrets.PRISM_HF_TOKEN }}
+
+jobs:
+  linux-x86-cpu:
+    name: Linux x86 CPU (hosted)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require PRISM_HF_TOKEN
+        run: test -n "${HF_TOKEN}" || { echo "Missing secret PRISM_HF_TOKEN"; exit 1; }
+      - name: Setup
+        run: ./setup.sh
+      - name: llama-cli smoke test
+        run: './scripts/run_llama.sh -n 8 -p "Reply with exactly: ok"'
+
+  windows-x86-cpu:
+    name: Windows x86 CPU (hosted)
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require PRISM_HF_TOKEN
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace("${env:HF_TOKEN}")) {
+            throw "Missing secret PRISM_HF_TOKEN"
+          }
+      - name: Setup
+        shell: pwsh
+        run: |
+          Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+          .\setup.ps1
+      - name: llama-cli smoke test
+        shell: pwsh
+        run: |
+          $model = Get-ChildItem -Path "models\gguf\1.7B" -Filter *.gguf -File | Select-Object -First 1
+          if (-not $model) { throw "No GGUF model found in models\gguf\1.7B" }
+          $binCandidates = @(
+            "bin\cpu\llama-cli.exe",
+            "bin\cuda\llama-cli.exe",
+            "bin\hip\llama-cli.exe",
+            "bin\vulkan\llama-cli.exe"
+          )
+          $bin = $binCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $bin) { throw "llama-cli.exe not found under bin/" }
+          & $bin -m $model.FullName -ngl 0 -c 2048 --log-disable -n 8 -p "Reply with exactly: ok"
+          if ($LASTEXITCODE -ne 0) { throw "llama-cli smoke test failed" }
+
+  macos-metal:
+    name: macOS Metal + MLX (hosted)
+    runs-on: macos-14
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require PRISM_HF_TOKEN
+        run: test -n "${HF_TOKEN}" || { echo "Missing secret PRISM_HF_TOKEN"; exit 1; }
+      - name: Setup
+        run: ./setup.sh
+      - name: llama-cli smoke test
+        run: './scripts/run_llama.sh -n 8 -p "Reply with exactly: ok"'
+      - name: MLX smoke test
+        run: './scripts/run_mlx.sh -n 8 -p "Reply with exactly: ok"'
+
+  linux-cuda:
+    name: Linux CUDA (self-hosted, optional)
+    if: ${{ inputs.enable_linux_cuda }}
+    runs-on: [self-hosted, Linux, X64, cuda]
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require PRISM_HF_TOKEN
+        run: test -n "${HF_TOKEN}" || { echo "Missing secret PRISM_HF_TOKEN"; exit 1; }
+      - name: Setup
+        run: ./setup.sh
+      - name: llama-cli smoke test
+        run: './scripts/run_llama.sh -n 8 -p "Reply with exactly: ok"'
+
+  windows-cuda:
+    name: Windows CUDA (self-hosted, optional)
+    if: ${{ inputs.enable_windows_cuda }}
+    runs-on: [self-hosted, Windows, X64, cuda]
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require PRISM_HF_TOKEN
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace("${env:HF_TOKEN}")) {
+            throw "Missing secret PRISM_HF_TOKEN"
+          }
+      - name: Setup
+        shell: pwsh
+        run: |
+          Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+          .\setup.ps1
+      - name: llama-cli smoke test
+        shell: pwsh
+        run: |
+          $model = Get-ChildItem -Path "models\gguf\1.7B" -Filter *.gguf -File | Select-Object -First 1
+          if (-not $model) { throw "No GGUF model found in models\gguf\1.7B" }
+          $binCandidates = @(
+            "bin\cuda\llama-cli.exe",
+            "bin\cpu\llama-cli.exe",
+            "bin\hip\llama-cli.exe",
+            "bin\vulkan\llama-cli.exe"
+          )
+          $bin = $binCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $bin) { throw "llama-cli.exe not found under bin/" }
+          & $bin -m $model.FullName -ngl 99 -c 2048 --log-disable -n 8 -p "Reply with exactly: ok"
+          if ($LASTEXITCODE -ne 0) { throw "llama-cli smoke test failed" }
+
+  linux-amd:
+    name: Linux AMD ROCm (self-hosted, optional)
+    if: ${{ inputs.enable_linux_amd }}
+    runs-on: [self-hosted, Linux, X64, amd]
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require PRISM_HF_TOKEN
+        run: test -n "${HF_TOKEN}" || { echo "Missing secret PRISM_HF_TOKEN"; exit 1; }
+      - name: Setup
+        run: ./setup.sh
+      - name: llama-cli smoke test
+        run: './scripts/run_llama.sh -n 8 -p "Reply with exactly: ok"'
+
+  windows-amd:
+    name: Windows AMD HIP (self-hosted, optional)
+    if: ${{ inputs.enable_windows_amd }}
+    runs-on: [self-hosted, Windows, X64, amd]
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require PRISM_HF_TOKEN
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace("${env:HF_TOKEN}")) {
+            throw "Missing secret PRISM_HF_TOKEN"
+          }
+      - name: Setup
+        shell: pwsh
+        run: |
+          Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+          .\setup.ps1
+      - name: llama-cli smoke test
+        shell: pwsh
+        run: |
+          $model = Get-ChildItem -Path "models\gguf\1.7B" -Filter *.gguf -File | Select-Object -First 1
+          if (-not $model) { throw "No GGUF model found in models\gguf\1.7B" }
+          $binCandidates = @(
+            "bin\hip\llama-cli.exe",
+            "bin\vulkan\llama-cli.exe",
+            "bin\cpu\llama-cli.exe"
+          )
+          $bin = $binCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $bin) { throw "llama-cli.exe not found under bin/" }
+          & $bin -m $model.FullName -ngl 99 -c 2048 --log-disable -n 8 -p "Reply with exactly: ok"
+          if ($LASTEXITCODE -ne 0) { throw "llama-cli smoke test failed" }
+
+  linux-vulkan:
+    name: Linux Vulkan (self-hosted, optional)
+    if: ${{ inputs.enable_linux_vulkan }}
+    runs-on: [self-hosted, Linux, X64, vulkan]
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require PRISM_HF_TOKEN
+        run: test -n "${HF_TOKEN}" || { echo "Missing secret PRISM_HF_TOKEN"; exit 1; }
+      - name: Setup
+        run: ./setup.sh
+      - name: llama-cli smoke test
+        run: './scripts/run_llama.sh -n 8 -p "Reply with exactly: ok"'
+
+  windows-vulkan:
+    name: Windows Vulkan (self-hosted, optional)
+    if: ${{ inputs.enable_windows_vulkan }}
+    runs-on: [self-hosted, Windows, X64, vulkan]
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require PRISM_HF_TOKEN
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace("${env:HF_TOKEN}")) {
+            throw "Missing secret PRISM_HF_TOKEN"
+          }
+      - name: Setup
+        shell: pwsh
+        run: |
+          Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+          .\setup.ps1
+      - name: llama-cli smoke test
+        shell: pwsh
+        run: |
+          $model = Get-ChildItem -Path "models\gguf\1.7B" -Filter *.gguf -File | Select-Object -First 1
+          if (-not $model) { throw "No GGUF model found in models\gguf\1.7B" }
+          $binCandidates = @(
+            "bin\vulkan\llama-cli.exe",
+            "bin\cpu\llama-cli.exe"
+          )
+          $bin = $binCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $bin) { throw "llama-cli.exe not found under bin/" }
+          & $bin -m $model.FullName -ngl 99 -c 2048 --log-disable -n 8 -p "Reply with exactly: ok"
+          if ($LASTEXITCODE -ne 0) { throw "llama-cli smoke test failed" }
