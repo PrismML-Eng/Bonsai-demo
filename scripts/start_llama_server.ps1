@@ -14,7 +14,7 @@ $Port = 8080
 
 try {
     $null = Invoke-WebRequest -Uri "http://localhost:$Port/health" -TimeoutSec 2
-    Write-Host "[WARN] llama-server is already running on port $Port." -ForegroundColor Yellow
+    Write-Host "[WARN] Health endpoint responded on port $Port; llama-server may already be running." -ForegroundColor Yellow
     exit 1
 } catch {}
 

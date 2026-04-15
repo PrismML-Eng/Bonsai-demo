@@ -43,18 +43,18 @@ $Ngl = if ($env:BONSAI_NGL) {
     "99"
 }
 
+$ContextFlags = @("-c", "--ctx-size")
 $HasContextArg = $false
 for ($i = 0; $i -lt $args.Count; $i++) {
-    if ($args[$i] -in @("-c", "--ctx-size")) {
+    if ($args[$i] -in $ContextFlags) {
         $HasContextArg = $true
         break
     }
 }
 
-$BaseArgs = @(
+$CommonArgs = @(
     "-m", $Model.FullName,
     "-ngl", $Ngl,
-    "-c", "0",
     "--log-disable",
     "--temp", "0.5",
     "--top-p", "0.85",
@@ -69,25 +69,14 @@ Write-Host "[OK] Model:  $($Model.FullName)" -ForegroundColor Green
 Write-Host "[OK] Binary: $Bin" -ForegroundColor Green
 Write-Host "[OK] Using -ngl $Ngl, -c 0 (auto-fit to available memory)" -ForegroundColor Green
 
-& $Bin @BaseArgs @args
+$RunArgs = $CommonArgs + @("-c", "0") + $args
+& $Bin @RunArgs
 $ExitCode = $LASTEXITCODE
 
-if ($ExitCode -ne 0 -and -not $HasContextArg) {
+if ($ExitCode -ne 0 -and $ExitCode -notin @(130, -1073741510) -and -not $HasContextArg) {
     Write-Host "[WARN] Auto-fit not supported, falling back to -c 8192" -ForegroundColor Yellow
-    $FallbackArgs = @(
-        "-m", $Model.FullName,
-        "-ngl", $Ngl,
-        "-c", "8192",
-        "--log-disable",
-        "--temp", "0.5",
-        "--top-p", "0.85",
-        "--top-k", "20",
-        "--min-p", "0",
-        "--reasoning-budget", "0",
-        "--reasoning-format", "none",
-        "--chat-template-kwargs", '{"enable_thinking": false}'
-    )
-    & $Bin @FallbackArgs @args
+    $FallbackArgs = $CommonArgs + @("-c", "8192") + $args
+    & $Bin @FallbackArgs
     exit $LASTEXITCODE
 }
 
