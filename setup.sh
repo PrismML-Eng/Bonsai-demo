@@ -231,12 +231,7 @@ info "Base deps installed (cmake, ninja, setuptools, huggingface-cli)."
 #  6. Download models from HuggingFace
 # ────────────────────────────────────────────────────
 step "Model download (BONSAI_MODEL=${BONSAI_MODEL}) ..."
-if ls "models/gguf/${BONSAI_MODEL}"/*.gguf >/dev/null 2>&1; then
-    info "Model already present — skipping download."
-    echo "  (Delete models/gguf/${BONSAI_MODEL}/ and re-run to re-download.)"
-else
-    BONSAI_MODEL="$BONSAI_MODEL" sh "$SCRIPT_DIR/scripts/download_models.sh"
-fi
+BONSAI_MODEL="$BONSAI_MODEL" sh "$SCRIPT_DIR/scripts/download_models.sh"
 
 # ────────────────────────────────────────────────────
 #  7. llama.cpp pre-built binaries
