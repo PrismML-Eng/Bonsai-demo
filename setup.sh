@@ -60,8 +60,8 @@ ask() {
 _smart_apt_install() {
     _pkgs="$*"
 
-    apt-get update -y </dev/null >/dev/null 2>&1 || true
-    apt-get install -y $_pkgs </dev/null >/dev/null 2>&1 || true
+    apt-get update -y </dev/null >/dev/null || true
+    apt-get install -y $_pkgs </dev/null >/dev/null || true
 
     _still_missing=""
     for _p in $_pkgs; do
@@ -131,7 +131,7 @@ case "$OS" in
         step "Checking Xcode Command Line Tools ..."
         if ! xcode-select -p >/dev/null 2>&1; then
             warn "Xcode CLT not installed. Installing now (a system dialog will appear) ..."
-            xcode-select --install </dev/null 2>/dev/null || true
+            xcode-select --install </dev/null || true
             echo ""
             echo "  After the Xcode CLT installation completes, please re-run:"
             echo "    ./setup.sh"

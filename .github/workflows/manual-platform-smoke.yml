@@ -47,6 +47,14 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
+      - name: Log runner hardware
+        run: |
+          echo "Runner: $RUNNER_OS/$RUNNER_ARCH"
+          uname -a || true
+          lscpu || true
+          nvidia-smi || true
+          rocminfo || true
+          vulkaninfo --summary || true
       - name: Cache models and binaries
         uses: actions/cache@v4
         with:
@@ -59,7 +67,7 @@ jobs:
       - name: Setup
         run: ./setup.sh
       - name: llama-cli smoke test
-        run: './scripts/run_llama.sh -n 8 -p "Reply with exactly: ok"'
+        run: './scripts/run_llama.sh -st -n 1 -p "ok"'
 
   windows-x86-cpu:
     name: Windows x86 CPU (hosted)
@@ -67,6 +75,13 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
+      - name: Log runner hardware
+        shell: pwsh
+        run: |
+          Write-Host "Runner: $env:RUNNER_OS/$env:RUNNER_ARCH"
+          Get-CimInstance Win32_Processor | Select-Object Name, NumberOfCores, NumberOfLogicalProcessors | Format-Table -AutoSize
+          Get-CimInstance Win32_VideoController | Select-Object Name, AdapterRAM, DriverVersion | Format-Table -AutoSize
+          if (Get-Command nvidia-smi -ErrorAction SilentlyContinue) { nvidia-smi }
       - name: Cache models and binaries
         uses: actions/cache@v4
         with:
@@ -94,7 +109,7 @@ jobs:
           )
           $bin = $binCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
           if (-not $bin) { throw "llama-cli.exe not found under bin/" }
-          & $bin -m $model.FullName -ngl 0 -c 2048 --log-disable -n 8 -p "Reply with exactly: ok"
+          & $bin -m $model.FullName -ngl 0 -c 256 --log-disable -st -n 1 -p "ok"
           if ($LASTEXITCODE -ne 0) { throw "llama-cli smoke test failed" }
 
   macos-metal:
@@ -103,6 +118,13 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
+      - name: Log runner hardware
+        run: |
+          echo "Runner: $RUNNER_OS/$RUNNER_ARCH"
+          uname -a || true
+          sysctl -n machdep.cpu.brand_string || true
+          system_profiler SPHardwareDataType || true
+          system_profiler SPDisplaysDataType || true
       - name: Cache models and binaries
         uses: actions/cache@v4
         with:
@@ -117,9 +139,9 @@ jobs:
       - name: Setup
         run: ./setup.sh
       - name: llama-cli smoke test
-        run: './scripts/run_llama.sh -n 8 -p "Reply with exactly: ok"'
+        run: './scripts/run_llama.sh -st -n 1 -p "ok"'
       - name: MLX smoke test
-        run: './scripts/run_mlx.sh -n 8 -p "Reply with exactly: ok"'
+        run: './scripts/run_mlx.sh -n 1 -p "ok"'
 
   linux-cuda:
     name: Linux CUDA (self-hosted, optional)
@@ -128,6 +150,14 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
+      - name: Log runner hardware
+        run: |
+          echo "Runner: $RUNNER_OS/$RUNNER_ARCH"
+          uname -a || true
+          lscpu || true
+          nvidia-smi || true
+          rocminfo || true
+          vulkaninfo --summary || true
       - name: Cache models and binaries
         uses: actions/cache@v4
         with:
@@ -140,7 +170,7 @@ jobs:
       - name: Setup
         run: ./setup.sh
       - name: llama-cli smoke test
-        run: './scripts/run_llama.sh -n 8 -p "Reply with exactly: ok"'
+        run: './scripts/run_llama.sh -st -n 1 -p "ok"'
 
   windows-cuda:
     name: Windows CUDA (self-hosted, optional)
@@ -149,6 +179,13 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
+      - name: Log runner hardware
+        shell: pwsh
+        run: |
+          Write-Host "Runner: $env:RUNNER_OS/$env:RUNNER_ARCH"
+          Get-CimInstance Win32_Processor | Select-Object Name, NumberOfCores, NumberOfLogicalProcessors | Format-Table -AutoSize
+          Get-CimInstance Win32_VideoController | Select-Object Name, AdapterRAM, DriverVersion | Format-Table -AutoSize
+          if (Get-Command nvidia-smi -ErrorAction SilentlyContinue) { nvidia-smi }
       - name: Cache models and binaries
         uses: actions/cache@v4
         with:
@@ -176,7 +213,7 @@ jobs:
           )
           $bin = $binCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
           if (-not $bin) { throw "llama-cli.exe not found under bin/" }
-          & $bin -m $model.FullName -ngl 99 -c 2048 --log-disable -n 8 -p "Reply with exactly: ok"
+          & $bin -m $model.FullName -ngl 99 -c 256 --log-disable -st -n 1 -p "ok"
           if ($LASTEXITCODE -ne 0) { throw "llama-cli smoke test failed" }
 
   linux-amd:
@@ -186,6 +223,14 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
+      - name: Log runner hardware
+        run: |
+          echo "Runner: $RUNNER_OS/$RUNNER_ARCH"
+          uname -a || true
+          lscpu || true
+          nvidia-smi || true
+          rocminfo || true
+          vulkaninfo --summary || true
       - name: Cache models and binaries
         uses: actions/cache@v4
         with:
@@ -198,7 +243,7 @@ jobs:
       - name: Setup
         run: ./setup.sh
       - name: llama-cli smoke test
-        run: './scripts/run_llama.sh -n 8 -p "Reply with exactly: ok"'
+        run: './scripts/run_llama.sh -st -n 1 -p "ok"'
 
   windows-amd:
     name: Windows AMD HIP (self-hosted, optional)
@@ -207,6 +252,13 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
+      - name: Log runner hardware
+        shell: pwsh
+        run: |
+          Write-Host "Runner: $env:RUNNER_OS/$env:RUNNER_ARCH"
+          Get-CimInstance Win32_Processor | Select-Object Name, NumberOfCores, NumberOfLogicalProcessors | Format-Table -AutoSize
+          Get-CimInstance Win32_VideoController | Select-Object Name, AdapterRAM, DriverVersion | Format-Table -AutoSize
+          if (Get-Command nvidia-smi -ErrorAction SilentlyContinue) { nvidia-smi }
       - name: Cache models and binaries
         uses: actions/cache@v4
         with:
@@ -233,7 +285,7 @@ jobs:
           )
           $bin = $binCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
           if (-not $bin) { throw "llama-cli.exe not found under bin/" }
-          & $bin -m $model.FullName -ngl 99 -c 2048 --log-disable -n 8 -p "Reply with exactly: ok"
+          & $bin -m $model.FullName -ngl 99 -c 256 --log-disable -st -n 1 -p "ok"
           if ($LASTEXITCODE -ne 0) { throw "llama-cli smoke test failed" }
 
   linux-vulkan:
@@ -243,6 +295,14 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
+      - name: Log runner hardware
+        run: |
+          echo "Runner: $RUNNER_OS/$RUNNER_ARCH"
+          uname -a || true
+          lscpu || true
+          nvidia-smi || true
+          rocminfo || true
+          vulkaninfo --summary || true
       - name: Cache models and binaries
         uses: actions/cache@v4
         with:
@@ -255,7 +315,7 @@ jobs:
       - name: Setup
         run: ./setup.sh
       - name: llama-cli smoke test
-        run: './scripts/run_llama.sh -n 8 -p "Reply with exactly: ok"'
+        run: './scripts/run_llama.sh -st -n 1 -p "ok"'
 
   windows-vulkan:
     name: Windows Vulkan (self-hosted, optional)
@@ -264,6 +324,13 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
+      - name: Log runner hardware
+        shell: pwsh
+        run: |
+          Write-Host "Runner: $env:RUNNER_OS/$env:RUNNER_ARCH"
+          Get-CimInstance Win32_Processor | Select-Object Name, NumberOfCores, NumberOfLogicalProcessors | Format-Table -AutoSize
+          Get-CimInstance Win32_VideoController | Select-Object Name, AdapterRAM, DriverVersion | Format-Table -AutoSize
+          if (Get-Command nvidia-smi -ErrorAction SilentlyContinue) { nvidia-smi }
       - name: Cache models and binaries
         uses: actions/cache@v4
         with:
@@ -289,5 +356,5 @@ jobs:
           )
           $bin = $binCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
           if (-not $bin) { throw "llama-cli.exe not found under bin/" }
-          & $bin -m $model.FullName -ngl 99 -c 2048 --log-disable -n 8 -p "Reply with exactly: ok"
+          & $bin -m $model.FullName -ngl 99 -c 256 --log-disable -st -n 1 -p "ok"
           if ($LASTEXITCODE -ne 0) { throw "llama-cli smoke test failed" }

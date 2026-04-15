@@ -40,7 +40,7 @@ info "Using -ngl $NGL, -c 0 (auto-fit to available memory)"
     --temp 0.5 --top-p 0.85 --top-k 20 --min-p 0 \
     --reasoning-budget 0 --reasoning-format none \
     --chat-template-kwargs '{"enable_thinking": false}' \
-    "$@" 2>/dev/null \
+    "$@" \
 || {
     CTX_SIZE=$(get_context_size_fallback)
     warn "Auto-fit not supported, falling back to -c $CTX_SIZE"
@@ -48,5 +48,5 @@ info "Using -ngl $NGL, -c 0 (auto-fit to available memory)"
         --temp 0.5 --top-p 0.85 --top-k 20 --min-p 0 \
         --reasoning-budget 0 --reasoning-format none \
         --chat-template-kwargs '{"enable_thinking": false}' \
-        "$@" 2>/dev/null
+        "$@"
 }
