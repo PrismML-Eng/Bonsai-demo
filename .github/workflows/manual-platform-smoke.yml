@@ -286,6 +286,9 @@ jobs:
       - name: Setup
         run: ./setup.sh
       - name: llama-cli Vulkan smoke test
+        env:
+          VK_ICD_FILENAMES: /usr/share/vulkan/icd.d/lvp_icd.x86_64.json
+          VK_DRIVER_FILES: /usr/share/vulkan/icd.d/lvp_icd.x86_64.json
         run: './scripts/run_llama.sh -ngl 99 -c 256 -st -n 10 -p "The meaning of life is"'
 
   windows-arm-cpu:
