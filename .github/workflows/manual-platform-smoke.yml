@@ -67,7 +67,7 @@ jobs:
       - name: Setup
         run: ./setup.sh
       - name: llama-cli smoke test
-        run: './scripts/run_llama.sh -st -n 1 -p "ok"'
+        run: './scripts/run_llama.sh -c 256 -st -n 1 -p "ok"'
 
   windows-x86-cpu:
     name: Windows x86 CPU (hosted)
@@ -139,7 +139,7 @@ jobs:
       - name: Setup
         run: ./setup.sh
       - name: llama-cli smoke test
-        run: './scripts/run_llama.sh -st -n 1 -p "ok"'
+        run: './scripts/run_llama.sh -c 256 -st -n 1 -p "ok"'
       - name: MLX smoke test
         run: './scripts/run_mlx.sh -n 1 -p "ok"'
 
@@ -170,7 +170,7 @@ jobs:
       - name: Setup
         run: ./setup.sh
       - name: llama-cli smoke test
-        run: './scripts/run_llama.sh -st -n 1 -p "ok"'
+        run: './scripts/run_llama.sh -c 256 -st -n 1 -p "ok"'
 
   windows-cuda:
     name: Windows CUDA (self-hosted, optional)
@@ -243,7 +243,7 @@ jobs:
       - name: Setup
         run: ./setup.sh
       - name: llama-cli smoke test
-        run: './scripts/run_llama.sh -st -n 1 -p "ok"'
+        run: './scripts/run_llama.sh -c 256 -st -n 1 -p "ok"'
 
   windows-amd:
     name: Windows AMD HIP (self-hosted, optional)
@@ -315,7 +315,7 @@ jobs:
       - name: Setup
         run: ./setup.sh
       - name: llama-cli smoke test
-        run: './scripts/run_llama.sh -st -n 1 -p "ok"'
+        run: './scripts/run_llama.sh -c 256 -st -n 1 -p "ok"'
 
   windows-vulkan:
     name: Windows Vulkan (self-hosted, optional)
