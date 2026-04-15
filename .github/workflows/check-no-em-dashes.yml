@@ -1,0 +1,34 @@
+name: Check scripts for em dashes
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+
+jobs:
+  check-no-em-dashes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fail on em dash in PowerShell script files
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! git ls-files -- '*.ps1' '*.psm1' '*.psd1' | grep -q .; then
+            echo "No PowerShell script files found."
+            exit 0
+          fi
+
+          matches="$(git ls-files -z -- '*.ps1' '*.psm1' '*.psd1' | xargs -0 grep -nH "—" || true)"
+          if [ -n "$matches" ]; then
+            printf '%s\n' "$matches"
+            echo "Found em dash characters in PowerShell script files. Use '-' instead."
+            exit 1
+          fi
+
+          echo "No em dashes found in PowerShell script files."
