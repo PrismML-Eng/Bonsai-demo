@@ -39,8 +39,6 @@ permissions:
 
 env:
   BONSAI_MODEL: "1.7B"
-  HF_TOKEN: ${{ secrets.PRISM_HF_TOKEN }}
-  HUGGING_FACE_HUB_TOKEN: ${{ secrets.PRISM_HF_TOKEN }}
 
 jobs:
   linux-x86-cpu:
@@ -49,8 +47,15 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
-      - name: Require PRISM_HF_TOKEN
-        run: test -n "${HF_TOKEN}" || { echo "Missing secret PRISM_HF_TOKEN"; exit 1; }
+      - name: Cache models and binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            models
+            bin
+          key: ${{ runner.os }}-${{ runner.arch }}-bonsai-${{ env.BONSAI_MODEL }}-${{ hashFiles('scripts/download_models.sh', 'scripts/download_binaries.sh', 'setup.sh', 'setup.ps1') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-bonsai-${{ env.BONSAI_MODEL }}-
       - name: Setup
         run: ./setup.sh
       - name: llama-cli smoke test
@@ -62,12 +67,15 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
-      - name: Require PRISM_HF_TOKEN
-        shell: pwsh
-        run: |
-          if ([string]::IsNullOrWhiteSpace("${env:HF_TOKEN}")) {
-            throw "Missing secret PRISM_HF_TOKEN"
-          }
+      - name: Cache models and binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            models
+            bin
+          key: ${{ runner.os }}-${{ runner.arch }}-bonsai-${{ env.BONSAI_MODEL }}-${{ hashFiles('scripts/download_models.sh', 'scripts/download_binaries.sh', 'setup.sh', 'setup.ps1') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-bonsai-${{ env.BONSAI_MODEL }}-
       - name: Setup
         shell: pwsh
         run: |
@@ -95,8 +103,16 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
-      - name: Require PRISM_HF_TOKEN
-        run: test -n "${HF_TOKEN}" || { echo "Missing secret PRISM_HF_TOKEN"; exit 1; }
+      - name: Cache models and binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            models
+            bin
+            mlx
+          key: ${{ runner.os }}-${{ runner.arch }}-bonsai-${{ env.BONSAI_MODEL }}-${{ hashFiles('scripts/download_models.sh', 'scripts/download_binaries.sh', 'setup.sh', 'setup.ps1') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-bonsai-${{ env.BONSAI_MODEL }}-
       - name: Setup
         run: ./setup.sh
       - name: llama-cli smoke test
@@ -111,8 +127,15 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
-      - name: Require PRISM_HF_TOKEN
-        run: test -n "${HF_TOKEN}" || { echo "Missing secret PRISM_HF_TOKEN"; exit 1; }
+      - name: Cache models and binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            models
+            bin
+          key: ${{ runner.os }}-${{ runner.arch }}-cuda-bonsai-${{ env.BONSAI_MODEL }}-${{ hashFiles('scripts/download_models.sh', 'scripts/download_binaries.sh', 'setup.sh', 'setup.ps1') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-cuda-bonsai-${{ env.BONSAI_MODEL }}-
       - name: Setup
         run: ./setup.sh
       - name: llama-cli smoke test
@@ -125,12 +148,15 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
-      - name: Require PRISM_HF_TOKEN
-        shell: pwsh
-        run: |
-          if ([string]::IsNullOrWhiteSpace("${env:HF_TOKEN}")) {
-            throw "Missing secret PRISM_HF_TOKEN"
-          }
+      - name: Cache models and binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            models
+            bin
+          key: ${{ runner.os }}-${{ runner.arch }}-cuda-bonsai-${{ env.BONSAI_MODEL }}-${{ hashFiles('scripts/download_models.sh', 'scripts/download_binaries.sh', 'setup.sh', 'setup.ps1') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-cuda-bonsai-${{ env.BONSAI_MODEL }}-
       - name: Setup
         shell: pwsh
         run: |
@@ -159,8 +185,15 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
-      - name: Require PRISM_HF_TOKEN
-        run: test -n "${HF_TOKEN}" || { echo "Missing secret PRISM_HF_TOKEN"; exit 1; }
+      - name: Cache models and binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            models
+            bin
+          key: ${{ runner.os }}-${{ runner.arch }}-amd-bonsai-${{ env.BONSAI_MODEL }}-${{ hashFiles('scripts/download_models.sh', 'scripts/download_binaries.sh', 'setup.sh', 'setup.ps1') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-amd-bonsai-${{ env.BONSAI_MODEL }}-
       - name: Setup
         run: ./setup.sh
       - name: llama-cli smoke test
@@ -173,12 +206,15 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
-      - name: Require PRISM_HF_TOKEN
-        shell: pwsh
-        run: |
-          if ([string]::IsNullOrWhiteSpace("${env:HF_TOKEN}")) {
-            throw "Missing secret PRISM_HF_TOKEN"
-          }
+      - name: Cache models and binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            models
+            bin
+          key: ${{ runner.os }}-${{ runner.arch }}-amd-bonsai-${{ env.BONSAI_MODEL }}-${{ hashFiles('scripts/download_models.sh', 'scripts/download_binaries.sh', 'setup.sh', 'setup.ps1') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-amd-bonsai-${{ env.BONSAI_MODEL }}-
       - name: Setup
         shell: pwsh
         run: |
@@ -206,8 +242,15 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
-      - name: Require PRISM_HF_TOKEN
-        run: test -n "${HF_TOKEN}" || { echo "Missing secret PRISM_HF_TOKEN"; exit 1; }
+      - name: Cache models and binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            models
+            bin
+          key: ${{ runner.os }}-${{ runner.arch }}-vulkan-bonsai-${{ env.BONSAI_MODEL }}-${{ hashFiles('scripts/download_models.sh', 'scripts/download_binaries.sh', 'setup.sh', 'setup.ps1') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-vulkan-bonsai-${{ env.BONSAI_MODEL }}-
       - name: Setup
         run: ./setup.sh
       - name: llama-cli smoke test
@@ -220,12 +263,15 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
-      - name: Require PRISM_HF_TOKEN
-        shell: pwsh
-        run: |
-          if ([string]::IsNullOrWhiteSpace("${env:HF_TOKEN}")) {
-            throw "Missing secret PRISM_HF_TOKEN"
-          }
+      - name: Cache models and binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            models
+            bin
+          key: ${{ runner.os }}-${{ runner.arch }}-vulkan-bonsai-${{ env.BONSAI_MODEL }}-${{ hashFiles('scripts/download_models.sh', 'scripts/download_binaries.sh', 'setup.sh', 'setup.ps1') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-vulkan-bonsai-${{ env.BONSAI_MODEL }}-
       - name: Setup
         shell: pwsh
         run: |
