@@ -213,8 +213,9 @@ function Download-GgufModel($Size) {
     }
     New-Item -ItemType Directory -Path $dir -Force | Out-Null
     & $HfCli download $repo --local-dir $dir
+    $DownloadExitCode = $LASTEXITCODE
     $DownloadedGguf = Get-ChildItem -Path $dir -Filter "*.gguf" -ErrorAction SilentlyContinue | Select-Object -First 1
-    if ($LASTEXITCODE -ne 0 -or -not $DownloadedGguf) {
+    if ($DownloadExitCode -ne 0 -or -not $DownloadedGguf) {
         Write-Host "[ERR] Failed to download GGUF $Size. Try running '.venv\Scripts\hf.exe download $repo --local-dir $dir' manually." -ForegroundColor Red
         exit 1
     }
