@@ -5,6 +5,7 @@
 | Workflow | Runs automatically | PR label trigger | Manual trigger |
 |----------|-------------------|-----------------|----------------|
 | **Platform smoke tests** | No | `smoke-test` | Actions > Manual platform smoke tests > Run workflow |
+| **Build from source** | No | `build-test` | Actions > Build from source smoke tests > Run workflow |
 | **Em-dash check** | Push to `master` | `check-em-dash` | Actions > Check scripts for em dashes > Run workflow |
 
 ## PR Labels
@@ -14,6 +15,7 @@ Add these labels to a PR to trigger the corresponding workflow. Only fires when 
 | Label | What it runs |
 |-------|-------------|
 | `smoke-test` | All always-on platform smoke tests (Linux x86/ARM, Windows x86/ARM, macOS Metal/Intel) |
+| `build-test` | Build from source on all platforms (Linux x86/ARM, macOS Metal/Intel) |
 | `check-em-dash` | Scans PowerShell scripts for em dash characters |
 
 ## Smoke Test Platform Matrix
@@ -54,3 +56,17 @@ When triggering smoke tests via Actions > Run workflow:
 | `enable_windows_amd` | off | Run on self-hosted Windows AMD/HIP runner |
 | `enable_linux_vulkan` | off | Run on self-hosted Linux Vulkan runner |
 | `enable_windows_vulkan` | off | Run on self-hosted Windows Vulkan runner |
+
+## Build from Source
+
+Tests the `build_*.sh` / `build_*.ps1` scripts by cloning llama.cpp and compiling from source.
+
+Always-on (run every time):
+
+| Job | Runner | Script | What it builds |
+|-----|--------|--------|---------------|
+| `linux-cpu` | `ubuntu-latest` | `build_cpu_linux.sh` | CPU only (x64) |
+| `linux-arm-cpu` | `ubuntu-24.04-arm` | `build_cpu_linux.sh` | CPU only (arm64) |
+| `macos-metal` | `macos-14` | `build_mac.sh` | Metal + CPU (Apple Silicon) |
+| `macos-intel` | `macos-15-intel` | `build_mac.sh` | CPU only (Intel) |
+

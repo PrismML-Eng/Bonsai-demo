@@ -1,0 +1,118 @@
+name: Build from source smoke tests
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [labeled]
+
+permissions:
+  contents: read
+
+env:
+  BONSAI_MODEL: "1.7B"
+
+jobs:
+  download-model:
+    name: Download model
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.pull_request.labels.*.name, 'build-test')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install huggingface-hub
+      - name: Cache models
+        id: cache-models
+        uses: actions/cache@v4
+        with:
+          path: models
+          key: models-bonsai-${{ env.BONSAI_MODEL }}-${{ hashFiles('scripts/download_models.sh') }}
+      - name: Download models
+        if: steps.cache-models.outputs.cache-hit != 'true'
+        run: ./scripts/download_models.sh
+      - name: Upload models
+        uses: actions/upload-artifact@v4
+        with:
+          name: bonsai-models
+          path: models
+          retention-days: 1
+          compression-level: 0
+
+  # ──────────────────────────────────────────
+  # Always-on hosted builds
+  # ──────────────────────────────────────────
+
+  linux-cpu:
+    name: Linux x86 CPU build
+    needs: [download-model]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download models
+        uses: actions/download-artifact@v4
+        with:
+          name: bonsai-models
+          path: models
+      - name: Build from source
+        run: ./scripts/build_cpu_linux.sh
+      - name: llama-cli smoke test
+        run: './scripts/run_llama.sh -c 256 -st -n 50 -p "The meaning of life is"'
+
+  linux-arm-cpu:
+    name: Linux ARM64 CPU build
+    needs: [download-model]
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download models
+        uses: actions/download-artifact@v4
+        with:
+          name: bonsai-models
+          path: models
+      - name: Build from source
+        run: ./scripts/build_cpu_linux.sh
+      - name: llama-cli smoke test
+        run: './scripts/run_llama.sh -c 256 -st -n 50 -p "The meaning of life is"'
+
+  macos-metal:
+    name: macOS Metal build (Apple Silicon)
+    needs: [download-model]
+    runs-on: macos-14
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download models
+        uses: actions/download-artifact@v4
+        with:
+          name: bonsai-models
+          path: models
+      - name: Build from source
+        run: ./scripts/build_mac.sh
+      - name: llama-cli smoke test (CPU)
+        run: './scripts/run_llama.sh -ngl 0 -c 256 -st -n 50 -p "The meaning of life is"'
+      - name: llama-cli smoke test (Metal)
+        run: './scripts/run_llama.sh -ngl 99 -c 256 -st -n 50 -p "The meaning of life is"'
+
+  macos-intel:
+    name: macOS Intel build (CPU only)
+    needs: [download-model]
+    runs-on: macos-15-intel
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download models
+        uses: actions/download-artifact@v4
+        with:
+          name: bonsai-models
+          path: models
+      - name: Build from source
+        run: ./scripts/build_mac.sh
+      - name: llama-cli smoke test
+        run: './scripts/run_llama.sh -c 256 -st -n 50 -p "The meaning of life is"'
+
