@@ -2,7 +2,7 @@
 
 Benchmark results submitted by the community running Bonsai models on their own hardware.
 
-## Results
+## Bonsai Results
 
 | Hardware | Backend | 8B PP512 (t/s) | 8B TG128 (t/s) | Details |
 |----------|---------|----------------|---------------|---------|
@@ -11,6 +11,13 @@ Benchmark results submitted by the community running Bonsai models on their own 
 | AMD Strix Halo 128 GB | llama.cpp Vulkan | 831 | 64 | [link](vulkan-strix-halo-128gb-archlinux.md) |
 | AMD Strix Halo 128 GB | llama.cpp ROCm HIP | 1,269 | 94 | [link](rocm-hip-strix-halo-128gb-archlinux.md) |
 | NVIDIA GeForce RTX 3080 10 GB | llama.cpp CUDA | 4,770 | 197 | [link](cuda-rtx3080-linux.md) |
+
+## Ternary Bonsai Results
+Coming soon...
+
+| Hardware | Backend | 8B PP512 (t/s) | 8B TG128 (t/s) | Details |
+|----------|---------|----------------|---------------|---------|
+| |  |  |  | |
 
 ## How to Submit
 
