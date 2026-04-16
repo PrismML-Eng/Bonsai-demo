@@ -4,11 +4,11 @@ Benchmark results submitted by the community running Bonsai models on their own 
 
 ## Results
 
-| Hardware | Backend | Details |
-|----------|---------|---------|
-| Apple M4 Pro 48 GB | llama.cpp Metal | [link](metal-m4-pro-48gb-macos.md) |
-| NVIDIA DGX Spark (GB10) | llama.cpp CUDA | [link](cuda-gb10-linux.md) |
-| AMD Strix Halo 128 GB | llama.cpp Vulkan | [link](vulkan-strix-halo-128gb-archlinux.md) |
+| Hardware | Backend | 8B PP512 (t/s) | 8B TG128 (t/s) | Details |
+|----------|---------|----------------|---------------|---------|
+| Apple M4 Pro 48 GB | llama.cpp Metal | 487 | 117 | [link](metal-m4-pro-48gb-macos.md) |
+| NVIDIA DGX Spark (GB10) | llama.cpp CUDA | 3,978 | 159 | [link](cuda-gb10-linux.md) |
+| AMD Strix Halo 128 GB | llama.cpp Vulkan | 831 | 64 | [link](vulkan-strix-halo-128gb-archlinux.md) |
 
 ## How to Submit
 
