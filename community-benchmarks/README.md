@@ -4,9 +4,12 @@ Benchmark results submitted by the community running Bonsai models on their own 
 
 ## Results
 
-| Hardware | Backend | Details |
-|----------|---------|---------|
-| Apple M4 Pro 48 GB | llama.cpp Metal | [link](metal-m4-pro-48gb-macos.md) |
+| Hardware | Backend | 8B PP512 (t/s) | 8B TG128 (t/s) | Details |
+|----------|---------|----------------|---------------|---------|
+| Apple M4 Pro 48 GB | llama.cpp Metal | 487 | 117 | [link](metal-m4-pro-48gb-macos.md) |
+| NVIDIA DGX Spark (GB10) | llama.cpp CUDA | 3,978 | 159 | [link](cuda-gb10-linux.md) |
+| AMD Strix Halo 128 GB | llama.cpp Vulkan | 831 | 64 | [link](vulkan-strix-halo-128gb-archlinux.md) |
+| NVIDIA GeForce RTX 3080 10 GB | llama.cpp CUDA | 4,770 | 197 | [link](cuda-rtx3080-linux.md) |
 
 ## How to Submit
 
@@ -33,4 +36,3 @@ Benchmark results submitted by the community running Bonsai models on their own 
 4. Open a PR to this repo
 
 All three model sizes (8B, 4B, 1.7B) are preferred. Skip any that don't fit in memory or are too slow.
-
