@@ -2,7 +2,7 @@
 
 ## Summary
 
-AMD Ryzen AI MAX+ 395 (24-core Zen 5, 40 CU RDNA 3.5 GPU) with 128 GB unified LPDDR5X memory, running Arch Linux (kernel 7.0.0-1-mainline). Backend: Vulkan (gfx1151). All layers offloaded to GPU (`-ngl 99`).
+AMD Ryzen AI MAX+ 395 (24-core Zen 5, 20 WGP / 40 CU RDNA 3.5 GPU) with 128 GB unified LPDDR5X memory, running Arch Linux (kernel 7.0.0-1-mainline). Backend: Vulkan (gfx1151). All layers offloaded to GPU (`-ngl 99`).
 
 | Model | pp512 (t/s) | tg128 (t/s) |
 |-------|-------------|-------------|

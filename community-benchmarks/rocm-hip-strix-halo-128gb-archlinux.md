@@ -2,7 +2,7 @@
 
 ## Summary
 
-AMD Ryzen AI Max+ 395 (Strix Halo), Radeon 8060S (gfx1151, RDNA 3.5, 20 CUs, Wave32), 128 GB unified LPDDR5X memory, running CachyOS (Arch Linux) kernel 7.0. Backend: ROCm HIP using PrismML prism branch with Q1_0 DP4A kernel, compiled with TheRock LLVM (ROCm 7.13 from source) for native gfx1151 + Tensile GEMM. All layers offloaded to GPU (`-ngl 99`).
+AMD Ryzen AI Max+ 395 (Strix Halo), Radeon 8060S (gfx1151, RDNA 3.5, 20 WGPs / 40 CUs, Wave32), 128 GB unified LPDDR5X memory, running CachyOS (Arch Linux) kernel 7.0. Backend: ROCm HIP using PrismML prism branch with Q1_0 DP4A kernel, compiled with TheRock LLVM (ROCm 7.13 from source) for native gfx1151 + Tensile GEMM. All layers offloaded to GPU (`-ngl 99`).
 
 | Model | pp512 (t/s) | tg128 (t/s) |
 |-------|-------------|-------------|
@@ -122,7 +122,7 @@ Full build guide including GCC 15 patches: https://github.com/stampby/rocm-cpp
 
 ```
 GPU: Radeon 8060S Graphics (gfx1151)
-CUs: 20
+CUs: 40 (20 WGPs — HIP reports multiProcessorCount as WGP count on RDNA)
 Wave Size: 32
 VRAM: 63967 MiB (unified with CPU)
 CPU: AMD Ryzen AI Max+ 395
