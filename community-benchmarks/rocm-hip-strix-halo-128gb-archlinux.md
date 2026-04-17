@@ -84,15 +84,22 @@ build: e2d6742
 | llama4 17Bx16E Scout IQ1_S | 27.24 GiB | 107.77 B | ROCm | 99 | pp512 | 325.67 ± 0.69 |
 | llama4 17Bx16E Scout IQ1_S | 27.24 GiB | 107.77 B | ROCm | 99 | tg128 |  21.32 ± 0.01 |
 
-## vs Vulkan (Same Hardware, PrismML fork)
+## vs Vulkan (Same Hardware, Same Binary)
 
-| Model | ROCm pp512 | Vulkan pp512 | Delta | ROCm tg128 | Vulkan tg128 | Delta |
-|-------|-----------:|-------------:|------:|-----------:|-------------:|------:|
-| Bonsai-1.7B | 5,001 | 3,121 | +60% | 231 | 137 | +69% |
-| Bonsai-4B | 2,125 | 1,401 | +52% | 126 | 85 | +48% |
-| Bonsai-8B | 1,325 | 831 | +59% | 96 | 64 | +50% |
+Fresh head-to-head against the same commit (PrismML-Eng prism branch, `e2d6742`) built twice — once with `GGML_HIP=ON`, once with `GGML_VULKAN=ON`. No cross-version comparisons.
 
-ROCm beats Vulkan on both prompt and generation across all Bonsai sizes with the TheRock 7.13 native Tensile path.
+| Model | ROCm pp512 | Vulkan pp512 | Δ pp | ROCm tg128 | Vulkan tg128 | Δ tg |
+|-------|-----------:|-------------:|-----:|-----------:|-------------:|-----:|
+| Bonsai-1.7B | 5,001 | 4,667 | **ROCm +7%** | 231 | 349 | **Vulkan +51%** |
+| Bonsai-4B | 2,125 | 1,698 | **ROCm +25%** | 126 | 187 | **Vulkan +48%** |
+| Bonsai-8B | 1,325 | 1,020 | **ROCm +30%** | 96 | 120 | **Vulkan +26%** |
+| BitNet-2B-4T Q1_0 | 3,652 | 3,221 | **ROCm +13%** | 120 | 146 | **Vulkan +22%** |
+| Qwen3-Coder 80B IQ1_S | 662 | 731 | Vulkan +10% | 51 | 67 | Vulkan +31% |
+| Llama-4-Scout 108B IQ1_S | 326 | 312 | ROCm +5% | 21 | 24 | Vulkan +15% |
+
+**Honest read, not marketing:** ROCm wins prompt processing on every Bonsai / BitNet shape thanks to the Q1_0 DP4A kernel in the prism branch. Vulkan wins token generation across the board — its scalar GEMV path stays leaner than ROCm's for decode. On the 80B MoE, Vulkan leads both axes.
+
+Practical guidance: pick ROCm when prompt dominates (agentic workflows, long-context prefill, RAG); pick Vulkan for pure chat/streaming where tg throughput is the user-visible latency.
 
 ## vs Metal M4 Pro (Apple Silicon)
 
