@@ -94,8 +94,8 @@ Fresh head-to-head against the same commit (PrismML-Eng prism branch, `e2d6742`)
 | Bonsai-4B | 2,125 | 1,698 | **ROCm +25%** | 126 | 187 | **Vulkan +48%** |
 | Bonsai-8B | 1,325 | 1,020 | **ROCm +30%** | 96 | 120 | **Vulkan +26%** |
 | BitNet-2B-4T Q1_0 | 3,652 | 3,221 | **ROCm +13%** | 120 | 146 | **Vulkan +22%** |
-| Qwen3-Coder 80B IQ1_S | 662 | 731 | Vulkan +10% | 51 | 67 | Vulkan +31% |
-| Llama-4-Scout 108B IQ1_S | 326 | 312 | ROCm +5% | 21 | 24 | Vulkan +15% |
+| Qwen3-Coder-Next 80B-A3B IQ1_S | 662 | 731 | Vulkan +10% | 51 | 67 | Vulkan +31% |
+| Llama-4-Scout 17Bx16E IQ1_S | 326 | 312 | ROCm +5% | 21 | 24 | Vulkan +15% |
 
 **Honest read, not marketing:** ROCm wins prompt processing on every Bonsai / BitNet shape thanks to the Q1_0 DP4A kernel in the prism branch. Vulkan wins token generation across the board — its scalar GEMV path stays leaner than ROCm's for decode. On the 80B MoE, Vulkan leads both axes.
 
