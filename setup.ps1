@@ -231,8 +231,8 @@ if ($BonsaiModel -eq "all") {
 # ── 8. Download pre-built binaries ──
 Write-Host "==> Downloading llama.cpp binaries ..." -ForegroundColor Cyan
 
-function Download-Binary($Asset, $BinDir) {
-    if (Test-Path "$BinDir\llama-cli.exe") {
+function Download-Binary($Asset, $BinDir, $RequiredFile = "llama-cli.exe") {
+    if (Test-Path (Join-Path $BinDir $RequiredFile)) {
         Write-Host "[OK] Binaries already present in $BinDir." -ForegroundColor Green
         return
     }
@@ -280,7 +280,8 @@ if ($GpuType -eq "hip") {
     }
 } elseif ($GpuType -eq "vulkan") {
     $BinDir = Join-Path $PSScriptRoot "bin\vulkan"
-    Download-Binary "llama-bin-win-vulkan-x64.zip" $BinDir
+    Download-Binary "llama-bin-win-cpu-${WinArch}.zip" $BinDir "llama-cli.exe"
+    Download-Binary "llama-bin-win-vulkan-x64.zip" $BinDir "ggml-vulkan.dll"
 } else {
     # CPU fallback (arch-aware)
     $BinDir = Join-Path $PSScriptRoot "bin\cpu"
