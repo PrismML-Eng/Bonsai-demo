@@ -63,7 +63,7 @@ Write-Host "  API:  http://localhost:$Port/v1/chat/completions"
 Write-Host "  Press Ctrl+C to stop."
 Write-Host ""
 
-$ChatTemplateKwargs = if ($IsWindows) { '{\"enable_thinking\": false}' } else { '{"enable_thinking": false}' }
+$ChatTemplateKwargs = if ($PSVersionTable.PSEdition -eq 'Desktop') { '{\"enable_thinking\": false}' } else { '{"enable_thinking": false}' }
 
 $ServerArgs = @(
     "-m", $Model.FullName,
