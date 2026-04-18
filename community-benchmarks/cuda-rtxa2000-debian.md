@@ -12,7 +12,7 @@ The threads column is not displayed when using -t 8 (number of CPU cores).
 
 | Model        | pp512 GPU (t/s) | tg128 GPU (t/s) | pp512 CPU (t/s) | tg128 CPU (t/s) |
 |-------------|----------------:|----------------:|----------------:|----------------:|
-| Bonsai-8B   | 1,387           | 63              | 979             | 16              |
+| Bonsai-8B   | 1,387           | 63              | 1063.34            | 21.05              |
 | Bonsai-4B   | 2,375           | 70              | 1,620           | 37              |
 | Bonsai-1.7B | 5,064           | 129             | 3,183           | 85              |
 
