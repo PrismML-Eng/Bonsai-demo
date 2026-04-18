@@ -16,9 +16,9 @@ find bin/ llama.cpp/ -name "llama-bench" -type f 2>/dev/null
 ### Bonsai-8B
 
 ```bash
-# GPU (Metal / CUDA / Vulkan / ROCm) — adjust BENCH path:
-BENCH=bin/mac/llama-bench
-$BENCH -m models/gguf/8B/*.gguf -ngl 99 -fa 1
+# GPU (Debian + CUDA prebuilt binary):
+BENCH=bin/cuda/llama-bench
+LD_LIBRARY_PATH=bin/cuda $BENCH -m models/gguf/8B/*.gguf -ngl 99 -fa 1
 
 # CPU only:
 # $BENCH -m models/gguf/8B/*.gguf -ngl 0 -fa 1 -t $(sysctl -n hw.logicalcpu)  # macOS
