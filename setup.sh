@@ -108,11 +108,13 @@ _version_ge() {
 
 # ── Model selection ──
 BONSAI_MODEL="${BONSAI_MODEL:-8B}"
+BONSAI_FAMILY="${BONSAI_FAMILY:-bonsai}"
 
 echo ""
 echo "========================================="
 echo "   Bonsai Demo Setup"
-echo "   Model: ${BONSAI_MODEL}"
+echo "   Family: ${BONSAI_FAMILY}"
+echo "   Model:  ${BONSAI_MODEL}"
 echo "========================================="
 echo ""
 
@@ -230,8 +232,8 @@ info "Base deps installed (cmake, ninja, setuptools, huggingface-cli)."
 # ────────────────────────────────────────────────────
 #  6. Download models from HuggingFace
 # ────────────────────────────────────────────────────
-step "Model download (BONSAI_MODEL=${BONSAI_MODEL}) ..."
-BONSAI_MODEL="$BONSAI_MODEL" sh "$SCRIPT_DIR/scripts/download_models.sh"
+step "Model download (BONSAI_FAMILY=${BONSAI_FAMILY} BONSAI_MODEL=${BONSAI_MODEL}) ..."
+BONSAI_FAMILY="$BONSAI_FAMILY" BONSAI_MODEL="$BONSAI_MODEL" sh "$SCRIPT_DIR/scripts/download_models.sh"
 
 # ────────────────────────────────────────────────────
 #  7. llama.cpp pre-built binaries
@@ -326,7 +328,7 @@ fi
 # ────────────────────────────────────────────────────
 echo ""
 echo "========================================="
-echo "   Setup complete! (BONSAI_MODEL=${BONSAI_MODEL})"
+echo "   Setup complete! (BONSAI_FAMILY=${BONSAI_FAMILY} BONSAI_MODEL=${BONSAI_MODEL})"
 echo "========================================="
 echo ""
 echo "  See README.md for usage examples."

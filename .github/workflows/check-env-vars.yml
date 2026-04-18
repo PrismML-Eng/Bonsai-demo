@@ -1,0 +1,92 @@
+name: Env var smoke tests
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  syntax-and-env-vars:
+    name: Script syntax and BONSAI_FAMILY/BONSAI_MODEL resolution
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Shell script syntax
+        run: |
+          sh -n scripts/common.sh
+          sh -n scripts/download_models.sh
+          sh -n setup.sh
+          echo "OK: shell scripts parse"
+
+      - name: Python script syntax
+        run: |
+          python3 -c "import ast; ast.parse(open('scripts/mlx_generate.py').read())"
+          echo "OK: mlx_generate.py parses"
+
+      - name: PowerShell script syntax (setup.ps1)
+        shell: pwsh
+        run: |
+          $tokens = $null; $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path ./setup.ps1).Path, [ref]$tokens, [ref]$errors
+          ) | Out-Null
+          if ($errors -and $errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Host $_.Message }
+            exit 1
+          }
+          Write-Host "OK: setup.ps1 parses"
+
+      - name: Default resolves to Bonsai-8B (no env vars set)
+        run: |
+          unset BONSAI_FAMILY BONSAI_MODEL
+          . scripts/common.sh
+          [ "$BONSAI_FAMILY"   = "bonsai" ]              || { echo "FAIL: default family=$BONSAI_FAMILY"; exit 1; }
+          [ "$BONSAI_MODEL"    = "8B" ]                  || { echo "FAIL: default size=$BONSAI_MODEL"; exit 1; }
+          [ "$GGUF_MODEL_DIR"  = "models/gguf/8B" ]      || { echo "FAIL: gguf dir=$GGUF_MODEL_DIR"; exit 1; }
+          [ "$MLX_MODEL_DIR"   = "models/Bonsai-8B-mlx" ]|| { echo "FAIL: mlx dir=$MLX_MODEL_DIR"; exit 1; }
+          [ "$BONSAI_DISPLAY"  = "Bonsai-8B" ]           || { echo "FAIL: display=$BONSAI_DISPLAY"; exit 1; }
+          echo "OK: no-env default resolves to Bonsai-8B"
+
+      - name: All (family x size) combos resolve correctly
+        run: |
+          _check() {
+            f="$1"; s="$2"; exp_gguf="$3"; exp_mlx="$4"; exp_display="$5"
+            (
+              export BONSAI_FAMILY="$f" BONSAI_MODEL="$s"
+              . scripts/common.sh
+              [ "$GGUF_MODEL_DIR" = "$exp_gguf" ]    || { echo "FAIL $f/$s gguf: $GGUF_MODEL_DIR != $exp_gguf"; exit 1; }
+              [ "$MLX_MODEL_DIR"  = "$exp_mlx" ]     || { echo "FAIL $f/$s mlx: $MLX_MODEL_DIR != $exp_mlx"; exit 1; }
+              [ "$BONSAI_DISPLAY" = "$exp_display" ] || { echo "FAIL $f/$s display: $BONSAI_DISPLAY != $exp_display"; exit 1; }
+              assert_valid_model
+            ) || exit 1
+            echo "  OK: $f $s"
+          }
+          _check bonsai  8B    models/gguf/8B            models/Bonsai-8B-mlx            Bonsai-8B
+          _check bonsai  4B    models/gguf/4B            models/Bonsai-4B-mlx            Bonsai-4B
+          _check bonsai  1.7B  models/gguf/1.7B          models/Bonsai-1.7B-mlx          Bonsai-1.7B
+          _check ternary 8B    models/ternary-gguf/8B    models/Ternary-Bonsai-8B-mlx    Ternary-Bonsai-8B
+          _check ternary 4B    models/ternary-gguf/4B    models/Ternary-Bonsai-4B-mlx    Ternary-Bonsai-4B
+          _check ternary 1.7B  models/ternary-gguf/1.7B  models/Ternary-Bonsai-1.7B-mlx  Ternary-Bonsai-1.7B
+
+      - name: Invalid BONSAI_FAMILY rejected
+        run: |
+          if ( export BONSAI_FAMILY=nonsense; . scripts/common.sh; assert_valid_model ) >/dev/null 2>&1; then
+            echo "FAIL: invalid BONSAI_FAMILY was accepted"
+            exit 1
+          fi
+          echo "OK: invalid BONSAI_FAMILY rejected"
+
+      - name: Invalid BONSAI_MODEL rejected
+        run: |
+          if ( export BONSAI_MODEL=16B; . scripts/common.sh; assert_valid_model ) >/dev/null 2>&1; then
+            echo "FAIL: invalid BONSAI_MODEL was accepted"
+            exit 1
+          fi
+          echo "OK: invalid BONSAI_MODEL rejected"

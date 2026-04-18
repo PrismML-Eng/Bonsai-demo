@@ -3,20 +3,38 @@
 # Source this file: . "$(dirname "$0")/common.sh"
 
 # ── Model selection ──
-# Set BONSAI_MODEL to choose which model size to use.
-# Valid values: 8B (default), 4B, 1.7B
+# Set BONSAI_MODEL to choose size: 8B (default), 4B, 1.7B
+# Set BONSAI_FAMILY to choose family: bonsai (default, 1-bit), ternary (1.58-bit)
 BONSAI_MODEL="${BONSAI_MODEL:-8B}"
-GGUF_MODEL_DIR="models/gguf/${BONSAI_MODEL}"
+BONSAI_FAMILY="${BONSAI_FAMILY:-bonsai}"
 
-MLX_MODEL_DIR="models/Bonsai-${BONSAI_MODEL}-mlx"
+case "$BONSAI_FAMILY" in
+    bonsai)
+        GGUF_MODEL_DIR="models/gguf/${BONSAI_MODEL}"
+        MLX_MODEL_DIR="models/Bonsai-${BONSAI_MODEL}-mlx"
+        BONSAI_DISPLAY="Bonsai-${BONSAI_MODEL}"
+        ;;
+    ternary)
+        GGUF_MODEL_DIR="models/ternary-gguf/${BONSAI_MODEL}"
+        MLX_MODEL_DIR="models/Ternary-Bonsai-${BONSAI_MODEL}-mlx"
+        BONSAI_DISPLAY="Ternary-Bonsai-${BONSAI_MODEL}"
+        ;;
+esac
 
-# Validate BONSAI_MODEL — call at the top of every run/server script
+# Validate BONSAI_MODEL + BONSAI_FAMILY — call at the top of every run/server script
 assert_valid_model() {
     case "$BONSAI_MODEL" in
-        8B|4B|1.7B) return 0 ;;
+        8B|4B|1.7B) ;;
         *)
             err "Unknown BONSAI_MODEL='${BONSAI_MODEL}'. Valid values: 8B, 4B, 1.7B"
             echo "  Example: export BONSAI_MODEL=8B"
+            exit 1 ;;
+    esac
+    case "$BONSAI_FAMILY" in
+        bonsai|ternary) ;;
+        *)
+            err "Unknown BONSAI_FAMILY='${BONSAI_FAMILY}'. Valid values: bonsai, ternary"
+            echo "  Example: export BONSAI_FAMILY=ternary"
             exit 1 ;;
     esac
 }
@@ -24,9 +42,9 @@ assert_valid_model() {
 # Check GGUF model is downloaded — prompts to download if missing
 assert_gguf_downloaded() {
     if ! ls "$GGUF_MODEL_DIR"/*.gguf >/dev/null 2>&1; then
-        err "GGUF model not found for Bonsai-${BONSAI_MODEL} (expected in ${GGUF_MODEL_DIR}/)."
+        err "GGUF model not found for ${BONSAI_DISPLAY} (expected in ${GGUF_MODEL_DIR}/)."
         echo "  Download it with:"
-        echo "    BONSAI_MODEL=${BONSAI_MODEL} ./scripts/download_models.sh"
+        echo "    BONSAI_FAMILY=${BONSAI_FAMILY} BONSAI_MODEL=${BONSAI_MODEL} ./scripts/download_models.sh"
         exit 1
     fi
 }
@@ -34,9 +52,9 @@ assert_gguf_downloaded() {
 # Check MLX model is downloaded — prompts to download if missing
 assert_mlx_downloaded() {
     if [ ! -f "$MLX_MODEL_DIR/config.json" ]; then
-        err "MLX model not found for Bonsai-${BONSAI_MODEL} (expected in ${MLX_MODEL_DIR}/)."
+        err "MLX model not found for ${BONSAI_DISPLAY} (expected in ${MLX_MODEL_DIR}/)."
         echo "  Download it with:"
-        echo "    BONSAI_MODEL=${BONSAI_MODEL} ./scripts/download_models.sh"
+        echo "    BONSAI_FAMILY=${BONSAI_FAMILY} BONSAI_MODEL=${BONSAI_MODEL} ./scripts/download_models.sh"
         exit 1
     fi
 }

@@ -96,7 +96,25 @@ MLX 2-bit supported out of the box. GGUFs (`Q2_0`, etc.) coming soon. See the [T
 | Ternary-Bonsai-4B      | GGUF          | [prism-ml/Ternary-Bonsai-4B-gguf](https://huggingface.co/prism-ml/Ternary-Bonsai-4B-gguf) — *coming soon*       |
 | Ternary-Bonsai-1.7B    | GGUF          | [prism-ml/Ternary-Bonsai-1.7B-gguf](https://huggingface.co/prism-ml/Ternary-Bonsai-1.7B-gguf) — *coming soon*   |
 
-> Ternary-Bonsai is not yet wired into `setup.sh` / `BONSAI_MODEL` — download directly from HuggingFace for now.
+When you set `BONSAI_FAMILY=ternary`, `setup.sh` downloads the MLX 2-bit weights today; GGUFs will be fetched automatically once the HF repos go public.
+
+### Environment variables
+
+Both variables are optional. **If you set neither, the default is `Bonsai-8B` (1-bit, 8 billion parameters)** — that's what plain `./setup.sh` downloads and runs. They're read by `setup.sh`, `setup.ps1`, `download_models.sh`, and every `run_*` / `start_*` script.
+
+| Variable        | Default  | Valid values         | Purpose |
+|-----------------|----------|----------------------|---------|
+| `BONSAI_FAMILY` | `bonsai` | `bonsai`, `ternary`  | Model family. `bonsai` = 1-bit Bonsai; `ternary` = 1.58-bit Ternary-Bonsai. |
+| `BONSAI_MODEL`  | `8B`     | `8B`, `4B`, `1.7B`   | Model size. |
+
+Combine them freely:
+
+```bash
+./setup.sh                                                  # Bonsai-8B (default)
+BONSAI_MODEL=1.7B ./setup.sh                                # Bonsai-1.7B
+BONSAI_FAMILY=ternary ./setup.sh                            # Ternary-Bonsai-8B
+BONSAI_FAMILY=ternary BONSAI_MODEL=4B ./setup.sh            # Ternary-Bonsai-4B
+```
 
 ---
 

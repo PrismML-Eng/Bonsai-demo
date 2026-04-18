@@ -8,7 +8,12 @@ from mlx_lm import load, stream_generate
 from mlx_lm.generate import make_sampler
 
 _SIZE = os.environ.get("BONSAI_MODEL", "8B")
-_DEFAULT_MODEL = f"models/Bonsai-{_SIZE}-mlx"
+_FAMILY = os.environ.get("BONSAI_FAMILY", "bonsai")
+_DEFAULT_MODEL = (
+    f"models/Ternary-Bonsai-{_SIZE}-mlx"
+    if _FAMILY == "ternary"
+    else f"models/Bonsai-{_SIZE}-mlx"
+)
 
 
 def main():
