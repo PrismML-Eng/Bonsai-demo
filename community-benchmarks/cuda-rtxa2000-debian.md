@@ -3,8 +3,18 @@
 ## Summary
 
 Laptop Thinkpad P15 Gen2
-i7-11800H @ 2.30GHz 32Go DDR4 3200Mhz / RTX A2000 4Go
-Debian 13
+NVIDIA RTX A2000 Laptop GPU (4 GB VRAM) with Intel Core i7-11800H (8-core, 16 threads, 32 GB DDR4 3200 MHz),
+CUDA 13.2 on Debian 13. GPU: all layers offloaded (`-ngl 99`), flash attention enabled (`-fa 1`). 
+
+CPU comparison included for reference.
+There is no significant performance difference on the CPU beyond 7 threads, with no noticeable benefit from hyperthreading.
+The threads column is not displayed when using -t 8 (number of CPU cores).
+
+| Model        | pp512 GPU (t/s) | tg128 GPU (t/s) | pp512 CPU (t/s) | tg128 CPU (t/s) |
+|-------------|----------------:|----------------:|----------------:|----------------:|
+| Bonsai-8B   | 1,387           | 63              | 979             | 16              |
+| Bonsai-4B   | 2,375           | 70              | 1,620           | 37              |
+| Bonsai-1.7B | 5,064           | 129             | 3,183           | 85              |
 
 ## llama-bench Results
 
@@ -19,12 +29,11 @@ find bin/ llama.cpp/ -name "llama-bench" -type f 2>/dev/null
 # GPU (Debian + CUDA prebuilt binary):
 BENCH=bin/cuda/llama-bench
 LD_LIBRARY_PATH=bin/cuda $BENCH -m models/gguf/8B/*.gguf -ngl 99 -fa 1
-
-# CPU only:
-# $BENCH -m models/gguf/8B/*.gguf -ngl 0 -fa 1 -t $(sysctl -n hw.logicalcpu)  # macOS
-# $BENCH -m models/gguf/8B/*.gguf -ngl 0 -fa 1 -t $(nproc)                     # Linux
 ```
 
+```bash
+$BENCH -m models/gguf/8B/*.gguf -ngl 99 -fa 1  
+```
 ggml_cuda_init: found 1 CUDA devices (Total VRAM: 3770 MiB):
   Device 0: NVIDIA RTX A2000 Laptop GPU, compute capability 8.6, VMM: yes, VRAM: 3770 MiB
 | model                          |       size |     params | backend    | ngl | fa |            test |                  t/s |
@@ -35,19 +44,72 @@ ggml_cuda_init: found 1 CUDA devices (Total VRAM: 3770 MiB):
 build: e2d67422c (8796)
 
 Cpu only 11th Gen Intel(R) Core(TM) i7-11800H @ 2.30GHz
+```bash
+$BENCH -m models/gguf/8B/*.gguf -ngl 0 -fa 1 -t $(nproc)  
+```
 ggml_cuda_init: found 1 CUDA devices (Total VRAM: 3770 MiB):
   Device 0: NVIDIA RTX A2000 Laptop GPU, compute capability 8.6, VMM: yes, VRAM: 3770 MiB
 | model                          |       size |     params | backend    | ngl | threads | fa |            test |                  t/s |
 | ------------------------------ | ---------: | ---------: | ---------- | --: | ------: | -: | --------------: | -------------------: |
-| qwen3 8B Q1_0                  |   1.07 GiB |     8.19 B | CUDA       |   0 |      16 |  1 |           pp512 |       979.46 ± 65.89 |
-| qwen3 8B Q1_0                  |   1.07 GiB |     8.19 B | CUDA       |   0 |      16 |  1 |           tg128 |         16.47 ± 1.41 |
+| qwen3 8B Q1_0                  |   1.07 GiB |     8.19 B | CUDA       |   0 |      16 |  1 |           pp512 |      1063.34 ± 12.41 |
+| qwen3 8B Q1_0                  |   1.07 GiB |     8.19 B | CUDA       |   0 |      16 |  1 |           tg128 |         21.05 ± 0.34 |
 
 build: e2d67422c (8796)
+
+```bash
+$BENCH -m models/gguf/8B/*.gguf -ngl 0 -fa 1 -t 8 
+```
+ggml_cuda_init: found 1 CUDA devices (Total VRAM: 3770 MiB):
+  Device 0: NVIDIA RTX A2000 Laptop GPU, compute capability 8.6, VMM: yes, VRAM: 3770 MiB
+| model                          |       size |     params | backend    | ngl | fa |            test |                  t/s |
+| ------------------------------ | ---------: | ---------: | ---------- | --: | -: | --------------: | -------------------: |
+| qwen3 8B Q1_0                  |   1.07 GiB |     8.19 B | CUDA       |   0 |  1 |           pp512 |       1060.83 ± 8.77 |
+| qwen3 8B Q1_0                  |   1.07 GiB |     8.19 B | CUDA       |   0 |  1 |           tg128 |         21.96 ± 0.23 |
+
+build: e2d67422c (8796)
+
+```bash
+$BENCH -m models/gguf/8B/*.gguf -ngl 0 -fa 1 -t 7
+```
+ggml_cuda_init: found 1 CUDA devices (Total VRAM: 3770 MiB):
+  Device 0: NVIDIA RTX A2000 Laptop GPU, compute capability 8.6, VMM: yes, VRAM: 3770 MiB
+| model                          |       size |     params | backend    | ngl | threads | fa |            test |                  t/s |
+| ------------------------------ | ---------: | ---------: | ---------- | --: | ------: | -: | --------------: | -------------------: |
+| qwen3 8B Q1_0                  |   1.07 GiB |     8.19 B | CUDA       |   0 |       7 |  1 |           pp512 |       1055.88 ± 9.40 |
+| qwen3 8B Q1_0                  |   1.07 GiB |     8.19 B | CUDA       |   0 |       7 |  1 |           tg128 |         19.20 ± 0.11 |
+
+build: e2d67422c (8796)
+
+```bash
+$BENCH -m models/gguf/8B/*.gguf -ngl 0 -fa 1 -t 6
+```
+ggml_cuda_init: found 1 CUDA devices (Total VRAM: 3770 MiB):
+  Device 0: NVIDIA RTX A2000 Laptop GPU, compute capability 8.6, VMM: yes, VRAM: 3770 MiB
+| model                          |       size |     params | backend    | ngl | threads | fa |            test |                  t/s |
+| ------------------------------ | ---------: | ---------: | ---------- | --: | ------: | -: | --------------: | -------------------: |
+| qwen3 8B Q1_0                  |   1.07 GiB |     8.19 B | CUDA       |   0 |       6 |  1 |           pp512 |      1057.68 ± 16.02 |
+| qwen3 8B Q1_0                  |   1.07 GiB |     8.19 B | CUDA       |   0 |       6 |  1 |           tg128 |         17.71 ± 0.32 |
+
+build: e2d67422c (8796)
+
+```bash
+$BENCH -m models/gguf/8B/*.gguf -ngl 0 -fa 1 -t 8 
+```
+ggml_cuda_init: found 1 CUDA devices (Total VRAM: 3770 MiB):
+  Device 0: NVIDIA RTX A2000 Laptop GPU, compute capability 8.6, VMM: yes, VRAM: 3770 MiB
+| model                          |       size |     params | backend    | ngl | threads | fa |            test |                  t/s |
+| ------------------------------ | ---------: | ---------: | ---------- | --: | ------: | -: | --------------: | -------------------: |
+| qwen3 8B Q1_0                  |   1.07 GiB |     8.19 B | CUDA       |   0 |       7 |  1 |           pp512 |       1055.88 ± 9.40 |
+| qwen3 8B Q1_0                  |   1.07 GiB |     8.19 B | CUDA       |   0 |       7 |  1 |           tg128 |         19.20 ± 0.11 |
+
+build: e2d67422c (8796)
+
+
 
 ### Bonsai-4B
 
 ```bash
-$BENCH -m models/gguf/4B/*.gguf -ngl 99 -fa 1
+$BENCH -m models/gguf/4B/*.gguf -ngl 99 -fa 1 
 ```
 ggml_cuda_init: found 1 CUDA devices (Total VRAM: 3770 MiB):
   Device 0: NVIDIA RTX A2000 Laptop GPU, compute capability 8.6, VMM: yes, VRAM: 3770 MiB
@@ -58,8 +120,10 @@ ggml_cuda_init: found 1 CUDA devices (Total VRAM: 3770 MiB):
 
 build: e2d67422c (8796)
 
-
 Cpu only 11th Gen Intel(R) Core(TM) i7-11800H @ 2.30GHz
+```bash
+$BENCH -m models/gguf/4B/*.gguf -ngl 0 -fa 1
+```
 ggml_cuda_init: found 1 CUDA devices (Total VRAM: 3770 MiB):
   Device 0: NVIDIA RTX A2000 Laptop GPU, compute capability 8.6, VMM: yes, VRAM: 3770 MiB
 | model                          |       size |     params | backend    | ngl | fa |            test |                  t/s |
@@ -86,6 +150,9 @@ ggml_cuda_init: found 1 CUDA devices (Total VRAM: 3770 MiB):
 build: e2d67422c (8796)
 
 Cpu only 11th Gen Intel(R) Core(TM) i7-11800H @ 2.30GHz
+```bash
+$BENCH -m models/gguf/1.7B/*.gguf -ngl 0 -fa 1
+```
 ggml_cuda_init: found 1 CUDA devices (Total VRAM: 3770 MiB):
   Device 0: NVIDIA RTX A2000 Laptop GPU, compute capability 8.6, VMM: yes, VRAM: 3770 MiB
 | model                          |       size |     params | backend    | ngl | fa |            test |                  t/s |
@@ -99,6 +166,7 @@ build: e2d67422c (8796)
 ## Configuration
 
 ## Notes
+
 
 ## Hardware
 
