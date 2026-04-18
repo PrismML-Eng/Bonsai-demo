@@ -74,8 +74,7 @@ $ServerArgs = @(
     "--top-k", "20",
     "--min-p", "0",
     "--reasoning-budget", "0",
-    "--reasoning-format", "none",
-    "--chat-template-kwargs", '{"enable_thinking": false}'
+    "--reasoning-format", "none"
 )
 
 & $Bin @ServerArgs @args
