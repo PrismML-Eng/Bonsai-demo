@@ -92,19 +92,6 @@ ggml_cuda_init: found 1 CUDA devices (Total VRAM: 3770 MiB):
 
 build: e2d67422c (8796)
 
-```bash
-$BENCH -m models/gguf/8B/*.gguf -ngl 0 -fa 1 -t 8 
-```
-ggml_cuda_init: found 1 CUDA devices (Total VRAM: 3770 MiB):
-  Device 0: NVIDIA RTX A2000 Laptop GPU, compute capability 8.6, VMM: yes, VRAM: 3770 MiB
-| model                          |       size |     params | backend    | ngl | threads | fa |            test |                  t/s |
-| ------------------------------ | ---------: | ---------: | ---------- | --: | ------: | -: | --------------: | -------------------: |
-| qwen3 8B Q1_0                  |   1.07 GiB |     8.19 B | CUDA       |   0 |       7 |  1 |           pp512 |       1055.88 ± 9.40 |
-| qwen3 8B Q1_0                  |   1.07 GiB |     8.19 B | CUDA       |   0 |       7 |  1 |           tg128 |         19.20 ± 0.11 |
-
-build: e2d67422c (8796)
-
-
 
 ### Bonsai-4B
 
