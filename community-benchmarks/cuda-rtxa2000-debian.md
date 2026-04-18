@@ -12,7 +12,7 @@ The threads column is not displayed when using -t 8 (number of CPU cores).
 
 | Model        | pp512 GPU (t/s) | tg128 GPU (t/s) | pp512 CPU (t/s) | tg128 CPU (t/s) |
 |-------------|----------------:|----------------:|----------------:|----------------:|
-| Bonsai-8B   | 1,387           | 63              | 1063.34            | 21.05              |
+| Bonsai-8B   | 1,387           | 63              | 1,063           | 21              |
 | Bonsai-4B   | 2,375           | 70              | 1,620           | 37              |
 | Bonsai-1.7B | 5,064           | 129             | 3,183           | 85              |
 
@@ -43,7 +43,7 @@ ggml_cuda_init: found 1 CUDA devices (Total VRAM: 3770 MiB):
 
 build: e2d67422c (8796)
 
-Cpu only 11th Gen Intel(R) Core(TM) i7-11800H @ 2.30GHz
+CPU only 11th Gen Intel(R) Core(TM) i7-11800H @ 2.30GHz
 ```bash
 $BENCH -m models/gguf/8B/*.gguf -ngl 0 -fa 1 -t $(nproc)  
 ```
@@ -107,7 +107,7 @@ ggml_cuda_init: found 1 CUDA devices (Total VRAM: 3770 MiB):
 
 build: e2d67422c (8796)
 
-Cpu only 11th Gen Intel(R) Core(TM) i7-11800H @ 2.30GHz
+CPU run with CUDA build (`-ngl 0`) on 11th Gen Intel(R) Core(TM) i7-11800H @ 2.30GHz
 ```bash
 $BENCH -m models/gguf/4B/*.gguf -ngl 0 -fa 1
 ```
@@ -136,7 +136,7 @@ ggml_cuda_init: found 1 CUDA devices (Total VRAM: 3770 MiB):
 
 build: e2d67422c (8796)
 
-Cpu only 11th Gen Intel(R) Core(TM) i7-11800H @ 2.30GHz
+CPU run with CUDA build (`-ngl 0`): 11th Gen Intel(R) Core(TM) i7-11800H @ 2.30GHz
 ```bash
 $BENCH -m models/gguf/1.7B/*.gguf -ngl 0 -fa 1
 ```
