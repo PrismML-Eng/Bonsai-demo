@@ -13,14 +13,13 @@ $BaseUrl = "https://github.com/PrismML-Eng/llama.cpp/releases/download/$ReleaseT
 
 $BonsaiModel  = if ($env:BONSAI_MODEL)  { $env:BONSAI_MODEL }  else { "8B" }
 $BonsaiFamily = if ($env:BONSAI_FAMILY) { $env:BONSAI_FAMILY } else { "bonsai" }
+if ($BonsaiModel -notin @("8B", "4B", "1.7B")) {
+    Write-Host "[ERR] Unknown BONSAI_MODEL='$BonsaiModel'. Valid values: 8B, 4B, 1.7B" -ForegroundColor Red
+    exit 1
+}
 if ($BonsaiFamily -notin @("bonsai", "ternary")) {
     Write-Host "[ERR] Unknown BONSAI_FAMILY='$BonsaiFamily'. Valid values: bonsai, ternary" -ForegroundColor Red
     exit 1
-}
-$HfGgufRepo = if ($BonsaiFamily -eq "ternary") {
-    "prism-ml/Ternary-Bonsai-${BonsaiModel}-gguf"
-} else {
-    "prism-ml/Bonsai-${BonsaiModel}-gguf"
 }
 
 # ── Helpers ──
@@ -231,17 +230,31 @@ function Download-GgufModel($Size) {
         exit 1
     }
     New-Item -ItemType Directory -Path $dir -Force | Out-Null
-    & $HfCli download $repo --local-dir $dir 2>$null
+
+    # Required: let stderr flow to the user so they see auth/network/etc errors.
+    # Optional: capture stderr to a log file so the friendly "coming soon"
+    # message stays clean but users can still inspect the full error.
+    $errLog = $null
+    if ($optional) {
+        $errLog = Join-Path $PSScriptRoot "models\.$display-gguf-download.log"
+        & $HfCli download $repo --local-dir $dir 2>$errLog
+    } else {
+        & $HfCli download $repo --local-dir $dir
+    }
     $DownloadExitCode = $LASTEXITCODE
     $DownloadedGguf = Get-ChildItem -Path $dir -Filter "*.gguf" -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($DownloadExitCode -ne 0 -or -not $DownloadedGguf) {
         if ($optional) {
             Write-Host "[WARN] GGUF $display not available yet (coming soon - repo: $repo)." -ForegroundColor Yellow
+            Write-Host "  Full error saved to: $errLog" -ForegroundColor Yellow
             Remove-Item -Path $dir -Recurse -Force -ErrorAction SilentlyContinue
             return
         }
         Write-Host "[ERR] Failed to download GGUF $display. Try running '$HfCli download $repo --local-dir $dir' manually." -ForegroundColor Red
         exit 1
+    }
+    if ($optional -and $errLog -and (Test-Path $errLog)) {
+        Remove-Item $errLog -Force -ErrorAction SilentlyContinue
     }
     Write-Host "[OK] GGUF $display downloaded." -ForegroundColor Green
 }

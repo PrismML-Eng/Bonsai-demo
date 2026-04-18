@@ -9,6 +9,10 @@ from mlx_lm.generate import make_sampler
 
 _SIZE = os.environ.get("BONSAI_MODEL", "8B")
 _FAMILY = os.environ.get("BONSAI_FAMILY", "bonsai")
+if _FAMILY not in ("bonsai", "ternary"):
+    sys.exit(
+        f"Unknown BONSAI_FAMILY={_FAMILY!r}. Valid values: bonsai, ternary"
+    )
 _DEFAULT_MODEL = (
     f"models/Ternary-Bonsai-{_SIZE}-mlx"
     if _FAMILY == "ternary"

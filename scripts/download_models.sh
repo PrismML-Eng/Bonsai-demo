@@ -67,16 +67,29 @@ download_size() {
     esac
 
     # GGUF
+    #   Required (bonsai): let stderr flow to the user so they see auth/network
+    #   errors directly. Optional (ternary, not-yet-public): capture stderr to
+    #   a log file so the friendly "coming soon" message stays clean but users
+    #   can still inspect the full error.
     if [ -d "$_gguf_dir" ] && ls "$_gguf_dir"/*.gguf >/dev/null 2>&1; then
         info "GGUF ${_display} already present in ${_gguf_dir}/"
+    elif [ "$_gguf_optional" = 1 ]; then
+        step "Downloading GGUF ${_display} from ${_gguf_repo} ..."
+        mkdir -p "$_gguf_dir"
+        _errlog="models/.${_display}-gguf-download.log"
+        if hf_download "$_gguf_repo" "$_gguf_dir" 2>"$_errlog"; then
+            info "GGUF ${_display} downloaded to ${_gguf_dir}/"
+            rm -f "$_errlog"
+        else
+            warn "GGUF ${_display} not available yet (coming soon — repo: ${_gguf_repo})."
+            warn "  Full error saved to: ${_errlog}"
+            rm -rf "$_gguf_dir"
+        fi
     else
         step "Downloading GGUF ${_display} from ${_gguf_repo} ..."
         mkdir -p "$_gguf_dir"
-        if hf_download "$_gguf_repo" "$_gguf_dir" 2>/dev/null; then
+        if hf_download "$_gguf_repo" "$_gguf_dir"; then
             info "GGUF ${_display} downloaded to ${_gguf_dir}/"
-        elif [ "$_gguf_optional" = 1 ]; then
-            warn "GGUF ${_display} not available yet (coming soon — repo: ${_gguf_repo})."
-            rmdir "$_gguf_dir" 2>/dev/null || true
         else
             err "Failed to download GGUF ${_display} from ${_gguf_repo}."
             exit 1
