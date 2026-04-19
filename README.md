@@ -20,28 +20,22 @@
   <a href="ternary-bonsai-8b-whitepaper.pdf">Ternary-Bonsai 8B</a>
 </p>
 
-
-Using this demo you can run **Bonsai** (1-bit) and **Ternary-Bonsai** language models locally on Mac (Metal), Linux/Windows (CUDA, Vulkan, ROCm), or CPU.
-
-## Other Bonsai Demos
-
-Below are featured community demos and additional Bonsai demos hosted outside this repository. See the full [Bonsai demos collection](https://huggingface.co/collections/prism-ml/bonsai-demos) on HuggingFace for more.
-
-| Demo | Description |
-|------|-------------|
-| [Bonsai WebGPU](https://huggingface.co/spaces/webml-community/bonsai-webgpu) | Community / HuggingFace — 1-bit Bonsai, runs directly in your browser, no setup required |
-| [Ternary-Bonsai WebGPU](https://huggingface.co/spaces/webml-community/bonsai-ternary-webgpu) | Community / HuggingFace — Ternary-Bonsai (1.58-bit), runs directly in your browser |
-| [Bonsai GPU Demo](https://huggingface.co/spaces/prism-ml/Bonsai-demo) | Our hosted demo on GPUs on HuggingFace Spaces|
-| [Google Colab Notebook](https://colab.research.google.com/drive/1EzyAaQ2nwDv_1X0jaC5XiVC3ZREg9bdG?usp=sharing) | Run Bonsai in a Google Colab notebook |
+<p align="center">
+  <b>Other Demos:</b>
+  <a href="https://huggingface.co/spaces/prism-ml/Bonsai-demo">Bonsai {1, 1.58}-bit GPU Demo</a> ·
+  <a href="https://huggingface.co/spaces/webml-community/bonsai-webgpu">Bonsai WebGPU</a> ·
+  <a href="https://huggingface.co/spaces/webml-community/bonsai-ternary-webgpu">Ternary-Bonsai WebGPU</a> ·
+  <a href="https://colab.research.google.com/drive/1EzyAaQ2nwDv_1X0jaC5XiVC3ZREg9bdG?usp=sharing">Google Colab Notebook</a>
+</p>
 
 ---
 
-## Upstream Status for 1-bit
 
-- **[llama.cpp](https://github.com/ggml-org/llama.cpp)** (GGUF) — C/C++, runs on Mac (Metal), Linux/Windows (CUDA, Vulkan, ROCm/HIP), and CPU.
-- **[MLX](https://github.com/ml-explore/mlx)** (MLX format) — Python, optimized for Apple Silicon.
+Using this demo repository you can run **Bonsai** (1-bit) and **Ternary-Bonsai** language models locally on Mac (Metal), Linux/Windows (CUDA, Vulkan, ROCm), or CPU.
 
-Q1_0 support for CPU, Metal, CUDA, and Vulkan backends is already merged into upstream llama.cpp. Additional backends (optimized x86 CPU, AMD) are pending. In the meantime, our fork provides a more complete set of backends in one place:
+## Upstream Status for 1-bit (Q1_0)
+
+Q1_0 support for CPU, Metal, CUDA, and Vulkan backends is already merged into upstream [llama.cpp](https://github.com/ggml-org/llama.cpp). Additional backends (optimized x86 CPU, AMD) are pending. In the meantime, our fork provides a more complete set of backends in one place:
 - **llama.cpp:** [PrismML-Eng/llama.cpp](https://github.com/PrismML-Eng/llama.cpp) — [pre-built binaries](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b8796-e2d6742)
 - **MLX:** [PrismML-Eng/mlx](https://github.com/PrismML-Eng/mlx) (branch `prism`)
 
@@ -54,7 +48,23 @@ Q1_0 support for CPU, Metal, CUDA, and Vulkan backends is already merged into up
 | CPU (optimized x86) | ⏳ Pending | [#21636](https://github.com/ggml-org/llama.cpp/pull/21636) |
 | MLX | ⏳ Pending | [mlx#3161](https://github.com/ml-explore/mlx/pull/3161) |
 
-**Upstream status for 1.58-bit (`Q2_0`, etc.) — coming soon.** llama.cpp GGUF support for Ternary-Bonsai is on the way; PRs will land in our fork first, then upstream. MLX 2-bit is already supported today via stock MLX.
+## Upstream Status for 1.58-bit
+
+`Q2_0` is the format we currently use to pack ternary weights (~1.58 bits of information stored in 2 bits). It's a hardware-friendly choice: 2-bit alignment maps cleanly onto Metal and CUDA quantization paths and unlocks fast accelerated kernels, at the cost of being larger than a tight ternary packing.
+
+More compact ternary formats are TBD. llama.cpp already has `TQ1_0` and `TQ2_0` formats which are conceptually close, but they use group size 256 while Bonsai uses group size 128 so the existing TQ formats don't fit Bonsai weights exactly.
+
+`Q2_0` kernels for ternary inference are in our [PrismML-Eng/llama.cpp](https://github.com/PrismML-Eng/llama.cpp) fork (`prism` branch); upstream PRs are coming next. MLX 2-bit is already supported today via [MLX](https://github.com/ml-explore/mlx) (no fork needed).
+
+| Backend | Status | PR |
+|---------|--------|----|
+| CPU (NEON / generic) | `prism` fork | [9f31ffca](https://github.com/PrismML-Eng/llama.cpp/commit/9f31ffca); PR coming soon |
+| Metal | `prism` fork | [0eed5340](https://github.com/PrismML-Eng/llama.cpp/commit/0eed5340); PR coming soon |
+| CUDA | `prism` fork | [e380897e](https://github.com/PrismML-Eng/llama.cpp/commit/e380897e); PR coming soon |
+| CPU (optimized x86) | ⏳ TBD | — |
+| Vulkan | ⏳ TBD | — |
+| ROCm / HIP | ⏳ TBD | — |
+| MLX (2-bit) | Already supported in stock [MLX](https://github.com/ml-explore/mlx) | - |
 
 ## Benchmarks
 
