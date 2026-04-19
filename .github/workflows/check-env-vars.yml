@@ -105,6 +105,27 @@ jobs:
           fi
           echo "OK: runtime assert_gguf_downloaded rejects 'all'"
 
+      - name: Runtime assert_gguf_downloaded rejects invalid values without prior assert_valid_model
+        run: |
+          # Even if the caller forgets to call assert_valid_model first, the runtime
+          # asserts must still validate inputs (so they never glob /*.gguf or similar).
+          if ( export BONSAI_FAMILY=nonsense; . scripts/common.sh; assert_gguf_downloaded ) >/dev/null 2>&1; then
+            echo "FAIL: assert_gguf_downloaded accepted invalid BONSAI_FAMILY"
+            exit 1
+          fi
+          if ( export BONSAI_MODEL=16B; . scripts/common.sh; assert_mlx_downloaded ) >/dev/null 2>&1; then
+            echo "FAIL: assert_mlx_downloaded accepted invalid BONSAI_MODEL"
+            exit 1
+          fi
+          # Also: paths must be empty for invalid family (no stale/glob-able path).
+          (
+            export BONSAI_FAMILY=nonsense
+            . scripts/common.sh
+            [ -z "$GGUF_MODEL_DIR" ] || { echo "FAIL: gguf dir leaked for invalid family ($GGUF_MODEL_DIR)"; exit 1; }
+            [ -z "$MLX_MODEL_DIR" ]  || { echo "FAIL: mlx dir leaked for invalid family ($MLX_MODEL_DIR)"; exit 1; }
+          ) || exit 1
+          echo "OK: runtime asserts validate inputs and paths stay empty for invalid family"
+
       - name: Invalid BONSAI_FAMILY rejected
         run: |
           if ( export BONSAI_FAMILY=nonsense; . scripts/common.sh; assert_valid_model ) >/dev/null 2>&1; then

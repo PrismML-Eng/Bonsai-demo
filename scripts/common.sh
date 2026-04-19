@@ -9,9 +9,14 @@
 BONSAI_MODEL="${BONSAI_MODEL:-8B}"
 BONSAI_FAMILY="${BONSAI_FAMILY:-bonsai}"
 
-# Derived paths only apply when both vars are concrete. When either is "all"
-# the paths are left empty — runtime scripts should call assert_*_downloaded
-# which gives a clear error.
+# Derived paths default to empty so an invalid family or "all" never produces
+# a stale/glob-able path (e.g. `ls /*.gguf`). Concrete paths are only set when
+# the (family, size) pair is a valid concrete combination — runtime scripts
+# call assert_*_downloaded which validates and gives a clear error.
+GGUF_MODEL_DIR=""
+MLX_MODEL_DIR=""
+BONSAI_DISPLAY="(family=${BONSAI_FAMILY} size=${BONSAI_MODEL})"
+
 if [ "$BONSAI_FAMILY" != "all" ] && [ "$BONSAI_MODEL" != "all" ]; then
     case "$BONSAI_FAMILY" in
         bonsai)
@@ -24,11 +29,8 @@ if [ "$BONSAI_FAMILY" != "all" ] && [ "$BONSAI_MODEL" != "all" ]; then
             MLX_MODEL_DIR="models/Ternary-Bonsai-${BONSAI_MODEL}-mlx"
             BONSAI_DISPLAY="Ternary-Bonsai-${BONSAI_MODEL}"
             ;;
+        # Anything else: paths stay empty; assert_valid_model will reject when called.
     esac
-else
-    GGUF_MODEL_DIR=""
-    MLX_MODEL_DIR=""
-    BONSAI_DISPLAY="(family=${BONSAI_FAMILY} size=${BONSAI_MODEL} - download-only)"
 fi
 
 # Validate BONSAI_MODEL + BONSAI_FAMILY — call at the top of every run/server script
@@ -49,8 +51,11 @@ assert_valid_model() {
     esac
 }
 
-# Reject the download-only "all" at runtime with a clear message.
+# Reject invalid values and the download-only "all" at runtime with a clear
+# message. Called by assert_gguf_downloaded / assert_mlx_downloaded so they're
+# safe to call even if the run script forgot to call assert_valid_model first.
 _assert_concrete_model() {
+    assert_valid_model
     if [ "$BONSAI_FAMILY" = "all" ] || [ "$BONSAI_MODEL" = "all" ]; then
         err "BONSAI_FAMILY='all' / BONSAI_MODEL='all' is only valid for setup/download."
         echo "  Pick a concrete family/size for run scripts, e.g.:"
