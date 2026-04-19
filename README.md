@@ -36,7 +36,7 @@ Using this demo repository you can run **Bonsai** (1-bit) and **Ternary-Bonsai**
 ## Upstream Status for 1-bit (Q1_0)
 
 Q1_0 support for CPU, Metal, CUDA, and Vulkan backends is already merged into upstream [llama.cpp](https://github.com/ggml-org/llama.cpp). Additional backends (optimized x86 CPU, AMD) are pending. In the meantime, our fork provides a more complete set of backends in one place:
-- **llama.cpp:** [PrismML-Eng/llama.cpp](https://github.com/PrismML-Eng/llama.cpp) — [pre-built binaries](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b8796-e2d6742)
+- **llama.cpp:** [PrismML-Eng/llama.cpp](https://github.com/PrismML-Eng/llama.cpp) — [pre-built binaries](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b8846-d104cf1)
 - **MLX:** [PrismML-Eng/mlx](https://github.com/PrismML-Eng/mlx) (branch `prism`)
 
 | Backend | Status | PR |
@@ -179,7 +179,7 @@ The setup script handles everything for you, even on a fresh machine:
 2. **Installs [uv](https://docs.astral.sh/uv/)** — fast Python package manager (user-local, not global)
 3. **Creates a Python venv** and runs `uv sync` — installs cmake, ninja, huggingface-cli from `pyproject.toml`
 4. **Downloads models** from HuggingFace (needs `PRISM_HF_TOKEN` while repos are private)
-5. **Downloads pre-built binaries** from [GitHub Release](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b8796-e2d6742) (or builds from source if you prefer)
+5. **Downloads pre-built binaries** from [GitHub Release](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b8846-d104cf1) (or builds from source if you prefer)
 6. **Builds MLX from source** (macOS only) — clones our fork, then `uv sync --extra mlx` for the full ML stack
 
 Re-running `setup.sh` is safe — it skips already-completed steps.
@@ -350,7 +350,7 @@ Requires Visual Studio Build Tools or full Visual Studio with C++ workload.
 
 ## llama.cpp Pre-built Binary Downloads
 
-All binaries are available from the [GitHub Release](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b8796-e2d6742):
+All binaries are available from the [GitHub Release](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b8846-d104cf1):
 
 | Platform                          |
 |-----------------------------------|
