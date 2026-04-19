@@ -2,10 +2,13 @@
 # Download Bonsai / Ternary-Bonsai models from HuggingFace.
 #
 # Usage:
-#   ./scripts/download_models.sh                                        # Bonsai 8B (default)
-#   BONSAI_MODEL=4B ./scripts/download_models.sh                        # Bonsai 4B
-#   BONSAI_FAMILY=ternary ./scripts/download_models.sh                  # Ternary-Bonsai 8B
+#   ./scripts/download_models.sh                                         # Bonsai 8B (default)
+#   BONSAI_MODEL=4B ./scripts/download_models.sh                         # Bonsai 4B
+#   BONSAI_FAMILY=ternary ./scripts/download_models.sh                   # Ternary-Bonsai 8B
 #   BONSAI_FAMILY=ternary BONSAI_MODEL=1.7B ./scripts/download_models.sh # Ternary-Bonsai 1.7B
+#   BONSAI_MODEL=all ./scripts/download_models.sh                        # All sizes of the selected family
+#   BONSAI_FAMILY=all ./scripts/download_models.sh                       # Both families, 8B size
+#   BONSAI_FAMILY=all BONSAI_MODEL=all ./scripts/download_models.sh      # Full matrix (6 downloads)
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -44,10 +47,11 @@ snapshot_download(
 "
 }
 
-# ── Download GGUF + MLX for one model size ──
-download_size() {
-    _size="$1"
-    case "$BONSAI_FAMILY" in
+# ── Download GGUF + MLX for one (family, size) pair ──
+download_one() {
+    _family="$1"
+    _size="$2"
+    case "$_family" in
         bonsai)
             _gguf_repo="prism-ml/Bonsai-${_size}-gguf"
             _mlx_repo="prism-ml/Bonsai-${_size}-mlx-1bit"
@@ -110,7 +114,21 @@ download_size() {
 
 mkdir -p models
 
-download_size "$BONSAI_MODEL"
+# Expand "all" for family and size into concrete lists, then iterate.
+case "$BONSAI_FAMILY" in
+    all) _families="bonsai ternary" ;;
+    *)   _families="$BONSAI_FAMILY" ;;
+esac
+case "$BONSAI_MODEL" in
+    all) _sizes="8B 4B 1.7B" ;;
+    *)   _sizes="$BONSAI_MODEL" ;;
+esac
+
+for _f in $_families; do
+    for _s in $_sizes; do
+        download_one "$_f" "$_s"
+    done
+done
 
 if [ "$(uname -s)" != "Darwin" ]; then
     info "Skipping MLX models (macOS only)."

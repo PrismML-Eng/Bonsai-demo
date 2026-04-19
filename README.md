@@ -100,12 +100,14 @@ When you set `BONSAI_FAMILY=ternary`, `setup.sh` downloads the MLX 2-bit weights
 
 ### Environment variables
 
-Both variables are optional. **If you set neither, the default is `Bonsai-8B` (1-bit, 8 billion parameters)** — that's what plain `./setup.sh` downloads and runs. They're read by `setup.sh`, `setup.ps1`, `download_models.sh`, and every `run_*` / `start_*` script.
+Both variables are optional. **If you set neither, the default is `Bonsai-8B` (1-bit, 8 billion parameters)** — that's what plain `./setup.sh` downloads and runs. They're read by `setup.sh`, `setup.ps1`, `download_models.sh`, and every Mac/Linux `run_*` / `start_*` script. The Windows PowerShell run/start scripts currently only honor `BONSAI_MODEL`; `BONSAI_FAMILY` support on Windows run-time will land alongside the public Ternary-Bonsai GGUFs.
 
-| Variable        | Default  | Valid values         | Purpose |
-|-----------------|----------|----------------------|---------|
-| `BONSAI_FAMILY` | `bonsai` | `bonsai`, `ternary`  | Model family. `bonsai` = 1-bit Bonsai; `ternary` = 1.58-bit Ternary-Bonsai. |
-| `BONSAI_MODEL`  | `8B`     | `8B`, `4B`, `1.7B`   | Model size. |
+| Variable        | Default  | Valid values                   | Purpose |
+|-----------------|----------|--------------------------------|---------|
+| `BONSAI_FAMILY` | `bonsai` | `bonsai`, `ternary`, `all`     | Model family. `bonsai` = 1-bit Bonsai; `ternary` = 1.58-bit Ternary-Bonsai. `all` expands to both families (setup/download only). |
+| `BONSAI_MODEL`  | `8B`     | `8B`, `4B`, `1.7B`, `all`      | Model size. `all` expands to all three sizes (setup/download only). |
+
+`all` is only valid for `setup.sh` / `setup.ps1` / `download_models.sh` — the run/server scripts need a concrete family/size.
 
 Combine them freely:
 
@@ -114,6 +116,8 @@ Combine them freely:
 BONSAI_MODEL=1.7B ./setup.sh                                # Bonsai-1.7B
 BONSAI_FAMILY=ternary ./setup.sh                            # Ternary-Bonsai-8B
 BONSAI_FAMILY=ternary BONSAI_MODEL=4B ./setup.sh            # Ternary-Bonsai-4B
+BONSAI_MODEL=all ./setup.sh                                 # All 3 Bonsai sizes
+BONSAI_FAMILY=all BONSAI_MODEL=all ./setup.sh               # Full matrix (6 downloads)
 ```
 
 ---

@@ -13,12 +13,12 @@ $BaseUrl = "https://github.com/PrismML-Eng/llama.cpp/releases/download/$ReleaseT
 
 $BonsaiModel  = if ($env:BONSAI_MODEL)  { $env:BONSAI_MODEL }  else { "8B" }
 $BonsaiFamily = if ($env:BONSAI_FAMILY) { $env:BONSAI_FAMILY } else { "bonsai" }
-if ($BonsaiModel -notin @("8B", "4B", "1.7B")) {
-    Write-Host "[ERR] Unknown BONSAI_MODEL='$BonsaiModel'. Valid values: 8B, 4B, 1.7B" -ForegroundColor Red
+if ($BonsaiModel -notin @("8B", "4B", "1.7B", "all")) {
+    Write-Host "[ERR] Unknown BONSAI_MODEL='$BonsaiModel'. Valid values: 8B, 4B, 1.7B, all" -ForegroundColor Red
     exit 1
 }
-if ($BonsaiFamily -notin @("bonsai", "ternary")) {
-    Write-Host "[ERR] Unknown BONSAI_FAMILY='$BonsaiFamily'. Valid values: bonsai, ternary" -ForegroundColor Red
+if ($BonsaiFamily -notin @("bonsai", "ternary", "all")) {
+    Write-Host "[ERR] Unknown BONSAI_FAMILY='$BonsaiFamily'. Valid values: bonsai, ternary, all" -ForegroundColor Red
     exit 1
 }
 
@@ -204,8 +204,8 @@ if ($GpuType -eq "cuda") {
 # ── 7. Download GGUF model ──
 Write-Host "==> Downloading model (family=$BonsaiFamily size=$BonsaiModel) ..." -ForegroundColor Cyan
 
-function Download-GgufModel($Size) {
-    if ($BonsaiFamily -eq "ternary") {
+function Download-GgufModel($Family, $Size) {
+    if ($Family -eq "ternary") {
         $repo = "prism-ml/Ternary-Bonsai-${Size}-gguf"
         $dir = Join-Path $PSScriptRoot "models\ternary-gguf\$Size"
         $display = "Ternary-Bonsai-$Size"
@@ -259,10 +259,13 @@ function Download-GgufModel($Size) {
     Write-Host "[OK] GGUF $display downloaded." -ForegroundColor Green
 }
 
-if ($BonsaiModel -eq "all") {
-    foreach ($sz in @("8B", "4B", "1.7B")) { Download-GgufModel $sz }
-} else {
-    Download-GgufModel $BonsaiModel
+# Expand "all" for family and size into concrete lists, then iterate.
+$families = if ($BonsaiFamily -eq "all") { @("bonsai", "ternary") } else { @($BonsaiFamily) }
+$sizes    = if ($BonsaiModel  -eq "all") { @("8B", "4B", "1.7B") } else { @($BonsaiModel) }
+foreach ($fam in $families) {
+    foreach ($sz in $sizes) {
+        Download-GgufModel $fam $sz
+    }
 }
 
 # ── 8. Download pre-built binaries ──
