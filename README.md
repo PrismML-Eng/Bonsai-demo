@@ -20,29 +20,23 @@
   <a href="ternary-bonsai-8b-whitepaper.pdf">Ternary-Bonsai 8B</a>
 </p>
 
-
-Using this demo you can run **Bonsai** (1-bit) and **Ternary-Bonsai** language models locally on Mac (Metal), Linux/Windows (CUDA, Vulkan, ROCm), or CPU.
-
-## Other Bonsai Demos
-
-Below are featured community demos and additional Bonsai demos hosted outside this repository. See the full [Bonsai demos collection](https://huggingface.co/collections/prism-ml/bonsai-demos) on HuggingFace for more.
-
-| Demo | Description |
-|------|-------------|
-| [Bonsai WebGPU](https://huggingface.co/spaces/webml-community/bonsai-webgpu) | Community / HuggingFace — 1-bit Bonsai, runs directly in your browser, no setup required |
-| [Ternary-Bonsai WebGPU](https://huggingface.co/spaces/webml-community/bonsai-ternary-webgpu) | Community / HuggingFace — Ternary-Bonsai (1.58-bit), runs directly in your browser |
-| [Bonsai GPU Demo](https://huggingface.co/spaces/prism-ml/Bonsai-demo) | Our hosted demo on GPUs on HuggingFace Spaces|
-| [Google Colab Notebook](https://colab.research.google.com/drive/1EzyAaQ2nwDv_1X0jaC5XiVC3ZREg9bdG?usp=sharing) | Run Bonsai in a Google Colab notebook |
+<p align="center">
+  <b>Other Demos:</b>
+  <a href="https://huggingface.co/spaces/prism-ml/Bonsai-demo">Bonsai {1, 1.58}-bit GPU Demo</a> ·
+  <a href="https://huggingface.co/spaces/webml-community/bonsai-webgpu">Bonsai WebGPU</a> ·
+  <a href="https://huggingface.co/spaces/webml-community/bonsai-ternary-webgpu">Ternary-Bonsai WebGPU</a> ·
+  <a href="https://colab.research.google.com/drive/1EzyAaQ2nwDv_1X0jaC5XiVC3ZREg9bdG?usp=sharing">Google Colab Notebook</a>
+</p>
 
 ---
 
-## Upstream Status for 1-bit
 
-- **[llama.cpp](https://github.com/ggml-org/llama.cpp)** (GGUF) — C/C++, runs on Mac (Metal), Linux/Windows (CUDA, Vulkan, ROCm/HIP), and CPU.
-- **[MLX](https://github.com/ml-explore/mlx)** (MLX format) — Python, optimized for Apple Silicon.
+Using this demo repository you can run **Bonsai** (1-bit) and **Ternary-Bonsai** language models locally on Mac (Metal), Linux/Windows (CUDA, Vulkan, ROCm), or CPU.
 
-Q1_0 support for CPU, Metal, CUDA, and Vulkan backends is already merged into upstream llama.cpp. Additional backends (optimized x86 CPU, AMD) are pending. In the meantime, our fork provides a more complete set of backends in one place:
-- **llama.cpp:** [PrismML-Eng/llama.cpp](https://github.com/PrismML-Eng/llama.cpp) — [pre-built binaries](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b8796-e2d6742)
+## Upstream Status for 1-bit (Q1_0)
+
+Q1_0 support for CPU, Metal, CUDA, and Vulkan backends is already merged into upstream [llama.cpp](https://github.com/ggml-org/llama.cpp). Additional backends (optimized x86 CPU, AMD) are pending. In the meantime, our fork provides a more complete set of backends in one place:
+- **llama.cpp:** [PrismML-Eng/llama.cpp](https://github.com/PrismML-Eng/llama.cpp) — [pre-built binaries](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b8846-d104cf1)
 - **MLX:** [PrismML-Eng/mlx](https://github.com/PrismML-Eng/mlx) (branch `prism`)
 
 | Backend | Status | PR |
@@ -51,10 +45,26 @@ Q1_0 support for CPU, Metal, CUDA, and Vulkan backends is already merged into up
 | Metal | ✅ Merged | [#21528](https://github.com/ggml-org/llama.cpp/pull/21528) |
 | CUDA | ✅ Merged | [#21629](https://github.com/ggml-org/llama.cpp/pull/21629) |
 | Vulkan | ✅ Merged | [#21539](https://github.com/ggml-org/llama.cpp/pull/21539) (community contribution) |
-| CPU (optimized x86) | ⏳ Pending | [#21636](https://github.com/ggml-org/llama.cpp/pull/21636) |
+| CPU (optimized x86) |  ✅ Merged | [#21636](https://github.com/ggml-org/llama.cpp/pull/21636) |
 | MLX | ⏳ Pending | [mlx#3161](https://github.com/ml-explore/mlx/pull/3161) |
 
-**Upstream status for 1.58-bit (`Q2_0`, etc.) — coming soon.** llama.cpp GGUF support for Ternary-Bonsai is on the way; PRs will land in our fork first, then upstream. MLX 2-bit is already supported today via stock MLX.
+## Upstream Status for 1.58-bit
+
+`Q2_0` is the format we currently use to pack ternary weights (~1.58 bits of information stored in 2 bits). It's a hardware-friendly choice: 2-bit alignment maps cleanly onto Metal and CUDA quantization paths and unlocks fast accelerated kernels, at the cost of being larger than a tight ternary packing.
+
+More compact ternary formats are TBD. llama.cpp already has `TQ1_0` and `TQ2_0` formats which are conceptually close, but they use group size 256 while Bonsai uses group size 128 so the existing TQ formats don't fit Bonsai weights exactly.
+
+`Q2_0` kernels for ternary inference are in our [PrismML-Eng/llama.cpp](https://github.com/PrismML-Eng/llama.cpp) fork (`prism` branch); upstream PRs are coming next. MLX 2-bit is already supported today via [MLX](https://github.com/ml-explore/mlx) (no fork needed).
+
+| Backend | Status | PR |
+|---------|--------|----|
+| CPU (NEON / generic) | `prism` fork | [9f31ffca](https://github.com/PrismML-Eng/llama.cpp/commit/9f31ffca); PR coming soon |
+| Metal | `prism` fork | [0eed5340](https://github.com/PrismML-Eng/llama.cpp/commit/0eed5340); PR coming soon |
+| CUDA | `prism` fork | [e380897e](https://github.com/PrismML-Eng/llama.cpp/commit/e380897e); PR coming soon |
+| CPU (optimized x86) | ⏳ TBD | — |
+| Vulkan | ⏳ TBD | — |
+| ROCm / HIP | ⏳ TBD | — |
+| MLX (2-bit) | Already supported in stock [MLX](https://github.com/ml-explore/mlx) | - |
 
 ## Benchmarks
 
@@ -96,7 +106,29 @@ MLX 2-bit supported out of the box. GGUFs (`Q2_0`, etc.) coming soon. See the [T
 | Ternary-Bonsai-4B      | GGUF          | [prism-ml/Ternary-Bonsai-4B-gguf](https://huggingface.co/prism-ml/Ternary-Bonsai-4B-gguf) — *coming soon*       |
 | Ternary-Bonsai-1.7B    | GGUF          | [prism-ml/Ternary-Bonsai-1.7B-gguf](https://huggingface.co/prism-ml/Ternary-Bonsai-1.7B-gguf) — *coming soon*   |
 
-> Ternary-Bonsai is not yet wired into `setup.sh` / `BONSAI_MODEL` — download directly from HuggingFace for now.
+When you set `BONSAI_FAMILY=ternary`, `setup.sh` downloads the MLX 2-bit weights today; GGUFs will be fetched automatically once the HF repos go public.
+
+### Environment variables
+
+Both variables are optional. **If you set neither, the default is `Bonsai-8B` (1-bit, 8 billion parameters)** — that's what plain `./setup.sh` downloads and runs. They're read by `setup.sh`, `setup.ps1`, `download_models.sh`, and every Mac/Linux `run_*` / `start_*` script. The Windows PowerShell run/start scripts currently only honor `BONSAI_MODEL`; `BONSAI_FAMILY` support on Windows run-time will land alongside the public Ternary-Bonsai GGUFs.
+
+| Variable        | Default  | Valid values                   | Purpose |
+|-----------------|----------|--------------------------------|---------|
+| `BONSAI_FAMILY` | `bonsai` | `bonsai`, `ternary`, `all`     | Model family. `bonsai` = 1-bit Bonsai; `ternary` = 1.58-bit Ternary-Bonsai. `all` expands to both families (setup/download only). |
+| `BONSAI_MODEL`  | `8B`     | `8B`, `4B`, `1.7B`, `all`      | Model size. `all` expands to all three sizes (setup/download only). |
+
+`all` is only valid for `setup.sh` / `setup.ps1` / `download_models.sh` — the run/server scripts need a concrete family/size.
+
+Combine them freely:
+
+```bash
+./setup.sh                                                  # Bonsai-8B (default)
+BONSAI_MODEL=1.7B ./setup.sh                                # Bonsai-1.7B
+BONSAI_FAMILY=ternary ./setup.sh                            # Ternary-Bonsai-8B
+BONSAI_FAMILY=ternary BONSAI_MODEL=4B ./setup.sh            # Ternary-Bonsai-4B
+BONSAI_MODEL=all ./setup.sh                                 # All 3 Bonsai sizes
+BONSAI_FAMILY=all BONSAI_MODEL=all ./setup.sh               # Full matrix (6 downloads)
+```
 
 ---
 
@@ -156,7 +188,7 @@ The setup script handles everything for you, even on a fresh machine:
 2. **Installs [uv](https://docs.astral.sh/uv/)** — fast Python package manager (user-local, not global)
 3. **Creates a Python venv** and runs `uv sync` — installs cmake, ninja, huggingface-cli from `pyproject.toml`
 4. **Downloads models** from HuggingFace (needs `PRISM_HF_TOKEN` while repos are private)
-5. **Downloads pre-built binaries** from [GitHub Release](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b8796-e2d6742) (or builds from source if you prefer)
+5. **Downloads pre-built binaries** from [GitHub Release](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b8846-d104cf1) (or builds from source if you prefer)
 6. **Builds MLX from source** (macOS only) — clones our fork, then `uv sync --extra mlx` for the full ML stack
 
 Re-running `setup.sh` is safe — it skips already-completed steps.
@@ -327,7 +359,7 @@ Requires Visual Studio Build Tools or full Visual Studio with C++ workload.
 
 ## llama.cpp Pre-built Binary Downloads
 
-All binaries are available from the [GitHub Release](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b8796-e2d6742):
+All binaries are available from the [GitHub Release](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b8846-d104cf1):
 
 | Platform                          |
 |-----------------------------------|

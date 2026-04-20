@@ -7,8 +7,8 @@ $PythonVersion = "3.11"
 $VenvDir = Join-Path $PSScriptRoot ".venv"
 $VenvPy  = Join-Path $VenvDir "Scripts\python.exe"
 
-$ReleaseTag = "prism-b8796-e2d6742"
-$WinAssetTag = "prism-b1-e2d6742"                    # Windows builds use shortened tag
+$ReleaseTag = "prism-b8846-d104cf1"
+$WinAssetTag = "prism-b1-d104cf1"                    # Windows builds use shortened tag
 $BaseUrl = "https://github.com/PrismML-Eng/llama.cpp/releases/download/$ReleaseTag"
 
 $BonsaiModel = if ($env:BONSAI_MODEL) { $env:BONSAI_MODEL } else { "8B" }
@@ -20,6 +20,21 @@ if ($BonsaiVariant -eq "ternary") {
 } else {
     $HfGgufRepoPrefix = "prism-ml/Bonsai"
     $ModelLocalDir = "models\gguf\$BonsaiModel"
+
+$BonsaiModel  = if ($env:BONSAI_MODEL)  { $env:BONSAI_MODEL }  else { "8B" }
+$BonsaiFamily = if ($env:BONSAI_FAMILY) { $env:BONSAI_FAMILY } else { "bonsai" }
+
+$BonsaiModel = if ($BonsaiModel.ToLowerInvariant() -eq "all") { "all" } else { $BonsaiModel.ToUpperInvariant() }
+$BonsaiFamily = $BonsaiFamily.ToLowerInvariant()
+
+if ($BonsaiModel -notin @("8B", "4B", "1.7B", "all")) {
+    Write-Host "[ERR] Unknown BONSAI_MODEL='$BonsaiModel'. Valid values: 8B, 4B, 1.7B, all" -ForegroundColor Red
+    exit 1
+}
+if ($BonsaiFamily -notin @("bonsai", "ternary", "all")) {
+    Write-Host "[ERR] Unknown BONSAI_FAMILY='$BonsaiFamily'. Valid values: bonsai, ternary, all" -ForegroundColor Red
+    exit 1
+
 }
 
 # ── Helpers ──
@@ -202,7 +217,20 @@ if ($GpuType -eq "cuda") {
 }
 
 # ── 7. Download GGUF model ──
-Write-Host "==> Downloading model ($BonsaiModel) ..." -ForegroundColor Cyan
+Write-Host "==> Downloading model (family=$BonsaiFamily size=$BonsaiModel) ..." -ForegroundColor Cyan
+
+function Download-GgufModel($Family, $Size) {
+    if ($Family -eq "ternary") {
+        $repo = "prism-ml/Ternary-Bonsai-${Size}-gguf"
+        $dir = Join-Path $PSScriptRoot "models\ternary-gguf\$Size"
+        $display = "Ternary-Bonsai-$Size"
+        $optional = $true   # Ternary GGUFs not yet public - skip gracefully on failure
+    } else {
+        $repo = "prism-ml/Bonsai-${Size}-gguf"
+        $dir = Join-Path $PSScriptRoot "models\gguf\$Size"
+        $display = "Bonsai-$Size"
+        $optional = $false
+    }
 
 function Download-GgufModel($Size) {
     if ($BonsaiVariant -eq "ternary") {
@@ -215,6 +243,10 @@ function Download-GgufModel($Size) {
     
     if (Test-Path "$dir\*.gguf") {
         Write-Host "[OK] GGUF $Size ($BonsaiVariant) already present." -ForegroundColor Green
+
+    if (Test-Path "$dir\*.gguf") {
+        Write-Host "[OK] GGUF $display already present." -ForegroundColor Green
+
         return
     }
     $HfCli = Join-Path $VenvDir "Scripts\hf.exe"
@@ -226,21 +258,46 @@ function Download-GgufModel($Size) {
         exit 1
     }
     New-Item -ItemType Directory -Path $dir -Force | Out-Null
+
     Write-Host "    Downloading $repo ..." -ForegroundColor Cyan
     & $HfCli download $repo --local-dir $dir
+
+    # Required: let stderr flow to the user so they see auth/network/etc errors.
+    # Optional: capture stderr to a log file so the friendly "coming soon"
+    # message stays clean but users can still inspect the full error.
+    $errLog = $null
+    if ($optional) {
+        $errLog = Join-Path $PSScriptRoot "models\.$display-gguf-download.log"
+        & $HfCli download $repo --local-dir $dir 2>$errLog
+    } else {
+        & $HfCli download $repo --local-dir $dir
+    }
+
     $DownloadExitCode = $LASTEXITCODE
     $DownloadedGguf = Get-ChildItem -Path $dir -Filter "*.gguf" -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($DownloadExitCode -ne 0 -or -not $DownloadedGguf) {
-        Write-Host "[ERR] Failed to download GGUF $Size. Try running '$HfCli download $repo --local-dir $dir' manually." -ForegroundColor Red
+        if ($optional) {
+            Write-Host "[WARN] GGUF $display not available yet (coming soon - repo: $repo)." -ForegroundColor Yellow
+            Write-Host "  Full error saved to: $errLog" -ForegroundColor Yellow
+            Remove-Item -Path $dir -Recurse -Force -ErrorAction SilentlyContinue
+            return
+        }
+        Write-Host "[ERR] Failed to download GGUF $display. Try running '$HfCli download $repo --local-dir $dir' manually." -ForegroundColor Red
         exit 1
     }
-    Write-Host "[OK] GGUF $Size downloaded." -ForegroundColor Green
+    if ($optional -and $errLog -and (Test-Path $errLog)) {
+        Remove-Item $errLog -Force -ErrorAction SilentlyContinue
+    }
+    Write-Host "[OK] GGUF $display downloaded." -ForegroundColor Green
 }
 
-if ($BonsaiModel -eq "all") {
-    foreach ($sz in @("8B", "4B", "1.7B")) { Download-GgufModel $sz }
-} else {
-    Download-GgufModel $BonsaiModel
+# Expand "all" for family and size into concrete lists, then iterate.
+$families = if ($BonsaiFamily -eq "all") { @("bonsai", "ternary") } else { @($BonsaiFamily) }
+$sizes    = if ($BonsaiModel  -eq "all") { @("8B", "4B", "1.7B") } else { @($BonsaiModel) }
+foreach ($fam in $families) {
+    foreach ($sz in $sizes) {
+        Download-GgufModel $fam $sz
+    }
 }
 
 # ── 8. Download pre-built binaries ──
@@ -306,7 +363,7 @@ if ($GpuType -eq "hip") {
 # ── Done ──
 Write-Host ""
 Write-Host "========================================="
-Write-Host "   Setup complete! (BONSAI_MODEL=$BonsaiModel)"
+Write-Host "   Setup complete! (BONSAI_FAMILY=$BonsaiFamily BONSAI_MODEL=$BonsaiModel)"
 Write-Host "========================================="
 Write-Host ""
 Write-Host "  See README.md for usage examples." -ForegroundColor Cyan

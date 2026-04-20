@@ -1,0 +1,143 @@
+name: Env var smoke tests
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  syntax-and-env-vars:
+    name: Script syntax and BONSAI_FAMILY/BONSAI_MODEL resolution
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Shell script syntax
+        run: |
+          sh -n scripts/common.sh
+          sh -n scripts/download_models.sh
+          sh -n setup.sh
+          echo "OK: shell scripts parse"
+
+      - name: Python script syntax
+        run: |
+          python3 -c "import ast; ast.parse(open('scripts/mlx_generate.py').read())"
+          echo "OK: mlx_generate.py parses"
+
+      - name: PowerShell script syntax (setup.ps1)
+        shell: pwsh
+        run: |
+          $tokens = $null; $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path ./setup.ps1).Path, [ref]$tokens, [ref]$errors
+          ) | Out-Null
+          if ($errors -and $errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Host $_.Message }
+            exit 1
+          }
+          Write-Host "OK: setup.ps1 parses"
+
+      - name: Default resolves to Bonsai-8B (no env vars set)
+        run: |
+          unset BONSAI_FAMILY BONSAI_MODEL
+          . scripts/common.sh
+          [ "$BONSAI_FAMILY"   = "bonsai" ]              || { echo "FAIL: default family=$BONSAI_FAMILY"; exit 1; }
+          [ "$BONSAI_MODEL"    = "8B" ]                  || { echo "FAIL: default size=$BONSAI_MODEL"; exit 1; }
+          [ "$GGUF_MODEL_DIR"  = "models/gguf/8B" ]      || { echo "FAIL: gguf dir=$GGUF_MODEL_DIR"; exit 1; }
+          [ "$MLX_MODEL_DIR"   = "models/Bonsai-8B-mlx" ] || { echo "FAIL: mlx dir=$MLX_MODEL_DIR"; exit 1; }
+          [ "$BONSAI_DISPLAY"  = "Bonsai-8B" ]           || { echo "FAIL: display=$BONSAI_DISPLAY"; exit 1; }
+          echo "OK: no-env default resolves to Bonsai-8B"
+
+      - name: All concrete (family x size) combos resolve correctly
+        run: |
+          _check() {
+            f="$1"; s="$2"; exp_gguf="$3"; exp_mlx="$4"; exp_display="$5"
+            (
+              export BONSAI_FAMILY="$f" BONSAI_MODEL="$s"
+              . scripts/common.sh
+              [ "$GGUF_MODEL_DIR" = "$exp_gguf" ]    || { echo "FAIL $f/$s gguf: $GGUF_MODEL_DIR != $exp_gguf"; exit 1; }
+              [ "$MLX_MODEL_DIR"  = "$exp_mlx" ]     || { echo "FAIL $f/$s mlx: $MLX_MODEL_DIR != $exp_mlx"; exit 1; }
+              [ "$BONSAI_DISPLAY" = "$exp_display" ] || { echo "FAIL $f/$s display: $BONSAI_DISPLAY != $exp_display"; exit 1; }
+              assert_valid_model
+            ) || exit 1
+            echo "  OK: $f $s"
+          }
+          _check bonsai  8B    models/gguf/8B            models/Bonsai-8B-mlx            Bonsai-8B
+          _check bonsai  4B    models/gguf/4B            models/Bonsai-4B-mlx            Bonsai-4B
+          _check bonsai  1.7B  models/gguf/1.7B          models/Bonsai-1.7B-mlx          Bonsai-1.7B
+          _check ternary 8B    models/ternary-gguf/8B    models/Ternary-Bonsai-8B-mlx    Ternary-Bonsai-8B
+          _check ternary 4B    models/ternary-gguf/4B    models/Ternary-Bonsai-4B-mlx    Ternary-Bonsai-4B
+          _check ternary 1.7B  models/ternary-gguf/1.7B  models/Ternary-Bonsai-1.7B-mlx  Ternary-Bonsai-1.7B
+
+      - name: '"all" accepted by validation; paths left empty for runtime safety'
+        run: |
+          _check_all() {
+            f="$1"; s="$2"
+            (
+              export BONSAI_FAMILY="$f" BONSAI_MODEL="$s"
+              . scripts/common.sh
+              assert_valid_model
+              [ -z "$GGUF_MODEL_DIR" ] || { echo "FAIL $f/$s: gguf dir not empty ($GGUF_MODEL_DIR)"; exit 1; }
+              [ -z "$MLX_MODEL_DIR" ]  || { echo "FAIL $f/$s: mlx dir not empty ($MLX_MODEL_DIR)"; exit 1; }
+            ) || exit 1
+            echo "  OK: $f $s (paths empty, assert_valid_model passed)"
+          }
+          _check_all all     8B
+          _check_all bonsai  all
+          _check_all ternary all
+          _check_all all     all
+
+      - name: Runtime assert_gguf_downloaded rejects "all"
+        run: |
+          if ( export BONSAI_MODEL=all; . scripts/common.sh; assert_gguf_downloaded ) >/dev/null 2>&1; then
+            echo "FAIL: assert_gguf_downloaded accepted BONSAI_MODEL=all"
+            exit 1
+          fi
+          if ( export BONSAI_FAMILY=all; . scripts/common.sh; assert_gguf_downloaded ) >/dev/null 2>&1; then
+            echo "FAIL: assert_gguf_downloaded accepted BONSAI_FAMILY=all"
+            exit 1
+          fi
+          echo "OK: runtime assert_gguf_downloaded rejects 'all'"
+
+      - name: Runtime assert_gguf_downloaded rejects invalid values without prior assert_valid_model
+        run: |
+          # Even if the caller forgets to call assert_valid_model first, the runtime
+          # asserts must still validate inputs (so they never glob /*.gguf or similar).
+          if ( export BONSAI_FAMILY=nonsense; . scripts/common.sh; assert_gguf_downloaded ) >/dev/null 2>&1; then
+            echo "FAIL: assert_gguf_downloaded accepted invalid BONSAI_FAMILY"
+            exit 1
+          fi
+          if ( export BONSAI_MODEL=16B; . scripts/common.sh; assert_mlx_downloaded ) >/dev/null 2>&1; then
+            echo "FAIL: assert_mlx_downloaded accepted invalid BONSAI_MODEL"
+            exit 1
+          fi
+          # Also: paths must be empty for invalid family (no stale/glob-able path).
+          (
+            export BONSAI_FAMILY=nonsense
+            . scripts/common.sh
+            [ -z "$GGUF_MODEL_DIR" ] || { echo "FAIL: gguf dir leaked for invalid family ($GGUF_MODEL_DIR)"; exit 1; }
+            [ -z "$MLX_MODEL_DIR" ]  || { echo "FAIL: mlx dir leaked for invalid family ($MLX_MODEL_DIR)"; exit 1; }
+          ) || exit 1
+          echo "OK: runtime asserts validate inputs and paths stay empty for invalid family"
+
+      - name: Invalid BONSAI_FAMILY rejected
+        run: |
+          if ( export BONSAI_FAMILY=nonsense; . scripts/common.sh; assert_valid_model ) >/dev/null 2>&1; then
+            echo "FAIL: invalid BONSAI_FAMILY was accepted"
+            exit 1
+          fi
+          echo "OK: invalid BONSAI_FAMILY rejected"
+
+      - name: Invalid BONSAI_MODEL rejected
+        run: |
+          if ( export BONSAI_MODEL=16B; . scripts/common.sh; assert_valid_model ) >/dev/null 2>&1; then
+            echo "FAIL: invalid BONSAI_MODEL was accepted"
+            exit 1
+          fi
+          echo "OK: invalid BONSAI_MODEL rejected"
