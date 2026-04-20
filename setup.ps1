@@ -13,6 +13,10 @@ $BaseUrl = "https://github.com/PrismML-Eng/llama.cpp/releases/download/$ReleaseT
 
 $BonsaiModel  = if ($env:BONSAI_MODEL)  { $env:BONSAI_MODEL }  else { "8B" }
 $BonsaiFamily = if ($env:BONSAI_FAMILY) { $env:BONSAI_FAMILY } else { "bonsai" }
+
+$BonsaiModel = if ($BonsaiModel.ToLowerInvariant() -eq "all") { "all" } else { $BonsaiModel.ToUpperInvariant() }
+$BonsaiFamily = $BonsaiFamily.ToLowerInvariant()
+
 if ($BonsaiModel -notin @("8B", "4B", "1.7B", "all")) {
     Write-Host "[ERR] Unknown BONSAI_MODEL='$BonsaiModel'. Valid values: 8B, 4B, 1.7B, all" -ForegroundColor Red
     exit 1

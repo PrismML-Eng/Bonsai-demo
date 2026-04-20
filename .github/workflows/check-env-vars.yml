@@ -50,7 +50,7 @@ jobs:
           [ "$BONSAI_FAMILY"   = "bonsai" ]              || { echo "FAIL: default family=$BONSAI_FAMILY"; exit 1; }
           [ "$BONSAI_MODEL"    = "8B" ]                  || { echo "FAIL: default size=$BONSAI_MODEL"; exit 1; }
           [ "$GGUF_MODEL_DIR"  = "models/gguf/8B" ]      || { echo "FAIL: gguf dir=$GGUF_MODEL_DIR"; exit 1; }
-          [ "$MLX_MODEL_DIR"   = "models/Bonsai-8B-mlx" ]|| { echo "FAIL: mlx dir=$MLX_MODEL_DIR"; exit 1; }
+          [ "$MLX_MODEL_DIR"   = "models/Bonsai-8B-mlx" ] || { echo "FAIL: mlx dir=$MLX_MODEL_DIR"; exit 1; }
           [ "$BONSAI_DISPLAY"  = "Bonsai-8B" ]           || { echo "FAIL: display=$BONSAI_DISPLAY"; exit 1; }
           echo "OK: no-env default resolves to Bonsai-8B"
 
