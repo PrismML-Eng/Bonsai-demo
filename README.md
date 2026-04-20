@@ -45,7 +45,7 @@ Q1_0 support for CPU, Metal, CUDA, and Vulkan backends is already merged into up
 | Metal | ✅ Merged | [#21528](https://github.com/ggml-org/llama.cpp/pull/21528) |
 | CUDA | ✅ Merged | [#21629](https://github.com/ggml-org/llama.cpp/pull/21629) |
 | Vulkan | ✅ Merged | [#21539](https://github.com/ggml-org/llama.cpp/pull/21539) (community contribution) |
-| CPU (optimized x86) | ⏳ Pending | [#21636](https://github.com/ggml-org/llama.cpp/pull/21636) |
+| CPU (optimized x86) |  ✅ Merged | [#21636](https://github.com/ggml-org/llama.cpp/pull/21636) |
 | MLX | ⏳ Pending | [mlx#3161](https://github.com/ml-explore/mlx/pull/3161) |
 
 ## Upstream Status for 1.58-bit
