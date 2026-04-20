@@ -46,16 +46,24 @@ snapshot_download(
 # ── Download GGUF + MLX for one model size ──
 download_size() {
     _size="$1"
-    _gguf_repo="prism-ml/Bonsai-${_size}-gguf"
-    _mlx_repo="prism-ml/Bonsai-${_size}-mlx-1bit"
-    _gguf_dir="models/gguf/${_size}"
-    _mlx_dir="models/Bonsai-${_size}-mlx"
+    
+    if [ "$BONSAI_VARIANT" = "ternary" ]; then
+        _gguf_repo="prism-ml/Ternary-Bonsai-${_size}-gguf"
+        _mlx_repo="prism-ml/Ternary-Bonsai-${_size}-mlx-2bit"
+        _gguf_dir="models/gguf/ternary/${_size}"
+        _mlx_dir="models/Ternary-Bonsai-${_size}-mlx"
+    else
+        _gguf_repo="prism-ml/Bonsai-${_size}-gguf"
+        _mlx_repo="prism-ml/Bonsai-${_size}-mlx-1bit"
+        _gguf_dir="models/gguf/${_size}"
+        _mlx_dir="models/Bonsai-${_size}-mlx"
+    fi
 
     # GGUF
     if [ -d "$_gguf_dir" ] && ls "$_gguf_dir"/*.gguf >/dev/null 2>&1; then
-        info "GGUF ${_size} already present in ${_gguf_dir}/"
+        info "GGUF ${_size} (${BONSAI_VARIANT}) already present in ${_gguf_dir}/"
     else
-        step "Downloading GGUF ${_size} from ${_gguf_repo} ..."
+        step "Downloading GGUF ${_size} (${BONSAI_VARIANT}) from ${_gguf_repo} ..."
         mkdir -p "$_gguf_dir"
         hf_download "$_gguf_repo" "$_gguf_dir"
         info "GGUF ${_size} downloaded to ${_gguf_dir}/"
@@ -64,9 +72,9 @@ download_size() {
     # MLX (macOS Apple Silicon only; skipped on Intel or when BONSAI_SKIP_MLX=1)
     if [ "$(uname -s)" = "Darwin" ] && ! bonsai_should_skip_mlx; then
         if [ -d "$_mlx_dir" ] && [ -f "$_mlx_dir/config.json" ]; then
-            info "MLX ${_size} already present in ${_mlx_dir}/"
+            info "MLX ${_size} (${BONSAI_VARIANT}) already present in ${_mlx_dir}/"
         else
-            step "Downloading MLX ${_size} from ${_mlx_repo} ..."
+            step "downloading MLX ${_size} (${BONSAI_VARIANT}) from ${_mlx_repo} ..."
             hf_download "$_mlx_repo" "$_mlx_dir"
             info "MLX ${_size} downloaded to ${_mlx_dir}/"
         fi

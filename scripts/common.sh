@@ -6,17 +6,33 @@
 # Set BONSAI_MODEL to choose which model size to use.
 # Valid values: 8B (default), 4B, 1.7B
 BONSAI_MODEL="${BONSAI_MODEL:-8B}"
-GGUF_MODEL_DIR="models/gguf/${BONSAI_MODEL}"
+# set BONSAI_VARIANT to choose quantization: 1-bit (default) or ternary (1.58-bit)
+# valid values: 1bit, ternary
+BONSAI_VARIANT="${BONSAI_VARIANT:-1bit}"
 
-MLX_MODEL_DIR="models/Bonsai-${BONSAI_MODEL}-mlx"
+if [ "$BONSAI_VARIANT" = "ternary" ]; then
+    GGUF_MODEL_DIR="models/gguf/ternary/${BONSAI_MODEL}"
+    MLX_MODEL_DIR="models/Ternary-Bonsai-${BONSAI_MODEL}-mlx"
+else
+    GGUF_MODEL_DIR="models/gguf/${BONSAI_MODEL}"
+    MLX_MODEL_DIR="models/Bonsai-${BONSAI_MODEL}-mlx"
+fi
 
-# Validate BONSAI_MODEL — call at the top of every run/server script
+# validate BONSAI_MODEL and BONSAI_VARIANT
 assert_valid_model() {
     case "$BONSAI_MODEL" in
-        8B|4B|1.7B) return 0 ;;
+        8B|4B|1.7B) ;;
         *)
             err "Unknown BONSAI_MODEL='${BONSAI_MODEL}'. Valid values: 8B, 4B, 1.7B"
             echo "  Example: export BONSAI_MODEL=8B"
+            exit 1 ;;
+    esac
+
+    case "$BONSAI_VARIANT" in
+        1bit|ternary) ;;
+        *)
+            err "Unknown BONSAI_VARIANT='${BONSAI_VARIANT}'. Valid values: 1bit, ternary"
+            echo "  Example: export BONSAI_VARIANT=ternary"
             exit 1 ;;
     esac
 }

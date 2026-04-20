@@ -129,14 +129,23 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\setup.ps1
 ```
 
-### Switching models
+### Switching variants and sizes
 
-You can download a different size and switch between them instantly — no full re-setup needed:
+you can switch between 1-bit (default) and Ternary (1.58-bit) variants, and different model sizes instantly:
 
 ```bash
-BONSAI_MODEL=4B ./scripts/download_models.sh
-BONSAI_MODEL=4B ./scripts/run_llama.sh -p "Who are you? Introduce yourself in haiku"
+# run Ternary-Bonsai 4B
+BONSAI_VARIANT=ternary BONSAI_MODEL=4B ./scripts/download_models.sh
+BONSAI_VARIANT=ternary BONSAI_MODEL=4B ./scripts/run_llama.sh -p "Who are you?"
 ```
+
+for Windows:
+```powershell
+$env:BONSAI_VARIANT="ternary"; $env:BONSAI_MODEL="4B"
+.\setup.ps1
+.\scripts\run_llama.ps1 -p "Who are you?"
+```
+
 ---
 
 ## What `setup.sh` Does

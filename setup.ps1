@@ -12,7 +12,15 @@ $WinAssetTag = "prism-b1-e2d6742"                    # Windows builds use shorte
 $BaseUrl = "https://github.com/PrismML-Eng/llama.cpp/releases/download/$ReleaseTag"
 
 $BonsaiModel = if ($env:BONSAI_MODEL) { $env:BONSAI_MODEL } else { "8B" }
-$HfGgufRepo = "prism-ml/Bonsai-${BonsaiModel}-gguf"
+$BonsaiVariant = if ($env:BONSAI_VARIANT) { $env:BONSAI_VARIANT } else { "1bit" }
+
+if ($BonsaiVariant -eq "ternary") {
+    $HfGgufRepoPrefix = "prism-ml/Ternary-Bonsai"
+    $ModelLocalDir = "models\gguf\ternary\$BonsaiModel"
+} else {
+    $HfGgufRepoPrefix = "prism-ml/Bonsai"
+    $ModelLocalDir = "models\gguf\$BonsaiModel"
+}
 
 # ── Helpers ──
 
@@ -197,10 +205,16 @@ if ($GpuType -eq "cuda") {
 Write-Host "==> Downloading model ($BonsaiModel) ..." -ForegroundColor Cyan
 
 function Download-GgufModel($Size) {
-    $repo = "prism-ml/Bonsai-${Size}-gguf"
-    $dir = Join-Path $PSScriptRoot "models\gguf\$Size"
+    if ($BonsaiVariant -eq "ternary") {
+        $repo = "prism-ml/Ternary-Bonsai-${Size}-gguf"
+        $dir = Join-Path $PSScriptRoot "models\gguf\ternary\$Size"
+    } else {
+        $repo = "prism-ml/Bonsai-${Size}-gguf"
+        $dir = Join-Path $PSScriptRoot "models\gguf\$Size"
+    }
+    
     if (Test-Path "$dir\*.gguf") {
-        Write-Host "[OK] GGUF $Size already present." -ForegroundColor Green
+        Write-Host "[OK] GGUF $Size ($BonsaiVariant) already present." -ForegroundColor Green
         return
     }
     $HfCli = Join-Path $VenvDir "Scripts\hf.exe"
@@ -212,6 +226,7 @@ function Download-GgufModel($Size) {
         exit 1
     }
     New-Item -ItemType Directory -Path $dir -Force | Out-Null
+    Write-Host "    Downloading $repo ..." -ForegroundColor Cyan
     & $HfCli download $repo --local-dir $dir
     $DownloadExitCode = $LASTEXITCODE
     $DownloadedGguf = Get-ChildItem -Path $dir -Filter "*.gguf" -ErrorAction SilentlyContinue | Select-Object -First 1
