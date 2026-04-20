@@ -17,21 +17,25 @@ GGUF_MODEL_DIR=""
 MLX_MODEL_DIR=""
 BONSAI_DISPLAY="(family=${BONSAI_FAMILY} size=${BONSAI_MODEL})"
 
-if [ "$BONSAI_FAMILY" != "all" ] && [ "$BONSAI_MODEL" != "all" ]; then
-    case "$BONSAI_FAMILY" in
-        bonsai)
-            GGUF_MODEL_DIR="models/gguf/${BONSAI_MODEL}"
-            MLX_MODEL_DIR="models/Bonsai-${BONSAI_MODEL}-mlx"
-            BONSAI_DISPLAY="Bonsai-${BONSAI_MODEL}"
-            ;;
-        ternary)
-            GGUF_MODEL_DIR="models/ternary-gguf/${BONSAI_MODEL}"
-            MLX_MODEL_DIR="models/Ternary-Bonsai-${BONSAI_MODEL}-mlx"
-            BONSAI_DISPLAY="Ternary-Bonsai-${BONSAI_MODEL}"
-            ;;
-        # Anything else: paths stay empty; assert_valid_model will reject when called.
-    esac
-fi
+case "$BONSAI_MODEL" in
+    8B|4B|1.7B)
+        case "$BONSAI_FAMILY" in
+            bonsai)
+                GGUF_MODEL_DIR="models/gguf/${BONSAI_MODEL}"
+                MLX_MODEL_DIR="models/Bonsai-${BONSAI_MODEL}-mlx"
+                BONSAI_DISPLAY="Bonsai-${BONSAI_MODEL}"
+                ;;
+            ternary)
+                GGUF_MODEL_DIR="models/ternary-gguf/${BONSAI_MODEL}"
+                MLX_MODEL_DIR="models/Ternary-Bonsai-${BONSAI_MODEL}-mlx"
+                BONSAI_DISPLAY="Ternary-Bonsai-${BONSAI_MODEL}"
+                ;;
+            # Anything else, including "all": paths stay empty; assert_valid_model
+            # will reject invalid families when called.
+        esac
+        ;;
+    # Anything else, including "all": paths stay empty until validated.
+esac
 
 # Validate BONSAI_MODEL + BONSAI_FAMILY — call at the top of every run/server script
 assert_valid_model() {
