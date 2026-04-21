@@ -209,20 +209,26 @@ if ($GpuType -eq "cuda") {
 Write-Host "==> Downloading model (family=$BonsaiFamily size=$BonsaiModel) ..." -ForegroundColor Cyan
 
 function Download-GgufModel($Family, $Size) {
+    # Each GGUF repo ships multiple quants (e.g. F16 + Q2_0); only fetch the
+    # quant the demo is built around so the directory deterministically holds
+    # one .gguf and we skip multi-GB reference weights we don't need.
     if ($Family -eq "ternary") {
         $repo = "prism-ml/Ternary-Bonsai-${Size}-gguf"
         $dir = Join-Path $PSScriptRoot "models\ternary-gguf\$Size"
         $display = "Ternary-Bonsai-$Size"
-        $optional = $true   # Ternary GGUFs not yet public - skip gracefully on failure
+        $pattern = "*Q2_0*.gguf"
     } else {
         $repo = "prism-ml/Bonsai-${Size}-gguf"
         $dir = Join-Path $PSScriptRoot "models\gguf\$Size"
         $display = "Bonsai-$Size"
-        $optional = $false
+        $pattern = "*Q1_0*.gguf"
     }
 
-    if (Test-Path "$dir\*.gguf") {
-        Write-Host "[OK] GGUF $display already present." -ForegroundColor Green
+    # Fast-path and post-download checks both filter on the target quant
+    # pattern (not just any *.gguf) so a leftover F16 or other quant from an
+    # earlier download doesn't get picked up at runtime.
+    if (Get-ChildItem -Path $dir -Filter $pattern -File -ErrorAction SilentlyContinue | Select-Object -First 1) {
+        Write-Host "[OK] GGUF $display ($pattern) already present." -ForegroundColor Green
         return
     }
     $HfCli = Join-Path $VenvDir "Scripts\hf.exe"
@@ -234,31 +240,12 @@ function Download-GgufModel($Family, $Size) {
         exit 1
     }
     New-Item -ItemType Directory -Path $dir -Force | Out-Null
-
-    # Required: let stderr flow to the user so they see auth/network/etc errors.
-    # Optional: capture stderr to a log file so the friendly "coming soon"
-    # message stays clean but users can still inspect the full error.
-    $errLog = $null
-    if ($optional) {
-        $errLog = Join-Path $PSScriptRoot "models\.$display-gguf-download.log"
-        & $HfCli download $repo --local-dir $dir 2>$errLog
-    } else {
-        & $HfCli download $repo --local-dir $dir
-    }
+    & $HfCli download $repo --local-dir $dir --include $pattern
     $DownloadExitCode = $LASTEXITCODE
-    $DownloadedGguf = Get-ChildItem -Path $dir -Filter "*.gguf" -ErrorAction SilentlyContinue | Select-Object -First 1
+    $DownloadedGguf = Get-ChildItem -Path $dir -Filter $pattern -File -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($DownloadExitCode -ne 0 -or -not $DownloadedGguf) {
-        if ($optional) {
-            Write-Host "[WARN] GGUF $display not available yet (coming soon - repo: $repo)." -ForegroundColor Yellow
-            Write-Host "  Full error saved to: $errLog" -ForegroundColor Yellow
-            Remove-Item -Path $dir -Recurse -Force -ErrorAction SilentlyContinue
-            return
-        }
-        Write-Host "[ERR] Failed to download GGUF $display. Try running '$HfCli download $repo --local-dir $dir' manually." -ForegroundColor Red
+        Write-Host "[ERR] Failed to download GGUF $display matching $pattern. Try running '$HfCli download $repo --local-dir $dir --include $pattern' manually." -ForegroundColor Red
         exit 1
-    }
-    if ($optional -and $errLog -and (Test-Path $errLog)) {
-        Remove-Item $errLog -Force -ErrorAction SilentlyContinue
     }
     Write-Host "[OK] GGUF $display downloaded." -ForegroundColor Green
 }

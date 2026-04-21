@@ -35,15 +35,19 @@ if [ -z "$PY" ] || ! "$PY" -c "import huggingface_hub" 2>/dev/null; then
 fi
 
 # ── Helper: download a HF repo via Python ──
+# Third arg (optional) is a comma-separated allow_patterns filter — when set,
+# only files matching any of those glob patterns are downloaded.
 hf_download() {
     _repo="$1"
     _dest="$2"
+    _patterns="${3:-}"
     "$PY" -c "
 from huggingface_hub import snapshot_download
-snapshot_download(
-    repo_id='$_repo',
-    local_dir='$_dest',
-)
+kwargs = {'repo_id': '$_repo', 'local_dir': '$_dest'}
+_p = '$_patterns'
+if _p:
+    kwargs['allow_patterns'] = [p for p in _p.split(',') if p]
+snapshot_download(**kwargs)
 "
 }
 
@@ -51,6 +55,8 @@ snapshot_download(
 download_one() {
     _family="$1"
     _size="$2"
+    # Each GGUF repo ships multiple quants (e.g. F16 + Q2_0); we only want the
+    # quant the demo is built around, so restrict the download via allow_patterns.
     case "$_family" in
         bonsai)
             _gguf_repo="prism-ml/Bonsai-${_size}-gguf"
@@ -58,7 +64,7 @@ download_one() {
             _gguf_dir="models/gguf/${_size}"
             _mlx_dir="models/Bonsai-${_size}-mlx"
             _display="Bonsai-${_size}"
-            _gguf_optional=0
+            _gguf_pattern="*Q1_0*.gguf"
             ;;
         ternary)
             _gguf_repo="prism-ml/Ternary-Bonsai-${_size}-gguf"
@@ -66,38 +72,28 @@ download_one() {
             _gguf_dir="models/ternary-gguf/${_size}"
             _mlx_dir="models/Ternary-Bonsai-${_size}-mlx"
             _display="Ternary-Bonsai-${_size}"
-            _gguf_optional=1   # GGUFs not yet public — skip gracefully on failure
+            _gguf_pattern="*Q2_0*.gguf"
             ;;
     esac
 
-    # GGUF
-    #   Required (bonsai): let stderr flow to the user so they see auth/network
-    #   errors directly. Optional (ternary, not-yet-public): capture stderr to
-    #   a log file so the friendly "coming soon" message stays clean but users
-    #   can still inspect the full error.
-    if [ -d "$_gguf_dir" ] && ls "$_gguf_dir"/*.gguf >/dev/null 2>&1; then
-        info "GGUF ${_display} already present in ${_gguf_dir}/"
-    elif [ "$_gguf_optional" = 1 ]; then
-        step "Downloading GGUF ${_display} from ${_gguf_repo} ..."
-        mkdir -p "$_gguf_dir"
-        _errlog="models/.${_display}-gguf-download.log"
-        if hf_download "$_gguf_repo" "$_gguf_dir" 2>"$_errlog"; then
-            info "GGUF ${_display} downloaded to ${_gguf_dir}/"
-            rm -f "$_errlog"
-        else
-            warn "GGUF ${_display} not available yet (coming soon — repo: ${_gguf_repo})."
-            warn "  Full error saved to: ${_errlog}"
-            rm -rf "$_gguf_dir"
-        fi
+    # GGUF — stderr flows to the user so auth/network errors are visible.
+    # Fast-path and post-download checks both filter on the target quant pattern
+    # (not just any *.gguf) so a leftover F16 or other quant from an earlier
+    # download doesn't get picked up at runtime.
+    if [ -d "$_gguf_dir" ] && ls "$_gguf_dir"/$_gguf_pattern >/dev/null 2>&1; then
+        info "GGUF ${_display} (${_gguf_pattern}) already present in ${_gguf_dir}/"
     else
-        step "Downloading GGUF ${_display} from ${_gguf_repo} ..."
+        step "Downloading GGUF ${_display} (${_gguf_pattern}) from ${_gguf_repo} ..."
         mkdir -p "$_gguf_dir"
-        if hf_download "$_gguf_repo" "$_gguf_dir"; then
-            info "GGUF ${_display} downloaded to ${_gguf_dir}/"
-        else
+        if ! hf_download "$_gguf_repo" "$_gguf_dir" "$_gguf_pattern"; then
             err "Failed to download GGUF ${_display} from ${_gguf_repo}."
             exit 1
         fi
+        if ! ls "$_gguf_dir"/$_gguf_pattern >/dev/null 2>&1; then
+            err "Download reported success but no file matching ${_gguf_pattern} was written to ${_gguf_dir}/."
+            exit 1
+        fi
+        info "GGUF ${_display} downloaded to ${_gguf_dir}/"
     fi
 
     # MLX (macOS Apple Silicon only; skipped on Intel or when BONSAI_SKIP_MLX=1)

@@ -95,22 +95,22 @@ Set `BONSAI_MODEL` to choose which size to download and run (default: `8B`).
 
 ### Ternary-Bonsai (1.58-bit)
 
-MLX 2-bit supported out of the box. GGUFs (`Q2_0`, etc.) coming soon. See the [Ternary-Bonsai HF collection](https://huggingface.co/collections/prism-ml/ternary-bonsai) and the [whitepaper](ternary-bonsai-8b-whitepaper.pdf).
+Available in GGUF (`Q2_0`) and MLX (2-bit) formats. See the [Ternary-Bonsai HF collection](https://huggingface.co/collections/prism-ml/ternary-bonsai) and the [whitepaper](ternary-bonsai-8b-whitepaper.pdf).
 
-| Model                  | Format        | HuggingFace Repo                                                                                                |
-|------------------------|---------------|-----------------------------------------------------------------------------------------------------------------|
-| Ternary-Bonsai-8B      | MLX (2-bit)   | [prism-ml/Ternary-Bonsai-8B-mlx-2bit](https://huggingface.co/prism-ml/Ternary-Bonsai-8B-mlx-2bit)               |
-| Ternary-Bonsai-4B      | MLX (2-bit)   | [prism-ml/Ternary-Bonsai-4B-mlx-2bit](https://huggingface.co/prism-ml/Ternary-Bonsai-4B-mlx-2bit)               |
-| Ternary-Bonsai-1.7B    | MLX (2-bit)   | [prism-ml/Ternary-Bonsai-1.7B-mlx-2bit](https://huggingface.co/prism-ml/Ternary-Bonsai-1.7B-mlx-2bit)           |
-| Ternary-Bonsai-8B      | GGUF          | [prism-ml/Ternary-Bonsai-8B-gguf](https://huggingface.co/prism-ml/Ternary-Bonsai-8B-gguf) — *coming soon*       |
-| Ternary-Bonsai-4B      | GGUF          | [prism-ml/Ternary-Bonsai-4B-gguf](https://huggingface.co/prism-ml/Ternary-Bonsai-4B-gguf) — *coming soon*       |
-| Ternary-Bonsai-1.7B    | GGUF          | [prism-ml/Ternary-Bonsai-1.7B-gguf](https://huggingface.co/prism-ml/Ternary-Bonsai-1.7B-gguf) — *coming soon*   |
+| Model                  | Format        | HuggingFace Repo                                                                                        |
+|------------------------|---------------|---------------------------------------------------------------------------------------------------------|
+| Ternary-Bonsai-8B      | GGUF          | [prism-ml/Ternary-Bonsai-8B-gguf](https://huggingface.co/prism-ml/Ternary-Bonsai-8B-gguf)               |
+| Ternary-Bonsai-8B      | MLX (2-bit)   | [prism-ml/Ternary-Bonsai-8B-mlx-2bit](https://huggingface.co/prism-ml/Ternary-Bonsai-8B-mlx-2bit)       |
+| Ternary-Bonsai-4B      | GGUF          | [prism-ml/Ternary-Bonsai-4B-gguf](https://huggingface.co/prism-ml/Ternary-Bonsai-4B-gguf)               |
+| Ternary-Bonsai-4B      | MLX (2-bit)   | [prism-ml/Ternary-Bonsai-4B-mlx-2bit](https://huggingface.co/prism-ml/Ternary-Bonsai-4B-mlx-2bit)       |
+| Ternary-Bonsai-1.7B    | GGUF          | [prism-ml/Ternary-Bonsai-1.7B-gguf](https://huggingface.co/prism-ml/Ternary-Bonsai-1.7B-gguf)           |
+| Ternary-Bonsai-1.7B    | MLX (2-bit)   | [prism-ml/Ternary-Bonsai-1.7B-mlx-2bit](https://huggingface.co/prism-ml/Ternary-Bonsai-1.7B-mlx-2bit)   |
 
-When you set `BONSAI_FAMILY=ternary`, `setup.sh` downloads the MLX 2-bit weights today; GGUFs will be fetched automatically once the HF repos go public.
+Set `BONSAI_FAMILY=ternary` to download and run this family (default family is `bonsai`).
 
 ### Environment variables
 
-Both variables are optional. **If you set neither, the default is `Bonsai-8B` (1-bit, 8 billion parameters)** — that's what plain `./setup.sh` downloads and runs. They're read by `setup.sh`, `setup.ps1`, `download_models.sh`, and every Mac/Linux `run_*` / `start_*` script. The Windows PowerShell run/start scripts currently only honor `BONSAI_MODEL`; `BONSAI_FAMILY` support on Windows run-time will land alongside the public Ternary-Bonsai GGUFs.
+Both variables are optional. **If you set neither, the default is `Bonsai-8B` (1-bit, 8 billion parameters)** — that's what plain `./setup.sh` downloads and runs. They're read by `setup.sh`, `setup.ps1`, `download_models.sh`, and every `run_*` / `start_*` script (Linux, macOS, and Windows).
 
 | Variable        | Default  | Valid values                   | Purpose |
 |-----------------|----------|--------------------------------|---------|

@@ -49,7 +49,7 @@ env:
 
 jobs:
   download-model:
-    name: Download model
+    name: Download models (Bonsai Q1_0 + Ternary-Bonsai Q2_0)
     if: >-
       github.event_name == 'workflow_dispatch' ||
       contains(github.event.pull_request.labels.*.name, 'smoke-test')
@@ -66,14 +66,16 @@ jobs:
         uses: actions/cache@v4
         with:
           path: models
-          key: models-bonsai-${{ env.BONSAI_MODEL }}-${{ hashFiles('scripts/download_models.sh') }}
-      - name: Download models
+          key: models-all-${{ env.BONSAI_MODEL }}-${{ hashFiles('scripts/download_models.sh') }}
+      - name: Download models (both families)
         if: steps.cache-models.outputs.cache-hit != 'true'
+        env:
+          BONSAI_FAMILY: all
         run: ./scripts/download_models.sh
       - name: Upload models
         uses: actions/upload-artifact@v4
         with:
-          name: bonsai-models
+          name: all-models
           path: models
           retention-days: 1
           compression-level: 0
@@ -93,7 +95,7 @@ jobs:
         if: ${{ !inputs.force_fresh_download }}
         uses: actions/download-artifact@v4
         with:
-          name: bonsai-models
+          name: all-models
           path: models
       - name: Log runner hardware
         run: |
@@ -107,12 +109,14 @@ jobs:
         uses: actions/cache@v4
         with:
           path: bin
-          key: ${{ runner.os }}-${{ runner.arch }}-bonsai-bin-${{ hashFiles('scripts/download_binaries.sh', 'setup.sh') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-bonsai-bin-
+          key: ${{ runner.os }}-${{ runner.arch }}-bonsai-bin-v2-${{ hashFiles('scripts/download_binaries.sh', 'setup.sh') }}
       - name: Setup
         run: ./setup.sh
-      - name: llama-cli smoke test
+      - name: llama-cli smoke test (Bonsai Q1_0)
+        run: './scripts/run_llama.sh -c 256 -st -n 50 -p "The meaning of life is"'
+      - name: llama-cli smoke test (Ternary-Bonsai Q2_0)
+        env:
+          BONSAI_FAMILY: ternary
         run: './scripts/run_llama.sh -c 256 -st -n 50 -p "The meaning of life is"'
 
   windows-x86-cpu:
@@ -126,7 +130,7 @@ jobs:
         if: ${{ !inputs.force_fresh_download }}
         uses: actions/download-artifact@v4
         with:
-          name: bonsai-models
+          name: all-models
           path: models
       - name: Log runner hardware
         shell: pwsh
@@ -139,16 +143,19 @@ jobs:
         uses: actions/cache@v4
         with:
           path: bin
-          key: ${{ runner.os }}-${{ runner.arch }}-bonsai-bin-${{ hashFiles('scripts/download_binaries.sh', 'setup.sh', 'setup.ps1') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-bonsai-bin-
+          key: ${{ runner.os }}-${{ runner.arch }}-bonsai-bin-v2-${{ hashFiles('scripts/download_binaries.sh', 'setup.sh', 'setup.ps1') }}
       - name: Setup
         shell: pwsh
         run: |
           Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
           .\setup.ps1
-      - name: llama-cli smoke test
+      - name: llama-cli smoke test (Bonsai Q1_0)
         shell: pwsh
+        run: .\scripts\run_llama.ps1 -c 256 -st -n 50 -p "The meaning of life is"
+      - name: llama-cli smoke test (Ternary-Bonsai Q2_0)
+        shell: pwsh
+        env:
+          BONSAI_FAMILY: ternary
         run: .\scripts\run_llama.ps1 -c 256 -st -n 50 -p "The meaning of life is"
 
   macos-metal:
@@ -162,7 +169,7 @@ jobs:
         if: ${{ !inputs.force_fresh_download }}
         uses: actions/download-artifact@v4
         with:
-          name: bonsai-models
+          name: all-models
           path: models
       - name: Log runner hardware
         run: |
@@ -178,16 +185,27 @@ jobs:
             bin
             mlx
             models/Bonsai-${{ env.BONSAI_MODEL }}-mlx
-          key: ${{ runner.os }}-${{ runner.arch }}-bonsai-bin-mlx-${{ hashFiles('scripts/download_binaries.sh', 'setup.sh') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-bonsai-bin-mlx-
+            models/Ternary-Bonsai-${{ env.BONSAI_MODEL }}-mlx
+          key: ${{ runner.os }}-${{ runner.arch }}-bonsai-bin-mlx-v2-${{ hashFiles('scripts/download_binaries.sh', 'setup.sh') }}
       - name: Setup
         run: ./setup.sh
-      - name: llama-cli smoke test (CPU)
+      - name: llama-cli smoke test (Bonsai Q1_0, CPU)
         run: './scripts/run_llama.sh -ngl 0 -c 256 -st -n 50 -p "The meaning of life is"'
-      - name: llama-cli smoke test (Metal)
+      - name: llama-cli smoke test (Bonsai Q1_0, Metal)
         run: './scripts/run_llama.sh -ngl 99 -c 256 -st -n 50 -p "The meaning of life is"'
-      - name: MLX smoke test
+      - name: llama-cli smoke test (Ternary-Bonsai Q2_0, CPU)
+        env:
+          BONSAI_FAMILY: ternary
+        run: './scripts/run_llama.sh -ngl 0 -c 256 -st -n 50 -p "The meaning of life is"'
+      - name: llama-cli smoke test (Ternary-Bonsai Q2_0, Metal)
+        env:
+          BONSAI_FAMILY: ternary
+        run: './scripts/run_llama.sh -ngl 99 -c 256 -st -n 50 -p "The meaning of life is"'
+      - name: MLX smoke test (Bonsai 1-bit)
+        run: './scripts/run_mlx.sh -n 50 -p "The meaning of life is"'
+      - name: MLX smoke test (Ternary-Bonsai 2-bit)
+        env:
+          BONSAI_FAMILY: ternary
         run: './scripts/run_mlx.sh -n 50 -p "The meaning of life is"'
 
   macos-intel-cpu:
@@ -201,7 +219,7 @@ jobs:
         if: ${{ !inputs.force_fresh_download }}
         uses: actions/download-artifact@v4
         with:
-          name: bonsai-models
+          name: all-models
           path: models
       - name: Log runner hardware
         run: |
@@ -214,12 +232,14 @@ jobs:
         uses: actions/cache@v4
         with:
           path: bin
-          key: ${{ runner.os }}-${{ runner.arch }}-bonsai-bin-${{ hashFiles('scripts/download_binaries.sh', 'setup.sh') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-bonsai-bin-
+          key: ${{ runner.os }}-${{ runner.arch }}-bonsai-bin-v2-${{ hashFiles('scripts/download_binaries.sh', 'setup.sh') }}
       - name: Setup
         run: ./setup.sh
-      - name: llama-cli smoke test
+      - name: llama-cli smoke test (Bonsai Q1_0)
+        run: './scripts/run_llama.sh -c 256 -st -n 50 -p "The meaning of life is"'
+      - name: llama-cli smoke test (Ternary-Bonsai Q2_0)
+        env:
+          BONSAI_FAMILY: ternary
         run: './scripts/run_llama.sh -c 256 -st -n 50 -p "The meaning of life is"'
 
   linux-arm-cpu:
@@ -233,7 +253,7 @@ jobs:
         if: ${{ !inputs.force_fresh_download }}
         uses: actions/download-artifact@v4
         with:
-          name: bonsai-models
+          name: all-models
           path: models
       - name: Log runner hardware
         run: |
@@ -244,12 +264,14 @@ jobs:
         uses: actions/cache@v4
         with:
           path: bin
-          key: ${{ runner.os }}-${{ runner.arch }}-bonsai-bin-${{ hashFiles('scripts/download_binaries.sh', 'setup.sh') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-bonsai-bin-
+          key: ${{ runner.os }}-${{ runner.arch }}-bonsai-bin-v2-${{ hashFiles('scripts/download_binaries.sh', 'setup.sh') }}
       - name: Setup
         run: ./setup.sh
-      - name: llama-cli smoke test
+      - name: llama-cli smoke test (Bonsai Q1_0)
+        run: './scripts/run_llama.sh -c 256 -st -n 50 -p "The meaning of life is"'
+      - name: llama-cli smoke test (Ternary-Bonsai Q2_0)
+        env:
+          BONSAI_FAMILY: ternary
         run: './scripts/run_llama.sh -c 256 -st -n 50 -p "The meaning of life is"'
 
   linux-x86-vulkan:
@@ -263,7 +285,7 @@ jobs:
         if: ${{ !inputs.force_fresh_download }}
         uses: actions/download-artifact@v4
         with:
-          name: bonsai-models
+          name: all-models
           path: models
       - name: Install Vulkan (lavapipe CPU driver)
         run: |
@@ -280,13 +302,17 @@ jobs:
         uses: actions/cache@v4
         with:
           path: bin
-          key: ${{ runner.os }}-${{ runner.arch }}-vulkan-bonsai-bin-${{ hashFiles('scripts/download_binaries.sh', 'setup.sh') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-vulkan-bonsai-bin-
+          key: ${{ runner.os }}-${{ runner.arch }}-vulkan-bonsai-bin-v2-${{ hashFiles('scripts/download_binaries.sh', 'setup.sh') }}
       - name: Setup
         run: ./setup.sh
-      - name: llama-cli Vulkan smoke test
+      - name: llama-cli Vulkan smoke test (Bonsai Q1_0)
         env:
+          VK_ICD_FILENAMES: /usr/share/vulkan/icd.d/lvp_icd.x86_64.json
+          VK_DRIVER_FILES: /usr/share/vulkan/icd.d/lvp_icd.x86_64.json
+        run: './scripts/run_llama.sh -ngl 99 -c 256 -st -n 10 -p "The meaning of life is"'
+      - name: llama-cli Vulkan smoke test (Ternary-Bonsai Q2_0)
+        env:
+          BONSAI_FAMILY: ternary
           VK_ICD_FILENAMES: /usr/share/vulkan/icd.d/lvp_icd.x86_64.json
           VK_DRIVER_FILES: /usr/share/vulkan/icd.d/lvp_icd.x86_64.json
         run: './scripts/run_llama.sh -ngl 99 -c 256 -st -n 10 -p "The meaning of life is"'
@@ -302,7 +328,7 @@ jobs:
         if: ${{ !inputs.force_fresh_download }}
         uses: actions/download-artifact@v4
         with:
-          name: bonsai-models
+          name: all-models
           path: models
       - name: Log runner hardware
         shell: pwsh
@@ -314,16 +340,19 @@ jobs:
         uses: actions/cache@v4
         with:
           path: bin
-          key: ${{ runner.os }}-${{ runner.arch }}-bonsai-bin-${{ hashFiles('scripts/download_binaries.sh', 'setup.sh', 'setup.ps1') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-bonsai-bin-
+          key: ${{ runner.os }}-${{ runner.arch }}-bonsai-bin-v2-${{ hashFiles('scripts/download_binaries.sh', 'setup.sh', 'setup.ps1') }}
       - name: Setup
         shell: pwsh
         run: |
           Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
           .\setup.ps1
-      - name: llama-cli smoke test
+      - name: llama-cli smoke test (Bonsai Q1_0)
         shell: pwsh
+        run: .\scripts\run_llama.ps1 -c 256 -st -n 50 -p "The meaning of life is"
+      - name: llama-cli smoke test (Ternary-Bonsai Q2_0)
+        shell: pwsh
+        env:
+          BONSAI_FAMILY: ternary
         run: .\scripts\run_llama.ps1 -c 256 -st -n 50 -p "The meaning of life is"
 
   # ──────────────────────────────────────────
@@ -343,7 +372,7 @@ jobs:
         if: ${{ !inputs.force_fresh_download }}
         uses: actions/download-artifact@v4
         with:
-          name: bonsai-models
+          name: all-models
           path: models
       - name: Log runner hardware
         run: |
@@ -357,12 +386,14 @@ jobs:
         uses: actions/cache@v4
         with:
           path: bin
-          key: ${{ runner.os }}-${{ runner.arch }}-cuda-bonsai-bin-${{ hashFiles('scripts/download_binaries.sh', 'setup.sh') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-cuda-bonsai-bin-
+          key: ${{ runner.os }}-${{ runner.arch }}-cuda-bonsai-bin-v2-${{ hashFiles('scripts/download_binaries.sh', 'setup.sh') }}
       - name: Setup
         run: ./setup.sh
-      - name: llama-cli smoke test
+      - name: llama-cli smoke test (Bonsai Q1_0)
+        run: './scripts/run_llama.sh -c 256 -st -n 50 -p "The meaning of life is"'
+      - name: llama-cli smoke test (Ternary-Bonsai Q2_0)
+        env:
+          BONSAI_FAMILY: ternary
         run: './scripts/run_llama.sh -c 256 -st -n 50 -p "The meaning of life is"'
 
   windows-cuda:
@@ -378,7 +409,7 @@ jobs:
         if: ${{ !inputs.force_fresh_download }}
         uses: actions/download-artifact@v4
         with:
-          name: bonsai-models
+          name: all-models
           path: models
       - name: Log runner hardware
         shell: pwsh
@@ -391,16 +422,19 @@ jobs:
         uses: actions/cache@v4
         with:
           path: bin
-          key: ${{ runner.os }}-${{ runner.arch }}-cuda-bonsai-bin-${{ hashFiles('scripts/download_binaries.sh', 'setup.sh', 'setup.ps1') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-cuda-bonsai-bin-
+          key: ${{ runner.os }}-${{ runner.arch }}-cuda-bonsai-bin-v2-${{ hashFiles('scripts/download_binaries.sh', 'setup.sh', 'setup.ps1') }}
       - name: Setup
         shell: pwsh
         run: |
           Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
           .\setup.ps1
-      - name: llama-cli smoke test
+      - name: llama-cli smoke test (Bonsai Q1_0)
         shell: pwsh
+        run: .\scripts\run_llama.ps1 -c 256 -st -n 50 -p "The meaning of life is"
+      - name: llama-cli smoke test (Ternary-Bonsai Q2_0)
+        shell: pwsh
+        env:
+          BONSAI_FAMILY: ternary
         run: .\scripts\run_llama.ps1 -c 256 -st -n 50 -p "The meaning of life is"
 
   linux-amd:
@@ -416,7 +450,7 @@ jobs:
         if: ${{ !inputs.force_fresh_download }}
         uses: actions/download-artifact@v4
         with:
-          name: bonsai-models
+          name: all-models
           path: models
       - name: Log runner hardware
         run: |
@@ -430,12 +464,14 @@ jobs:
         uses: actions/cache@v4
         with:
           path: bin
-          key: ${{ runner.os }}-${{ runner.arch }}-amd-bonsai-bin-${{ hashFiles('scripts/download_binaries.sh', 'setup.sh') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-amd-bonsai-bin-
+          key: ${{ runner.os }}-${{ runner.arch }}-amd-bonsai-bin-v2-${{ hashFiles('scripts/download_binaries.sh', 'setup.sh') }}
       - name: Setup
         run: ./setup.sh
-      - name: llama-cli smoke test
+      - name: llama-cli smoke test (Bonsai Q1_0)
+        run: './scripts/run_llama.sh -c 256 -st -n 50 -p "The meaning of life is"'
+      - name: llama-cli smoke test (Ternary-Bonsai Q2_0)
+        env:
+          BONSAI_FAMILY: ternary
         run: './scripts/run_llama.sh -c 256 -st -n 50 -p "The meaning of life is"'
 
   windows-amd:
@@ -451,7 +487,7 @@ jobs:
         if: ${{ !inputs.force_fresh_download }}
         uses: actions/download-artifact@v4
         with:
-          name: bonsai-models
+          name: all-models
           path: models
       - name: Log runner hardware
         shell: pwsh
@@ -464,16 +500,19 @@ jobs:
         uses: actions/cache@v4
         with:
           path: bin
-          key: ${{ runner.os }}-${{ runner.arch }}-amd-bonsai-bin-${{ hashFiles('scripts/download_binaries.sh', 'setup.sh', 'setup.ps1') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-amd-bonsai-bin-
+          key: ${{ runner.os }}-${{ runner.arch }}-amd-bonsai-bin-v2-${{ hashFiles('scripts/download_binaries.sh', 'setup.sh', 'setup.ps1') }}
       - name: Setup
         shell: pwsh
         run: |
           Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
           .\setup.ps1
-      - name: llama-cli smoke test
+      - name: llama-cli smoke test (Bonsai Q1_0)
         shell: pwsh
+        run: .\scripts\run_llama.ps1 -c 256 -st -n 50 -p "The meaning of life is"
+      - name: llama-cli smoke test (Ternary-Bonsai Q2_0)
+        shell: pwsh
+        env:
+          BONSAI_FAMILY: ternary
         run: .\scripts\run_llama.ps1 -c 256 -st -n 50 -p "The meaning of life is"
 
   linux-vulkan:
@@ -489,7 +528,7 @@ jobs:
         if: ${{ !inputs.force_fresh_download }}
         uses: actions/download-artifact@v4
         with:
-          name: bonsai-models
+          name: all-models
           path: models
       - name: Log runner hardware
         run: |
@@ -503,12 +542,14 @@ jobs:
         uses: actions/cache@v4
         with:
           path: bin
-          key: ${{ runner.os }}-${{ runner.arch }}-vulkan-bonsai-bin-${{ hashFiles('scripts/download_binaries.sh', 'setup.sh') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-vulkan-bonsai-bin-
+          key: ${{ runner.os }}-${{ runner.arch }}-vulkan-bonsai-bin-v2-${{ hashFiles('scripts/download_binaries.sh', 'setup.sh') }}
       - name: Setup
         run: ./setup.sh
-      - name: llama-cli smoke test
+      - name: llama-cli smoke test (Bonsai Q1_0)
+        run: './scripts/run_llama.sh -c 256 -st -n 50 -p "The meaning of life is"'
+      - name: llama-cli smoke test (Ternary-Bonsai Q2_0)
+        env:
+          BONSAI_FAMILY: ternary
         run: './scripts/run_llama.sh -c 256 -st -n 50 -p "The meaning of life is"'
 
   windows-vulkan:
@@ -524,7 +565,7 @@ jobs:
         if: ${{ !inputs.force_fresh_download }}
         uses: actions/download-artifact@v4
         with:
-          name: bonsai-models
+          name: all-models
           path: models
       - name: Log runner hardware
         shell: pwsh
@@ -537,14 +578,17 @@ jobs:
         uses: actions/cache@v4
         with:
           path: bin
-          key: ${{ runner.os }}-${{ runner.arch }}-vulkan-bonsai-bin-${{ hashFiles('scripts/download_binaries.sh', 'setup.sh', 'setup.ps1') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-vulkan-bonsai-bin-
+          key: ${{ runner.os }}-${{ runner.arch }}-vulkan-bonsai-bin-v2-${{ hashFiles('scripts/download_binaries.sh', 'setup.sh', 'setup.ps1') }}
       - name: Setup
         shell: pwsh
         run: |
           Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
           .\setup.ps1
-      - name: llama-cli smoke test
+      - name: llama-cli smoke test (Bonsai Q1_0)
         shell: pwsh
+        run: .\scripts\run_llama.ps1 -c 256 -st -n 50 -p "The meaning of life is"
+      - name: llama-cli smoke test (Ternary-Bonsai Q2_0)
+        shell: pwsh
+        env:
+          BONSAI_FAMILY: ternary
         run: .\scripts\run_llama.ps1 -c 256 -st -n 50 -p "The meaning of life is"

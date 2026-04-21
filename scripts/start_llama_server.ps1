@@ -1,7 +1,12 @@
 $ErrorActionPreference = "Stop"
 
+
 $BonsaiModel  = if ($env:BONSAI_MODEL)  { $env:BONSAI_MODEL.ToUpperInvariant() } else { "8B" }
 $BonsaiFamily = if ($env:BONSAI_FAMILY) { $env:BONSAI_FAMILY.ToLowerInvariant() } else { "bonsai" }
+
+
+$BonsaiModel  = if ($env:BONSAI_MODEL)  { $env:BONSAI_MODEL }  else { "8B" }
+$BonsaiFamily = if ($env:BONSAI_FAMILY) { $env:BONSAI_FAMILY } else { "bonsai" }
 
 if ($BonsaiModel -notin @("8B", "4B", "1.7B")) {
     Write-Host "[ERR] Unknown BONSAI_MODEL='$BonsaiModel'. Valid values: 8B, 4B, 1.7B" -ForegroundColor Red
@@ -26,6 +31,7 @@ try {
 
 if ($BonsaiFamily -eq "ternary") {
     $ModelDir = Join-Path $DemoDir "models\ternary-gguf\$BonsaiModel"
+
     $FamilyDisplay = "Ternary-Bonsai"
 } else {
     $ModelDir = Join-Path $DemoDir "models\gguf\$BonsaiModel"
@@ -35,6 +41,16 @@ if ($BonsaiFamily -eq "ternary") {
 $Model = Get-ChildItem -Path $ModelDir -Filter *.gguf -File -ErrorAction SilentlyContinue | Select-Object -First 1
 if (-not $Model) {
     Write-Host "[ERR] GGUF model not found for $FamilyDisplay-$BonsaiModel in $ModelDir" -ForegroundColor Red
+
+    $Display = "Ternary-Bonsai-$BonsaiModel"
+} else {
+    $ModelDir = Join-Path $DemoDir "models\gguf\$BonsaiModel"
+    $Display = "Bonsai-$BonsaiModel"
+}
+$Model = Get-ChildItem -Path $ModelDir -Filter *.gguf -File -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $Model) {
+    Write-Host "[ERR] GGUF model not found for $Display in $ModelDir" -ForegroundColor Red
+
     Write-Host "      Run .\setup.ps1 first." -ForegroundColor Yellow
     exit 1
 }
