@@ -209,14 +209,19 @@ if ($GpuType -eq "cuda") {
 Write-Host "==> Downloading model (family=$BonsaiFamily size=$BonsaiModel) ..." -ForegroundColor Cyan
 
 function Download-GgufModel($Family, $Size) {
+    # Each GGUF repo ships multiple quants (e.g. F16 + Q2_0); only fetch the
+    # quant the demo is built around so the directory deterministically holds
+    # one .gguf and we skip multi-GB reference weights we don't need.
     if ($Family -eq "ternary") {
         $repo = "prism-ml/Ternary-Bonsai-${Size}-gguf"
         $dir = Join-Path $PSScriptRoot "models\ternary-gguf\$Size"
         $display = "Ternary-Bonsai-$Size"
+        $pattern = "*Q2_0*.gguf"
     } else {
         $repo = "prism-ml/Bonsai-${Size}-gguf"
         $dir = Join-Path $PSScriptRoot "models\gguf\$Size"
         $display = "Bonsai-$Size"
+        $pattern = "*Q1_0*.gguf"
     }
 
     if (Test-Path "$dir\*.gguf") {
@@ -232,11 +237,11 @@ function Download-GgufModel($Family, $Size) {
         exit 1
     }
     New-Item -ItemType Directory -Path $dir -Force | Out-Null
-    & $HfCli download $repo --local-dir $dir
+    & $HfCli download $repo --local-dir $dir --include $pattern
     $DownloadExitCode = $LASTEXITCODE
     $DownloadedGguf = Get-ChildItem -Path $dir -Filter "*.gguf" -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($DownloadExitCode -ne 0 -or -not $DownloadedGguf) {
-        Write-Host "[ERR] Failed to download GGUF $display. Try running '$HfCli download $repo --local-dir $dir' manually." -ForegroundColor Red
+        Write-Host "[ERR] Failed to download GGUF $display. Try running '$HfCli download $repo --local-dir $dir --include $pattern' manually." -ForegroundColor Red
         exit 1
     }
     Write-Host "[OK] GGUF $display downloaded." -ForegroundColor Green
