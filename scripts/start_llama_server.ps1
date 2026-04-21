@@ -1,8 +1,13 @@
 $ErrorActionPreference = "Stop"
 
-$BonsaiModel = if ($env:BONSAI_MODEL) { $env:BONSAI_MODEL } else { "8B" }
+$BonsaiModel  = if ($env:BONSAI_MODEL)  { $env:BONSAI_MODEL }  else { "8B" }
+$BonsaiFamily = if ($env:BONSAI_FAMILY) { $env:BONSAI_FAMILY } else { "bonsai" }
 if ($BonsaiModel -notin @("8B", "4B", "1.7B")) {
     Write-Host "[ERR] Unknown BONSAI_MODEL='$BonsaiModel'. Valid values: 8B, 4B, 1.7B" -ForegroundColor Red
+    exit 1
+}
+if ($BonsaiFamily -notin @("bonsai", "ternary")) {
+    Write-Host "[ERR] Unknown BONSAI_FAMILY='$BonsaiFamily'. Valid values: bonsai, ternary" -ForegroundColor Red
     exit 1
 }
 
@@ -18,10 +23,16 @@ try {
     exit 1
 } catch {}
 
-$ModelDir = Join-Path $DemoDir "models\gguf\$BonsaiModel"
+if ($BonsaiFamily -eq "ternary") {
+    $ModelDir = Join-Path $DemoDir "models\ternary-gguf\$BonsaiModel"
+    $Display = "Ternary-Bonsai-$BonsaiModel"
+} else {
+    $ModelDir = Join-Path $DemoDir "models\gguf\$BonsaiModel"
+    $Display = "Bonsai-$BonsaiModel"
+}
 $Model = Get-ChildItem -Path $ModelDir -Filter *.gguf -File -ErrorAction SilentlyContinue | Select-Object -First 1
 if (-not $Model) {
-    Write-Host "[ERR] GGUF model not found for Bonsai-$BonsaiModel in $ModelDir" -ForegroundColor Red
+    Write-Host "[ERR] GGUF model not found for $Display in $ModelDir" -ForegroundColor Red
     Write-Host "      Run .\setup.ps1 first." -ForegroundColor Yellow
     exit 1
 }

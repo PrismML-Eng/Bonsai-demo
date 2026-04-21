@@ -110,7 +110,7 @@ Set `BONSAI_FAMILY=ternary` to download and run this family (default family is `
 
 ### Environment variables
 
-Both variables are optional. **If you set neither, the default is `Bonsai-8B` (1-bit, 8 billion parameters)** — that's what plain `./setup.sh` downloads and runs. They're read by `setup.sh`, `setup.ps1`, `download_models.sh`, and every Mac/Linux `run_*` / `start_*` script. The Windows PowerShell run/start scripts currently only honor `BONSAI_MODEL` — Windows runtime `BONSAI_FAMILY` support is on the roadmap.
+Both variables are optional. **If you set neither, the default is `Bonsai-8B` (1-bit, 8 billion parameters)** — that's what plain `./setup.sh` downloads and runs. They're read by `setup.sh`, `setup.ps1`, `download_models.sh`, and every `run_*` / `start_*` script (Linux, macOS, and Windows).
 
 | Variable        | Default  | Valid values                   | Purpose |
 |-----------------|----------|--------------------------------|---------|

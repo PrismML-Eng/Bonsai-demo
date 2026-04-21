@@ -77,17 +77,23 @@ download_one() {
     esac
 
     # GGUF — stderr flows to the user so auth/network errors are visible.
-    if [ -d "$_gguf_dir" ] && ls "$_gguf_dir"/*.gguf >/dev/null 2>&1; then
-        info "GGUF ${_display} already present in ${_gguf_dir}/"
+    # Fast-path and post-download checks both filter on the target quant pattern
+    # (not just any *.gguf) so a leftover F16 or other quant from an earlier
+    # download doesn't get picked up at runtime.
+    if [ -d "$_gguf_dir" ] && ls "$_gguf_dir"/$_gguf_pattern >/dev/null 2>&1; then
+        info "GGUF ${_display} (${_gguf_pattern}) already present in ${_gguf_dir}/"
     else
         step "Downloading GGUF ${_display} (${_gguf_pattern}) from ${_gguf_repo} ..."
         mkdir -p "$_gguf_dir"
-        if hf_download "$_gguf_repo" "$_gguf_dir" "$_gguf_pattern"; then
-            info "GGUF ${_display} downloaded to ${_gguf_dir}/"
-        else
+        if ! hf_download "$_gguf_repo" "$_gguf_dir" "$_gguf_pattern"; then
             err "Failed to download GGUF ${_display} from ${_gguf_repo}."
             exit 1
         fi
+        if ! ls "$_gguf_dir"/$_gguf_pattern >/dev/null 2>&1; then
+            err "Download reported success but no file matching ${_gguf_pattern} was written to ${_gguf_dir}/."
+            exit 1
+        fi
+        info "GGUF ${_display} downloaded to ${_gguf_dir}/"
     fi
 
     # MLX (macOS Apple Silicon only; skipped on Intel or when BONSAI_SKIP_MLX=1)

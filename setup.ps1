@@ -224,8 +224,11 @@ function Download-GgufModel($Family, $Size) {
         $pattern = "*Q1_0*.gguf"
     }
 
-    if (Test-Path "$dir\*.gguf") {
-        Write-Host "[OK] GGUF $display already present." -ForegroundColor Green
+    # Fast-path and post-download checks both filter on the target quant
+    # pattern (not just any *.gguf) so a leftover F16 or other quant from an
+    # earlier download doesn't get picked up at runtime.
+    if (Get-ChildItem -Path $dir -Filter $pattern -File -ErrorAction SilentlyContinue | Select-Object -First 1) {
+        Write-Host "[OK] GGUF $display ($pattern) already present." -ForegroundColor Green
         return
     }
     $HfCli = Join-Path $VenvDir "Scripts\hf.exe"
@@ -239,9 +242,9 @@ function Download-GgufModel($Family, $Size) {
     New-Item -ItemType Directory -Path $dir -Force | Out-Null
     & $HfCli download $repo --local-dir $dir --include $pattern
     $DownloadExitCode = $LASTEXITCODE
-    $DownloadedGguf = Get-ChildItem -Path $dir -Filter "*.gguf" -ErrorAction SilentlyContinue | Select-Object -First 1
+    $DownloadedGguf = Get-ChildItem -Path $dir -Filter $pattern -File -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($DownloadExitCode -ne 0 -or -not $DownloadedGguf) {
-        Write-Host "[ERR] Failed to download GGUF $display. Try running '$HfCli download $repo --local-dir $dir --include $pattern' manually." -ForegroundColor Red
+        Write-Host "[ERR] Failed to download GGUF $display matching $pattern. Try running '$HfCli download $repo --local-dir $dir --include $pattern' manually." -ForegroundColor Red
         exit 1
     }
     Write-Host "[OK] GGUF $display downloaded." -ForegroundColor Green
