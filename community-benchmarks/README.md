@@ -19,7 +19,7 @@ Combined view across both model families. See the per-family subfolders below fo
 ## Model Families
 
 - **[Bonsai (1-bit)](bonsai/)** — the original 1-bit Bonsai family (8B, 4B, 1.7B) in GGUF and MLX 1-bit formats.
-- **[Ternary-Bonsai (1.58-bit)](ternary-bonsai/)** — the ternary Bonsai family (8B, 4B, 1.7B) in MLX 2-bit (GGUF coming soon).
+- **[Ternary-Bonsai (1.58-bit)](ternary-bonsai/)** — the ternary Bonsai family (8B, 4B, 1.7B) in GGUF (`Q2_0`) and MLX (2-bit) formats.
 
 Each subfolder has its own README with results, submission templates, and filename conventions.
 

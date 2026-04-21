@@ -213,12 +213,10 @@ function Download-GgufModel($Family, $Size) {
         $repo = "prism-ml/Ternary-Bonsai-${Size}-gguf"
         $dir = Join-Path $PSScriptRoot "models\ternary-gguf\$Size"
         $display = "Ternary-Bonsai-$Size"
-        $optional = $true   # Ternary GGUFs not yet public - skip gracefully on failure
     } else {
         $repo = "prism-ml/Bonsai-${Size}-gguf"
         $dir = Join-Path $PSScriptRoot "models\gguf\$Size"
         $display = "Bonsai-$Size"
-        $optional = $false
     }
 
     if (Test-Path "$dir\*.gguf") {
@@ -234,31 +232,12 @@ function Download-GgufModel($Family, $Size) {
         exit 1
     }
     New-Item -ItemType Directory -Path $dir -Force | Out-Null
-
-    # Required: let stderr flow to the user so they see auth/network/etc errors.
-    # Optional: capture stderr to a log file so the friendly "coming soon"
-    # message stays clean but users can still inspect the full error.
-    $errLog = $null
-    if ($optional) {
-        $errLog = Join-Path $PSScriptRoot "models\.$display-gguf-download.log"
-        & $HfCli download $repo --local-dir $dir 2>$errLog
-    } else {
-        & $HfCli download $repo --local-dir $dir
-    }
+    & $HfCli download $repo --local-dir $dir
     $DownloadExitCode = $LASTEXITCODE
     $DownloadedGguf = Get-ChildItem -Path $dir -Filter "*.gguf" -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($DownloadExitCode -ne 0 -or -not $DownloadedGguf) {
-        if ($optional) {
-            Write-Host "[WARN] GGUF $display not available yet (coming soon - repo: $repo)." -ForegroundColor Yellow
-            Write-Host "  Full error saved to: $errLog" -ForegroundColor Yellow
-            Remove-Item -Path $dir -Recurse -Force -ErrorAction SilentlyContinue
-            return
-        }
         Write-Host "[ERR] Failed to download GGUF $display. Try running '$HfCli download $repo --local-dir $dir' manually." -ForegroundColor Red
         exit 1
-    }
-    if ($optional -and $errLog -and (Test-Path $errLog)) {
-        Remove-Item $errLog -Force -ErrorAction SilentlyContinue
     }
     Write-Host "[OK] GGUF $display downloaded." -ForegroundColor Green
 }

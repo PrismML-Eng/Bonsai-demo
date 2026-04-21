@@ -13,7 +13,7 @@ env:
 
 jobs:
   download-model:
-    name: Download model
+    name: Download models (Bonsai Q1_0 + Ternary-Bonsai Q2_0)
     if: >-
       github.event_name == 'workflow_dispatch' ||
       contains(github.event.pull_request.labels.*.name, 'build-test')
@@ -30,14 +30,16 @@ jobs:
         uses: actions/cache@v4
         with:
           path: models
-          key: models-bonsai-${{ env.BONSAI_MODEL }}-${{ hashFiles('scripts/download_models.sh') }}
-      - name: Download models
+          key: models-all-${{ env.BONSAI_MODEL }}-${{ hashFiles('scripts/download_models.sh') }}
+      - name: Download models (both families)
         if: steps.cache-models.outputs.cache-hit != 'true'
+        env:
+          BONSAI_FAMILY: all
         run: ./scripts/download_models.sh
       - name: Upload models
         uses: actions/upload-artifact@v4
         with:
-          name: bonsai-models
+          name: all-models
           path: models
           retention-days: 1
           compression-level: 0
@@ -56,11 +58,15 @@ jobs:
       - name: Download models
         uses: actions/download-artifact@v4
         with:
-          name: bonsai-models
+          name: all-models
           path: models
       - name: Build from source
         run: ./scripts/build_cpu_linux.sh
-      - name: llama-cli smoke test
+      - name: llama-cli smoke test (Bonsai Q1_0)
+        run: './scripts/run_llama.sh -c 256 -st -n 50 -p "The meaning of life is"'
+      - name: llama-cli smoke test (Ternary-Bonsai Q2_0)
+        env:
+          BONSAI_FAMILY: ternary
         run: './scripts/run_llama.sh -c 256 -st -n 50 -p "The meaning of life is"'
 
   linux-arm-cpu:
@@ -73,11 +79,15 @@ jobs:
       - name: Download models
         uses: actions/download-artifact@v4
         with:
-          name: bonsai-models
+          name: all-models
           path: models
       - name: Build from source
         run: ./scripts/build_cpu_linux.sh
-      - name: llama-cli smoke test
+      - name: llama-cli smoke test (Bonsai Q1_0)
+        run: './scripts/run_llama.sh -c 256 -st -n 50 -p "The meaning of life is"'
+      - name: llama-cli smoke test (Ternary-Bonsai Q2_0)
+        env:
+          BONSAI_FAMILY: ternary
         run: './scripts/run_llama.sh -c 256 -st -n 50 -p "The meaning of life is"'
 
   macos-metal:
@@ -90,13 +100,21 @@ jobs:
       - name: Download models
         uses: actions/download-artifact@v4
         with:
-          name: bonsai-models
+          name: all-models
           path: models
       - name: Build from source
         run: ./scripts/build_mac.sh
-      - name: llama-cli smoke test (CPU)
+      - name: llama-cli smoke test (Bonsai Q1_0, CPU)
         run: './scripts/run_llama.sh -ngl 0 -c 256 -st -n 50 -p "The meaning of life is"'
-      - name: llama-cli smoke test (Metal)
+      - name: llama-cli smoke test (Bonsai Q1_0, Metal)
+        run: './scripts/run_llama.sh -ngl 99 -c 256 -st -n 50 -p "The meaning of life is"'
+      - name: llama-cli smoke test (Ternary-Bonsai Q2_0, CPU)
+        env:
+          BONSAI_FAMILY: ternary
+        run: './scripts/run_llama.sh -ngl 0 -c 256 -st -n 50 -p "The meaning of life is"'
+      - name: llama-cli smoke test (Ternary-Bonsai Q2_0, Metal)
+        env:
+          BONSAI_FAMILY: ternary
         run: './scripts/run_llama.sh -ngl 99 -c 256 -st -n 50 -p "The meaning of life is"'
 
   macos-intel:
@@ -109,10 +127,14 @@ jobs:
       - name: Download models
         uses: actions/download-artifact@v4
         with:
-          name: bonsai-models
+          name: all-models
           path: models
       - name: Build from source
         run: ./scripts/build_mac.sh
-      - name: llama-cli smoke test
+      - name: llama-cli smoke test (Bonsai Q1_0)
+        run: './scripts/run_llama.sh -c 256 -st -n 50 -p "The meaning of life is"'
+      - name: llama-cli smoke test (Ternary-Bonsai Q2_0)
+        env:
+          BONSAI_FAMILY: ternary
         run: './scripts/run_llama.sh -c 256 -st -n 50 -p "The meaning of life is"'
 

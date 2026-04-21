@@ -12,21 +12,21 @@ Coming soon...
 
 ## Available Formats
 
-- **MLX 2-bit** — supported out of the box:
-  - [prism-ml/Ternary-Bonsai-8B-mlx-2bit](https://huggingface.co/prism-ml/Ternary-Bonsai-8B-mlx-2bit)
-  - [prism-ml/Ternary-Bonsai-4B-mlx-2bit](https://huggingface.co/prism-ml/Ternary-Bonsai-4B-mlx-2bit)
-  - [prism-ml/Ternary-Bonsai-1.7B-mlx-2bit](https://huggingface.co/prism-ml/Ternary-Bonsai-1.7B-mlx-2bit)
-- **GGUF** (`Q2_0`, etc.) — coming soon:
+- **GGUF** (`Q2_0`):
   - [prism-ml/Ternary-Bonsai-8B-gguf](https://huggingface.co/prism-ml/Ternary-Bonsai-8B-gguf)
   - [prism-ml/Ternary-Bonsai-4B-gguf](https://huggingface.co/prism-ml/Ternary-Bonsai-4B-gguf)
   - [prism-ml/Ternary-Bonsai-1.7B-gguf](https://huggingface.co/prism-ml/Ternary-Bonsai-1.7B-gguf)
+- **MLX (2-bit)**:
+  - [prism-ml/Ternary-Bonsai-8B-mlx-2bit](https://huggingface.co/prism-ml/Ternary-Bonsai-8B-mlx-2bit)
+  - [prism-ml/Ternary-Bonsai-4B-mlx-2bit](https://huggingface.co/prism-ml/Ternary-Bonsai-4B-mlx-2bit)
+  - [prism-ml/Ternary-Bonsai-1.7B-mlx-2bit](https://huggingface.co/prism-ml/Ternary-Bonsai-1.7B-mlx-2bit)
 
 ## How to Submit
 
-1. Run `./setup.sh` to download models and binaries
+1. Run `BONSAI_FAMILY=ternary ./setup.sh` to download models and binaries
 2. Pick a template and copy it to a new file:
+   - **llama.cpp** (CPU, Metal, CUDA, Vulkan, ROCm): [TERNARY-TEMPLATE-llama-cpp.md](TERNARY-TEMPLATE-llama-cpp.md)
    - **MLX (2-bit)** (Apple Silicon only): [TERNARY-TEMPLATE-mlx.md](TERNARY-TEMPLATE-mlx.md)
-   - **llama.cpp** (CPU, Metal, CUDA, Vulkan, ROCm): [TERNARY-TEMPLATE-llama-cpp.md](TERNARY-TEMPLATE-llama-cpp.md) — *accepting once GGUFs ship*
 
    Use this naming convention:
 
