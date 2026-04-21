@@ -3,56 +3,89 @@
 # Source this file: . "$(dirname "$0")/common.sh"
 
 # ── Model selection ──
-# Set BONSAI_MODEL to choose which model size to use.
-# Valid values: 8B (default), 4B, 1.7B
+# Set BONSAI_MODEL to choose size:   8B (default), 4B, 1.7B, or all
+# Set BONSAI_FAMILY to choose family: bonsai (default, 1-bit), ternary (1.58-bit), or all
+# "all" is only meaningful for setup/download — it expands to every size / every family.
 BONSAI_MODEL="${BONSAI_MODEL:-8B}"
-# set BONSAI_VARIANT to choose quantization: 1-bit (default) or ternary (1.58-bit)
-# valid values: 1bit, ternary
-BONSAI_VARIANT="${BONSAI_VARIANT:-1bit}"
+BONSAI_FAMILY="${BONSAI_FAMILY:-bonsai}"
 
-if [ "$BONSAI_VARIANT" = "ternary" ]; then
-    GGUF_MODEL_DIR="models/gguf/ternary/${BONSAI_MODEL}"
-    MLX_MODEL_DIR="models/Ternary-Bonsai-${BONSAI_MODEL}-mlx"
-else
-    GGUF_MODEL_DIR="models/gguf/${BONSAI_MODEL}"
-    MLX_MODEL_DIR="models/Bonsai-${BONSAI_MODEL}-mlx"
-fi
+# Derived paths default to empty so an invalid family or "all" never produces
+# a stale/glob-able path (e.g. `ls /*.gguf`). Concrete paths are only set when
+# the (family, size) pair is a valid concrete combination — runtime scripts
+# call assert_*_downloaded which validates and gives a clear error.
+GGUF_MODEL_DIR=""
+MLX_MODEL_DIR=""
+BONSAI_DISPLAY="(family=${BONSAI_FAMILY} size=${BONSAI_MODEL})"
 
-# validate BONSAI_MODEL and BONSAI_VARIANT
+case "$BONSAI_MODEL" in
+    8B|4B|1.7B)
+        case "$BONSAI_FAMILY" in
+            bonsai)
+                GGUF_MODEL_DIR="models/gguf/${BONSAI_MODEL}"
+                MLX_MODEL_DIR="models/Bonsai-${BONSAI_MODEL}-mlx"
+                BONSAI_DISPLAY="Bonsai-${BONSAI_MODEL}"
+                ;;
+            ternary)
+                GGUF_MODEL_DIR="models/ternary-gguf/${BONSAI_MODEL}"
+                MLX_MODEL_DIR="models/Ternary-Bonsai-${BONSAI_MODEL}-mlx"
+                BONSAI_DISPLAY="Ternary-Bonsai-${BONSAI_MODEL}"
+                ;;
+            # Anything else, including "all": paths stay empty; assert_valid_model
+            # will reject invalid families when called.
+        esac
+        ;;
+    # Anything else, including "all": paths stay empty until validated.
+esac
+
+# Validate BONSAI_MODEL + BONSAI_FAMILY — call at the top of every run/server script
 assert_valid_model() {
     case "$BONSAI_MODEL" in
-        8B|4B|1.7B) ;;
+        8B|4B|1.7B|all) ;;
         *)
-            err "Unknown BONSAI_MODEL='${BONSAI_MODEL}'. Valid values: 8B, 4B, 1.7B"
+            err "Unknown BONSAI_MODEL='${BONSAI_MODEL}'. Valid values: 8B, 4B, 1.7B, all"
             echo "  Example: export BONSAI_MODEL=8B"
             exit 1 ;;
     esac
-
-    case "$BONSAI_VARIANT" in
-        1bit|ternary) ;;
+    case "$BONSAI_FAMILY" in
+        bonsai|ternary|all) ;;
         *)
-            err "Unknown BONSAI_VARIANT='${BONSAI_VARIANT}'. Valid values: 1bit, ternary"
-            echo "  Example: export BONSAI_VARIANT=ternary"
+            err "Unknown BONSAI_FAMILY='${BONSAI_FAMILY}'. Valid values: bonsai, ternary, all"
+            echo "  Example: export BONSAI_FAMILY=ternary"
             exit 1 ;;
     esac
 }
 
+# Reject invalid values and the download-only "all" at runtime with a clear
+# message. Called by assert_gguf_downloaded / assert_mlx_downloaded so they're
+# safe to call even if the run script forgot to call assert_valid_model first.
+_assert_concrete_model() {
+    assert_valid_model
+    if [ "$BONSAI_FAMILY" = "all" ] || [ "$BONSAI_MODEL" = "all" ]; then
+        err "BONSAI_FAMILY='all' / BONSAI_MODEL='all' is only valid for setup/download."
+        echo "  Pick a concrete family/size for run scripts, e.g.:"
+        echo "    BONSAI_FAMILY=bonsai BONSAI_MODEL=8B ./scripts/run_llama.sh ..."
+        exit 1
+    fi
+}
+
 # Check GGUF model is downloaded — prompts to download if missing
 assert_gguf_downloaded() {
+    _assert_concrete_model
     if ! ls "$GGUF_MODEL_DIR"/*.gguf >/dev/null 2>&1; then
-        err "GGUF model not found for Bonsai-${BONSAI_MODEL} (expected in ${GGUF_MODEL_DIR}/)."
+        err "GGUF model not found for ${BONSAI_DISPLAY} (expected in ${GGUF_MODEL_DIR}/)."
         echo "  Download it with:"
-        echo "    BONSAI_MODEL=${BONSAI_MODEL} ./scripts/download_models.sh"
+        echo "    BONSAI_FAMILY=${BONSAI_FAMILY} BONSAI_MODEL=${BONSAI_MODEL} ./scripts/download_models.sh"
         exit 1
     fi
 }
 
 # Check MLX model is downloaded — prompts to download if missing
 assert_mlx_downloaded() {
+    _assert_concrete_model
     if [ ! -f "$MLX_MODEL_DIR/config.json" ]; then
-        err "MLX model not found for Bonsai-${BONSAI_MODEL} (expected in ${MLX_MODEL_DIR}/)."
+        err "MLX model not found for ${BONSAI_DISPLAY} (expected in ${MLX_MODEL_DIR}/)."
         echo "  Download it with:"
-        echo "    BONSAI_MODEL=${BONSAI_MODEL} ./scripts/download_models.sh"
+        echo "    BONSAI_FAMILY=${BONSAI_FAMILY} BONSAI_MODEL=${BONSAI_MODEL} ./scripts/download_models.sh"
         exit 1
     fi
 }

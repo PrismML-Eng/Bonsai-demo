@@ -7,8 +7,37 @@ import mlx.core as mx
 from mlx_lm import load, stream_generate
 from mlx_lm.generate import make_sampler
 
+_VALID_SIZES = ("8B", "4B", "1.7B")
+_VALID_FAMILIES = ("bonsai", "ternary")
+
 _SIZE = os.environ.get("BONSAI_MODEL", "8B")
-_DEFAULT_MODEL = f"models/Bonsai-{_SIZE}-mlx"
+_FAMILY = os.environ.get("BONSAI_FAMILY", "bonsai")
+
+if _FAMILY == "all":
+    sys.exit(
+        "BONSAI_FAMILY='all' is only valid for setup/download. "
+        "Runtime requires a concrete family: bonsai or ternary."
+    )
+if _FAMILY not in _VALID_FAMILIES:
+    sys.exit(
+        f"Unknown BONSAI_FAMILY={_FAMILY!r}. Valid values: bonsai, ternary"
+    )
+
+if _SIZE == "all":
+    sys.exit(
+        "BONSAI_MODEL='all' is only valid for setup/download. "
+        "Runtime requires a concrete model size: 8B, 4B, or 1.7B."
+    )
+if _SIZE not in _VALID_SIZES:
+    sys.exit(
+        f"Unknown BONSAI_MODEL={_SIZE!r}. Valid values: 8B, 4B, 1.7B"
+    )
+
+_DEFAULT_MODEL = (
+    f"models/Ternary-Bonsai-{_SIZE}-mlx"
+    if _FAMILY == "ternary"
+    else f"models/Bonsai-{_SIZE}-mlx"
+)
 
 
 def main():

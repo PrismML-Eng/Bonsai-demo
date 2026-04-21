@@ -1,10 +1,14 @@
 #!/bin/sh
-# Download Bonsai models from HuggingFace.
+# Download Bonsai / Ternary-Bonsai models from HuggingFace.
 #
 # Usage:
-#   ./scripts/download_models.sh              # download 8B (default)
-#   BONSAI_MODEL=4B ./scripts/download_models.sh   # download 4B
-#   BONSAI_MODEL=1.7B ./scripts/download_models.sh # download 1.7B
+#   ./scripts/download_models.sh                                         # Bonsai 8B (default)
+#   BONSAI_MODEL=4B ./scripts/download_models.sh                         # Bonsai 4B
+#   BONSAI_FAMILY=ternary ./scripts/download_models.sh                   # Ternary-Bonsai 8B
+#   BONSAI_FAMILY=ternary BONSAI_MODEL=1.7B ./scripts/download_models.sh # Ternary-Bonsai 1.7B
+#   BONSAI_MODEL=all ./scripts/download_models.sh                        # All sizes of the selected family
+#   BONSAI_FAMILY=all ./scripts/download_models.sh                       # Both families, 8B size
+#   BONSAI_FAMILY=all BONSAI_MODEL=all ./scripts/download_models.sh      # Full matrix (6 downloads)
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -43,47 +47,88 @@ snapshot_download(
 "
 }
 
-# ── Download GGUF + MLX for one model size ──
-download_size() {
-    _size="$1"
-    
-    if [ "$BONSAI_VARIANT" = "ternary" ]; then
-        _gguf_repo="prism-ml/Ternary-Bonsai-${_size}-gguf"
-        _mlx_repo="prism-ml/Ternary-Bonsai-${_size}-mlx-2bit"
-        _gguf_dir="models/gguf/ternary/${_size}"
-        _mlx_dir="models/Ternary-Bonsai-${_size}-mlx"
-    else
-        _gguf_repo="prism-ml/Bonsai-${_size}-gguf"
-        _mlx_repo="prism-ml/Bonsai-${_size}-mlx-1bit"
-        _gguf_dir="models/gguf/${_size}"
-        _mlx_dir="models/Bonsai-${_size}-mlx"
-    fi
+# ── Download GGUF + MLX for one (family, size) pair ──
+download_one() {
+    _family="$1"
+    _size="$2"
+    case "$_family" in
+        bonsai)
+            _gguf_repo="prism-ml/Bonsai-${_size}-gguf"
+            _mlx_repo="prism-ml/Bonsai-${_size}-mlx-1bit"
+            _gguf_dir="models/gguf/${_size}"
+            _mlx_dir="models/Bonsai-${_size}-mlx"
+            _display="Bonsai-${_size}"
+            _gguf_optional=0
+            ;;
+        ternary)
+            _gguf_repo="prism-ml/Ternary-Bonsai-${_size}-gguf"
+            _mlx_repo="prism-ml/Ternary-Bonsai-${_size}-mlx-2bit"
+            _gguf_dir="models/ternary-gguf/${_size}"
+            _mlx_dir="models/Ternary-Bonsai-${_size}-mlx"
+            _display="Ternary-Bonsai-${_size}"
+            _gguf_optional=1   # GGUFs not yet public — skip gracefully on failure
+            ;;
+    esac
 
     # GGUF
+    #   Required (bonsai): let stderr flow to the user so they see auth/network
+    #   errors directly. Optional (ternary, not-yet-public): capture stderr to
+    #   a log file so the friendly "coming soon" message stays clean but users
+    #   can still inspect the full error.
     if [ -d "$_gguf_dir" ] && ls "$_gguf_dir"/*.gguf >/dev/null 2>&1; then
-        info "GGUF ${_size} (${BONSAI_VARIANT}) already present in ${_gguf_dir}/"
-    else
-        step "Downloading GGUF ${_size} (${BONSAI_VARIANT}) from ${_gguf_repo} ..."
+        info "GGUF ${_display} already present in ${_gguf_dir}/"
+    elif [ "$_gguf_optional" = 1 ]; then
+        step "Downloading GGUF ${_display} from ${_gguf_repo} ..."
         mkdir -p "$_gguf_dir"
-        hf_download "$_gguf_repo" "$_gguf_dir"
-        info "GGUF ${_size} downloaded to ${_gguf_dir}/"
+        _errlog="models/.${_display}-gguf-download.log"
+        if hf_download "$_gguf_repo" "$_gguf_dir" 2>"$_errlog"; then
+            info "GGUF ${_display} downloaded to ${_gguf_dir}/"
+            rm -f "$_errlog"
+        else
+            warn "GGUF ${_display} not available yet (coming soon — repo: ${_gguf_repo})."
+            warn "  Full error saved to: ${_errlog}"
+            rm -rf "$_gguf_dir"
+        fi
+    else
+        step "Downloading GGUF ${_display} from ${_gguf_repo} ..."
+        mkdir -p "$_gguf_dir"
+        if hf_download "$_gguf_repo" "$_gguf_dir"; then
+            info "GGUF ${_display} downloaded to ${_gguf_dir}/"
+        else
+            err "Failed to download GGUF ${_display} from ${_gguf_repo}."
+            exit 1
+        fi
     fi
 
     # MLX (macOS Apple Silicon only; skipped on Intel or when BONSAI_SKIP_MLX=1)
     if [ "$(uname -s)" = "Darwin" ] && ! bonsai_should_skip_mlx; then
         if [ -d "$_mlx_dir" ] && [ -f "$_mlx_dir/config.json" ]; then
-            info "MLX ${_size} (${BONSAI_VARIANT}) already present in ${_mlx_dir}/"
+            info "MLX ${_display} already present in ${_mlx_dir}/"
         else
-            step "downloading MLX ${_size} (${BONSAI_VARIANT}) from ${_mlx_repo} ..."
+            step "Downloading MLX ${_display} from ${_mlx_repo} ..."
             hf_download "$_mlx_repo" "$_mlx_dir"
-            info "MLX ${_size} downloaded to ${_mlx_dir}/"
+            info "MLX ${_display} downloaded to ${_mlx_dir}/"
         fi
     fi
 }
 
 mkdir -p models
 
-download_size "$BONSAI_MODEL"
+# Expand "all" for family and size into concrete lists, then iterate.
+case "$BONSAI_FAMILY" in
+    all) _families="bonsai ternary" ;;
+    *)   _families="$BONSAI_FAMILY" ;;
+esac
+case "$BONSAI_MODEL" in
+    all) _sizes="8B 4B 1.7B" ;;
+    *)   _sizes="$BONSAI_MODEL" ;;
+esac
+
+for _f in $_families; do
+    for _s in $_sizes; do
+        download_one "$_f" "$_s"
+    done
+done
 
 if [ "$(uname -s)" != "Darwin" ]; then
     info "Skipping MLX models (macOS only)."
