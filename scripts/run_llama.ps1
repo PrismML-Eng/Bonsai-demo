@@ -87,7 +87,7 @@ $CommonArgs = @(
     "--min-p", "0",
     "--reasoning-budget", "0",
     "--reasoning-format", "none",
-    "--chat-template-kwargs", '{"enable_thinking": false}'
+    "--chat-template-kwargs", '{\"enable_thinking\": false}'
 )
 
 Write-Host "[OK] Model:  $($Model.FullName)" -ForegroundColor Green
