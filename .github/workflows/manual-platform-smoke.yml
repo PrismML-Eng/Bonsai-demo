@@ -185,8 +185,8 @@ jobs:
             bin
             mlx
             models/Bonsai-${{ env.BONSAI_MODEL }}-mlx
-            models/Ternary-Bonsai-${{ env.BONSAI_MODEL }}-mlx
-          key: ${{ runner.os }}-${{ runner.arch }}-bonsai-bin-mlx-v2-${{ hashFiles('scripts/download_binaries.sh', 'setup.sh') }}
+            models/Ternary-Bonsai-${{ env.BONSAI_MODEL }}-mlx-2bit
+          key: ${{ runner.os }}-${{ runner.arch }}-bonsai-bin-mlx-v3-${{ hashFiles('scripts/download_binaries.sh', 'setup.sh') }}
       - name: Setup
         run: ./setup.sh
       - name: llama-cli smoke test (Bonsai Q1_0, CPU)

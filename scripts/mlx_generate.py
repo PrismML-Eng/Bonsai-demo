@@ -34,7 +34,7 @@ if _SIZE not in _VALID_SIZES:
     )
 
 _DEFAULT_MODEL = (
-    f"models/Ternary-Bonsai-{_SIZE}-mlx"
+    f"models/Ternary-Bonsai-{_SIZE}-mlx-2bit"
     if _FAMILY == "ternary"
     else f"models/Bonsai-{_SIZE}-mlx"
 )
