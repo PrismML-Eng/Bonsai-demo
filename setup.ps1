@@ -122,8 +122,6 @@ if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
         try { winget install --id=astral-sh.uv -e --accept-package-agreements --accept-source-agreements } catch {}
         $ErrorActionPreference = $prevEAP
         Refresh-SessionPath
-    } else {
-        Write-Host "    winget unavailable; trying alternative installer ..." -ForegroundColor Yellow
     }
     if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
         Write-Host "    Trying alternative installer ..." -ForegroundColor Yellow
