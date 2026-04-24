@@ -104,10 +104,9 @@ if ($DetectedPython) {
     if (-not $DetectedPython) {
         Write-Host "[ERR] Python installation failed." -ForegroundColor Red
         if (-not $WingetCmd) {
-            Write-Host "      winget is unavailable; install Python $PythonVersion from https://www.python.org/downloads/" -ForegroundColor Yellow
-        } else {
-            Write-Host "      Install Python $PythonVersion from https://www.python.org/downloads/" -ForegroundColor Yellow
+            Write-Host "      winget is unavailable." -ForegroundColor Yellow
         }
+        Write-Host "      Install Python $PythonVersion from https://www.python.org/downloads/" -ForegroundColor Yellow
         exit 1
     }
 }
