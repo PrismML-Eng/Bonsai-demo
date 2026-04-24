@@ -71,9 +71,9 @@ jobs:
           _check bonsai  8B    models/gguf/8B            models/Bonsai-8B-mlx            Bonsai-8B
           _check bonsai  4B    models/gguf/4B            models/Bonsai-4B-mlx            Bonsai-4B
           _check bonsai  1.7B  models/gguf/1.7B          models/Bonsai-1.7B-mlx          Bonsai-1.7B
-          _check ternary 8B    models/ternary-gguf/8B    models/Ternary-Bonsai-8B-mlx    Ternary-Bonsai-8B
-          _check ternary 4B    models/ternary-gguf/4B    models/Ternary-Bonsai-4B-mlx    Ternary-Bonsai-4B
-          _check ternary 1.7B  models/ternary-gguf/1.7B  models/Ternary-Bonsai-1.7B-mlx  Ternary-Bonsai-1.7B
+          _check ternary 8B    models/ternary-gguf/8B    models/Ternary-Bonsai-8B-mlx-2bit    Ternary-Bonsai-8B
+          _check ternary 4B    models/ternary-gguf/4B    models/Ternary-Bonsai-4B-mlx-2bit    Ternary-Bonsai-4B
+          _check ternary 1.7B  models/ternary-gguf/1.7B  models/Ternary-Bonsai-1.7B-mlx-2bit  Ternary-Bonsai-1.7B
 
       - name: '"all" accepted by validation; paths left empty for runtime safety'
         run: |

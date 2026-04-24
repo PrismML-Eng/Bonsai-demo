@@ -80,10 +80,10 @@ Write-Host "========================================="
 Write-Host ""
 
 # ── 1. Check winget ──
-if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
-    Write-Host "[ERR] winget is not available." -ForegroundColor Red
-    Write-Host "      Install from https://aka.ms/getwinget or install Python $PythonVersion and uv manually." -ForegroundColor Yellow
-    exit 1
+$WingetCmd = Get-Command winget -ErrorAction SilentlyContinue
+if (-not $WingetCmd) {
+    Write-Host "[WARN] winget is not available." -ForegroundColor Yellow
+    Write-Host "      Continuing with existing toolchain; installs may require manual fallback." -ForegroundColor Yellow
 }
 
 # ── 2. Python ──
@@ -93,15 +93,21 @@ if ($DetectedPython) {
     Write-Host "[OK] Python $($DetectedPython.Version) found." -ForegroundColor Green
 } else {
     Write-Host "==> Installing Python $PythonVersion ..." -ForegroundColor Cyan
-    $prevEAP = $ErrorActionPreference
-    $ErrorActionPreference = "Continue"
-    try { winget install -e --id "Python.Python.$PythonVersion" --accept-package-agreements --accept-source-agreements } catch {}
-    $ErrorActionPreference = $prevEAP
-    Refresh-SessionPath
+    if ($WingetCmd) {
+        $prevEAP = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        try { winget install -e --id "Python.Python.$PythonVersion" --accept-package-agreements --accept-source-agreements } catch {}
+        $ErrorActionPreference = $prevEAP
+        Refresh-SessionPath
+    }
     $DetectedPython = Find-CompatiblePython
     if (-not $DetectedPython) {
         Write-Host "[ERR] Python installation failed." -ForegroundColor Red
-        Write-Host "      Install Python $PythonVersion from https://www.python.org/downloads/" -ForegroundColor Yellow
+        if (-not $WingetCmd) {
+            Write-Host "      Manual installation required: winget is unavailable. Install Python $PythonVersion from https://www.python.org/downloads/" -ForegroundColor Yellow
+        } else {
+            Write-Host "      Install Python $PythonVersion from https://www.python.org/downloads/" -ForegroundColor Yellow
+        }
         exit 1
     }
 }
@@ -110,11 +116,13 @@ if ($DetectedPython) {
 Write-Host "==> Checking uv ..." -ForegroundColor Cyan
 if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
     Write-Host "==> Installing uv ..." -ForegroundColor Cyan
-    $prevEAP = $ErrorActionPreference
-    $ErrorActionPreference = "Continue"
-    try { winget install --id=astral-sh.uv -e --accept-package-agreements --accept-source-agreements } catch {}
-    $ErrorActionPreference = $prevEAP
-    Refresh-SessionPath
+    if ($WingetCmd) {
+        $prevEAP = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        try { winget install --id=astral-sh.uv -e --accept-package-agreements --accept-source-agreements } catch {}
+        $ErrorActionPreference = $prevEAP
+        Refresh-SessionPath
+    }
     if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
         Write-Host "    Trying alternative installer ..." -ForegroundColor Yellow
         powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"

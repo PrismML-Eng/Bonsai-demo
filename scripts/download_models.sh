@@ -70,7 +70,7 @@ download_one() {
             _gguf_repo="prism-ml/Ternary-Bonsai-${_size}-gguf"
             _mlx_repo="prism-ml/Ternary-Bonsai-${_size}-mlx-2bit"
             _gguf_dir="models/ternary-gguf/${_size}"
-            _mlx_dir="models/Ternary-Bonsai-${_size}-mlx"
+            _mlx_dir="models/Ternary-Bonsai-${_size}-mlx-2bit"
             _display="Ternary-Bonsai-${_size}"
             _gguf_pattern="*Q2_0*.gguf"
             ;;
