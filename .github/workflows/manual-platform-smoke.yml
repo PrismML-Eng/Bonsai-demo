@@ -203,6 +203,10 @@ jobs:
         run: './scripts/run_llama.sh -ngl 99 -c 256 -st -n 50 -p "The meaning of life is"'
       - name: MLX smoke test (Bonsai 1-bit)
         run: './scripts/run_mlx.sh -n 50 -p "The meaning of life is"'
+      - name: Download MLX model (Ternary-Bonsai 2-bit)
+        env:
+          BONSAI_FAMILY: ternary
+        run: ./scripts/download_models.sh
       - name: MLX smoke test (Ternary-Bonsai 2-bit)
         env:
           BONSAI_FAMILY: ternary
