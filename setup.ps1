@@ -219,7 +219,6 @@ Write-Host "==> Downloading model (family=$BonsaiFamily size=$BonsaiModel) ..." 
 # Ensure Python-based HF CLI output is UTF-8-safe on hosted Windows runners.
 $env:PYTHONUTF8 = "1"
 $env:PYTHONIOENCODING = "utf-8"
-$env:HF_HUB_DISABLE_PROGRESS_BARS = "1"
 
 function Download-GgufModel($Family, $Size) {
     # Each GGUF repo ships multiple quants (e.g. F16 + Q2_0); only fetch the
