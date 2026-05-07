@@ -2,6 +2,12 @@ name: Build from source smoke tests
 
 on:
   workflow_dispatch:
+    inputs:
+      enable_linux_amd:
+        description: "Run optional self-hosted Linux AMD/ROCm build"
+        required: false
+        default: false
+        type: boolean
   pull_request:
     types: [labeled]
 
@@ -138,3 +144,24 @@ jobs:
           BONSAI_FAMILY: ternary
         run: './scripts/run_llama.sh -c 256 -st -n 50 -p "The meaning of life is"'
 
+  linux-amd:
+    name: Linux AMD ROCm build (self-hosted)
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.enable_linux_amd }}
+    needs: [download-model]
+    runs-on: [self-hosted, Linux, X64, amd]
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download models
+        uses: actions/download-artifact@v4
+        with:
+          name: all-models
+          path: models
+      - name: Build from source
+        run: ./scripts/build_rocm_linux.sh
+      - name: llama-cli smoke test (Bonsai Q1_0, ROCm)
+        run: './scripts/run_llama.sh -c 256 -st -n 50 -p "The meaning of life is"'
+      - name: llama-cli smoke test (Ternary-Bonsai Q2_0, ROCm)
+        env:
+          BONSAI_FAMILY: ternary
+        run: './scripts/run_llama.sh -c 256 -st -n 50 -p "The meaning of life is"'

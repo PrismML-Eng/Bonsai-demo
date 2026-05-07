@@ -18,22 +18,12 @@ Set-Location $DemoDir
 
 if ($BonsaiFamily -eq "ternary") {
     $ModelDir = Join-Path $DemoDir "models\ternary-gguf\$BonsaiModel"
-
-    $FamilyDisplay = "Ternary-Bonsai"
-} else {
-    $ModelDir = Join-Path $DemoDir "models\gguf\$BonsaiModel"
-    $FamilyDisplay = "Bonsai"
-}
-
-$Model = Get-ChildItem -Path $ModelDir -Filter *.gguf -File -ErrorAction SilentlyContinue | Select-Object -First 1
-if (-not $Model) {
-    Write-Host "[ERR] GGUF model not found for $FamilyDisplay-$BonsaiModel in $ModelDir" -ForegroundColor Red
-
     $Display = "Ternary-Bonsai-$BonsaiModel"
 } else {
     $ModelDir = Join-Path $DemoDir "models\gguf\$BonsaiModel"
     $Display = "Bonsai-$BonsaiModel"
 }
+
 $Model = Get-ChildItem -Path $ModelDir -Filter *.gguf -File -ErrorAction SilentlyContinue | Select-Object -First 1
 if (-not $Model) {
     Write-Host "[ERR] GGUF model not found for $Display in $ModelDir" -ForegroundColor Red
@@ -77,6 +67,16 @@ for ($i = 0; $i -lt $args.Count; $i++) {
     }
 }
 
+$PromptFlags = @("-p", "--prompt", "-f", "--file")
+$HasPromptArg = $false
+for ($i = 0; $i -lt $args.Count; $i++) {
+    if ($args[$i] -in $PromptFlags -or $args[$i] -like "--prompt=*" -or $args[$i] -like "--file=*") {
+        $HasPromptArg = $true
+        break
+    }
+}
+$SingleTurnArgs = if ($HasPromptArg) { @("--single-turn") } else { @() }
+
 $CommonArgs = @(
     "-m", $Model.FullName,
     "-ngl", $Ngl,
@@ -94,13 +94,13 @@ Write-Host "[OK] Model:  $($Model.FullName)" -ForegroundColor Green
 Write-Host "[OK] Binary: $Bin" -ForegroundColor Green
 Write-Host "[OK] Using -ngl $Ngl, -c 0 (auto-fit to available memory)" -ForegroundColor Green
 
-$RunArgs = $CommonArgs + @("-c", "0") + $args
+$RunArgs = $CommonArgs + @("-c", "0") + $SingleTurnArgs + $args
 & $Bin @RunArgs
 $ExitCode = $LASTEXITCODE
 
 if ($ExitCode -ne 0 -and $ExitCode -notin @(130, -1073741510) -and -not $HasContextArg) {
     Write-Host "[WARN] Auto-fit not supported, falling back to -c 8192" -ForegroundColor Yellow
-    $FallbackArgs = $CommonArgs + @("-c", "8192") + $args
+    $FallbackArgs = $CommonArgs + @("-c", "8192") + $SingleTurnArgs + $args
     & $Bin @FallbackArgs
     exit $LASTEXITCODE
 }

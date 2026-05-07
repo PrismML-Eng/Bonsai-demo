@@ -63,7 +63,7 @@ More compact ternary formats are TBD. llama.cpp already has `TQ1_0` and `TQ2_0` 
 | CUDA | `prism` fork | [e380897e](https://github.com/PrismML-Eng/llama.cpp/commit/e380897e); PR coming soon |
 | CPU (optimized x86) | ⏳ TBD | — |
 | Vulkan | ⏳ TBD | — |
-| ROCm / HIP | ⏳ TBD | — |
+| ROCm / HIP | `prism` fork; local gfx1151 validation | [d104cf1b](https://github.com/PrismML-Eng/llama.cpp/commit/d104cf1b); [benchmark](community-benchmarks/ternary-bonsai/rocm-hip-strix-halo-128gb-linux.md) |
 | MLX (2-bit) | Already supported in stock [MLX](https://github.com/ml-explore/mlx) | - |
 
 ## Benchmarks
@@ -326,12 +326,10 @@ cmake --build build -j$(nproc)
 ### Linux (ROCm / AMD GPU)
 
 ```bash
-# Requires ROCm toolkit (hipcc)
-git clone -b prism https://github.com/PrismML-Eng/llama.cpp.git
-cd llama.cpp
-cmake -B build -DCMAKE_BUILD_TYPE=Release -DGGML_HIP=ON
-cmake --build build -j$(nproc)
-# Binaries in build/bin/
+./scripts/build_rocm_linux.sh
+
+# Strix Halo / gfx1151 explicitly:
+./scripts/build_rocm_linux.sh --targets gfx1151
 ```
 
 ### Windows (CUDA)
@@ -407,6 +405,7 @@ Bonsai-demo/
 │   ├── build_mac.sh                # Build llama.cpp for Mac
 │   ├── build_cpu_linux.sh          # Build llama.cpp for Linux (CPU only)
 │   ├── build_cuda_linux.sh         # Build llama.cpp for Linux CUDA
+│   ├── build_rocm_linux.sh         # Build llama.cpp for Linux ROCm/HIP
 │   └── build_cuda_windows.ps1      # Build llama.cpp for Windows CUDA
 ├── models/                         # ← downloaded by setup
 │   ├── gguf/

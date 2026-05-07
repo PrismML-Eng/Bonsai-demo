@@ -27,22 +27,12 @@ try {
 
 if ($BonsaiFamily -eq "ternary") {
     $ModelDir = Join-Path $DemoDir "models\ternary-gguf\$BonsaiModel"
-
-    $FamilyDisplay = "Ternary-Bonsai"
-} else {
-    $ModelDir = Join-Path $DemoDir "models\gguf\$BonsaiModel"
-    $FamilyDisplay = "Bonsai"
-}
-
-$Model = Get-ChildItem -Path $ModelDir -Filter *.gguf -File -ErrorAction SilentlyContinue | Select-Object -First 1
-if (-not $Model) {
-    Write-Host "[ERR] GGUF model not found for $FamilyDisplay-$BonsaiModel in $ModelDir" -ForegroundColor Red
-
     $Display = "Ternary-Bonsai-$BonsaiModel"
 } else {
     $ModelDir = Join-Path $DemoDir "models\gguf\$BonsaiModel"
     $Display = "Bonsai-$BonsaiModel"
 }
+
 $Model = Get-ChildItem -Path $ModelDir -Filter *.gguf -File -ErrorAction SilentlyContinue | Select-Object -First 1
 if (-not $Model) {
     Write-Host "[ERR] GGUF model not found for $Display in $ModelDir" -ForegroundColor Red

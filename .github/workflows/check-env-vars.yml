@@ -22,6 +22,14 @@ jobs:
         run: |
           sh -n scripts/common.sh
           sh -n scripts/download_models.sh
+          sh -n scripts/download_binaries.sh
+          sh -n scripts/run_llama.sh
+          sh -n scripts/start_llama_server.sh
+          sh -n scripts/start_openwebui.sh
+          bash -n scripts/build_cuda_linux.sh
+          bash -n scripts/build_rocm_linux.sh
+          sh -n scripts/build_cpu_linux.sh
+          sh -n scripts/build_mac.sh
           sh -n setup.sh
           echo "OK: shell scripts parse"
 

@@ -70,3 +70,8 @@ Always-on (run every time):
 | `macos-metal` | `macos-14` | `build_mac.sh` | Metal + CPU (Apple Silicon) |
 | `macos-intel` | `macos-15-intel` | `build_mac.sh` | CPU only (Intel) |
 
+Optional self-hosted builds:
+
+| Job | Runner | Script | What it builds |
+|-----|--------|--------|---------------|
+| `linux-amd` | `[self-hosted, Linux, X64, amd]` | `build_rocm_linux.sh` | ROCm/HIP (`gfx1151` by default) |

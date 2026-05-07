@@ -31,6 +31,26 @@ BIN_DIR="$(cd "$(dirname "$BIN")" && pwd)"
 export LD_LIBRARY_PATH="$BIN_DIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
 NGL=$(bonsai_llama_ngl)
+SINGLE_TURN_ARGS=""
+_prev=""
+for _arg in "$@"; do
+    if [ "$_prev" = "-p" ] || [ "$_prev" = "--prompt" ] || [ "$_prev" = "-f" ] || [ "$_prev" = "--file" ]; then
+        SINGLE_TURN_ARGS="--single-turn"
+        break
+    fi
+    case "$_arg" in
+        -p|--prompt|-f|--file)
+            _prev="$_arg"
+            ;;
+        --prompt=*|--file=*)
+            SINGLE_TURN_ARGS="--single-turn"
+            break
+            ;;
+        *)
+            _prev=""
+            ;;
+    esac
+done
 
 info "Model:  $MODEL"
 info "Binary: $BIN"
@@ -40,6 +60,7 @@ info "Using -ngl $NGL, -c 0 (auto-fit to available memory)"
     --temp 0.5 --top-p 0.85 --top-k 20 --min-p 0 \
     --reasoning-budget 0 --reasoning-format none \
     --chat-template-kwargs '{"enable_thinking": false}' \
+    $SINGLE_TURN_ARGS \
     "$@" \
 || {
     CTX_SIZE=$(get_context_size_fallback)
@@ -48,5 +69,6 @@ info "Using -ngl $NGL, -c 0 (auto-fit to available memory)"
         --temp 0.5 --top-p 0.85 --top-k 20 --min-p 0 \
         --reasoning-budget 0 --reasoning-format none \
         --chat-template-kwargs '{"enable_thinking": false}' \
+        $SINGLE_TURN_ARGS \
         "$@"
 }
