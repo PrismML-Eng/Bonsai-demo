@@ -14,7 +14,7 @@ Combined view across both model families. See the per-family subfolders below fo
 | Bonsai (1-bit) | AMD Strix Halo 128 GB | llama.cpp ROCm HIP | 1,325 | 96 | [link](bonsai/rocm-hip-strix-halo-128gb-archlinux.md) |
 | Bonsai (1-bit) | NVIDIA GeForce RTX 3080 10 GB | llama.cpp CUDA | 4,770 | 197 | [link](bonsai/cuda-rtx3080-linux.md) |
 | Bonsai (1-bit) | NVIDIA RTX A2000 Laptop (4 GB) | llama.cpp CUDA | 1,387 | 63 | [link](bonsai/cuda-rtxa2000-debian.md) |
-| Ternary-Bonsai (1.58-bit) | *coming soon* | | | | |
+| Ternary-Bonsai (1.58-bit) | AMD Strix Halo 128 GB | llama.cpp ROCm HIP | 1,323 | 79 | [link](ternary-bonsai/rocm-hip-strix-halo-128gb-linux.md) |
 
 ## Model Families
 

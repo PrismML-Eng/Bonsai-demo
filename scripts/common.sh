@@ -9,6 +9,19 @@
 BONSAI_MODEL="${BONSAI_MODEL:-8B}"
 BONSAI_FAMILY="${BONSAI_FAMILY:-bonsai}"
 
+if [ -d /opt/rocm/bin ]; then
+    case ":$PATH:" in
+        *:/opt/rocm/bin:*) ;;
+        *) PATH="/opt/rocm/bin:$PATH"; export PATH ;;
+    esac
+fi
+if [ -d /opt/rocm/lib ]; then
+    case ":${LD_LIBRARY_PATH:-}:" in
+        *:/opt/rocm/lib:*) ;;
+        *) LD_LIBRARY_PATH="/opt/rocm/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"; export LD_LIBRARY_PATH ;;
+    esac
+fi
+
 # Derived paths default to empty so an invalid family or "all" never produces
 # a stale/glob-able path (e.g. `ls /*.gguf`). Concrete paths are only set when
 # the (family, size) pair is a valid concrete combination — runtime scripts

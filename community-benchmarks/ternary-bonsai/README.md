@@ -4,11 +4,9 @@ Benchmark results submitted by the community running [Ternary-Bonsai](https://hu
 
 ## Results
 
-Coming soon...
-
 | Hardware | Backend | 8B PP512 (t/s) | 8B TG128 (t/s) | Details |
 |----------|---------|----------------|----------------|---------|
-| | | | | |
+| AMD Strix Halo 128 GB | llama.cpp ROCm HIP | 1,323 | 79 | [link](rocm-hip-strix-halo-128gb-linux.md) |
 
 ## Available Formats
 
