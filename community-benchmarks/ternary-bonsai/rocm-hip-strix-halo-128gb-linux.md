@@ -71,6 +71,19 @@ build: `d104cf1b6` (`8846`)
 
 Raw JSONL from the run is stored under `benchmarks/data/`.
 
+## Flash Attention Comparison
+
+Follow-up comparison at `pp512/tg128` with flash attention disabled and enabled:
+
+| Model | FA | pp512 (t/s) | tg128 (t/s) |
+|---|---:|---:|---:|
+| Ternary-Bonsai-1.7B Q2_0 | 0 | 4843.50 +/- 36.70 | 199.52 +/- 0.55 |
+| Ternary-Bonsai-1.7B Q2_0 | 1 | 4926.64 +/- 71.57 | 212.57 +/- 19.67 |
+| Ternary-Bonsai-4B Q2_0 | 0 | 1911.58 +/- 192.90 | 100.55 +/- 0.86 |
+| Ternary-Bonsai-4B Q2_0 | 1 | 2290.08 +/- 74.69 | 112.62 +/- 4.04 |
+| Ternary-Bonsai-8B Q2_0 | 0 | 1142.11 +/- 15.63 | 70.39 +/- 0.33 |
+| Ternary-Bonsai-8B Q2_0 | 1 | 1303.33 +/- 53.55 | 78.25 +/- 0.25 |
+
 ## Smoke Test
 
 The repo launcher also ran the same model through `scripts/run_llama.sh` after building ROCm binaries into `bin/rocm`:
