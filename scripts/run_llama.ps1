@@ -28,19 +28,11 @@ if ($BonsaiFamily -eq "ternary") {
 $Model = Get-ChildItem -Path $ModelDir -Filter *.gguf -File -ErrorAction SilentlyContinue | Select-Object -First 1
 if (-not $Model) {
     Write-Host "[ERR] GGUF model not found for $FamilyDisplay-$BonsaiModel in $ModelDir" -ForegroundColor Red
-
-    $Display = "Ternary-Bonsai-$BonsaiModel"
-} else {
-    $ModelDir = Join-Path $DemoDir "models\gguf\$BonsaiModel"
-    $Display = "Bonsai-$BonsaiModel"
-}
-$Model = Get-ChildItem -Path $ModelDir -Filter *.gguf -File -ErrorAction SilentlyContinue | Select-Object -First 1
-if (-not $Model) {
-    Write-Host "[ERR] GGUF model not found for $Display in $ModelDir" -ForegroundColor Red
-
     Write-Host "      Run .\setup.ps1 first." -ForegroundColor Yellow
     exit 1
 }
+
+$Display = "$FamilyDisplay-$BonsaiModel"
 
 $BinCandidates = @(
     "bin\cuda\llama-cli.exe",
