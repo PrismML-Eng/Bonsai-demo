@@ -32,8 +32,6 @@ if (-not $Model) {
     exit 1
 }
 
-$Display = "$FamilyDisplay-$BonsaiModel"
-
 $BinCandidates = @(
     "bin\cuda\llama-cli.exe",
     "bin\hip\llama-cli.exe",
