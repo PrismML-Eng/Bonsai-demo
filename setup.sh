@@ -239,16 +239,9 @@ BONSAI_FAMILY="$BONSAI_FAMILY" BONSAI_MODEL="$BONSAI_MODEL" sh "$SCRIPT_DIR/scri
 # ────────────────────────────────────────────────────
 #  7. llama.cpp pre-built binaries
 # ────────────────────────────────────────────────────
-_has_binaries=false
-for _d in bin/mac bin/cuda bin/rocm bin/hip bin/vulkan bin/cpu; do
-    ls "$_d"/llama-* >/dev/null 2>&1 && _has_binaries=true && break
-done
-
-if [ "$_has_binaries" = true ]; then
-    info "llama.cpp binaries already present."
-else
-    sh "$SCRIPT_DIR/scripts/download_binaries.sh"
-fi
+# Always defer to the downloader: it fast-skips when the installed binaries
+# already match the pinned release, and refreshes them when the pin changed.
+sh "$SCRIPT_DIR/scripts/download_binaries.sh"
 
 chmod +x "$SCRIPT_DIR"/scripts/*.sh 2>/dev/null || true
 

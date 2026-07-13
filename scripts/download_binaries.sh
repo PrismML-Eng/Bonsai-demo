@@ -101,8 +101,14 @@ esac
 URL="$BASE_URL/$ASSET"
 
 if [ -d "$DEST" ] && ls "$DEST"/llama-* >/dev/null 2>&1; then
-    info "Binaries already present in $DEST/"
-    exit 0
+    _installed=""
+    [ -f "$DEST/.llama_release" ] && _installed="$(cat "$DEST/.llama_release" 2>/dev/null)"
+    if [ "$_installed" = "$RELEASE_TAG" ]; then
+        info "Binaries already present in $DEST/ ($RELEASE_TAG)."
+        exit 0
+    fi
+    warn "Binaries in $DEST/ are ${_installed:-an older/unknown release}; updating to $RELEASE_TAG ..."
+    rm -rf "$DEST"
 fi
 
 step "Downloading $ASSET ..."
@@ -173,5 +179,9 @@ if [ "$OS" = "Darwin" ]; then
     fi
 fi
 
-info "Binaries installed to $DEST/"
+# Record the installed release so re-running setup can detect a version bump
+# and refresh the binaries instead of keeping the old ones.
+printf '%s\n' "$RELEASE_TAG" > "$DEST/.llama_release"
+
+info "Binaries installed to $DEST/ ($RELEASE_TAG)"
 ls -lh "$DEST"/llama-* 2>/dev/null || true

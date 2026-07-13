@@ -25,6 +25,25 @@ if [ "$BONSAI_BACKEND" = "mlx" ] && { [ "$(uname -s)" != "Darwin" ] || [ "$(unam
     exit 1
 fi
 
+# ── Bind address guard. The UI runs with auth disabled and (by default) a
+#    host-level code interpreter, so binding to a non-loopback address would let
+#    anyone on the network execute code as you. Refuse it unless explicitly
+#    opted in with BONSAI_ALLOW_REMOTE=1. ──
+BONSAI_HOST="${BONSAI_HOST:-127.0.0.1}"
+case "$BONSAI_HOST" in
+    127.0.0.1|::1|localhost) ;;
+    *)
+        if [ "${BONSAI_ALLOW_REMOTE:-0}" != "1" ]; then
+            err "Refusing to bind Open WebUI to '$BONSAI_HOST': the UI has authentication disabled and a host-level code interpreter, so a non-loopback bind exposes code execution as your user to the whole network."
+            echo "  Safer options: keep the default localhost bind and use an SSH tunnel / reverse proxy,"
+            echo "  or disable the code interpreter with BONSAI_CODE_INTERPRETER=0."
+            echo "  To bind anyway on a trusted network, set BONSAI_ALLOW_REMOTE=1."
+            exit 1
+        fi
+        warn "Binding Open WebUI to '$BONSAI_HOST' (BONSAI_ALLOW_REMOTE=1): auth is disabled and code execution may be enabled — trusted networks only."
+        ;;
+esac
+
 # Assert the weights the selected backend actually needs (an MLX-only run must
 # not require the GGUF, and vice versa).
 if [ "$BONSAI_BACKEND" = "mlx" ]; then
@@ -283,20 +302,43 @@ if [ "$BONSAI_CODE_INTERPRETER" != "0" ] && [ -x "$_JUP_PY" ]; then
             --ServerApp.root_dir="$_JUP_WORK" \
             --ServerApp.token="$_JUP_TOKEN" --ServerApp.disable_check_xsrf=True
     ) > "$_JUP_LOG" 2>&1 &
-    BG_PIDS="$BG_PIDS $!"
-    export ENABLE_CODE_EXECUTION=true
-    export ENABLE_CODE_INTERPRETER=true
-    export CODE_EXECUTION_ENGINE=jupyter
-    export CODE_INTERPRETER_ENGINE=jupyter
-    export CODE_EXECUTION_JUPYTER_URL="http://127.0.0.1:$_JUP_PORT"
-    export CODE_EXECUTION_JUPYTER_AUTH=token
-    export CODE_EXECUTION_JUPYTER_AUTH_TOKEN="$_JUP_TOKEN"
-    export CODE_EXECUTION_JUPYTER_TIMEOUT=120
-    export CODE_INTERPRETER_JUPYTER_URL="http://127.0.0.1:$_JUP_PORT"
-    export CODE_INTERPRETER_JUPYTER_AUTH=token
-    export CODE_INTERPRETER_JUPYTER_AUTH_TOKEN="$_JUP_TOKEN"
-    export CODE_INTERPRETER_JUPYTER_TIMEOUT=120
-    BONSAI_CODE_INTERPRETER_ON=1
+    _JUP_PID=$!
+    BG_PIDS="$BG_PIDS $_JUP_PID"
+    # Wait for the kernel to accept authenticated requests before advertising the
+    # code tool — otherwise a port clash, missing dependency, or startup crash
+    # would surface only at first use. Fall back to code-exec off if it never
+    # comes up (or the process already exited).
+    _jup_ready=false
+    _tries=0
+    while [ "$_tries" -lt 20 ]; do
+        kill -0 "$_JUP_PID" 2>/dev/null || break   # process exited — startup failed
+        if curl -fsS --max-time 2 "http://127.0.0.1:$_JUP_PORT/api/status?token=$_JUP_TOKEN" >/dev/null 2>&1; then
+            _jup_ready=true
+            break
+        fi
+        _tries=$((_tries + 1))
+        sleep 1
+    done
+    if [ "$_jup_ready" = true ]; then
+        export ENABLE_CODE_EXECUTION=true
+        export ENABLE_CODE_INTERPRETER=true
+        export CODE_EXECUTION_ENGINE=jupyter
+        export CODE_INTERPRETER_ENGINE=jupyter
+        export CODE_EXECUTION_JUPYTER_URL="http://127.0.0.1:$_JUP_PORT"
+        export CODE_EXECUTION_JUPYTER_AUTH=token
+        export CODE_EXECUTION_JUPYTER_AUTH_TOKEN="$_JUP_TOKEN"
+        export CODE_EXECUTION_JUPYTER_TIMEOUT=120
+        export CODE_INTERPRETER_JUPYTER_URL="http://127.0.0.1:$_JUP_PORT"
+        export CODE_INTERPRETER_JUPYTER_AUTH=token
+        export CODE_INTERPRETER_JUPYTER_AUTH_TOKEN="$_JUP_TOKEN"
+        export CODE_INTERPRETER_JUPYTER_TIMEOUT=120
+        info "Code interpreter ready (Jupyter on 127.0.0.1:$_JUP_PORT)."
+        BONSAI_CODE_INTERPRETER_ON=1
+    else
+        warn "Jupyter kernel did not become ready — disabling the code interpreter for this run."
+        kill "$_JUP_PID" 2>/dev/null || true
+        BONSAI_CODE_INTERPRETER_ON=0
+    fi
 else
     BONSAI_CODE_INTERPRETER_ON=0
 fi
@@ -381,7 +423,7 @@ _SEED_ARGS="--url http://localhost:$PORT"
     done
 ) &
 
-# Bind to localhost by default (WEBUI_AUTH is off, so don't expose the UI on the
-# network). Override with BONSAI_HOST=0.0.0.0 for LAN / remote / RunPod access.
-export HOST="${BONSAI_HOST:-127.0.0.1}"
+# Bind address resolved + guarded above (BONSAI_HOST, default 127.0.0.1;
+# non-loopback requires BONSAI_ALLOW_REMOTE=1).
+export HOST="$BONSAI_HOST"
 open-webui serve --host "$HOST" --port "$PORT" "$@"
