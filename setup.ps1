@@ -304,16 +304,19 @@ if ($WinArch -eq "arm64" -and $GpuType -ne "cpu") {
 
 # Refresh binaries when the pinned release changed (mirror of download_binaries.sh).
 # Remove any bin dir whose recorded release tag differs so it re-downloads below.
-foreach ($_d in @("bin\hip", "bin\cuda", "bin\vulkan", "bin\cpu")) {
-    $_p = Join-Path $PSScriptRoot $_d
-    if (Test-Path $_p) {
-        $_stampFile = Join-Path $_p ".llama_release"
-        $_stamp = if (Test-Path $_stampFile) { (Get-Content -Raw $_stampFile).Trim() } else { "" }
-        if ($_stamp -ne $ReleaseTag) {
-            $_was = if ($_stamp) { $_stamp } else { "an older/unknown release" }
-            Write-Host "[WARN] Binaries in $_d are $_was; updating to $ReleaseTag ..." -ForegroundColor Yellow
-            Remove-Item -Recurse -Force $_p
-        }
+foreach ($binRelDir in @("bin\hip", "bin\cuda", "bin\vulkan", "bin\cpu")) {
+    $binDir = Join-Path $PSScriptRoot $binRelDir
+    if (-not (Test-Path $binDir)) {
+        continue
+    }
+
+    $stampFile = Join-Path $binDir ".llama_release"
+    $installedTag = if (Test-Path $stampFile) { (Get-Content -Raw $stampFile).Trim() } else { "" }
+
+    if ($installedTag -ne $ReleaseTag) {
+        $was = if ($installedTag) { $installedTag } else { "an older/unknown release" }
+        Write-Host "[WARN] Binaries in $binRelDir are $was; updating to $ReleaseTag ..." -ForegroundColor Yellow
+        Remove-Item -Recurse -Force $binDir
     }
 }
 
@@ -349,7 +352,7 @@ if ($GpuType -eq "hip") {
 
 # Record the installed release so a future setup detects a version bump and
 # refreshes the binaries instead of keeping the old ones.
-if ($BinDir) { Set-Content -Path (Join-Path $BinDir ".llama_release") -Value $ReleaseTag -NoNewline }
+if ($BinDir) { Set-Content -Path (Join-Path $BinDir ".llama_release") -Value $ReleaseTag -NoNewline -Encoding utf8 }
 
 # ── Done ──
 Write-Host ""
