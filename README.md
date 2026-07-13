@@ -296,7 +296,7 @@ It always runs exactly one backend (two resident models is too heavy for most ma
 - The demo database is generated into `.openwebui/demo.db` on first start (`make_demo_db.py`).
 - Chats persist in `.openwebui/` between runs; delete that directory for a factory-fresh demo (everything reseeds).
 - Configuration comes from `start_openwebui.sh` env vars on every launch (auth disabled, single backend, background title/tag/follow-up generation off).
-- The code interpreter runs server-side in a Jupyter kernel (`.venv-jupyter`, built by `setup.sh` with matplotlib / pandas / numpy / scipy / sympy / yfinance). `start_openwebui.sh` launches it on `127.0.0.1:8888` and stops it on Ctrl+C. Disable with `BONSAI_CODE_INTERPRETER=0` (falls back to browser Pyodide — plots work, no yfinance).
+- The code interpreter runs server-side in a Jupyter kernel (`.venv-jupyter`, built by `setup.sh` with matplotlib / pandas / numpy / scipy / sympy / yfinance). `start_openwebui.sh` launches it on `127.0.0.1:8888` and stops it on Ctrl+C. Disable with `BONSAI_CODE_INTERPRETER=0` (code execution is then turned off).
 
 ---
 

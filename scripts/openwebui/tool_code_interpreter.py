@@ -13,7 +13,7 @@ MAX_WARNING_CHARS = 1000
 _ANSI_RE = re.compile(r"\x1b(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 _PROGRESS_RE = re.compile(r"^\[\*+[^\]]*\]\s+\d+\s+of\s+\d+\s+completed$", re.I)
 _ERROR_LINE_RE = re.compile(
-    r"^(?:[A-Za-z_][\w.]*Error|Exception|KeyboardInterrupt|SystemExit):?\s*"
+    r"^(?:(?:[A-Za-z_][\w.]*)?Error|Exception|KeyboardInterrupt|SystemExit):?\s*"
 )
 _OUTPUT_IMAGE_RE = re.compile(
     r"^!\[Output Image\]\(/api/v1/files/[^\s)]+/content\)$",

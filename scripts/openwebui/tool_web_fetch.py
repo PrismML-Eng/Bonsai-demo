@@ -238,6 +238,9 @@ def _check_url_public(url):
         return "Error: could not parse host from URL."
     try:
         port = parts.port or (443 if parts.scheme == "https" else 80)
+    except ValueError:
+        return "Error: malformed port in URL."
+    try:
         infos = socket.getaddrinfo(host, port)
     except OSError as e:
         return f"Error: could not resolve host: {e}"
