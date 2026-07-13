@@ -10,7 +10,6 @@ DEMO_DIR="$(resolve_demo_dir)"
 cd "$DEMO_DIR"
 
 REPO_DIR="${1:-./llama.cpp}"
-TARGETS="llama-completion llama-cli llama-server llama-quantize llama-perplexity"
 DEST="./bin/cpu"
 
 # ── Clone if needed ──
@@ -29,7 +28,7 @@ fi
 # ── Build ──
 step "Building llama.cpp for Linux (CPU only) ..."
 echo "  Repo:    $REPO_DIR"
-echo "  Targets: $TARGETS"
+echo "  Targets: all llama.cpp binaries (full build)"
 
 cd "$REPO_DIR"
 cmake -B build-cpu \
@@ -39,18 +38,20 @@ cmake -B build-cpu \
     -DGGML_METAL=OFF \
     -DGGML_VULKAN=OFF \
     -DGGML_HIP=OFF
-cmake --build build-cpu --target $TARGETS -j$(nproc)
+# Build every target (the `all` target) so bin/ is entirely source-built and
+# internally consistent — no mixing source-built and prebuilt binaries.
+cmake --build build-cpu -j$(nproc)
 cd - > /dev/null
 
 # ── Copy binaries ──
 step "Installing binaries to $DEST/ ..."
 mkdir -p "$DEST"
 
-for _bin in $TARGETS; do
-    if [ -f "$REPO_DIR/build-cpu/bin/$_bin" ]; then
-        cp "$REPO_DIR/build-cpu/bin/$_bin" "$DEST/"
-        info "$_bin"
-    fi
+# Ship every llama-* tool that was built (cli, server, quantize, bench, ...).
+for _bin in "$REPO_DIR"/build-cpu/bin/llama-*; do
+    [ -f "$_bin" ] && [ -x "$_bin" ] || continue
+    cp "$_bin" "$DEST/"
+    info "$(basename "$_bin")"
 done
 
 # Copy shared libs if any

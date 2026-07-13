@@ -324,6 +324,41 @@ if [ "$OS" = "Darwin" ] && ! bonsai_should_skip_mlx; then
     info "MLX installed."
 fi
 
+# ── Open WebUI: the ChatGPT-like demo UI. Installed into the main venv so
+#    ./scripts/start_openwebui.sh works out of the box. Skip with BONSAI_OPENWEBUI=0. ──
+if [ "${BONSAI_OPENWEBUI:-1}" != "0" ]; then
+    if "$VENV_PY" -c "import open_webui" 2>/dev/null; then
+        info "Open WebUI already installed."
+    else
+        step "Installing Open WebUI (large download, a few minutes) ..."
+        # Install via the pinned `webui` extra in pyproject.toml (open-webui==0.10.2)
+        # rather than an unpinned name, so the version stays reproducible.
+        if uv pip install --python "$VENV_PY" ".[webui]"; then
+            info "Open WebUI installed."
+        else
+            warn "Open WebUI install failed — install it manually with 'uv pip install \".[webui]\"' before running scripts/start_openwebui.sh."
+        fi
+    fi
+fi
+
+# ── Code interpreter (Open WebUI): a Jupyter kernel with the scientific stack
+#    (matplotlib, pandas, numpy, scipy, sympy, yfinance) so the model can run
+#    Python, make plots, and pull market data. Isolated venv, all platforms.
+#    Skip with BONSAI_CODE_INTERPRETER=0. ──
+if [ "${BONSAI_CODE_INTERPRETER:-1}" != "0" ]; then
+    step "Setting up the code-interpreter venv (Jupyter + plotting / data libs) ..."
+    JUP_VENV="$SCRIPT_DIR/.venv-jupyter"
+    if [ -x "$JUP_VENV/bin/jupyter" ]; then
+        info "code-interpreter venv already present."
+    elif uv venv "$JUP_VENV" --python "$PYTHON_VERSION" >/dev/null 2>&1 \
+        && uv pip install --python "$JUP_VENV/bin/python" \
+            jupyter-server ipykernel matplotlib numpy pandas scipy sympy pillow requests yfinance; then
+        info "code-interpreter venv ready (.venv-jupyter)."
+    else
+        warn "code-interpreter venv setup failed — Open WebUI code execution will be unavailable."
+    fi
+fi
+
 # ────────────────────────────────────────────────────
 #  Done!
 # ────────────────────────────────────────────────────

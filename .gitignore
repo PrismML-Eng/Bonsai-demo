@@ -213,7 +213,13 @@ llama.cpp/
 mlx/
 .hf_cache/
 .prism_hf_token
+.brave_key
+.venv-jupyter/
 .openwebui/
 .webui_secret_key
+.DS_Store
 *.tar.gz
 *.zip
+
+# Local working notes — never commit
+TODOS.md

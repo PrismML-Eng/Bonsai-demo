@@ -106,18 +106,6 @@ warn()  { printf "${_CLR_YELLOW}[WARN]${_CLR_RESET} %s\n" "$*"; }
 err()   { printf "${_CLR_RED}[ERR]${_CLR_RESET}  %s\n" "$*" >&2; }
 step()  { printf "${_CLR_CYAN}==>    %s${_CLR_RESET}\n" "$*"; }
 
-# ── download(url, dest) — supports curl and wget ──
-download() {
-    if command -v curl >/dev/null 2>&1; then
-        curl -LsSf "$1" -o "$2"
-    elif command -v wget >/dev/null 2>&1; then
-        wget -qO "$2" "$1"
-    else
-        err "Neither curl nor wget found. Install one and re-run."
-        exit 1
-    fi
-}
-
 # ── Smart context size for llama.cpp ──
 # Default: -c 0 lets llama.cpp's --fit auto-size KV cache to available memory.
 # Fallback: if -c 0 is not supported, pick a safe value from system RAM.

@@ -11,7 +11,8 @@ DEMO_DIR="$(resolve_demo_dir)"
 cd "$DEMO_DIR"
 assert_gguf_downloaded
 
-HOST="0.0.0.0"
+# Bind to localhost by default; override with BONSAI_HOST=0.0.0.0 for LAN/remote.
+HOST="${BONSAI_HOST:-127.0.0.1}"
 PORT=8080
 
 # ── Check port is free ──

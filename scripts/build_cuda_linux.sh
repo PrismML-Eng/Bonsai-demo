@@ -33,7 +33,6 @@ while [[ $# -gt 0 ]]; do
 done
 
 REPO_DIR="${REPO_DIR:-./llama.cpp}"
-TARGETS="llama-completion llama-cli llama-server llama-quantize llama-perplexity llama-bench"
 
 if [ ! -d "$REPO_DIR" ]; then
     echo "llama.cpp not found at $REPO_DIR — cloning from PrismML-Eng..."
@@ -110,7 +109,9 @@ else
     echo "  Using -j $BUILD_JOBS"
 fi
 
-cmake --build "$BUILD_DIR" --target $TARGETS -j$BUILD_JOBS
+# Build every target (the `all` target) so bin/ is entirely source-built and
+# internally consistent — no mixing source-built and prebuilt binaries.
+cmake --build "$BUILD_DIR" -j$BUILD_JOBS
 
 cd - > /dev/null
 
@@ -118,9 +119,11 @@ echo ""
 echo "=== Copying binaries to $DEST ==="
 mkdir -p "$DEST"
 
-for bin in $TARGETS; do
-    cp "$REPO_DIR/$BUILD_DIR/bin/$bin" "$DEST/"
-    echo "  Copied $bin"
+# Ship every llama-* tool that was built (cli, server, quantize, bench, ...).
+for bin in "$REPO_DIR/$BUILD_DIR"/bin/llama-*; do
+    [ -f "$bin" ] && [ -x "$bin" ] || continue
+    cp "$bin" "$DEST/"
+    echo "  Copied $(basename "$bin")"
 done
 
 echo ""

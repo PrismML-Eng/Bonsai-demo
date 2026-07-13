@@ -10,7 +10,29 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$SCRIPT_DIR/common.sh"
 assert_valid_model
-assert_gguf_downloaded
+
+# ── Backend selection: exactly ONE backend, never both (two resident models
+#    overwhelm consumer machines). BONSAI_BACKEND=llama (default) or mlx. ──
+BONSAI_BACKEND="${BONSAI_BACKEND:-llama}"
+case "$BONSAI_BACKEND" in
+    llama|mlx) ;;
+    *)
+        err "Unknown BONSAI_BACKEND='${BONSAI_BACKEND}'. Valid values: llama, mlx"
+        exit 1 ;;
+esac
+if [ "$BONSAI_BACKEND" = "mlx" ] && { [ "$(uname -s)" != "Darwin" ] || [ "$(uname -m)" != "arm64" ]; }; then
+    err "BONSAI_BACKEND=mlx requires Apple Silicon (macOS arm64). Use the default llama backend."
+    exit 1
+fi
+
+# Assert the weights the selected backend actually needs (an MLX-only run must
+# not require the GGUF, and vice versa).
+if [ "$BONSAI_BACKEND" = "mlx" ]; then
+    assert_mlx_downloaded
+else
+    assert_gguf_downloaded
+fi
+
 DEMO_DIR="$(resolve_demo_dir)"
 cd "$DEMO_DIR"
 
@@ -19,6 +41,30 @@ MLX_PORT=8081
 BG_PIDS=""
 _LLAMA_PREEXISTING=false
 _MLX_PREEXISTING=false
+
+# ── Logs: each run writes fresh timestamped logs for the background services
+#    (llama-server / MLX / Jupyter / Brave) under .openwebui/logs/. This is how
+#    you inspect prefill/generation timing and errors after a run. Set
+#    BONSAI_LOG=0 to discard them to /dev/null instead. ──
+if [ "${BONSAI_LOG:-1}" = "0" ]; then
+    _LLAMA_LOG=/dev/null; _MLX_LOG=/dev/null; _JUP_LOG=/dev/null; _BRAVE_LOG=/dev/null
+    LOG_DIR=""
+else
+    LOG_DIR="$DEMO_DIR/.openwebui/logs"
+    mkdir -p "$LOG_DIR"
+    _RUN_TS="$(date +%Y%m%d-%H%M%S)"
+    _LLAMA_LOG="$LOG_DIR/llama-server-$_RUN_TS.log"
+    _MLX_LOG="$LOG_DIR/mlx-server-$_RUN_TS.log"
+    _JUP_LOG="$LOG_DIR/jupyter-$_RUN_TS.log"
+    _BRAVE_LOG="$LOG_DIR/brave-$_RUN_TS.log"
+fi
+
+# Debug: BONSAI_LLAMA_VERBOSE=1 runs llama-server with -v, which logs the full
+# converted request body per request ("converted request: {...}") plus generation
+# to the llama-server log — use it to diff what Open WebUI sends across tool-call
+# rounds (e.g. to see whether prior-turn reasoning is stripped). Very noisy.
+_LLAMA_VERBOSE=""
+[ "${BONSAI_LLAMA_VERBOSE:-0}" = "1" ] && _LLAMA_VERBOSE="-v"
 
 # ── Find a free port for Open WebUI ──
 # Use 9090+ range to avoid conflicts with Cursor port-forwarding and RunPod
@@ -66,15 +112,25 @@ if ! command -v open-webui >/dev/null 2>&1; then
     exit 1
 fi
 
+# ── Vision: load the multimodal projector when one is present ──
+MMPROJ=""
+for _mp in $GGUF_MODEL_DIR/*mmproj*.gguf; do
+    [ -f "$_mp" ] && MMPROJ="$DEMO_DIR/$_mp" && break
+done
+
 # ── Start llama-server if not running ──
-if curl -s --max-time 2 "http://localhost:$LLAMA_PORT/health" >/dev/null 2>&1; then
+if [ "$BONSAI_BACKEND" != "llama" ]; then
+    : # mlx backend selected — llama-server not managed by this script
+elif curl -fsS --max-time 2 "http://localhost:$LLAMA_PORT/health" >/dev/null 2>&1; then
     _LLAMA_PREEXISTING=true
     info "llama-server already running on port $LLAMA_PORT"
 else
-    # Find model + binary
+    # Find model + binary (skip the mmproj projector file — it is not the LLM)
     _model=""
     for _m in $GGUF_MODEL_DIR/*.gguf; do
-        [ -f "$_m" ] && _model="$DEMO_DIR/$_m" && break
+        [ -f "$_m" ] || continue
+        case "$_m" in *mmproj*) continue ;; esac
+        _model="$DEMO_DIR/$_m" && break
     done
     _bin=""
     for _d in bin/mac bin/cuda bin/rocm bin/hip bin/vulkan bin/cpu llama.cpp/build/bin llama.cpp/build-mac/bin llama.cpp/build-cuda/bin; do
@@ -85,17 +141,23 @@ else
         step "Starting llama-server on port $LLAMA_PORT ..."
         _bin_dir="$(cd "$(dirname "$_bin")" && pwd)"
         _ngl=$(bonsai_llama_ngl)
+        # --jinja enables native OpenAI-style tool calling (the agentic demo).
+        # When a multimodal projector is present it is loaded for image input.
+        # shellcheck disable=SC2086
         LD_LIBRARY_PATH="$_bin_dir${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
-        "$_bin" -m "$_model" --host 0.0.0.0 --port "$LLAMA_PORT" -ngl "$_ngl" -c "$CTX_SIZE_DEFAULT" \
+        "$_bin" -m "$_model" --host 127.0.0.1 --port "$LLAMA_PORT" -ngl "$_ngl" -c "$CTX_SIZE_DEFAULT" \
             --temp 0.5 --top-p 0.85 --top-k 20 --min-p 0 \
+            --jinja \
+            ${MMPROJ:+--mmproj "$MMPROJ"} \
             --reasoning-budget 0 --reasoning-format none \
             --chat-template-kwargs '{"enable_thinking": false}' \
-            > /dev/null 2>&1 &
+            $_LLAMA_VERBOSE \
+            > "$_LLAMA_LOG" 2>&1 &
         BG_PIDS="$BG_PIDS $!"
         # Wait for it to be ready
         _tries=0
         while [ "$_tries" -lt 30 ]; do
-            if curl -s --max-time 1 "http://localhost:$LLAMA_PORT/health" >/dev/null 2>&1; then
+            if curl -fsS --max-time 1 "http://localhost:$LLAMA_PORT/health" >/dev/null 2>&1; then
                 break
             fi
             _tries=$((_tries + 1))
@@ -107,34 +169,32 @@ else
     fi
 fi
 
-# ── Start MLX server if not running (macOS only) ──
-if [ "$(uname -s)" != "Darwin" ]; then
-    warn "MLX server skipped — only available on Apple Silicon (macOS)."
-elif [ "$(uname -s)" = "Darwin" ]; then
-    if curl -s --max-time 2 "http://localhost:$MLX_PORT/v1/models" >/dev/null 2>&1; then
+# ── Start MLX server if selected (BONSAI_BACKEND=mlx, macOS only) ──
+if [ "$BONSAI_BACKEND" = "mlx" ]; then
+    if curl -fsS --max-time 2 "http://localhost:$MLX_PORT/v1/models" >/dev/null 2>&1; then
         _MLX_PREEXISTING=true
         info "MLX server already running on port $MLX_PORT"
     elif [ -d "$DEMO_DIR/$MLX_MODEL_DIR" ] && python -c "import mlx_lm" 2>/dev/null; then
-        step "Starting MLX server on port $MLX_PORT (Bonsai-${BONSAI_MODEL}) ..."
+        step "Starting MLX server on port $MLX_PORT (${BONSAI_DISPLAY}) ..."
         export HF_HOME="$DEMO_DIR/.hf_cache"
         mkdir -p "$HF_HOME/hub"
         python -m mlx_lm.server \
             --model "$DEMO_DIR/$MLX_MODEL_DIR" \
             --port "$MLX_PORT" \
             --temp 0.5 --top-p 0.85 \
-            > /dev/null 2>&1 &
+            > "$_MLX_LOG" 2>&1 &
         BG_PIDS="$BG_PIDS $!"
-        # Wait for MLX server to be ready (model loading can take 30-60s)
+        # Wait for MLX server to be ready (a large model load can take minutes)
         step "Waiting for MLX server to load model ..."
         _tries=0
-        while [ "$_tries" -lt 60 ]; do
-            if curl -s --max-time 2 "http://localhost:$MLX_PORT/v1/models" >/dev/null 2>&1; then
+        while [ "$_tries" -lt 120 ]; do
+            if curl -fsS --max-time 2 "http://localhost:$MLX_PORT/v1/models" >/dev/null 2>&1; then
                 break
             fi
             _tries=$((_tries + 1))
             sleep 2
         done
-        if curl -s --max-time 2 "http://localhost:$MLX_PORT/v1/models" >/dev/null 2>&1; then
+        if curl -fsS --max-time 2 "http://localhost:$MLX_PORT/v1/models" >/dev/null 2>&1; then
             info "MLX server ready on port $MLX_PORT"
         else
             warn "MLX server did not become ready in time (may still be loading)."
@@ -144,31 +204,35 @@ elif [ "$(uname -s)" = "Darwin" ]; then
     fi
 fi
 
-# ── Build Open WebUI backend list ──
+# ── Build Open WebUI backend list (single backend by design) ──
 BACKENDS=""
 KEYS=""
+_LLAMA_URL=""
+_MLX_URL=""
 
-if curl -s --max-time 2 "http://localhost:$LLAMA_PORT/health" >/dev/null 2>&1; then
-    BACKENDS="http://localhost:$LLAMA_PORT/v1"
+if [ "$BONSAI_BACKEND" = "llama" ] && curl -fsS --max-time 2 "http://localhost:$LLAMA_PORT/health" >/dev/null 2>&1; then
+    _LLAMA_URL="http://localhost:$LLAMA_PORT/v1"
+    BACKENDS="$_LLAMA_URL"
     KEYS="none"
 fi
 
-if curl -s --max-time 2 "http://localhost:$MLX_PORT/v1/models" >/dev/null 2>&1; then
-    if [ -n "$BACKENDS" ]; then
-        BACKENDS="$BACKENDS;http://localhost:$MLX_PORT/v1"
-        KEYS="$KEYS;none"
-    else
-        BACKENDS="http://localhost:$MLX_PORT/v1"
-        KEYS="none"
-    fi
+if [ "$BONSAI_BACKEND" = "mlx" ] && curl -fsS --max-time 2 "http://localhost:$MLX_PORT/v1/models" >/dev/null 2>&1; then
+    _MLX_URL="http://localhost:$MLX_PORT/v1"
+    BACKENDS="$_MLX_URL"
+    KEYS="none"
 fi
 
 if [ -z "$BACKENDS" ]; then
-    err "No backends available. Run ./setup.sh first."
+    err "No ${BONSAI_BACKEND} backend available. Run ./setup.sh first."
     exit 1
 fi
 
 step "Starting Open WebUI ..."
+
+# Open WebUI persists config in its DB and ignores env vars after the first
+# boot; the demo treats env (this script) as the source of truth instead, so
+# backend switches and task settings apply on every start.
+export ENABLE_PERSISTENT_CONFIG=false
 
 export OPENAI_API_BASE_URLS="$BACKENDS"
 export OPENAI_API_KEYS="$KEYS"
@@ -178,19 +242,133 @@ export RAG_EMBEDDING_ENGINE=""
 export ENABLE_RAG_WEB_SEARCH=false
 export DATA_DIR="$DEMO_DIR/.openwebui"
 
+# Open WebUI fires background LLM calls after each reply (chat title, tags,
+# follow-up suggestions). Against a single heavy model each one is a slow extra
+# generation that keeps the UI spinning after the answer is done, so disable
+# them for the demo (both backends). Users can re-enable in Admin Settings.
+export ENABLE_TITLE_GENERATION=false
+export ENABLE_TAGS_GENERATION=false
+export ENABLE_FOLLOW_UP_GENERATION=false
+
+# Cap on the native tool-call loop. Open WebUI defaults this to 256. We set a
+# generous-but-finite 30: enough for the agentic DB-analyst scenario
+# (multi-step query_database investigations run ~15-25 calls) without leaving a
+# truly unbounded loop that could run for minutes / overheat on a public clone.
+# There is no in-chat "continue" once it stops, so the cap must fit the workload.
+# Set BONSAI_MAX_TOOL_ITERS=-1 for unlimited, or a smaller number to tighten.
+export CHAT_RESPONSE_MAX_TOOL_CALL_ITERATIONS="${BONSAI_MAX_TOOL_ITERS:-30}"
+
+# ── Code interpreter: back Open WebUI's code execution with a local Jupyter
+#    kernel (matplotlib plots, pandas/numpy, yfinance market data). Uses the
+#    .venv-jupyter that setup.sh builds; falls back to browser Pyodide if it's
+#    missing. Skip with BONSAI_CODE_INTERPRETER=0. ──
+BONSAI_CODE_INTERPRETER="${BONSAI_CODE_INTERPRETER:-1}"
+_JUP_PY="$DEMO_DIR/.venv-jupyter/bin/jupyter"
+if [ "$BONSAI_CODE_INTERPRETER" != "0" ] && [ -x "$_JUP_PY" ]; then
+    _JUP_PORT="${BONSAI_JUPYTER_PORT:-8888}"
+    _JUP_TOKEN="$(head -c 24 /dev/urandom 2>/dev/null | od -An -tx1 | tr -d ' \n' || echo "bonsai-jupyter-$$")"
+    step "Starting Jupyter kernel for the code interpreter on port $_JUP_PORT ..."
+    # Sandbox (portable, best-effort): run the kernel from a dedicated empty work
+    # dir and scrub secrets from its environment, so model-executed code can't
+    # trivially read the repo (e.g. .brave_key) via relative paths or pull
+    # secrets out of os.environ. This is HARDENING, not a jail — code still
+    # runs as your user with network + absolute-path access. For true isolation,
+    # run the whole demo in a container/VM. Bound to 127.0.0.1.
+    _JUP_WORK="$DATA_DIR/jupyter-work"
+    mkdir -p "$_JUP_WORK"
+    (
+        cd "$_JUP_WORK" || exit 1
+        unset BRAVE_API_KEY HF_TOKEN PRISM_HF_TOKEN
+        exec "$_JUP_PY" server --ip 127.0.0.1 --port "$_JUP_PORT" --no-browser \
+            --ServerApp.root_dir="$_JUP_WORK" \
+            --ServerApp.token="$_JUP_TOKEN" --ServerApp.disable_check_xsrf=True
+    ) > "$_JUP_LOG" 2>&1 &
+    BG_PIDS="$BG_PIDS $!"
+    export ENABLE_CODE_EXECUTION=true
+    export ENABLE_CODE_INTERPRETER=true
+    export CODE_EXECUTION_ENGINE=jupyter
+    export CODE_INTERPRETER_ENGINE=jupyter
+    export CODE_EXECUTION_JUPYTER_URL="http://127.0.0.1:$_JUP_PORT"
+    export CODE_EXECUTION_JUPYTER_AUTH=token
+    export CODE_EXECUTION_JUPYTER_AUTH_TOKEN="$_JUP_TOKEN"
+    export CODE_EXECUTION_JUPYTER_TIMEOUT=120
+    export CODE_INTERPRETER_JUPYTER_URL="http://127.0.0.1:$_JUP_PORT"
+    export CODE_INTERPRETER_JUPYTER_AUTH=token
+    export CODE_INTERPRETER_JUPYTER_AUTH_TOKEN="$_JUP_TOKEN"
+    export CODE_INTERPRETER_JUPYTER_TIMEOUT=120
+    BONSAI_CODE_INTERPRETER_ON=1
+else
+    BONSAI_CODE_INTERPRETER_ON=0
+fi
+export BONSAI_CODE_INTERPRETER_ON
+
+# ── MCP tool servers (same set as the hosted HF demo) ──
+# Hugging Face + DeepWiki are remote and keyless. Brave Search (web search) is
+# opt-in: provide a key via BRAVE_API_KEY (env) or a gitignored .brave_key file,
+# and install the bridge (npm i -g @brave/brave-search-mcp-server). The key stays
+# local - it is never committed. (ENABLE_PERSISTENT_CONFIG=false -> read every boot.)
+_ACCESS='"access_grants":[{"principal_type":"user","principal_id":"*","permission":"read"}]'
+_MCP_BRAVE=""
+BONSAI_MCP_IDS="huggingface,deepwiki"
+if [ -z "${BRAVE_API_KEY:-}" ] && [ -f "$DEMO_DIR/.brave_key" ]; then
+    BRAVE_API_KEY="$(tr -d '\r\n' < "$DEMO_DIR/.brave_key")"
+fi
+if [ -n "${BRAVE_API_KEY:-}" ]; then
+    export BRAVE_API_KEY
+    if command -v brave-search-mcp-server >/dev/null 2>&1; then
+        step "Starting Brave Search MCP bridge on 127.0.0.1:8001 ..."
+        # Limit to the search tools the demo needs. Brave's full tool set is ~29k
+        # tokens of schemas (brave_place_search alone is ~20k!); these three are
+        # ~2.9k. Override with BONSAI_BRAVE_TOOLS if you want a different set.
+        _brave_tools="${BONSAI_BRAVE_TOOLS:-brave_web_search brave_news_search brave_summarizer}"
+        # shellcheck disable=SC2086
+        brave-search-mcp-server --transport http --host 127.0.0.1 --port 8001 \
+            --enabled-tools $_brave_tools > "$_BRAVE_LOG" 2>&1 &
+        BG_PIDS="$BG_PIDS $!"
+        _MCP_BRAVE=',{"id":"brave","type":"mcp","url":"http://127.0.0.1:8001/mcp","path":"","auth_type":"none","key":"","config":{"enable":true,'$_ACCESS'},"info":{"id":"brave","name":"Brave Search","description":"Web search via Brave"}}'
+        BONSAI_MCP_IDS="$BONSAI_MCP_IDS,brave"
+    else
+        warn "BRAVE_API_KEY is set but brave-search-mcp-server is not installed - skipping Brave MCP."
+    fi
+fi
+export TOOL_SERVER_CONNECTIONS='[
+  {"id":"huggingface","type":"mcp","url":"https://huggingface.co/mcp","path":"","auth_type":"none","key":"","config":{"enable":true,'$_ACCESS'},"info":{"id":"huggingface","name":"Hugging Face","description":"Search models, datasets and Spaces on the HF Hub"}},
+  {"id":"deepwiki","type":"mcp","url":"https://mcp.deepwiki.com/mcp","path":"","auth_type":"none","key":"","config":{"enable":true,'$_ACCESS'},"info":{"id":"deepwiki","name":"DeepWiki","description":"Ask questions about any public GitHub repository"}}'"$_MCP_BRAVE"'
+]'
+export BONSAI_MCP_IDS
+
 mkdir -p "$DATA_DIR"
 
-# Print the URL and open browser only AFTER the server is ready
+# ── Demo SQL database for the demo_db tool (generated once, gitignored) ──
+export BONSAI_DEMO_DB="$DATA_DIR/demo.db"
+python "$SCRIPT_DIR/openwebui/make_demo_db.py" "$BONSAI_DEMO_DB" || \
+    warn "Could not build the demo database — the demo_db tool will return errors."
+
+# ── Seed tools + model settings, print the URL and open browser only AFTER
+#    the server is ready ──
+_SEED_ARGS="--url http://localhost:$PORT"
+[ -n "$_LLAMA_URL" ] && _SEED_ARGS="$_SEED_ARGS --llama-url $_LLAMA_URL"
+[ -n "$_LLAMA_URL" ] && [ -n "$MMPROJ" ] && _SEED_ARGS="$_SEED_ARGS --llama-vision"
+[ -n "$_MLX_URL" ] && _SEED_ARGS="$_SEED_ARGS --mlx-url $_MLX_URL"
+
 (
     _tries=0
     while [ "$_tries" -lt 90 ]; do
-        if curl -s --max-time 2 "http://localhost:$PORT" >/dev/null 2>&1; then
+        if curl -fsS --max-time 2 "http://localhost:$PORT" >/dev/null 2>&1; then
+            # shellcheck disable=SC2086
+            python "$SCRIPT_DIR/openwebui/seed_openwebui.py" $_SEED_ARGS
             echo ""
             echo "========================================="
             echo "   Open WebUI ready!"
             echo "   http://localhost:$PORT"
             echo "========================================="
             echo ""
+            echo "  Demo tools seeded: weather, web fetch, SQL demo database."
+            echo "  MCP servers available (per-chat opt-in): ${BONSAI_MCP_IDS}."
+            [ "$BONSAI_CODE_INTERPRETER_ON" = "1" ] && \
+                echo "  Code interpreter: Jupyter (plots, pandas/numpy, yfinance)."
+            [ -n "$LOG_DIR" ] && \
+                echo "  Logs (this run): $LOG_DIR/  (llama-server / mlx / jupyter / brave; BONSAI_LOG=0 to disable)."
             echo "  Press Ctrl+C to stop everything."
             echo ""
             if [ "$(uname -s)" = "Darwin" ] && command -v open >/dev/null 2>&1; then
@@ -203,4 +381,7 @@ mkdir -p "$DATA_DIR"
     done
 ) &
 
-open-webui serve --port "$PORT" "$@"
+# Bind to localhost by default (WEBUI_AUTH is off, so don't expose the UI on the
+# network). Override with BONSAI_HOST=0.0.0.0 for LAN / remote / RunPod access.
+export HOST="${BONSAI_HOST:-127.0.0.1}"
+open-webui serve --host "$HOST" --port "$PORT" "$@"

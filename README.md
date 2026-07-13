@@ -36,7 +36,7 @@ Using this demo repository you can run **Bonsai** (1-bit) and **Ternary-Bonsai**
 ## Upstream Status for 1-bit (Q1_0)
 
 Q1_0 support for CPU, Metal, CUDA, and Vulkan backends is already merged into upstream [llama.cpp](https://github.com/ggml-org/llama.cpp). Additional backends (optimized x86 CPU, AMD) are pending. In the meantime, our fork provides a more complete set of backends in one place:
-- **llama.cpp:** [PrismML-Eng/llama.cpp](https://github.com/PrismML-Eng/llama.cpp) — [pre-built binaries](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b8846-d104cf1)
+- **llama.cpp:** [PrismML-Eng/llama.cpp](https://github.com/PrismML-Eng/llama.cpp) — [pre-built binaries](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b9581-80570cb)
 - **MLX:** [PrismML-Eng/mlx](https://github.com/PrismML-Eng/mlx) (branch `prism`)
 
 | Backend | Status | PR |
@@ -188,7 +188,7 @@ The setup script handles everything for you, even on a fresh machine:
 2. **Installs [uv](https://docs.astral.sh/uv/)** — fast Python package manager (user-local, not global)
 3. **Creates a Python venv** and runs `uv sync` — installs cmake, ninja, huggingface-cli from `pyproject.toml`
 4. **Downloads models** from HuggingFace (needs `PRISM_HF_TOKEN` while repos are private)
-5. **Downloads pre-built binaries** from [GitHub Release](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b8846-d104cf1) (or builds from source if you prefer)
+5. **Downloads pre-built binaries** from [GitHub Release](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b9581-80570cb) (or builds from source if you prefer)
 6. **Builds MLX from source** (macOS only) — clones our fork, then `uv sync --extra mlx` for the full ML stack
 
 Re-running `setup.sh` is safe — it skips already-completed steps.
@@ -260,19 +260,43 @@ Override with: `./scripts/run_llama.sh -c 8192 -p "Your prompt"`
 
 ---
 
-## Open WebUI (Optional)
+## Open WebUI (Optional) — the agentic demo
 
-[Open WebUI](https://github.com/open-webui/open-webui) provides a ChatGPT-like browser interface.
-It auto-starts the backend servers if they're not already running. Ctrl+C stops everything.
+[Open WebUI](https://github.com/open-webui/open-webui) gives you a ChatGPT-like interface on top of the local model: tool calling against live tools, a server-side code interpreter (plots + market data), and a hidden-story database to investigate. Everything is configured automatically — no clicking through settings.
+
+`setup.sh` installs Open WebUI into the venv for you (skip with `BONSAI_OPENWEBUI=0`). If you skipped it, install manually with `source .venv/bin/activate && uv pip install ".[webui]"`.
+
+### Run (one command)
 
 ```bash
-# Install (heavy — separate from base deps)
-source .venv/bin/activate
-uv pip install open-webui
-
-# One command — starts backends + opens http://localhost:9090
 ./scripts/start_openwebui.sh
 ```
+
+This starts llama-server if needed, seeds the demo (tools, model settings, demo database), and opens **http://localhost:9090**. First boot takes a minute (database migrations); Ctrl+C stops everything it started.
+
+Prefer the MLX backend on a Mac? Same thing with:
+
+```bash
+BONSAI_BACKEND=mlx ./scripts/start_openwebui.sh
+```
+
+It always runs exactly one backend (two resident models is too heavy for most machines). The MLX backend is noticeably slower per token and has no cross-request prompt cache, so multi-turn chats re-process the whole conversation each turn — for interactive use, prefer the default llama.cpp backend.
+
+### What to try
+
+- **Weather tool** — *"What's the weather in Lisbon right now?"*
+- **Web fetch tool** — *"Fetch https://prismml.com and summarize it."*
+- **MCP servers** — Hugging Face Hub and DeepWiki are connected but off by default. Enable one from the tool menu in the message box, then try *"Find trending vision-language models on Hugging Face"*.
+- **Code interpreter** (server-side Python via Jupyter, on by default) — *"Simulate 10,000 rolls of two dice and plot the histogram"*, *"Pull NVDA and AMD with yfinance since January, plot them normalized, and explain the divergence"*, or *"Integrate x²·sin(x) symbolically with sympy"*. Plots render inline (matplotlib).
+- **The agentic analyst** — the demo ships a SQLite database of a fictional B2B company (2024–2026) with a hidden story in it. Ask: *"Analyze what happened to EMEA revenue across 2025. Use the sales database to quantify the trend quarter over quarter, pinpoint when it turned, and trace the root cause. Support every claim with figures and verify your numbers."* and watch it explore the schema, run focused queries, verify its calculations, and piece the answer together.
+
+### How it works / customizing
+
+- The tools live in [scripts/openwebui/](scripts/openwebui/) as plain Python (Open WebUI "Tools") and are re-seeded on every start — edit them and restart to change the demo.
+- The demo database is generated into `.openwebui/demo.db` on first start (`make_demo_db.py`).
+- Chats persist in `.openwebui/` between runs; delete that directory for a factory-fresh demo (everything reseeds).
+- Configuration comes from `start_openwebui.sh` env vars on every launch (auth disabled, single backend, background title/tag/follow-up generation off).
+- The code interpreter runs server-side in a Jupyter kernel (`.venv-jupyter`, built by `setup.sh` with matplotlib / pandas / numpy / scipy / sympy / yfinance). `start_openwebui.sh` launches it on `127.0.0.1:8888` and stops it on Ctrl+C. Disable with `BONSAI_CODE_INTERPRETER=0` (falls back to browser Pyodide — plots work, no yfinance).
 
 ---
 
@@ -359,7 +383,7 @@ Requires Visual Studio Build Tools or full Visual Studio with C++ workload.
 
 ## llama.cpp Pre-built Binary Downloads
 
-All binaries are available from the [GitHub Release](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b8846-d104cf1):
+All binaries are available from the [GitHub Release](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b9581-80570cb):
 
 | Platform                          |
 |-----------------------------------|

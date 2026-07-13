@@ -10,7 +10,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-webui = ["open-webui"]
+# Pinned: 0.10.2 is the version the demo is validated against and the first with
+# the CHAT_RESPONSE_MAX_TOOL_CALL_ITERATIONS loop cap the scripts rely on. Bump
+# deliberately (and re-run uv lock), not implicitly.
+webui = ["open-webui==0.10.2"]
 
 [tool.setuptools]
 packages = []

@@ -14,8 +14,6 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$Targets = @("llama-cli", "llama-server", "llama-completion", "llama-quantize", "llama-perplexity", "llama-bench")
-
 # ── Clone if needed ──
 if (-not (Test-Path $RepoDir)) {
     Write-Host "llama.cpp not found at $RepoDir - cloning from PrismML-Eng ..."
@@ -131,18 +129,20 @@ Write-Host ""
 Write-Host "=== Copying binaries to $Dest ===" -ForegroundColor Cyan
 New-Item -ItemType Directory -Path $Dest -Force | Out-Null
 
-foreach ($bin in $Targets) {
-    $src = Join-Path $RepoDir "$BuildDir\bin\Release\$bin.exe"
-    if (-not (Test-Path $src)) {
-        $src = Join-Path $RepoDir "$BuildDir\bin\$bin.exe"
-    }
-    if (Test-Path $src) {
-        Copy-Item $src -Destination $Dest
-        Write-Host "  Copied $bin.exe"
-    } else {
-        Write-Host "  [WARN] $bin.exe not found" -ForegroundColor Yellow
+# Ship every llama-*.exe that was built (cli, server, quantize, bench, ...) so
+# bin/ is entirely source-built and consistent -- no mixing with prebuilt binaries.
+$binDirs = @((Join-Path $RepoDir "$BuildDir\bin\Release"), (Join-Path $RepoDir "$BuildDir\bin"))
+$copied = @{}
+foreach ($binDir in $binDirs) {
+    if (-not (Test-Path $binDir)) { continue }
+    foreach ($exe in Get-ChildItem -Path $binDir -Filter "llama-*.exe" -ErrorAction SilentlyContinue) {
+        if ($copied.ContainsKey($exe.Name)) { continue }
+        Copy-Item $exe.FullName -Destination $Dest -Force
+        $copied[$exe.Name] = $true
+        Write-Host "  Copied $($exe.Name)"
     }
 }
+if ($copied.Count -eq 0) { Write-Host "  [WARN] no llama-*.exe found to copy" -ForegroundColor Yellow }
 
 # ── Copy DLLs ──
 Write-Host ""

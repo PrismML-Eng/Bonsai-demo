@@ -16,7 +16,8 @@ if ($BonsaiFamily -notin @("bonsai", "ternary")) {
 $DemoDir = Split-Path $PSScriptRoot -Parent
 Set-Location $DemoDir
 
-$HostAddress = "0.0.0.0"
+# Bind to localhost by default; override with BONSAI_HOST=0.0.0.0 for LAN/remote.
+$HostAddress = if ($env:BONSAI_HOST) { $env:BONSAI_HOST } else { "127.0.0.1" }
 $Port = 8080
 
 try {

@@ -10,7 +10,6 @@ DEMO_DIR="$(resolve_demo_dir)"
 cd "$DEMO_DIR"
 
 REPO_DIR="${1:-./llama.cpp}"
-TARGETS="llama-completion llama-cli llama-server llama-quantize llama-perplexity"
 DEST="./bin/mac"
 
 # ── Clone if needed ──
@@ -29,7 +28,7 @@ fi
 # ── Build (native for this Mac) ──
 MAC_ARCH="$(uname -m)"
 echo "  Repo:    $REPO_DIR"
-echo "  Targets: $TARGETS"
+echo "  Targets: all llama.cpp binaries (full build)"
 echo "  Arch:    $MAC_ARCH"
 
 cd "$REPO_DIR"
@@ -63,18 +62,23 @@ case "$MAC_ARCH" in
         ;;
 esac
 
-cmake --build build-mac --target $TARGETS -j$(sysctl -n hw.logicalcpu)
+# Build every target (the `all` target). Building the full set from source keeps
+# bin/ internally consistent — no mixing source-built and prebuilt binaries.
+cmake --build build-mac -j$(sysctl -n hw.logicalcpu)
 cd - > /dev/null
 
 # ── Copy binaries ──
 step "Installing binaries to $DEST/ ..."
 mkdir -p "$DEST"
 
-for _bin in $TARGETS; do
-    cp "$REPO_DIR/build-mac/bin/$_bin" "$DEST/"
-    strip "$DEST/$_bin"
-    codesign -s - --force --timestamp=none "$DEST/$_bin"
-    info "$_bin  (stripped + signed)"
+# Ship every llama-* tool that was built (cli, server, quantize, bench, ...).
+for _bin in "$REPO_DIR"/build-mac/bin/llama-*; do
+    [ -f "$_bin" ] && [ -x "$_bin" ] || continue
+    _name="$(basename "$_bin")"
+    cp "$_bin" "$DEST/"
+    strip "$DEST/$_name"
+    codesign -s - --force --timestamp=none "$DEST/$_name"
+    info "$_name  (stripped + signed)"
 done
 
 # ── Smoke test ──
