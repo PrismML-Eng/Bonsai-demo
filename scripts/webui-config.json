@@ -1,0 +1,4 @@
+{
+  "mcpServers": "[{\"id\":\"huggingface\",\"enabled\":true,\"name\":\"Hugging Face\",\"url\":\"https://huggingface.co/mcp\",\"requestTimeoutSeconds\":300},{\"id\":\"deepwiki\",\"enabled\":true,\"name\":\"DeepWiki\",\"url\":\"https://mcp.deepwiki.com/mcp\",\"requestTimeoutSeconds\":300}]",
+  "showToolCallInProgress": true
+}

@@ -33,7 +33,7 @@ class SeedOpenWebUITests(unittest.TestCase):
 
         seed.seed_model(
             api,
-            "Bonsai-8B-Q1_0.gguf",
+            "Ternary-Bonsai-27B-Q2_0.gguf",
             vision=True,
             native_tools=True,
             backend="llama.cpp",
@@ -76,14 +76,14 @@ class SeedOpenWebUITests(unittest.TestCase):
         tool = next(item for item in seed.TOOLS if item[0] == "python_code")
         self.assertEqual(tool[2], "tool_code_interpreter.py")
 
-    def test_model_params_ship_system_prompt_only(self):
+    def test_27b_uses_precise_thinking_sampling(self):
         seed = _load_seed_module()
 
-        params = seed._model_params("Bonsai-8B-Q1_0.gguf")
+        params = seed._model_params("Ternary-Bonsai-27B-Q2_0.gguf")
 
-        self.assertEqual(params["system"], seed.SYSTEM_PROMPT)
-        # Sampling is left to each model's tested defaults, not overridden here.
-        self.assertNotIn("temperature", params)
+        self.assertEqual(params["temperature"], 0.6)
+        self.assertEqual(params["top_p"], 0.95)
+        self.assertEqual(params["top_k"], 20)
 
 
 if __name__ == "__main__":

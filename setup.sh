@@ -3,8 +3,9 @@
 # Installs all dependencies, downloads models and binaries.
 #
 # Usage:
-#   ./setup.sh                      (downloads 8B model by default)
-#   BONSAI_MODEL=4B ./setup.sh      (download a different model size)
+#   ./setup.sh                          (downloads 27B model by default)
+#   BONSAI_MODEL=4B ./setup.sh          (download a different model size)
+#   BONSAI_TOKEN=hf_xxx ./setup.sh      (read-only HF token; needed for 27B while private)
 set -e
 
 # ── Resolve paths ──
@@ -108,8 +109,8 @@ _version_ge() {
 }
 
 # ── Model selection ──
-BONSAI_MODEL="${BONSAI_MODEL:-8B}"
-BONSAI_FAMILY="${BONSAI_FAMILY:-bonsai}"
+BONSAI_MODEL="${BONSAI_MODEL:-27B}"
+BONSAI_FAMILY="${BONSAI_FAMILY:-ternary}"
 
 echo ""
 echo "========================================="
@@ -118,6 +119,33 @@ echo "   Family: ${BONSAI_FAMILY}"
 echo "   Model:  ${BONSAI_MODEL}"
 echo "========================================="
 echo ""
+
+# ── HuggingFace auth ──
+# Use BONSAI_TOKEN (env, or the gitignored .bonsai_token file) only if you need
+# a repo that is still private; public repos download anonymously. Never a hard
+# requirement: the downloader attempts anonymously and HF surfaces a clear 401
+# if a repo genuinely needs auth.
+TOKEN_FILE="$SCRIPT_DIR/.bonsai_token"
+if [ -z "$BONSAI_TOKEN" ] && [ -f "$TOKEN_FILE" ]; then
+    BONSAI_TOKEN="$(tr -d '\r\n' < "$TOKEN_FILE")"
+fi
+# Offer (never require) a prompt when a tty is attached and no token is set.
+if [ -z "$BONSAI_TOKEN" ] && [ -r /dev/tty ]; then
+    printf "  Optional HuggingFace token for any still-private repo (press Enter to skip): "
+    { read -r BONSAI_TOKEN </dev/tty; } 2>/dev/null || true
+    echo ""
+fi
+if [ -n "$BONSAI_TOKEN" ]; then
+    export BONSAI_TOKEN
+    # Remember it for future runs (gitignored, user-only permissions).
+    if [ ! -f "$TOKEN_FILE" ] || [ "$(tr -d '\r\n' < "$TOKEN_FILE")" != "$BONSAI_TOKEN" ]; then
+        # Write under a restrictive umask so the file is never briefly readable.
+        ( umask 077; printf "%s" "$BONSAI_TOKEN" > "$TOKEN_FILE" )
+    fi
+    # Enforce user-only permissions every run, even for a pre-existing
+    # user-created file with loose modes.
+    chmod 600 "$TOKEN_FILE" 2>/dev/null || true
+fi
 
 
 # ────────────────────────────────────────────────────
@@ -306,15 +334,48 @@ if [ "$OS" = "Darwin" ] && ! bonsai_should_skip_mlx; then
         git clone -b prism https://github.com/PrismML-Eng/mlx.git mlx
     fi
 
-    step "Building MLX from source (this takes 2-5 minutes on first install) ..."
-    # --no-build-isolation required: MLX's C++/Metal build needs pre-installed setuptools
-    uv pip install --python "$VENV_PY" -e mlx/ --no-build-isolation
-    step "Installing MLX Python deps (mlx-lm, torch, transformers, ...) ..."
-    uv pip install --python "$VENV_PY" \
-        "mlx-lm==0.30.7" "torch==2.10.0" "transformers==5.2.0" \
-        "safetensors==0.7.0" "tokenizers==0.22.2" "sentencepiece==0.2.1" \
-        "protobuf==7.34.0" "numpy==2.4.2" "gguf==0.18.0"
-    info "MLX installed."
+    # 27B needs mlx-lm >= 0.31; an older install must be reconciled, not skipped.
+    if "$VENV_PY" -c "
+import mlx, mlx_lm
+v = tuple(int(x) for x in mlx_lm.__version__.split('.')[:2])
+raise SystemExit(0 if v >= (0, 31) else 1)
+" 2>/dev/null; then
+        info "MLX already installed in the venv — skipping build."
+    else
+        step "Building MLX from source (this takes 2-5 minutes on first install) ..."
+        # --no-build-isolation required: MLX's C++/Metal build needs pre-installed setuptools
+        uv pip install --python "$VENV_PY" -e mlx/ --no-build-isolation
+        step "Installing MLX Python deps (mlx-lm, torch, transformers, ...) ..."
+        # mlx-lm >= 0.31 is required for the 27B (qwen3_5) architecture. The
+        # released 27B configs are plain dense (no num_experts field), and stock
+        # mlx-lm builds a SparseMoeBlock only when num_experts > 0 — so it loads
+        # them as dense out of the box, no source patch needed.
+        uv pip install --python "$VENV_PY" \
+            "mlx-lm==0.31.2" "torch==2.10.0" "transformers==5.2.0" \
+            "safetensors==0.7.0" "tokenizers==0.22.2" "sentencepiece==0.2.1" \
+            "protobuf==7.34.0" "numpy==2.4.2" "gguf==0.18.0"
+        info "MLX installed."
+    fi
+
+    # mlx-vlm serves the 27B MLX packs WITH image input (the published packs
+    # ship the FP16 vision tower in mlx-vlm-native layout). It needs stock mlx,
+    # which conflicts with the PrismML fork in .venv (fork = 1-bit kernels), so
+    # it gets its own venv. Ternary (2-bit) runs on stock mlx -> vision works;
+    # binary (1-bit) still needs the fork -> text-only mlx_lm for now.
+    # Skip with BONSAI_MLX_VLM=0.
+    if [ "${BONSAI_MLX_VLM:-1}" != "0" ]; then
+        step "Setting up mlx-vlm venv (MLX image input for the 27B) ..."
+        VLM_VENV="$SCRIPT_DIR/.venv-vlm"
+        if [ -x "$VLM_VENV/bin/python" ] && "$VLM_VENV/bin/python" -c "import mlx_vlm" 2>/dev/null; then
+            info "mlx-vlm venv already present."
+        elif uv venv "$VLM_VENV" --python "$PYTHON_VERSION" >/dev/null 2>&1 \
+            && uv pip install --python "$VLM_VENV/bin/python" "mlx-vlm==0.6.3" "transformers==5.5.0" \
+            && "$VLM_VENV/bin/python" -c "import mlx_vlm" 2>/dev/null; then
+            info "mlx-vlm venv ready (.venv-vlm)."
+        else
+            warn "mlx-vlm venv setup failed — MLX will run text-only (no image input)."
+        fi
+    fi
 fi
 
 # ── Open WebUI: the ChatGPT-like demo UI. Installed into the main venv so

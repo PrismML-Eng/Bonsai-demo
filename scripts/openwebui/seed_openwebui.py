@@ -197,9 +197,14 @@ def display_name(model_id, backend):
 
 
 def _model_params(model_id):
-    """Params for the seeded model record. We ship the demo system prompt and
-    leave each model on its own tested sampling defaults."""
-    return {"system": SYSTEM_PROMPT}
+    """Params for the seeded model record. The 27B (the launch model) uses the
+    reference precise-task thinking-mode sampling. Older sizes (8B/4B/1.7B)
+    keep their own tested defaults — we only ship the system prompt for them
+    rather than overriding sampling with 27B values."""
+    params = {"system": SYSTEM_PROMPT}
+    if "27b" in model_id.lower():
+        params.update({"temperature": 0.6, "top_p": 0.95, "top_k": 20})
+    return params
 
 
 def seed_model(api, model_id, vision, native_tools, backend):
@@ -369,7 +374,7 @@ def main():
     seed_stream_filter(api)
 
     # Both backends emit native OpenAI tool_calls (llama-server via --jinja;
-    # mlx_lm / mlx-vlm natively).
+    # mlx_lm / mlx-vlm natively) - verified on the 27B.
     seeded_ids, hidden_ids = [], []
     if args.llama_url:
         bonsai, other = fetch_backend_model_ids(args.llama_url)

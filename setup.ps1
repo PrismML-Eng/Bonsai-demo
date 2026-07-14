@@ -7,18 +7,18 @@ $PythonVersion = "3.11"
 $VenvDir = Join-Path $PSScriptRoot ".venv"
 $VenvPy  = Join-Path $VenvDir "Scripts\python.exe"
 
-$ReleaseTag = "prism-b9588-c024aa2"
-$WinAssetTag = "prism-b1-c024aa2"                    # Windows builds use shortened tag
+$ReleaseTag = "prism-b9591-62061f9"
+$WinAssetTag = "prism-b1-62061f9"                    # Windows builds use shortened tag
 $BaseUrl = "https://github.com/PrismML-Eng/llama.cpp/releases/download/$ReleaseTag"
 
-$BonsaiModel  = if ($env:BONSAI_MODEL)  { $env:BONSAI_MODEL }  else { "8B" }
-$BonsaiFamily = if ($env:BONSAI_FAMILY) { $env:BONSAI_FAMILY } else { "bonsai" }
+$BonsaiModel  = if ($env:BONSAI_MODEL)  { $env:BONSAI_MODEL }  else { "27B" }
+$BonsaiFamily = if ($env:BONSAI_FAMILY) { $env:BONSAI_FAMILY } else { "ternary" }
 
 $BonsaiModel = if ($BonsaiModel.ToLowerInvariant() -eq "all") { "all" } else { $BonsaiModel.ToUpperInvariant() }
 $BonsaiFamily = $BonsaiFamily.ToLowerInvariant()
 
-if ($BonsaiModel -notin @("8B", "4B", "1.7B", "all")) {
-    Write-Host "[ERR] Unknown BONSAI_MODEL='$BonsaiModel'. Valid values: 8B, 4B, 1.7B, all" -ForegroundColor Red
+if ($BonsaiModel -notin @("27B", "8B", "4B", "1.7B", "all")) {
+    Write-Host "[ERR] Unknown BONSAI_MODEL='$BonsaiModel'. Valid values: 27B, 8B, 4B, 1.7B, all" -ForegroundColor Red
     exit 1
 }
 if ($BonsaiFamily -notin @("bonsai", "ternary", "all")) {
@@ -229,21 +229,61 @@ function Download-GgufModel($Family, $Size) {
         $repo = "prism-ml/Ternary-Bonsai-${Size}-gguf"
         $dir = Join-Path $PSScriptRoot "models\ternary-gguf\$Size"
         $display = "Ternary-Bonsai-$Size"
-        $pattern = "*Q2_0*.gguf"
+        $pattern = "*-Q2_0.gguf"
     } else {
         $repo = "prism-ml/Bonsai-${Size}-gguf"
         $dir = Join-Path $PSScriptRoot "models\gguf\$Size"
         $display = "Bonsai-$Size"
-        $pattern = "*Q1_0*.gguf"
+        $pattern = "*-Q1_0.gguf"
     }
+
+    # 27B extras: the mmproj (multimodal projector) for image input, and the
+    # paired dspark drafter for optional speculative decoding (BONSAI_SPECULATIVE=1).
+    $mmprojPattern = if ($Size -eq "27B") { "*mmproj*.gguf" } else { $null }
+    $drafterPattern = if ($Size -eq "27B") { "*dspark-Q4_1*.gguf" } else { $null }
 
     # Fast-path and post-download checks both filter on the target quant
     # pattern (not just any *.gguf) so a leftover F16 or other quant from an
-    # earlier download doesn't get picked up at runtime.
-    if (Get-ChildItem -Path $dir -Filter $pattern -File -ErrorAction SilentlyContinue | Select-Object -First 1) {
+    # earlier download doesn't get picked up at runtime. For 27B the fast-path
+    # also requires the mmproj + drafter so a re-run backfills vision + speculative.
+    $quantPresent = Get-ChildItem -Path $dir -Filter $pattern -File -ErrorAction SilentlyContinue | Select-Object -First 1
+    $mmprojPresent = if ($mmprojPattern) { Get-ChildItem -Path $dir -Filter $mmprojPattern -File -ErrorAction SilentlyContinue | Select-Object -First 1 } else { $true }
+    $drafterPresent = if ($drafterPattern) { Get-ChildItem -Path $dir -Filter $drafterPattern -File -ErrorAction SilentlyContinue | Select-Object -First 1 } else { $true }
+    if ($quantPresent -and $mmprojPresent -and $drafterPresent) {
         Write-Host "[OK] GGUF $display ($pattern) already present." -ForegroundColor Green
         return
     }
+
+    # HuggingFace auth: use BONSAI_TOKEN (env or .bonsai_token file) only if a
+    # repo is still private. Never a hard requirement; public repos download
+    # anonymously and hf surfaces a clear 401 if auth is genuinely needed.
+    if ($Size -eq "27B") {
+        $TokenFile = Join-Path $PSScriptRoot ".bonsai_token"
+        if (-not $env:BONSAI_TOKEN -and (Test-Path $TokenFile)) {
+            $env:BONSAI_TOKEN = (Get-Content -Raw $TokenFile).Trim()
+        }
+        if (-not $env:BONSAI_TOKEN) {
+            # Prompt only when a console can answer: Read-Host throws under
+            # -NonInteractive and can hang other headless hosts.
+            if ([Environment]::UserInteractive -and -not [Console]::IsInputRedirected) {
+                try {
+                    $entered = Read-Host "  Optional HuggingFace token for any still-private repo (press Enter to skip)"
+                    if ($entered) { $env:BONSAI_TOKEN = $entered }
+                } catch {}
+            } else {
+                Write-Host "[WARN] No interactive console for the optional token prompt; continuing without BONSAI_TOKEN." -ForegroundColor Yellow
+            }
+        }
+        if ($env:BONSAI_TOKEN) {
+            if (-not (Test-Path $TokenFile) -or ((Get-Content -Raw $TokenFile).Trim() -ne $env:BONSAI_TOKEN)) {
+                Set-Content -Path $TokenFile -Value $env:BONSAI_TOKEN -NoNewline
+            }
+            # Enforce current-user-only access every run, even for a
+            # pre-existing file with inherited broad permissions.
+            icacls $TokenFile /inheritance:r /grant:r "$($env:USERNAME):(R,W)" | Out-Null
+        }
+    }
+
     $HfCli = Join-Path $VenvDir "Scripts\hf.exe"
     if (-not (Test-Path $HfCli)) {
         $HfCli = Join-Path $VenvDir "Scripts\huggingface-cli.exe"
@@ -253,19 +293,26 @@ function Download-GgufModel($Family, $Size) {
         exit 1
     }
     New-Item -ItemType Directory -Path $dir -Force | Out-Null
-    & $HfCli download $repo --local-dir $dir --include $pattern
+    $HfArgs = @("download", $repo, "--local-dir", $dir, "--include", $pattern)
+    if ($mmprojPattern) { $HfArgs += @("--include", $mmprojPattern) }
+    if ($drafterPattern) { $HfArgs += @("--include", $drafterPattern) }
+    if ($env:BONSAI_TOKEN) { $env:HF_TOKEN = $env:BONSAI_TOKEN }  # pass via env (hf reads HF_TOKEN), not a CLI arg visible in the process list
+    & $HfCli @HfArgs
     $DownloadExitCode = $LASTEXITCODE
     $DownloadedGguf = Get-ChildItem -Path $dir -Filter $pattern -File -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($DownloadExitCode -ne 0 -or -not $DownloadedGguf) {
         Write-Host "[ERR] Failed to download GGUF $display matching $pattern. Try running '$HfCli download $repo --local-dir $dir --include $pattern' manually." -ForegroundColor Red
         exit 1
     }
+    if ($mmprojPattern -and -not (Get-ChildItem -Path $dir -Filter $mmprojPattern -File -ErrorAction SilentlyContinue)) {
+        Write-Host "[WARN] No $mmprojPattern file in $repo - image input will be disabled for $display." -ForegroundColor Yellow
+    }
     Write-Host "[OK] GGUF $display downloaded." -ForegroundColor Green
 }
 
 # Expand "all" for family and size into concrete lists, then iterate.
 $families = if ($BonsaiFamily -eq "all") { @("bonsai", "ternary") } else { @($BonsaiFamily) }
-$sizes    = if ($BonsaiModel  -eq "all") { @("8B", "4B", "1.7B") } else { @($BonsaiModel) }
+$sizes    = if ($BonsaiModel  -eq "all") { @("27B", "8B", "4B", "1.7B") } else { @($BonsaiModel) }
 foreach ($fam in $families) {
     foreach ($sz in $sizes) {
         Download-GgufModel $fam $sz

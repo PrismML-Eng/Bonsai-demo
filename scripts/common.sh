@@ -3,11 +3,11 @@
 # Source this file: . "$(dirname "$0")/common.sh"
 
 # ── Model selection ──
-# Set BONSAI_MODEL to choose size:   8B (default), 4B, 1.7B, or all
-# Set BONSAI_FAMILY to choose family: bonsai (default, 1-bit), ternary (1.58-bit), or all
+# Set BONSAI_MODEL to choose size:   27B (default), 8B, 4B, 1.7B, or all
+# Set BONSAI_FAMILY to choose family: ternary (default), bonsai (1-bit), or all
 # "all" is only meaningful for setup/download — it expands to every size / every family.
-BONSAI_MODEL="${BONSAI_MODEL:-8B}"
-BONSAI_FAMILY="${BONSAI_FAMILY:-bonsai}"
+BONSAI_MODEL="${BONSAI_MODEL:-27B}"
+BONSAI_FAMILY="${BONSAI_FAMILY:-ternary}"
 
 # Derived paths default to empty so an invalid family or "all" never produces
 # a stale/glob-able path (e.g. `ls /*.gguf`). Concrete paths are only set when
@@ -15,19 +15,22 @@ BONSAI_FAMILY="${BONSAI_FAMILY:-bonsai}"
 # call assert_*_downloaded which validates and gives a clear error.
 GGUF_MODEL_DIR=""
 MLX_MODEL_DIR=""
+GGUF_QUANT_PATTERN=""
 BONSAI_DISPLAY="(family=${BONSAI_FAMILY} size=${BONSAI_MODEL})"
 
 case "$BONSAI_MODEL" in
-    8B|4B|1.7B)
+    27B|8B|4B|1.7B)
         case "$BONSAI_FAMILY" in
             bonsai)
                 GGUF_MODEL_DIR="models/gguf/${BONSAI_MODEL}"
                 MLX_MODEL_DIR="models/Bonsai-${BONSAI_MODEL}-mlx"
+                GGUF_QUANT_PATTERN="*-Q1_0.gguf"
                 BONSAI_DISPLAY="Bonsai-${BONSAI_MODEL}"
                 ;;
             ternary)
                 GGUF_MODEL_DIR="models/ternary-gguf/${BONSAI_MODEL}"
                 MLX_MODEL_DIR="models/Ternary-Bonsai-${BONSAI_MODEL}-mlx-2bit"
+                GGUF_QUANT_PATTERN="*-Q2_0.gguf"
                 BONSAI_DISPLAY="Ternary-Bonsai-${BONSAI_MODEL}"
                 ;;
             # Anything else, including "all": paths stay empty; assert_valid_model
@@ -40,10 +43,10 @@ esac
 # Validate BONSAI_MODEL + BONSAI_FAMILY — call at the top of every run/server script
 assert_valid_model() {
     case "$BONSAI_MODEL" in
-        8B|4B|1.7B|all) ;;
+        27B|8B|4B|1.7B|all) ;;
         *)
-            err "Unknown BONSAI_MODEL='${BONSAI_MODEL}'. Valid values: 8B, 4B, 1.7B, all"
-            echo "  Example: export BONSAI_MODEL=8B"
+            err "Unknown BONSAI_MODEL='${BONSAI_MODEL}'. Valid values: 27B, 8B, 4B, 1.7B, all"
+            echo "  Example: export BONSAI_MODEL=27B"
             exit 1 ;;
     esac
     case "$BONSAI_FAMILY" in
@@ -135,6 +138,48 @@ bonsai_llama_ngl() {
     else
         echo 0   # CPU only
     fi
+}
+
+# Image-token cap for the 27B vision models (llama-server --image-max-tokens).
+# Big images cost a lot of prefill on slower hardware (a 12 MP photo is
+# ~4000 vision tokens); capping at 1024 makes them much faster with little
+# quality loss outside fine detail / OCR. Fast datacenter GPUs
+# (CUDA/ROCm) run uncapped. Override with BONSAI_IMAGE_MAX_TOKENS
+# (a number, or 0 to disable the cap entirely).
+bonsai_image_max_tokens() {
+    if [ -n "${BONSAI_IMAGE_MAX_TOKENS:-}" ]; then
+        [ "$BONSAI_IMAGE_MAX_TOKENS" = "0" ] || echo "$BONSAI_IMAGE_MAX_TOKENS"
+    elif command -v nvidia-smi >/dev/null 2>&1 || command -v nvcc >/dev/null 2>&1; then
+        :  # CUDA — uncapped
+    elif command -v rocminfo >/dev/null 2>&1 || command -v hipcc >/dev/null 2>&1; then
+        :  # ROCm/HIP — uncapped
+    else
+        echo 1024  # Metal / Vulkan / CPU — cap for latency
+    fi
+}
+
+# Read a dspark drafter's block_size, which MUST equal --spec-draft-n-max (a
+# mismatch assert-crashes llama-server on the first draft round). Falls back to
+# 4, the n_blocks=4 packing standard, if the metadata can't be read (e.g. gguf
+# module missing). Arg: path to the drafter GGUF.
+bonsai_dspark_block_size() {
+    _py=".venv/bin/python"
+    [ -x "$_py" ] || _py="python3"
+    _bs="$("$_py" - "$1" 2>/dev/null <<'PYEOF'
+import sys
+try:
+    import gguf
+    r = gguf.GGUFReader(sys.argv[1])
+    f = r.get_field('dspark.dspark.block_size')
+    print(int(f.contents()) if f else '')
+except Exception:
+    print('')
+PYEOF
+)"
+    case "$_bs" in
+        ''|*[!0-9]*) echo 4 ;;
+        *) echo "$_bs" ;;
+    esac
 }
 
 # MLX is Apple Silicon only; skip on Intel Mac or when BONSAI_SKIP_MLX=1.

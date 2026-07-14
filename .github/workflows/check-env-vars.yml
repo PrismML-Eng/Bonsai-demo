@@ -43,16 +43,16 @@ jobs:
           }
           Write-Host "OK: setup.ps1 parses"
 
-      - name: Default resolves to Bonsai-8B (no env vars set)
+      - name: Default resolves to Ternary-Bonsai-27B (no env vars set)
         run: |
           unset BONSAI_FAMILY BONSAI_MODEL
           . scripts/common.sh
-          [ "$BONSAI_FAMILY"   = "bonsai" ]              || { echo "FAIL: default family=$BONSAI_FAMILY"; exit 1; }
-          [ "$BONSAI_MODEL"    = "8B" ]                  || { echo "FAIL: default size=$BONSAI_MODEL"; exit 1; }
-          [ "$GGUF_MODEL_DIR"  = "models/gguf/8B" ]      || { echo "FAIL: gguf dir=$GGUF_MODEL_DIR"; exit 1; }
-          [ "$MLX_MODEL_DIR"   = "models/Bonsai-8B-mlx" ] || { echo "FAIL: mlx dir=$MLX_MODEL_DIR"; exit 1; }
-          [ "$BONSAI_DISPLAY"  = "Bonsai-8B" ]           || { echo "FAIL: display=$BONSAI_DISPLAY"; exit 1; }
-          echo "OK: no-env default resolves to Bonsai-8B"
+          [ "$BONSAI_FAMILY"   = "ternary" ]                  || { echo "FAIL: default family=$BONSAI_FAMILY"; exit 1; }
+          [ "$BONSAI_MODEL"    = "27B" ]                      || { echo "FAIL: default size=$BONSAI_MODEL"; exit 1; }
+          [ "$GGUF_MODEL_DIR"  = "models/ternary-gguf/27B" ]  || { echo "FAIL: gguf dir=$GGUF_MODEL_DIR"; exit 1; }
+          [ "$MLX_MODEL_DIR"   = "models/Ternary-Bonsai-27B-mlx-2bit" ] || { echo "FAIL: mlx dir=$MLX_MODEL_DIR"; exit 1; }
+          [ "$BONSAI_DISPLAY"  = "Ternary-Bonsai-27B" ]       || { echo "FAIL: display=$BONSAI_DISPLAY"; exit 1; }
+          echo "OK: no-env default resolves to Ternary-Bonsai-27B"
 
       - name: All concrete (family x size) combos resolve correctly
         run: |
@@ -68,9 +68,11 @@ jobs:
             ) || exit 1
             echo "  OK: $f $s"
           }
+          _check bonsai  27B   models/gguf/27B           models/Bonsai-27B-mlx           Bonsai-27B
           _check bonsai  8B    models/gguf/8B            models/Bonsai-8B-mlx            Bonsai-8B
           _check bonsai  4B    models/gguf/4B            models/Bonsai-4B-mlx            Bonsai-4B
           _check bonsai  1.7B  models/gguf/1.7B          models/Bonsai-1.7B-mlx          Bonsai-1.7B
+          _check ternary 27B   models/ternary-gguf/27B   models/Ternary-Bonsai-27B-mlx-2bit   Ternary-Bonsai-27B
           _check ternary 8B    models/ternary-gguf/8B    models/Ternary-Bonsai-8B-mlx-2bit    Ternary-Bonsai-8B
           _check ternary 4B    models/ternary-gguf/4B    models/Ternary-Bonsai-4B-mlx-2bit    Ternary-Bonsai-4B
           _check ternary 1.7B  models/ternary-gguf/1.7B  models/Ternary-Bonsai-1.7B-mlx-2bit  Ternary-Bonsai-1.7B

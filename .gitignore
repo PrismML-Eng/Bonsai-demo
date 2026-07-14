@@ -213,7 +213,9 @@ llama.cpp/
 mlx/
 .hf_cache/
 .prism_hf_token
+.bonsai_token
 .brave_key
+.venv-vlm/
 .venv-jupyter/
 .openwebui/
 .webui_secret_key
@@ -221,5 +223,5 @@ mlx/
 *.tar.gz
 *.zip
 
-# Local working notes — never commit
+# Internal launch working notes — never commit
 TODOS.md

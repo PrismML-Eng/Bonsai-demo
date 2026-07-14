@@ -11,7 +11,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$SCRIPT_DIR/common.sh"
 assert_valid_model
 
-# ── Backend selection: exactly ONE backend, never both (two resident models
+# ── Backend selection: exactly ONE backend, never both (two resident 27Bs
 #    overwhelm consumer machines). BONSAI_BACKEND=llama (default) or mlx. ──
 BONSAI_BACKEND="${BONSAI_BACKEND:-llama}"
 case "$BONSAI_BACKEND" in
@@ -60,6 +60,7 @@ MLX_PORT=8081
 BG_PIDS=""
 _LLAMA_PREEXISTING=false
 _MLX_PREEXISTING=false
+_MLX_VISION=false
 
 # ── Logs: each run writes fresh timestamped logs for the background services
 #    (llama-server / MLX / Jupyter / Brave) under .openwebui/logs/. This is how
@@ -127,11 +128,11 @@ if ! command -v open-webui >/dev/null 2>&1; then
     echo ""
     echo "  Install it with:"
     echo "    source .venv/bin/activate"
-    echo "    uv pip install open-webui"
+    echo "    uv pip install \".[webui]\""
     exit 1
 fi
 
-# ── Vision: load the multimodal projector when one is present ──
+# ── Vision: use the multimodal projector when present (27B is a VLM) ──
 MMPROJ=""
 for _mp in $GGUF_MODEL_DIR/*mmproj*.gguf; do
     [ -f "$_mp" ] && MMPROJ="$DEMO_DIR/$_mp" && break
@@ -144,11 +145,12 @@ elif curl -fsS --max-time 2 "http://localhost:$LLAMA_PORT/health" >/dev/null 2>&
     _LLAMA_PREEXISTING=true
     info "llama-server already running on port $LLAMA_PORT"
 else
-    # Find model + binary (skip the mmproj projector file — it is not the LLM)
+    # Find model + binary: select exactly the demo quant for the family
+    # (a leftover F16 or g64 file must never be picked up).
     _model=""
-    for _m in $GGUF_MODEL_DIR/*.gguf; do
+    for _m in $GGUF_MODEL_DIR/$GGUF_QUANT_PATTERN; do
         [ -f "$_m" ] || continue
-        case "$_m" in *mmproj*) continue ;; esac
+        case "$_m" in *mmproj*|*dspark*|*kv-bias*) continue ;; esac
         _model="$DEMO_DIR/$_m" && break
     done
     _bin=""
@@ -160,18 +162,30 @@ else
         step "Starting llama-server on port $LLAMA_PORT ..."
         _bin_dir="$(cd "$(dirname "$_bin")" && pwd)"
         _ngl=$(bonsai_llama_ngl)
-        # --jinja enables native OpenAI-style tool calling (the agentic demo).
-        # When a multimodal projector is present it is loaded for image input.
-        # shellcheck disable=SC2086
-        LD_LIBRARY_PATH="$_bin_dir${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
-        "$_bin" -m "$_model" --host 127.0.0.1 --port "$LLAMA_PORT" -ngl "$_ngl" -c "$CTX_SIZE_DEFAULT" \
-            --temp 0.5 --top-p 0.85 --top-k 20 --min-p 0 \
-            --jinja \
-            ${MMPROJ:+--mmproj "$MMPROJ"} \
-            --reasoning-budget 0 --reasoning-format none \
-            --chat-template-kwargs '{"enable_thinking": false}' \
-            $_LLAMA_VERBOSE \
-            > "$_LLAMA_LOG" 2>&1 &
+        # 27B: --jinja enables native OpenAI-style tool calling; --mmproj
+        # enables image input; reference-demo sampling. The 27B is a thinking
+        # model and thinking stays on. Older sizes keep their tested flag set.
+        if [ "$BONSAI_MODEL" = "27B" ]; then
+            _imt=$(bonsai_image_max_tokens)
+            # shellcheck disable=SC2086
+            LD_LIBRARY_PATH="$_bin_dir${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+            "$_bin" -m "$_model" --host 127.0.0.1 --port "$LLAMA_PORT" -ngl "$_ngl" -fa on -c "$CTX_SIZE_DEFAULT" \
+                --temp 0.7 --top-p 0.95 --top-k 20 --min-p 0 \
+                --jinja \
+                ${MMPROJ:+--mmproj "$MMPROJ"} \
+                ${_imt:+--image-max-tokens "$_imt"} \
+                $_LLAMA_VERBOSE \
+                > "$_LLAMA_LOG" 2>&1 &
+        else
+            LD_LIBRARY_PATH="$_bin_dir${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+            "$_bin" -m "$_model" --host 127.0.0.1 --port "$LLAMA_PORT" -ngl "$_ngl" -fa on -c "$CTX_SIZE_DEFAULT" \
+                --temp 0.5 --top-p 0.85 --top-k 20 --min-p 0 \
+                --jinja \
+                --reasoning-budget 0 --reasoning-format none \
+                --chat-template-kwargs '{"enable_thinking": false}' \
+                $_LLAMA_VERBOSE \
+                > "$_LLAMA_LOG" 2>&1 &
+        fi
         BG_PIDS="$BG_PIDS $!"
         # Wait for it to be ready
         _tries=0
@@ -197,13 +211,35 @@ if [ "$BONSAI_BACKEND" = "mlx" ]; then
         step "Starting MLX server on port $MLX_PORT (${BONSAI_DISPLAY}) ..."
         export HF_HOME="$DEMO_DIR/.hf_cache"
         mkdir -p "$HF_HOME/hub"
-        python -m mlx_lm.server \
-            --model "$DEMO_DIR/$MLX_MODEL_DIR" \
-            --port "$MLX_PORT" \
-            --temp 0.5 --top-p 0.85 \
-            > "$_MLX_LOG" 2>&1 &
+        # 27B ternary: mlx-vlm gives the MLX backend image input (stock-mlx
+        # .venv-vlm from setup.sh). Binary 1-bit needs the fork -> text-only.
+        # Disable with BONSAI_MLX_VLM=0.
+        _VLM_PY="$DEMO_DIR/.venv-vlm/bin/python"
+        # The 27B is a thinking model and thinking stays on.
+        if [ "$BONSAI_MODEL" = "27B" ] && [ "$BONSAI_FAMILY" = "ternary" ] \
+            && [ "${BONSAI_MLX_VLM:-1}" != "0" ] && [ -x "$_VLM_PY" ] \
+            && "$_VLM_PY" -c "import mlx_vlm" 2>/dev/null; then
+            _MLX_VISION=true
+            "$_VLM_PY" -m mlx_vlm.server \
+                --model "$DEMO_DIR/$MLX_MODEL_DIR" \
+                --port "$MLX_PORT" \
+                --enable-thinking \
+                > "$_MLX_LOG" 2>&1 &
+        elif [ "$BONSAI_MODEL" = "27B" ]; then
+            python -m mlx_lm.server \
+                --model "$DEMO_DIR/$MLX_MODEL_DIR" \
+                --port "$MLX_PORT" \
+                --temp 0.7 --top-p 0.95 \
+                > "$_MLX_LOG" 2>&1 &
+        else
+            python -m mlx_lm.server \
+                --model "$DEMO_DIR/$MLX_MODEL_DIR" \
+                --port "$MLX_PORT" \
+                --temp 0.5 --top-p 0.85 \
+                > "$_MLX_LOG" 2>&1 &
+        fi
         BG_PIDS="$BG_PIDS $!"
-        # Wait for MLX server to be ready (a large model load can take minutes)
+        # Wait for MLX server to be ready (a 27B load can take a few minutes)
         step "Waiting for MLX server to load model ..."
         _tries=0
         while [ "$_tries" -lt 120 ]; do
@@ -239,6 +275,13 @@ if [ "$BONSAI_BACKEND" = "mlx" ] && curl -fsS --max-time 2 "http://localhost:$ML
     _MLX_URL="http://localhost:$MLX_PORT/v1"
     BACKENDS="$_MLX_URL"
     KEYS="none"
+    # A pre-existing MLX server's implementation is unknown (it may be a
+    # text-only mlx_lm server even when .venv-vlm exists), so never infer
+    # vision for it. Set BONSAI_MLX_VISION=1 explicitly if the server you
+    # started yourself is mlx-vlm.
+    if [ "$_MLX_PREEXISTING" = true ] && [ "${BONSAI_MLX_VISION:-0}" = "1" ]; then
+        _MLX_VISION=true
+    fi
 fi
 
 if [ -z "$BACKENDS" ]; then
@@ -262,7 +305,7 @@ export ENABLE_RAG_WEB_SEARCH=false
 export DATA_DIR="$DEMO_DIR/.openwebui"
 
 # Open WebUI fires background LLM calls after each reply (chat title, tags,
-# follow-up suggestions). Against a single heavy model each one is a slow extra
+# follow-up suggestions). Against a single heavy 27B each one is a slow extra
 # generation that keeps the UI spinning after the answer is done, so disable
 # them for the demo (both backends). Users can re-enable in Admin Settings.
 export ENABLE_TITLE_GENERATION=false
@@ -289,15 +332,15 @@ if [ "$BONSAI_CODE_INTERPRETER" != "0" ] && [ -x "$_JUP_PY" ]; then
     step "Starting Jupyter kernel for the code interpreter on port $_JUP_PORT ..."
     # Sandbox (portable, best-effort): run the kernel from a dedicated empty work
     # dir and scrub secrets from its environment, so model-executed code can't
-    # trivially read the repo (e.g. .brave_key) via relative paths or pull
-    # secrets out of os.environ. This is HARDENING, not a jail — code still
+    # trivially read the repo (.brave_key / .bonsai_token) via relative paths or
+    # pull secrets out of os.environ. This is HARDENING, not a jail — code still
     # runs as your user with network + absolute-path access. For true isolation,
-    # run the whole demo in a container/VM. Bound to 127.0.0.1.
+    # run the whole demo in a container/VM (see AGENTS.md). Bound to 127.0.0.1.
     _JUP_WORK="$DATA_DIR/jupyter-work"
     mkdir -p "$_JUP_WORK"
     (
         cd "$_JUP_WORK" || exit 1
-        unset BRAVE_API_KEY HF_TOKEN PRISM_HF_TOKEN
+        unset BRAVE_API_KEY BONSAI_TOKEN HF_TOKEN PRISM_HF_TOKEN
         exec "$_JUP_PY" server --ip 127.0.0.1 --port "$_JUP_PORT" --no-browser \
             --ServerApp.root_dir="$_JUP_WORK" \
             --ServerApp.token="$_JUP_TOKEN" --ServerApp.disable_check_xsrf=True
@@ -392,6 +435,7 @@ _SEED_ARGS="--url http://localhost:$PORT"
 [ -n "$_LLAMA_URL" ] && _SEED_ARGS="$_SEED_ARGS --llama-url $_LLAMA_URL"
 [ -n "$_LLAMA_URL" ] && [ -n "$MMPROJ" ] && _SEED_ARGS="$_SEED_ARGS --llama-vision"
 [ -n "$_MLX_URL" ] && _SEED_ARGS="$_SEED_ARGS --mlx-url $_MLX_URL"
+[ -n "$_MLX_URL" ] && [ "$_MLX_VISION" = true ] && _SEED_ARGS="$_SEED_ARGS --mlx-vision"
 
 (
     _tries=0

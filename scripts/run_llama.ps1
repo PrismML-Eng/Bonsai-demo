@@ -1,11 +1,11 @@
 $ErrorActionPreference = "Stop"
 
 
-$BonsaiModel  = if ($env:BONSAI_MODEL)  { $env:BONSAI_MODEL.ToUpperInvariant() } else { "8B" }
-$BonsaiFamily = if ($env:BONSAI_FAMILY) { $env:BONSAI_FAMILY.ToLowerInvariant() } else { "bonsai" }
+$BonsaiModel  = if ($env:BONSAI_MODEL)  { $env:BONSAI_MODEL.ToUpperInvariant() } else { "27B" }
+$BonsaiFamily = if ($env:BONSAI_FAMILY) { $env:BONSAI_FAMILY.ToLowerInvariant() } else { "ternary" }
 
-if ($BonsaiModel -notin @("8B", "4B", "1.7B")) {
-    Write-Host "[ERR] Unknown BONSAI_MODEL='$BonsaiModel'. Valid values: 8B, 4B, 1.7B" -ForegroundColor Red
+if ($BonsaiModel -notin @("27B", "8B", "4B", "1.7B")) {
+    Write-Host "[ERR] Unknown BONSAI_MODEL='$BonsaiModel'. Valid values: 27B, 8B, 4B, 1.7B" -ForegroundColor Red
     exit 1
 }
 if ($BonsaiFamily -notin @("bonsai", "ternary")) {
@@ -25,7 +25,12 @@ if ($BonsaiFamily -eq "ternary") {
     $FamilyDisplay = "Bonsai"
 }
 
-$Model = Get-ChildItem -Path $ModelDir -Filter *.gguf -File -ErrorAction SilentlyContinue | Select-Object -First 1
+# Select exactly the demo quant for the family (a leftover F16 or g64 file
+# must never be picked up).
+$QuantPattern = if ($BonsaiFamily -eq "ternary") { "*-Q2_0.gguf" } else { "*-Q1_0.gguf" }
+$Model = Get-ChildItem -Path $ModelDir -Filter $QuantPattern -File -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -notlike "*mmproj*" -and $_.Name -notlike "*dspark*" -and $_.Name -notlike "*kv-bias*" } |
+    Select-Object -First 1
 if (-not $Model) {
     Write-Host "[ERR] GGUF model not found for $FamilyDisplay-$BonsaiModel in $ModelDir" -ForegroundColor Red
     Write-Host "      Run .\setup.ps1 first." -ForegroundColor Yellow
@@ -67,18 +72,32 @@ for ($i = 0; $i -lt $args.Count; $i++) {
     }
 }
 
-$CommonArgs = @(
-    "-m", $Model.FullName,
-    "-ngl", $Ngl,
-    "--log-disable",
-    "--temp", "0.5",
-    "--top-p", "0.85",
-    "--top-k", "20",
-    "--min-p", "0",
-    "--reasoning-budget", "0",
-    "--reasoning-format", "none",
-    "--chat-template-kwargs", $(if ($PSVersionTable.PSEdition -eq 'Desktop') { '{\"enable_thinking\": false}' } else { '{"enable_thinking": false}' })
-)
+# 27B: reference-demo sampling, thinking stays enabled (model default).
+# Older sizes keep the exact flag set they were tested with.
+if ($BonsaiModel -eq "27B") {
+    $CommonArgs = @(
+        "-m", $Model.FullName,
+        "-ngl", $Ngl, "-fa", "on",
+        "--log-disable",
+        "--temp", "0.7",
+        "--top-p", "0.95",
+        "--top-k", "20",
+        "--min-p", "0"
+    )
+} else {
+    $CommonArgs = @(
+        "-m", $Model.FullName,
+        "-ngl", $Ngl, "-fa", "on",
+        "--log-disable",
+        "--temp", "0.5",
+        "--top-p", "0.85",
+        "--top-k", "20",
+        "--min-p", "0",
+        "--reasoning-budget", "0",
+        "--reasoning-format", "none",
+        "--chat-template-kwargs", $(if ($PSVersionTable.PSEdition -eq 'Desktop') { '{\"enable_thinking\": false}' } else { '{"enable_thinking": false}' })
+    )
+}
 
 Write-Host "[OK] Model:  $($Model.FullName)" -ForegroundColor Green
 Write-Host "[OK] Binary: $Bin" -ForegroundColor Green
