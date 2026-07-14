@@ -13,6 +13,12 @@ Benchmark results submitted by the community running [Bonsai](https://huggingfac
 | NVIDIA GeForce RTX 3080 10 GB | llama.cpp CUDA | 4,770 | 197 | [link](cuda-rtx3080-linux.md) |
 | NVIDIA RTX A2000 Laptop (4 GB) | llama.cpp CUDA | 1,387 | 63 | [link](cuda-rtxa2000-debian.md) |
 
+**Bonsai-27B** results (PP512 / TG128 for the 27B model):
+
+| Hardware | Backend | 27B PP512 (t/s) | 27B TG128 (t/s) | Details |
+|----------|---------|----------------:|----------------:|---------|
+| NVIDIA DGX Spark (GB10) | llama.cpp CUDA | 1,003 | 44 | [link](cuda-gb10-27b-linux.md) |
+
 > Benchmarks for the **Ternary-Bonsai (1.58-bit)** family live in [../ternary-bonsai/](../ternary-bonsai/).
 
 ## How to Submit
