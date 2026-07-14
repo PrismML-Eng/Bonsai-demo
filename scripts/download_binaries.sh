@@ -10,7 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 DEMO_DIR="$(resolve_demo_dir)"
 cd "$DEMO_DIR"
 
-RELEASE_TAG="prism-b9581-80570cb"
+RELEASE_TAG="prism-b9588-c024aa2"
 BASE_URL="https://github.com/PrismML-Eng/llama.cpp/releases/download/$RELEASE_TAG"
 
 OS="$(uname -s)"
