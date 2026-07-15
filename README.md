@@ -191,7 +191,7 @@ Backend-by-backend migration status:
 | CPU (ARM NEON + generic scalar) | ✅ Merged in mainline llama.cpp | [ggml-org/llama.cpp#24448](https://github.com/ggml-org/llama.cpp/pull/24448) |
 | Metal | ✅ Merged in mainline llama.cpp | [ggml-org/llama.cpp#25419](https://github.com/ggml-org/llama.cpp/pull/25419) |
 | Vulkan | 🔄 In progress upstream (separate PR, not ours) | [ggml-org/llama.cpp#25430](https://github.com/ggml-org/llama.cpp/pull/25430) |
-| CUDA | 🔄 Fork-only for now (pending a rebase onto the upstream MMQ refactor) | [PrismML-Eng/llama.cpp](https://github.com/PrismML-Eng/llama.cpp) branch `pr/q2_0-cuda` |
+| CUDA | 🔄 In review upstream | [ggml-org/llama.cpp#25707](https://github.com/ggml-org/llama.cpp/pull/25707) |
 | x86 (AVX-512-VNNI) | ⏳ Pending | TBD |
 
 **CPU and Metal now run `Q2_0` on mainline llama.cpp, no fork needed** (use a recent `ggml-org/llama.cpp` build with the `*-Q2_0_g64.gguf` files). For CUDA and the other backends, use this demo: it ships the fork [pre-built binaries](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b9591-62061f9), so everything works out of the box with the group-128 `*-Q2_0.gguf` files it downloads. MLX 2-bit is supported in stock [MLX](https://github.com/ml-explore/mlx), no fork needed.
