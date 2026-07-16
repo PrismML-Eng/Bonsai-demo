@@ -95,14 +95,19 @@ actor MLXInferenceEngine: InferenceEngine {
     }
 
     private let loader: any MLXRuntimeLoading
+    private let cacheClearer: any MLXCacheClearing
     private var installation: ModelInstallation?
     private var runtime: (any MLXRuntimeResource)?
     private var activeGeneration: (id: UUID, task: Task<Void, Never>)?
     private var activeLoad: ActiveLoad?
     private var latestIntent: UInt64 = 0
 
-    init(loader: any MLXRuntimeLoading = DefaultMLXRuntimeLoader()) {
+    init(
+        loader: any MLXRuntimeLoading = DefaultMLXRuntimeLoader(),
+        cacheClearer: any MLXCacheClearing = DefaultMLXCacheClearer()
+    ) {
         self.loader = loader
+        self.cacheClearer = cacheClearer
     }
 
     func load(_ installation: ModelInstallation) async throws {
@@ -186,11 +191,23 @@ actor MLXInferenceEngine: InferenceEngine {
         releaseLoadedModel()
     }
 
+    /// Drops the current MLX chat session and its optional vision/KV state while
+    /// retaining the loaded ModelContainer. The pinned runtime has no public
+    /// vision-only cache API, so the next generation recreates a clean session.
+    func releaseOptionalVisionState() async {
+        await cancel()
+        runtime?.releaseOptionalSession()
+    }
+
+    func clearReusableCaches() {
+        cacheClearer.clear()
+    }
+
     func debugSnapshot() -> DebugSnapshot {
         DebugSnapshot(
             loadedModelID: installation?.modelID,
             hasContainer: runtime != nil,
-            hasSession: runtime != nil,
+            hasSession: runtime?.hasSession == true,
             hasActiveGeneration: activeGeneration != nil,
             hasActiveLoad: activeLoad != nil
         )

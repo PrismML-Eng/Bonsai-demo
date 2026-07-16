@@ -78,6 +78,26 @@ struct MLXInferenceLifecycleTests {
         #expect(await loader.returnedResources == 1)
     }
 
+    @Test
+    func optionalVisionReleaseDropsSessionButRetainsLoadedWeightsAndRecreatesSession() async throws {
+        let loader = SuspendingRuntimeLoader()
+        let engine = MLXInferenceEngine(loader: loader)
+        let installation = Self.installation(.oneBit27B)
+        let load = Task { try await engine.load(installation) }
+        await loader.waitForStarts(1)
+        await loader.finishNext()
+        try await load.value
+
+        await engine.releaseOptionalVisionState()
+        #expect(await engine.debugSnapshot() == .loadedWithoutSession(.oneBit27B))
+
+        let stream = try await engine.generate(
+            try GenerationRequest(prompt: "next", reasoningEnabled: false)
+        )
+        for try await _ in stream {}
+        #expect(await engine.debugSnapshot() == .loaded(.oneBit27B))
+    }
+
     private static func installation(_ id: ModelID) -> ModelInstallation {
         ModelInstallation(
             modelID: id,
@@ -164,10 +184,13 @@ private actor SuspendingRuntimeLoader: MLXRuntimeLoading {
 private final class FakeRuntimeResource: MLXRuntimeResource, @unchecked Sendable {
     let modelID: ModelID
     let reasoningConfig: ReasoningConfig? = nil
+    private(set) var hasSession = true
 
     init(modelID: ModelID) { self.modelID = modelID }
 
-    func configure(_ request: GenerationRequest) {}
+    func configure(_ request: GenerationRequest) { hasSession = true }
+
+    func releaseOptionalSession() { hasSession = false }
 
     func streamDetails(to prompt: String) -> AsyncThrowingStream<MLXLMCommon.Generation, Error> {
         AsyncThrowingStream { $0.finish() }
@@ -200,6 +223,16 @@ private extension MLXInferenceEngine.DebugSnapshot {
             loadedModelID: modelID,
             hasContainer: true,
             hasSession: true,
+            hasActiveGeneration: false,
+            hasActiveLoad: false
+        )
+    }
+
+    static func loadedWithoutSession(_ modelID: ModelID) -> Self {
+        .init(
+            loadedModelID: modelID,
+            hasContainer: true,
+            hasSession: false,
             hasActiveGeneration: false,
             hasActiveLoad: false
         )

@@ -1,4 +1,5 @@
 import Foundation
+import MLX
 import MLXHuggingFace
 import MLXLMCommon
 import MLXVLM
@@ -6,10 +7,27 @@ import Tokenizers
 
 protocol MLXRuntimeResource: AnyObject, Sendable {
     var reasoningConfig: ReasoningConfig? { get }
+    var hasSession: Bool { get }
     func configure(_ request: GenerationRequest)
     func streamDetails(
         to prompt: String
     ) -> AsyncThrowingStream<MLXLMCommon.Generation, Error>
+    func releaseOptionalSession()
+}
+
+extension MLXRuntimeResource {
+    var hasSession: Bool { true }
+    func releaseOptionalSession() {}
+}
+
+protocol MLXCacheClearing: Sendable {
+    func clear()
+}
+
+struct DefaultMLXCacheClearer: MLXCacheClearing {
+    func clear() {
+        Memory.clearCache()
+    }
 }
 
 protocol MLXRuntimeLoading: Sendable {
@@ -40,19 +58,18 @@ struct DefaultMLXRuntimeLoader: MLXRuntimeLoading {
 
 private final class LiveMLXRuntimeResource: MLXRuntimeResource, @unchecked Sendable {
     private let container: ModelContainer
-    private let session: MLXLMCommon.ChatSession
+    private var session: MLXLMCommon.ChatSession?
     let reasoningConfig: ReasoningConfig?
+    var hasSession: Bool { session != nil }
 
     init(container: ModelContainer, reasoningConfig: ReasoningConfig?) {
         self.container = container
         self.reasoningConfig = reasoningConfig
-        session = MLXLMCommon.ChatSession(
-            container,
-            generateParameters: Self.parameters(maxTokens: GenerationRequest.defaultMaxTokens)
-        )
+        session = Self.makeSession(container: container)
     }
 
     func configure(_ request: GenerationRequest) {
+        let session = ensureSession()
         session.generateParameters = Self.parameters(maxTokens: request.maxTokens)
         session.additionalContext = ["enable_thinking": request.reasoningEnabled]
     }
@@ -60,7 +77,25 @@ private final class LiveMLXRuntimeResource: MLXRuntimeResource, @unchecked Senda
     func streamDetails(
         to prompt: String
     ) -> AsyncThrowingStream<MLXLMCommon.Generation, Error> {
-        session.streamDetails(to: prompt)
+        ensureSession().streamDetails(to: prompt)
+    }
+
+    func releaseOptionalSession() {
+        session = nil
+    }
+
+    private func ensureSession() -> MLXLMCommon.ChatSession {
+        if let session { return session }
+        let created = Self.makeSession(container: container)
+        session = created
+        return created
+    }
+
+    private static func makeSession(container: ModelContainer) -> MLXLMCommon.ChatSession {
+        MLXLMCommon.ChatSession(
+            container,
+            generateParameters: parameters(maxTokens: GenerationRequest.defaultMaxTokens)
+        )
     }
 
     private static func parameters(maxTokens: Int) -> GenerateParameters {
