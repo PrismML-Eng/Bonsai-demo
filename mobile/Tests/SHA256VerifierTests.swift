@@ -105,6 +105,12 @@ private extension NoFollowInstallationReconstructionTests {
 
         func expectFailedReconstruction() async throws {
             let relaunched = try ModelLibrary(root: root, manifests: [manifest])
+            _ = await relaunched.snapshots()
+            for _ in 0..<100 {
+                if case .verifying = await relaunched.state(for: .oneBit27B) {
+                    try await Task.sleep(for: .milliseconds(10))
+                } else { break }
+            }
             guard case .failed = await relaunched.state(for: .oneBit27B) else {
                 Issue.record("A symlinked installation artifact must never reconstruct as ready")
                 return

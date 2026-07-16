@@ -35,7 +35,7 @@ struct ModelLibraryTests {
             Issue.record("The visible state must remain verifying while hashing is suspended")
             return
         }
-        await verifier.release()
+        verifier.release()
 
         for _ in 0..<100 {
             if case .ready = await relaunched.state(for: .oneBit27B) { return }
@@ -230,6 +230,11 @@ private extension ModelLibraryTests {
         try await original.install(manifest, qualification: .qualified([.textGeneration]))
 
         let relaunched = try ModelLibrary(root: root, manifests: [manifest])
+        _ = await relaunched.snapshots()
+        for _ in 0..<100 {
+            if (await relaunched.state(for: .oneBit27B)).isReady { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
         guard case .ready = await relaunched.state(for: .oneBit27B) else {
             Issue.record("Expected verified installation to survive relaunch")
             return
@@ -239,6 +244,12 @@ private extension ModelLibraryTests {
             to: root.appending(path: "installed/oneBit27B/model.safetensors")
         )
         let corruptRelaunch = try ModelLibrary(root: root, manifests: [manifest])
+        _ = await corruptRelaunch.snapshots()
+        for _ in 0..<100 {
+            if case .verifying = await corruptRelaunch.state(for: .oneBit27B) {
+                try await Task.sleep(for: .milliseconds(10))
+            } else { break }
+        }
         guard case .failed = await corruptRelaunch.state(for: .oneBit27B) else {
             Issue.record("Corrupt installation must remain non-ready")
             return
@@ -434,6 +445,13 @@ private extension ModelLibraryTests {
         )
     }
 
+}
+
+private extension ModelLibraryState {
+    var isReady: Bool {
+        if case .ready = self { return true }
+        return false
+    }
 }
 
 private enum HostileFolder: CaseIterable, Sendable {
