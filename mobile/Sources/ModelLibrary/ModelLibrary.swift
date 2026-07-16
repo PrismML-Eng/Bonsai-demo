@@ -8,31 +8,35 @@ actor ModelLibrary {
     private let root: URL
     private let transport: any ModelFileTransport
     private let managedFileSystem: any ModelLibraryFileSystem
-    private let verifier = SHA256Verifier()
+    private let verifier: any ModelFileVerifying
     private let knownManifests: [ModelID: ModelManifest]
     private var states: [ModelID: ModelLibraryState]
     private var observers: [UUID: AsyncStream<ModelLibrarySnapshot>.Continuation] = [:]
     private var activeOperations: [ModelID: UUID] = [:]
+    private var didStartLaunchVerification = false
 
     init(
         root: URL,
         transport: any ModelFileTransport = URLSessionModelFileTransport(),
         manifests: [ModelManifest]? = nil,
-        managedFileSystem: any ModelLibraryFileSystem = DefaultModelLibraryFileSystem()
+        managedFileSystem: any ModelLibraryFileSystem = DefaultModelLibraryFileSystem(),
+        verifier: any ModelFileVerifying = SHA256Verifier()
     ) throws {
         self.root = root.standardizedFileURL
         self.transport = transport
         self.managedFileSystem = managedFileSystem
+        self.verifier = verifier
         try FileManager.default.createDirectory(at: self.root, withIntermediateDirectories: true)
         try Self.validateManagedRoot(self.root)
         try Self.prepareTrash(at: self.root, fileSystem: managedFileSystem)
         try Self.applyStoragePolicyRecursively(to: self.root, rejectingSymlinks: false)
         let resolvedManifests = manifests ?? Self.bundledManifests()
         knownManifests = Dictionary(uniqueKeysWithValues: resolvedManifests.map { ($0.id, $0) })
-        states = try Self.reconstructStates(root: self.root, manifests: knownManifests)
+        states = try Self.discoverStates(root: self.root, manifests: knownManifests)
     }
 
     func snapshots() -> AsyncStream<ModelLibrarySnapshot> {
+        startLaunchVerificationIfNeeded()
         let id = UUID()
         let initial = snapshot()
         return AsyncStream { continuation in
@@ -40,6 +44,39 @@ actor ModelLibrary {
             continuation.yield(initial)
             continuation.onTermination = { [weak self] _ in
                 Task { await self?.removeObserver(id) }
+            }
+        }
+    }
+
+    private func startLaunchVerificationIfNeeded() {
+        guard !didStartLaunchVerification else { return }
+        didStartLaunchVerification = true
+        Task(priority: .utility) { verifyDiscoveredInstallations() }
+    }
+
+    private func verifyDiscoveredInstallations() {
+        for id in ModelID.allCases {
+            guard case .verifying = state(for: id), let manifest = knownManifests[id] else { continue }
+            do {
+                let operation = try beginOperation(for: id)
+                defer { endOperation(operation, for: id) }
+                let directory = installedURL(for: id)
+                let required = manifest.files.filter { !$0.isOptional }
+                let total = required.reduce(0) { $0 + $1.sizeBytes }
+                var base = 0
+                for file in required {
+                    try Task.checkCancellation()
+                    let fileBase = base
+                    try verifier.verify(file, at: try descendant(file.path, under: directory)) { bytes in
+                        self.publish(.verifying(completedBytes: fileBase + bytes, totalBytes: total), for: id)
+                    }
+                    base += file.sizeBytes
+                }
+                publish(.ready(ModelInstallation(
+                    modelID: id, directory: directory, revision: manifest.revision
+                )), for: id)
+            } catch {
+                publish(.failed("installation verification failed: \(error.localizedDescription)"), for: id)
             }
         }
     }
@@ -83,7 +120,7 @@ actor ModelLibrary {
                     try await transport.download(file, from: source, to: destination)
                 }
                 do {
-                    try verifier.verify(file, at: destination)
+                    try verifier.verify(file, at: destination, progress: nil)
                     try Self.applyStoragePolicyRecursively(to: destination)
                 } catch {
                     try? FileManager.default.removeItem(at: destination)
@@ -145,7 +182,7 @@ actor ModelLibrary {
         do {
             try ModelImporter().copy(manifest: manifest, from: source, to: staging)
             for file in manifest.files where !file.isOptional {
-                try verifier.verify(file, at: try descendant(file.path, under: staging))
+                try verifier.verify(file, at: try descendant(file.path, under: staging), progress: nil)
             }
             try Self.applyStoragePolicyRecursively(to: staging)
             try promote(staging, manifest: manifest)
@@ -224,7 +261,7 @@ actor ModelLibrary {
 
     private func isVerified(_ file: ModelManifest.File, at url: URL) -> Bool {
         do {
-            try verifier.verify(file, at: url)
+            try verifier.verify(file, at: url, progress: nil)
             return true
         } catch {
             return false
@@ -370,7 +407,7 @@ private extension ModelLibrary {
         }
         return catalog.models.map(\.manifest)
     }
-    private static func reconstructStates(
+    private static func discoverStates(
         root: URL, manifests: [ModelID: ModelManifest]
     ) throws -> [ModelID: ModelLibraryState] {
         var result: [ModelID: ModelLibraryState] = [:]
@@ -396,14 +433,8 @@ private extension ModelLibrary {
                 result[id] = .failed("invalid installation record")
                 continue
             }
-            do {
-                for file in manifest.files where !file.isOptional {
-                    try SHA256Verifier().verify(file, at: directory.appending(path: file.path))
-                }
-                result[id] = .ready(ModelInstallation(modelID: id, directory: directory, revision: manifest.revision))
-            } catch {
-                result[id] = .failed("installation verification failed")
-            }
+            let total = manifest.files.lazy.filter { !$0.isOptional }.reduce(0) { $0 + $1.sizeBytes }
+            result[id] = .verifying(completedBytes: 0, totalBytes: total)
         }
         return result
     }

@@ -2,7 +2,15 @@ import Darwin
 import CryptoKit
 import Foundation
 
-struct SHA256Verifier: Sendable {
+protocol ModelFileVerifying: Sendable {
+    func verify(
+        _ file: ModelManifest.File,
+        at url: URL,
+        progress: ((Int) -> Void)?
+    ) throws
+}
+
+struct SHA256Verifier: ModelFileVerifying, Sendable {
     static func digest(_ data: Data) -> String {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
