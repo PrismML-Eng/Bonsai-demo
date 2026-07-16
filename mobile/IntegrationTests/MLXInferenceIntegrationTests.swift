@@ -15,7 +15,12 @@ final class MLXInferenceIntegrationTests: XCTestCase {
         )
         let before = await engine.debugSnapshot()
 
-        let result = try await engine.trimContext(Self.contextConversation())
+        let prepared = try await engine.preparedGeneration(
+            for: Self.contextConversation(),
+            reasoningEnabled: false,
+            maxTokens: 1
+        )
+        let result = prepared.trim
 
         XCTAssertGreaterThan(result.keptTokenCount, 0)
         XCTAssertLessThanOrEqual(result.keptTokenCount, ContextTrimmer.defaultLimit)
@@ -23,6 +28,9 @@ final class MLXInferenceIntegrationTests: XCTestCase {
             result.removedMessageIDs.map(\.rawValue),
             ["old-user", "old-assistant"]
         )
+        XCTAssertFalse(prepared.request.messages?.contains { $0.content.contains("old context") } == true)
+        let events = try await Self.collect(try await engine.generate(prepared.request))
+        XCTAssertEqual(events.compactMap(\.metrics).map(\.promptTokenCount), [result.keptTokenCount])
         let after = await engine.debugSnapshot()
         XCTAssertEqual(after, before)
         await engine.unload()
@@ -279,6 +287,10 @@ private extension Array where Element == GenerationEvent {
 }
 
 private extension GenerationEvent {
+    var metrics: GenerationMetrics? {
+        if case .metrics(let metrics) = self { metrics } else { nil }
+    }
+
     var isDecodedPayload: Bool {
         switch self {
         case .reasoning, .answer, .toolRequest: true

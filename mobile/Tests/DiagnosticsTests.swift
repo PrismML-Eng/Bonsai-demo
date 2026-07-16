@@ -75,6 +75,20 @@ struct DiagnosticsTests {
         #expect(try await store.records() == [original])
     }
 
+    @Test
+    func diagnosticDecodeRejectsUnicodePseudoSHA() throws {
+        let encoded = try JSONEncoder().encode(Self.record(index: 1))
+        var object = try #require(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any]
+        )
+        object["modelRevision"] = String(repeating: "１", count: 40)
+        let data = try JSONSerialization.data(withJSONObject: object)
+
+        #expect(throws: DiagnosticValidationError.invalidModelRevision) {
+            try JSONDecoder().decode(DiagnosticRecord.self, from: data)
+        }
+    }
+
     private static func record(index: Int) throws -> DiagnosticRecord {
         try DiagnosticRecord(
             stage: .generation,

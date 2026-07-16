@@ -1,4 +1,5 @@
 import Foundation
+import MLXLMCommon
 import Testing
 @testable import BonsaiMobile
 
@@ -21,13 +22,16 @@ struct ResourceRecoveryTests {
     }
 
     @Test
-    func concurrentCriticalEventsCoalesceAndRecoveryIsIdempotent() async {
+    func concurrentCriticalEventsCoalesceButLaterEpisodeRecoversAgain() async {
         let recoverer = RecordingResourceRecoverer(suspendAtCancel: true)
         let coordinator = ResourceRecoveryCoordinator(recoverer: recoverer)
 
         async let first: Void = coordinator.handle(.memoryWarning(count: 1))
         await recoverer.waitUntilCancelStarted()
         async let second: Void = coordinator.handle(.thermal(.critical))
+        while await coordinator.snapshot().coalescedEventCount == 0 {
+            await Task.yield()
+        }
         await recoverer.resumeCancel()
         _ = await (first, second)
         await coordinator.handle(.thermal(.critical))
@@ -36,8 +40,42 @@ struct ResourceRecoveryTests {
             .cancelGeneration,
             .releaseOptionalVisionState,
             .clearReusableCaches,
+            .offerFullUnload,
+            .cancelGeneration,
+            .releaseOptionalVisionState,
+            .clearReusableCaches,
             .offerFullUnload
         ])
+    }
+
+    @Test
+    func criticalRecoveryAwaitsAndInvalidatesAnInFlightLoadBeforeCacheClear() async throws {
+        let loader = RecoverySuspendingLoader()
+        let cache = RecordingCacheClearer()
+        let engine = MLXInferenceEngine(loader: loader, cacheClearer: cache)
+        let installation = ModelInstallation(
+            modelID: .oneBit27B,
+            directory: URL(fileURLWithPath: "/tmp/recovery-load"),
+            revision: String(repeating: "a", count: 40)
+        )
+        let load = Task { try await engine.load(installation) }
+        await loader.waitUntilStarted()
+        let recovery = Task {
+            await ResourceRecoveryCoordinator(
+                recoverer: MLXResourceRecoverer(engine: engine) {}
+            ).handle(.memoryWarning(count: 1))
+        }
+
+        await Task.yield()
+        #expect(cache.clearCount == 0)
+        await loader.resumeWithResource()
+        await #expect(throws: CancellationError.self) { try await load.value }
+        await recovery.value
+
+        #expect(cache.clearCount == 1)
+        let snapshot = await engine.debugSnapshot()
+        #expect(!snapshot.hasActiveLoad)
+        #expect(!snapshot.hasContainer)
     }
 
     @Test
@@ -75,6 +113,35 @@ struct ResourceRecoveryTests {
     }
 }
 
+private actor RecoverySuspendingLoader: MLXRuntimeLoading {
+    private var continuation: CheckedContinuation<any MLXRuntimeResource, Never>?
+    private var startWaiters: [CheckedContinuation<Void, Never>] = []
+
+    func load(_ installation: ModelInstallation) async throws -> any MLXRuntimeResource {
+        startWaiters.forEach { $0.resume() }
+        startWaiters.removeAll()
+        return await withCheckedContinuation { continuation = $0 }
+    }
+
+    func waitUntilStarted() async {
+        if continuation != nil { return }
+        await withCheckedContinuation { startWaiters.append($0) }
+    }
+
+    func resumeWithResource() {
+        continuation?.resume(returning: RecoveryRuntimeResource())
+        continuation = nil
+    }
+}
+
+private final class RecoveryRuntimeResource: MLXRuntimeResource, @unchecked Sendable {
+    let reasoningConfig: ReasoningConfig? = nil
+    func configure(_ request: GenerationRequest) {}
+    func streamDetails(to prompt: String) -> AsyncThrowingStream<MLXLMCommon.Generation, Error> {
+        AsyncThrowingStream { $0.finish() }
+    }
+}
+
 private final class RecordingCacheClearer: MLXCacheClearing, @unchecked Sendable {
     private let lock = NSLock()
     private var count = 0
@@ -100,19 +167,20 @@ private actor RecordingResourceRecoverer: ResourceRecovering {
     }
 
     private(set) var calls: [Call] = []
-    private let suspendAtCancel: Bool
+    private var shouldSuspendAtCancel: Bool
     private var cancelContinuation: CheckedContinuation<Void, Never>?
     private var cancelWaiters: [CheckedContinuation<Void, Never>] = []
 
     init(suspendAtCancel: Bool = false) {
-        self.suspendAtCancel = suspendAtCancel
+        self.shouldSuspendAtCancel = suspendAtCancel
     }
 
     func cancelGeneration() async {
         calls.append(.cancelGeneration)
         cancelWaiters.forEach { $0.resume() }
         cancelWaiters.removeAll()
-        if suspendAtCancel {
+        if shouldSuspendAtCancel {
+            shouldSuspendAtCancel = false
             await withCheckedContinuation { cancelContinuation = $0 }
         }
     }

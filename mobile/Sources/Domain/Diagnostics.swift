@@ -100,8 +100,7 @@ struct DiagnosticRecord: Codable, Equatable, Sendable {
         guard memoryWarningCount >= 0 else {
             throw DiagnosticValidationError.negativeMemoryWarningCount
         }
-        guard modelRevision.count == 40,
-              modelRevision.allSatisfy({ $0.isHexDigit && !$0.isUppercase }) else {
+        guard isLowercaseHex(modelRevision, count: 40) else {
             throw DiagnosticValidationError.invalidModelRevision
         }
     }

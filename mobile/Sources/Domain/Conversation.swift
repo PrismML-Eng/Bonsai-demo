@@ -2,6 +2,7 @@ import Foundation
 
 enum ConversationContractError: Error, Equatable, Sendable {
     case unsafeIdentifier(String)
+    case unsupportedSchemaVersion(Int)
     case invalidModelRevision
     case invalidSystemInstruction
     case invalidTurn(String)
@@ -128,9 +129,10 @@ struct Conversation: Codable, Equatable, Sendable {
     }
 
     private func validate() throws {
-        guard schemaVersion == Self.schemaVersion,
-              modelRevision.count == 40,
-              modelRevision.allSatisfy({ $0.isHexDigit && !$0.isUppercase }) else {
+        guard schemaVersion == Self.schemaVersion else {
+            throw ConversationContractError.unsupportedSchemaVersion(schemaVersion)
+        }
+        guard isLowercaseHex(modelRevision, count: 40) else {
             throw ConversationContractError.invalidModelRevision
         }
         guard systemInstruction.role == .system,

@@ -1,38 +1,15 @@
 import Foundation
 
-protocol ConversationTokenCounting: Sendable {
-    func tokenCount(for message: ConversationMessage) throws -> Int
-}
-
-enum ConversationTokenCountError: Error, Equatable, Sendable {
-    case missingCount(MessageID)
-}
-
-struct PrecountedConversationTokenCounter: ConversationTokenCounting {
-    private let counts: [MessageID: Int]
-
-    init(counts: [MessageID: Int]) {
-        self.counts = counts
-    }
-
-    func tokenCount(for message: ConversationMessage) throws -> Int {
-        guard let count = counts[message.id] else {
-            throw ConversationTokenCountError.missingCount(message.id)
-        }
-        return count
-    }
-}
-
-enum ConversationTokenText {
-    static func canonical(_ message: ConversationMessage) -> String {
-        "<|\(message.role.rawValue)|>\n\(message.content)"
-    }
+/// Counts the fully prepared model input for a complete structured candidate.
+/// Implementations must apply the same chat template, tools, reasoning context,
+/// processing options, and generation prompt used by generation.
+protocol ConversationPromptCounting: Sendable {
+    func promptTokenCount(for messages: [ConversationMessage]) async throws -> Int
 }
 
 enum ContextTrimmerError: Error, Equatable, Sendable {
     case invalidLimit(Int)
-    case invalidTokenCount(messageID: MessageID, count: Int)
-    case tokenCountOverflow
+    case invalidPromptTokenCount(Int)
     case duplicateMessageID(MessageID)
     case requiredContextExceedsLimit(required: Int, limit: Int)
 }
@@ -53,32 +30,40 @@ struct ContextTrimmer: Sendable {
     static let defaultLimit = 4_096
 
     let limit: Int
-    let tokenCounter: any ConversationTokenCounting
+    let promptCounter: any ConversationPromptCounting
 
     init(
         limit: Int = Self.defaultLimit,
-        tokenCounter: any ConversationTokenCounting
+        promptCounter: any ConversationPromptCounting
     ) {
         self.limit = limit
-        self.tokenCounter = tokenCounter
+        self.promptCounter = promptCounter
     }
 
-    func trim(_ conversation: Conversation) throws -> ContextTrimResult {
+    func trim(_ conversation: Conversation) async throws -> ContextTrimResult {
         guard limit >= 0 else { throw ContextTrimmerError.invalidLimit(limit) }
-
-        let messages = conversation.contextMessages
-        let counts = try validatedCounts(messages)
-        let systemCount = counts[conversation.systemInstruction.id] ?? 0
+        try validateUniqueIDs(conversation.contextMessages)
 
         guard let newestIndex = conversation.completedTurns.indices.last else {
-            return try systemOnlyResult(conversation.systemInstruction, tokenCount: systemCount)
+            let messages = [conversation.systemInstruction]
+            let count = try await count(messages)
+            guard count <= limit else {
+                throw ContextTrimmerError.requiredContextExceedsLimit(
+                    required: count,
+                    limit: limit
+                )
+            }
+            return ContextTrimResult(
+                keptMessages: messages,
+                keptTokenCount: count,
+                removedMessageIDs: [],
+                notice: .init(removedTurnCount: 0, removedMessageCount: 0)
+            )
         }
 
-        let newestCount = try total(
-            conversation.completedTurns[newestIndex].messages,
-            counts: counts
-        )
-        var keptTokenCount = try adding(systemCount, newestCount)
+        var keptStart = newestIndex
+        var keptMessages = candidateMessages(conversation, start: keptStart)
+        var keptTokenCount = try await count(keptMessages)
         guard keptTokenCount <= limit else {
             throw ContextTrimmerError.requiredContextExceedsLimit(
                 required: keptTokenCount,
@@ -86,22 +71,21 @@ struct ContextTrimmer: Sendable {
             )
         }
 
-        var keptStart = newestIndex
         if newestIndex > 0 {
             for index in stride(from: newestIndex - 1, through: 0, by: -1) {
-                let turnCount = try total(conversation.completedTurns[index].messages, counts: counts)
-                let candidate = try adding(keptTokenCount, turnCount)
-                guard candidate <= limit else { break }
+                let candidate = candidateMessages(conversation, start: index)
+                let candidateCount = try await count(candidate)
+                guard candidateCount <= limit else { break }
                 keptStart = index
-                keptTokenCount = candidate
+                keptMessages = candidate
+                keptTokenCount = candidateCount
             }
         }
 
-        let removedTurns = Array(conversation.completedTurns[..<keptStart])
-        let keptTurns = conversation.completedTurns[keptStart...]
+        let removedTurns = conversation.completedTurns[..<keptStart]
         let removedIDs = removedTurns.flatMap(\.messages).map(\.id)
         return ContextTrimResult(
-            keptMessages: [conversation.systemInstruction] + keptTurns.flatMap(\.messages),
+            keptMessages: keptMessages,
             keptTokenCount: keptTokenCount,
             removedMessageIDs: removedIDs,
             notice: .init(
@@ -111,54 +95,24 @@ struct ContextTrimmer: Sendable {
         )
     }
 
-    private func systemOnlyResult(
-        _ systemInstruction: ConversationMessage,
-        tokenCount: Int
-    ) throws -> ContextTrimResult {
-        guard tokenCount <= limit else {
-            throw ContextTrimmerError.requiredContextExceedsLimit(
-                required: tokenCount,
-                limit: limit
-            )
-        }
-        return ContextTrimResult(
-            keptMessages: [systemInstruction],
-            keptTokenCount: tokenCount,
-            removedMessageIDs: [],
-            notice: .init(removedTurnCount: 0, removedMessageCount: 0)
-        )
+    private func count(_ messages: [ConversationMessage]) async throws -> Int {
+        let count = try await promptCounter.promptTokenCount(for: messages)
+        guard count >= 0 else { throw ContextTrimmerError.invalidPromptTokenCount(count) }
+        return count
     }
 
-    private func validatedCounts(
-        _ messages: [ConversationMessage]
-    ) throws -> [MessageID: Int] {
+    private func candidateMessages(
+        _ conversation: Conversation,
+        start: Int
+    ) -> [ConversationMessage] {
+        [conversation.systemInstruction]
+            + conversation.completedTurns[start...].flatMap(\.messages)
+    }
+
+    private func validateUniqueIDs(_ messages: [ConversationMessage]) throws {
         var seen: Set<MessageID> = []
-        var counts: [MessageID: Int] = [:]
-        for message in messages {
-            guard seen.insert(message.id).inserted else {
-                throw ContextTrimmerError.duplicateMessageID(message.id)
-            }
-            let count = try tokenCounter.tokenCount(for: message)
-            guard count >= 0 else {
-                throw ContextTrimmerError.invalidTokenCount(messageID: message.id, count: count)
-            }
-            counts[message.id] = count
+        for message in messages where !seen.insert(message.id).inserted {
+            throw ContextTrimmerError.duplicateMessageID(message.id)
         }
-        return counts
-    }
-
-    private func total(
-        _ messages: [ConversationMessage],
-        counts: [MessageID: Int]
-    ) throws -> Int {
-        try messages.reduce(into: 0) { result, message in
-            result = try adding(result, counts[message.id] ?? 0)
-        }
-    }
-
-    private func adding(_ lhs: Int, _ rhs: Int) throws -> Int {
-        let (result, overflow) = lhs.addingReportingOverflow(rhs)
-        guard !overflow else { throw ContextTrimmerError.tokenCountOverflow }
-        return result
     }
 }

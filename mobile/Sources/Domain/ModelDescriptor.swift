@@ -294,7 +294,7 @@ struct ModelCatalog: Codable, Equatable, Sendable {
     let models: [ModelDescriptor]
 }
 
-private func isLowercaseHex(_ value: String, count: Int) -> Bool {
+func isLowercaseHex(_ value: String, count: Int) -> Bool {
     value.utf8.count == count && value.utf8.allSatisfy { byte in
         (48 ... 57).contains(byte) || (97 ... 102).contains(byte)
     }

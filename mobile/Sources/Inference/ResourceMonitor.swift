@@ -44,7 +44,7 @@ struct MLXResourceRecoverer: ResourceRecovering {
     }
 
     func cancelGeneration() async {
-        await engine.cancel()
+        await engine.cancelForCriticalRecovery()
     }
 
     func releaseOptionalVisionState() async {
@@ -62,20 +62,23 @@ struct MLXResourceRecoverer: ResourceRecovering {
 
 struct ResourceRecoverySnapshot: Equatable, Sendable {
     let fullUnloadOffered: Bool
+    let coalescedEventCount: Int
 }
 
 actor ResourceRecoveryCoordinator {
     private let recoverer: any ResourceRecovering
     private var activeRecovery: Task<Void, Never>?
-    private var recovered = false
+    private var recoveryCount = 0
+    private var coalescedEventCount = 0
 
     init(recoverer: any ResourceRecovering) {
         self.recoverer = recoverer
     }
 
     func handle(_ event: ResourcePressureEvent) async {
-        guard event.isCritical, !recovered else { return }
+        guard event.isCritical else { return }
         if let activeRecovery {
+            coalescedEventCount += 1
             await activeRecovery.value
             return
         }
@@ -88,12 +91,17 @@ actor ResourceRecoveryCoordinator {
         }
         activeRecovery = recovery
         await recovery.value
-        activeRecovery = nil
-        recovered = true
+        if activeRecovery != nil {
+            activeRecovery = nil
+            recoveryCount += 1
+        }
     }
 
     func snapshot() -> ResourceRecoverySnapshot {
-        ResourceRecoverySnapshot(fullUnloadOffered: recovered)
+        ResourceRecoverySnapshot(
+            fullUnloadOffered: recoveryCount > 0,
+            coalescedEventCount: coalescedEventCount
+        )
     }
 }
 

@@ -1,4 +1,3 @@
-import CryptoKit
 import Foundation
 import MLXLMCommon
 
@@ -10,45 +9,6 @@ enum MLXInferenceError: Error, Equatable, Sendable {
     case invalidToolArgumentsEncoding
     case tokenCountingUnavailable
     case conversationModelMismatch(expected: ModelID, attempted: ModelID)
-}
-
-enum MLXGenerationMapper {
-    static func toolInvocation(_ call: MLXLMCommon.ToolCall) throws -> ToolInvocation {
-        let data = try JSONEncoder.sorted.encode(call.function.arguments)
-        guard let argumentsJSON = String(data: data, encoding: .utf8) else {
-            throw MLXInferenceError.invalidToolArgumentsEncoding
-        }
-        let id = call.id ?? fallbackID(name: call.function.name, arguments: data)
-        return ToolInvocation(id: id, name: call.function.name, argumentsJSON: argumentsJSON)
-    }
-
-    static func metrics(
-        _ info: GenerateCompletionInfo,
-        timeToFirstToken: Duration
-    ) -> GenerationMetrics {
-        GenerationMetrics(
-            promptTokenCount: info.promptTokenCount,
-            generatedTokenCount: info.generationTokenCount,
-            timeToFirstToken: timeToFirstToken,
-            tokensPerSecond: info.tokensPerSecond.isFinite ? info.tokensPerSecond : 0
-        )
-    }
-
-    static func completionReason(_ reason: GenerateStopReason) -> CompletionReason {
-        switch reason {
-        case .stop: .stop
-        case .length: .length
-        case .cancelled: .cancelled
-        }
-    }
-
-    private static func fallbackID(name: String, arguments: Data) -> String {
-        var data = Data(name.utf8)
-        data.append(0)
-        data.append(arguments)
-        let digest = SHA256.hash(data: data)
-        return "mlx-" + digest.prefix(8).map { String(format: "%02x", $0) }.joined()
-    }
 }
 
 actor MLXInferenceEngine: InferenceEngine {
@@ -157,6 +117,15 @@ actor MLXInferenceEngine: InferenceEngine {
         await activeGeneration.task.value
     }
 
+    /// Invalidates and awaits both generation and model loading before callers
+    /// clear process-wide MLX caches. A cancellation-insensitive loader may
+    /// finish late, but its superseded intent can never install that resource.
+    func cancelForCriticalRecovery() async {
+        _ = issueIntent()
+        await cancel()
+        await cancelActiveLoad()
+    }
+
     func unload() async {
         _ = issueIntent()
         await cancel()
@@ -178,7 +147,9 @@ actor MLXInferenceEngine: InferenceEngine {
 
     func trimContext(
         _ conversation: Conversation,
-        limit: Int = ContextTrimmer.defaultLimit
+        limit: Int = ContextTrimmer.defaultLimit,
+        reasoningEnabled: Bool = true,
+        tools: [GenerationToolSpecification] = []
     ) async throws -> ContextTrimResult {
         guard activeGeneration == nil else {
             throw MLXInferenceError.generationAlreadyActive
@@ -193,12 +164,40 @@ actor MLXInferenceEngine: InferenceEngine {
             )
         }
         let intent = latestIntent
-        let counts = try await runtime.tokenCounts(for: conversation.contextMessages)
-        try ensureCurrent(intent)
-        return try ContextTrimmer(
+        let result = try await ContextTrimmer(
             limit: limit,
-            tokenCounter: PrecountedConversationTokenCounter(counts: counts)
+            promptCounter: MLXConversationPromptCounter(
+                runtime: runtime,
+                reasoningEnabled: reasoningEnabled,
+                tools: tools
+            )
         ).trim(conversation)
+        try ensureCurrent(intent)
+        return result
+    }
+
+    func preparedGeneration(
+        for conversation: Conversation,
+        limit: Int = ContextTrimmer.defaultLimit,
+        reasoningEnabled: Bool = true,
+        tools: [GenerationToolSpecification] = [],
+        maxTokens: Int = GenerationRequest.defaultMaxTokens
+    ) async throws -> (trim: ContextTrimResult, request: GenerationRequest) {
+        let trim = try await trimContext(
+            conversation,
+            limit: limit,
+            reasoningEnabled: reasoningEnabled,
+            tools: tools
+        )
+        return (
+            trim,
+            try GenerationRequest(
+                messages: trim.keptMessages,
+                tools: tools,
+                reasoningEnabled: reasoningEnabled,
+                maxTokens: maxTokens
+            )
+        )
     }
 
     func debugSnapshot() -> DebugSnapshot {
@@ -220,7 +219,9 @@ actor MLXInferenceEngine: InferenceEngine {
         var state = MLXGenerationState(request: request, reasoningConfig: reasoningConfig)
 
         do {
-            for try await generation in runtime.streamDetails(to: request.prompt) {
+            let stream = try request.messages.map { try runtime.streamDetails(to: $0) }
+                ?? runtime.streamDetails(to: request.prompt)
+            for try await generation in stream {
                 try Task.checkCancellation()
                 try state.consume(generation, continuation: continuation)
                 // MLX may have several decoded events buffered. Explicitly yield the
@@ -289,6 +290,20 @@ actor MLXInferenceEngine: InferenceEngine {
         activeLoad = nil
         runtime = resource
         installation = load.installation
+    }
+}
+
+private struct MLXConversationPromptCounter: ConversationPromptCounting {
+    let runtime: any MLXRuntimeResource
+    let reasoningEnabled: Bool
+    let tools: [GenerationToolSpecification]
+
+    func promptTokenCount(for messages: [ConversationMessage]) async throws -> Int {
+        try await runtime.preparedPromptTokenCount(
+            for: messages,
+            reasoningEnabled: reasoningEnabled,
+            tools: tools
+        )
     }
 }
 
@@ -372,13 +387,5 @@ private struct MLXGenerationState {
         guard !terminalEmitted else { return }
         continuation.yield(.completed(reason))
         terminalEmitted = true
-    }
-}
-
-private extension JSONEncoder {
-    static var sorted: JSONEncoder {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-        return encoder
     }
 }

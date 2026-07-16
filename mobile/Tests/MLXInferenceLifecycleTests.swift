@@ -119,7 +119,7 @@ struct MLXInferenceLifecycleTests {
         #expect(result.keptTokenCount == 2_100)
         #expect(result.removedMessageIDs.map(\.rawValue) == ["old-user", "old-assistant"])
         #expect(await engine.debugSnapshot() == before)
-        #expect(await loader.tokenCountRequestCount == 1)
+        #expect(await loader.tokenCountRequestCount == 2)
     }
 
     private static func contextConversation() throws -> Conversation {
@@ -260,11 +260,13 @@ private final class FakeRuntimeResource: MLXRuntimeResource, @unchecked Sendable
 
     func releaseOptionalSession() { hasSession = false }
 
-    func tokenCounts(for messages: [ConversationMessage]) async throws -> [MessageID: Int] {
+    func preparedPromptTokenCount(
+        for messages: [ConversationMessage],
+        reasoningEnabled: Bool,
+        tools: [GenerationToolSpecification]
+    ) async throws -> Int {
         await didCountTokens()
-        return Dictionary(uniqueKeysWithValues: messages.map {
-            ($0.id, tokenCounts[$0.id.rawValue, default: 1])
-        })
+        return messages.reduce(0) { $0 + tokenCounts[$1.id.rawValue, default: 1] }
     }
 
     func streamDetails(to prompt: String) -> AsyncThrowingStream<MLXLMCommon.Generation, Error> {
