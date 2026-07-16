@@ -7,6 +7,7 @@ import argparse
 import http.server
 import json
 import socket
+import time
 from pathlib import Path
 
 
@@ -46,6 +47,25 @@ def main() -> None:
                 self.send_header("Content-Range", f"bytes {start}-{len(payload) - 1}/{len(payload)}")
                 self.end_headers()
                 self.wfile.write(body)
+                return
+
+            if self.path == "/slow":
+                start = 0
+                if range_header:
+                    start = int(range_header.removeprefix("bytes=").split("-", 1)[0])
+                body = payload[start:]
+                self.send_response(206 if range_header else 200)
+                self.send_header("Content-Length", str(len(body)))
+                if range_header:
+                    self.send_header("Content-Range", f"bytes {start}-{len(payload) - 1}/{len(payload)}")
+                self.end_headers()
+                try:
+                    for offset in range(0, len(body), 16_384):
+                        self.wfile.write(body[offset : offset + 16_384])
+                        self.wfile.flush()
+                        time.sleep(0.01)
+                except (BrokenPipeError, ConnectionResetError):
+                    pass
                 return
 
             self.send_response(200)

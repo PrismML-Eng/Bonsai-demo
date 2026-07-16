@@ -13,8 +13,7 @@ struct ModelImporter: Sendable {
         }
         if values.isDirectory == true {
             try copyFolder(manifest: manifest, source: source, staging: staging)
-        } else if source.pathExtension.lowercased() == "zip"
-            || source.lastPathComponent.lowercased().hasSuffix(".bonsaimodel.zip") {
+        } else if source.lastPathComponent.lowercased().hasSuffix(".bonsaimodel.zip") {
             try copyArchive(manifest: manifest, source: source, staging: staging)
         } else {
             throw ModelLibraryError.unsafeImport(source.lastPathComponent)
@@ -60,6 +59,7 @@ struct ModelImporter: Sendable {
     }
 
     private func copyArchive(manifest: ModelManifest, source: URL, staging: URL) throws {
+        try ArchiveMetadataValidator().validate(at: source)
         let archive = try Archive(url: source, accessMode: .read)
         let expected = Dictionary(uniqueKeysWithValues: manifest.files.map { ($0.path, $0) })
         let maximumDeclared = manifest.files.reduce(into: UInt64(64 * 1_024 * 1_024)) {
@@ -68,7 +68,11 @@ struct ModelImporter: Sendable {
         var validation = ArchiveValidationState(maximumDeclared: maximumDeclared)
         for entry in archive {
             try Task.checkCancellation()
-            guard let logical = try validatedArchivePath(entry) else { continue }
+            guard let logical = try validatedArchivePath(
+                entry,
+                expected: expected,
+                validation: &validation
+            ) else { continue }
             try validateArchiveFile(
                 entry,
                 logical: logical,
@@ -83,12 +87,22 @@ struct ModelImporter: Sendable {
         }
     }
 
-    private func validatedArchivePath(_ entry: Entry) throws -> String? {
+    private func validatedArchivePath(
+        _ entry: Entry,
+        expected: [String: ModelManifest.File],
+        validation: inout ArchiveValidationState
+    ) throws -> String? {
         let logical = normalizedArchivePath(entry.path)
         guard !logical.isEmpty, isSafeLogicalPath(logical) else {
             throw ModelLibraryError.unsafeImport(entry.path)
         }
-        if entry.type == .directory { return nil }
+        guard validation.allPaths.insert(logical).inserted else {
+            throw ModelLibraryError.duplicatePath(logical)
+        }
+        if entry.type == .directory {
+            guard expected[logical] == nil else { throw ModelLibraryError.duplicatePath(logical) }
+            return nil
+        }
         guard entry.type == .file else { throw ModelLibraryError.unsafeImport(logical) }
         return logical
     }
@@ -203,6 +217,7 @@ struct ModelImporter: Sendable {
 }
 
 private struct ArchiveValidationState {
+    var allPaths: Set<String> = []
     var seen: Set<String> = []
     var declared: UInt64 = 0
     let maximumDeclared: UInt64

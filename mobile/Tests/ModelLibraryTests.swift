@@ -117,6 +117,114 @@ struct ModelLibraryTests {
             try Data(contentsOf: old.appending(path: "model.safetensors")) == expected
         )
     }
+}
+
+private extension ModelLibraryTests {
+    @Test
+    func relaunchReconstructsOnlyACompleteVerifiedInstallation() async throws {
+        let root = try temporaryDirectory()
+        let expected = Data("persistent".utf8)
+        let manifest = try fixtureManifest(expected: expected)
+        let original = try ModelLibrary(
+            root: root,
+            transport: RecordingTransport(files: ["model.safetensors": expected]),
+            manifests: [manifest]
+        )
+        try await original.install(manifest, qualification: .qualified([.textGeneration]))
+
+        let relaunched = try ModelLibrary(root: root, manifests: [manifest])
+        guard case .ready = await relaunched.state(for: .oneBit27B) else {
+            Issue.record("Expected verified installation to survive relaunch")
+            return
+        }
+
+        try Data("corrupt!!!".utf8).write(
+            to: root.appending(path: "installed/oneBit27B/model.safetensors")
+        )
+        let corruptRelaunch = try ModelLibrary(root: root, manifests: [manifest])
+        guard case .failed = await corruptRelaunch.state(for: .oneBit27B) else {
+            Issue.record("Corrupt installation must remain non-ready")
+            return
+        }
+    }
+
+    @Test
+    func overlappingMutationsAreDeterministicallyRejected() async throws {
+        let root = try temporaryDirectory()
+        let expected = Data("serialized".utf8)
+        let manifest = try fixtureManifest(expected: expected)
+        let transport = SuspendingModelTransport(data: expected)
+        let library = try ModelLibrary(root: root, transport: transport, manifests: [manifest])
+        let active = Task {
+            try await library.install(manifest, qualification: .qualified([.textGeneration]))
+        }
+        await transport.waitUntilStarted()
+
+        await #expect(throws: ModelLibraryError.operationInProgress(.oneBit27B)) {
+            try await library.install(manifest, qualification: .qualified([.textGeneration]))
+        }
+        await #expect(throws: ModelLibraryError.operationInProgress(.oneBit27B)) {
+            try await library.importModel(
+                manifest,
+                from: root,
+                qualification: .qualified([.textGeneration])
+            )
+        }
+        await #expect(throws: ModelLibraryError.operationInProgress(.oneBit27B)) {
+            try await library.delete(.oneBit27B)
+        }
+
+        await transport.release()
+        try await active.value
+        guard case .ready = await library.state(for: .oneBit27B) else {
+            Issue.record("Owning operation must determine terminal state")
+            return
+        }
+    }
+
+    @Test(arguments: ["installed", ".staging"])
+    func symlinkedManagedParentsNeverTouchExternalFiles(_ parent: String) async throws {
+        let root = try temporaryDirectory()
+        let external = try temporaryDirectory()
+        let marker = external.appending(path: "marker")
+        try Data("outside".utf8).write(to: marker)
+        let manifest = try fixtureManifest(expected: Data("data".utf8))
+        let library = try ModelLibrary(
+            root: root,
+            transport: RecordingTransport(files: ["model.safetensors": Data("data".utf8)]),
+            manifests: [manifest]
+        )
+        try FileManager.default.createSymbolicLink(
+            at: root.appending(path: parent),
+            withDestinationURL: external
+        )
+
+        if parent == "installed" {
+            await #expect(throws: (any Error).self) { try await library.delete(.oneBit27B) }
+        } else {
+            await #expect(throws: (any Error).self) {
+                try await library.install(manifest, qualification: .qualified([.textGeneration]))
+            }
+        }
+
+        #expect(try Data(contentsOf: marker) == Data("outside".utf8))
+    }
+
+    @Test
+    func managedFilesAreExcludedFromBackupAfterDownload() async throws {
+        let root = try temporaryDirectory()
+        let expected = Data("protected".utf8)
+        let manifest = try fixtureManifest(expected: expected)
+        let library = try ModelLibrary(
+            root: root,
+            transport: RecordingTransport(files: ["model.safetensors": expected]),
+            manifests: [manifest]
+        )
+        try await library.install(manifest, qualification: .qualified([.textGeneration]))
+
+        let file = root.appending(path: "installed/oneBit27B/model.safetensors")
+        #expect(try file.resourceValues(forKeys: [.isExcludedFromBackupKey]).isExcludedFromBackup == true)
+    }
 
     @Test
     func cancellationLeavesNonReadyTerminalState() async throws {
