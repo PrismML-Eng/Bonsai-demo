@@ -193,15 +193,15 @@ extension ModelArchiveImporterTests {
     }
 }
 
-private extension ModelArchiveImporterTests {
-    private func temporaryDirectory() throws -> URL {
+extension ModelArchiveImporterTests {
+    func temporaryDirectory() throws -> URL {
         let url = FileManager.default.temporaryDirectory
             .appending(path: UUID().uuidString, directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
     }
 
-    private func fixtureManifest(
+    func fixtureManifest(
         expected: Data,
         path: String = "model.safetensors"
     ) throws -> ModelManifest {
@@ -239,9 +239,10 @@ private extension ModelArchiveImporterTests {
         return url
     }
 
-    private func makeRawMetadataArchive(
+    func makeRawMetadataArchive(
         expected: Data,
         mode: mode_t,
+        madeByHost: UInt8 = 3,
         centralExtra: Data = Data()
     ) throws -> URL {
         let archive = try makeArchive([.file(path: "model.safetensors", data: expected)])
@@ -253,7 +254,7 @@ private extension ModelArchiveImporterTests {
         guard bytes.littleEndianUInt32(at: directoryOffset) == 0x0201_4B50 else {
             throw FixtureError.invalidArchive
         }
-        bytes[directoryOffset + 5] = 3
+        bytes[directoryOffset + 5] = madeByHost
         bytes.writeLittleEndian(UInt32(mode) << 16, at: directoryOffset + 38)
 
         if !centralExtra.isEmpty {
@@ -276,14 +277,14 @@ private extension ModelArchiveImporterTests {
         return archive
     }
 
-    private func zipExtra(identifier: UInt16) -> Data {
+    func zipExtra(identifier: UInt16) -> Data {
         var data = Data(count: 4)
         data.writeLittleEndian(identifier, at: 0)
         data.writeLittleEndian(UInt16(0), at: 2)
         return data
     }
 
-    private func expectRejectedBeforeManagedWrite(
+    func expectRejectedBeforeManagedWrite(
         _ archive: URL,
         expected: Data,
         requiredPath: String = "model.safetensors"
@@ -372,6 +373,6 @@ private struct ArchiveFixtureEntry {
     }
 }
 
-private struct NoopTransport: ModelFileTransport {
+struct NoopTransport: ModelFileTransport {
     func download(_: ModelManifest.File, from _: URL, to _: URL) async throws {}
 }

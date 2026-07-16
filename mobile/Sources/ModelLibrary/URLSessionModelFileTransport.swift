@@ -71,7 +71,7 @@ final class URLSessionModelFileTransport: ModelFileTransport, @unchecked Sendabl
         (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
     }
 
-    fileprivate static func contentRangeStarts(_ value: String?, at offset: Int) -> Bool {
+    static func contentRangeStarts(_ value: String?, at offset: Int) -> Bool {
         value?.lowercased().hasPrefix("bytes \(offset)-") == true
     }
 

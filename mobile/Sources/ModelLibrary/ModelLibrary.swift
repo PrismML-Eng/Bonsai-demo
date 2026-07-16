@@ -1,46 +1,10 @@
 import Darwin
 import Foundation
 
-struct ModelInstallation: Equatable, Sendable {
-    let modelID: ModelID
-    let directory: URL
-    let revision: String
-}
-
-enum ModelLibraryState: Equatable, Sendable {
-    case notInstalled
-    case installing(completedFiles: Int, totalFiles: Int)
-    case ready(ModelInstallation)
-    case cancelled
-    case failed(String)
-}
-
-struct ModelLibrarySnapshot: Equatable, Sendable {
-    let states: [ModelID: ModelLibraryState]
-}
-
-enum ModelLibraryError: Error, Equatable, Sendable {
-    case unqualified
-    case invalidSourceURL
-    case invalidFileType(String)
-    case sizeMismatch(String)
-    case hashMismatch(String)
-    case unsafeImport(String)
-    case missingFile(String)
-    case duplicatePath(String)
-    case archiveTooLarge
-    case operationInProgress(ModelID)
-    case unsafeManagedPath(String)
-}
-
 actor ModelLibrary {
-    private struct InstallationRecord: Codable {
-        let modelID: ModelID
-        let revision: String
-    }
-
     private let root: URL
     private let transport: any ModelFileTransport
+    private let managedFileSystem: any ModelLibraryFileSystem
     private let verifier = SHA256Verifier()
     private let knownManifests: [ModelID: ModelManifest]
     private var states: [ModelID: ModelLibraryState]
@@ -50,12 +14,15 @@ actor ModelLibrary {
     init(
         root: URL,
         transport: any ModelFileTransport = URLSessionModelFileTransport(),
-        manifests: [ModelManifest]? = nil
+        manifests: [ModelManifest]? = nil,
+        managedFileSystem: any ModelLibraryFileSystem = DefaultModelLibraryFileSystem()
     ) throws {
         self.root = root.standardizedFileURL
         self.transport = transport
+        self.managedFileSystem = managedFileSystem
         try FileManager.default.createDirectory(at: self.root, withIntermediateDirectories: true)
         try Self.validateManagedRoot(self.root)
+        try Self.prepareTrash(at: self.root, fileSystem: managedFileSystem)
         try Self.applyStoragePolicyRecursively(to: self.root)
         let resolvedManifests = manifests ?? Self.bundledManifests()
         knownManifests = Dictionary(uniqueKeysWithValues: resolvedManifests.map { ($0.id, $0) })
@@ -155,20 +122,29 @@ actor ModelLibrary {
     func delete(_ id: ModelID) throws {
         let operation = try beginOperation(for: id)
         defer { endOperation(operation, for: id) }
-        let targets = [installedURL(for: id), stagingURL(for: id)]
-        var existingTargets: [URL] = []
-        for url in targets {
+        let installed = installedURL(for: id)
+        let staging = stagingURL(for: id)
+        let trashRoot = trashRootURL()
+        let trash = trashURL(for: id)
+        for url in [installed, staging, trashRoot, trash] {
             try validateManagedAncestors(for: url)
             guard let type = try Self.lstatTypeIfPresent(at: url) else { continue }
             guard type != .typeSymbolicLink else {
                 throw ModelLibraryError.unsafeManagedPath(url.lastPathComponent)
             }
-            existingTargets.append(url)
         }
-        for url in existingTargets {
-            try FileManager.default.removeItem(at: url)
+
+        if try Self.lstatTypeIfPresent(at: staging) != nil {
+            try managedFileSystem.removeItem(at: staging)
         }
+        guard try Self.lstatTypeIfPresent(at: installed) != nil else {
+            publish(.notInstalled, for: id)
+            return
+        }
+
+        try managedFileSystem.moveItem(at: installed, to: trash)
         publish(.notInstalled, for: id)
+        try? managedFileSystem.removeItem(at: trash)
     }
 
     private func prepareDirectory(_ directory: URL) throws {
@@ -189,7 +165,7 @@ actor ModelLibrary {
         let destination = installedURL(for: manifest.id)
         try validateManagedAncestors(for: staging)
         try validateManagedAncestors(for: destination)
-        let record = InstallationRecord(modelID: manifest.id, revision: manifest.revision)
+        let record = ModelInstallationRecord(modelID: manifest.id, revision: manifest.revision)
         let recordURL = staging.appending(path: ".bonsai-installation.json")
         try JSONEncoder().encode(record).write(to: recordURL, options: .atomic)
         try Self.applyStoragePolicyRecursively(to: staging)
@@ -240,6 +216,14 @@ actor ModelLibrary {
 
     private func stagingURL(for id: ModelID) -> URL {
         root.appending(path: ".staging/\(id.rawValue)", directoryHint: .isDirectory)
+    }
+
+    private func trashRootURL() -> URL { root.appending(path: ".trash", directoryHint: .isDirectory) }
+    private func trashURL(for id: ModelID) -> URL {
+        trashRootURL().appending(
+            path: "\(id.rawValue)-\(UUID().uuidString.lowercased())",
+            directoryHint: .isDirectory
+        )
     }
 
     private func snapshot() -> ModelLibrarySnapshot {
@@ -299,6 +283,30 @@ private extension ModelLibrary {
         }
     }
 
+    private static func prepareTrash(
+        at root: URL,
+        fileSystem: any ModelLibraryFileSystem
+    ) throws {
+        let trashRoot = root.appending(path: ".trash", directoryHint: .isDirectory)
+        if let type = try lstatTypeIfPresent(at: trashRoot) {
+            guard type == .typeDirectory else {
+                throw ModelLibraryError.unsafeManagedPath(trashRoot.path)
+            }
+        } else {
+            try fileSystem.createDirectory(at: trashRoot, withIntermediateDirectories: false)
+        }
+        try applyStoragePolicyRecursively(to: trashRoot)
+        guard let entries = try? FileManager.default.contentsOfDirectory(
+            at: trashRoot,
+            includingPropertiesForKeys: nil
+        ) else {
+            return
+        }
+        for entry in entries where (try? lstatType(at: entry)) == .typeDirectory {
+            try? fileSystem.removeItem(at: entry)
+        }
+    }
+
     private static func lstatType(at url: URL) throws -> FileAttributeType {
         var info = stat()
         guard lstat(url.path, &info) == 0 else { throw POSIXError(.init(rawValue: errno) ?? .EIO) }
@@ -345,7 +353,7 @@ private extension ModelLibrary {
             }
             let recordURL = directory.appending(path: ".bonsai-installation.json")
             guard let data = try? Data(contentsOf: recordURL),
-                  let record = try? JSONDecoder().decode(InstallationRecord.self, from: data),
+                  let record = try? JSONDecoder().decode(ModelInstallationRecord.self, from: data),
                   record.modelID == id,
                   record.revision == manifest.revision else {
                 result[id] = .failed("invalid installation record")

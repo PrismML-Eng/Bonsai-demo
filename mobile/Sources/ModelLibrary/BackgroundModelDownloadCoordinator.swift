@@ -7,11 +7,9 @@ final class BackgroundModelDownloadCoordinator: NSObject, @unchecked Sendable {
 
     private let lock = NSLock()
     private let ledger: BackgroundTransferLedger?
-    private let downloadsRoot: URL?
     private let initializationError: Error?
     private var continuations: [UUID: CheckedContinuation<Void, Error>] = [:]
     private var tasks: [UUID: URLSessionDownloadTask] = [:]
-    private var durableDownloads: [Int: URL] = [:]
     private var backgroundEventsCompletion: (@Sendable () -> Void)?
 
     private lazy var session: URLSession = {
@@ -19,9 +17,8 @@ final class BackgroundModelDownloadCoordinator: NSObject, @unchecked Sendable {
         return URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
     }()
 
-    private init(ledger: BackgroundTransferLedger?, downloadsRoot: URL?, error: Error?) {
+    private init(ledger: BackgroundTransferLedger?, error: Error?) {
         self.ledger = ledger
-        self.downloadsRoot = downloadsRoot
         initializationError = error
         super.init()
     }
@@ -108,12 +105,14 @@ final class BackgroundModelDownloadCoordinator: NSObject, @unchecked Sendable {
                 }
             }
         }
+        for claim in reconciliation.claimedBodies {
+            await finalizeClaim(claim, ledger: ledger)
+        }
     }
 
     private func finalize(task: URLSessionTask, error: Error?) async {
         guard let ledger, let description = task.taskDescription,
-              let id = UUID(uuidString: description),
-              let record = await ledger.record(id: id) else {
+              let id = UUID(uuidString: description) else {
             resolve(id: task.taskDescription.flatMap(UUID.init(uuidString:)), result: .failure(
                 ModelTransportError.invalidResponse
             ))
@@ -121,25 +120,44 @@ final class BackgroundModelDownloadCoordinator: NSObject, @unchecked Sendable {
         }
         do {
             if let error { throw error }
-            guard let http = task.response as? HTTPURLResponse else {
-                throw ModelTransportError.invalidResponse
+            if let claim = try await ledger.adoptPersistedClaim(id: id) {
+                await finalizeClaim(claim, ledger: ledger)
+            } else if await ledger.record(id: id)?.state == .completed {
+                resolve(id: id, result: .success(()))
+            } else {
+                let missing = URLError(.networkConnectionLost)
+                try await ledger.finish(id: id, failure: missing.localizedDescription, isResumable: true)
+                resolve(id: id, result: .failure(missing))
             }
-            guard (200 ... 299).contains(http.statusCode) else {
-                throw ModelTransportError.httpStatus(http.statusCode)
-            }
-            let downloaded = try lock.withLock { () throws -> URL in
-                guard let url = durableDownloads.removeValue(forKey: task.taskIdentifier) else {
-                    throw ModelTransportError.invalidResponse
-                }
-                return url
-            }
-            try Self.promote(downloaded, response: http, record: record)
-            try await ledger.finish(id: id, failure: nil, isResumable: false)
-            resolve(id: id, result: .success(()))
         } catch {
             let resumable = Self.isResumable(error)
             try? await ledger.finish(id: id, failure: String(describing: error), isResumable: resumable)
             resolve(id: id, result: .failure(error))
+        }
+    }
+
+    private func finalizeClaim(
+        _ claim: BackgroundTransferClaim,
+        ledger: BackgroundTransferLedger
+    ) async {
+        do {
+            guard let record = await ledger.record(id: claim.transferID) else {
+                throw BackgroundTransferLedgerError.unknownTransfer
+            }
+            if record.state == .completed {
+                resolve(id: record.id, result: .success(()))
+                return
+            }
+            try BackgroundTransferPromoter().promote(claim, record: record)
+            try await ledger.markPromoted(id: record.id)
+            resolve(id: record.id, result: .success(()))
+        } catch {
+            try? await ledger.finish(
+                id: claim.transferID,
+                failure: String(describing: error),
+                isResumable: Self.isResumable(error)
+            )
+            resolve(id: claim.transferID, result: .failure(error))
         }
     }
 
@@ -150,41 +168,6 @@ final class BackgroundModelDownloadCoordinator: NSObject, @unchecked Sendable {
             return continuations.removeValue(forKey: id)
         }
         continuation?.resume(with: result)
-    }
-
-    private static func promote(
-        _ downloaded: URL,
-        response: HTTPURLResponse,
-        record: BackgroundTransferRecord
-    ) throws {
-        let append = record.existingBytes > 0 && response.statusCode == 206
-        if append, !URLSessionModelFileTransport.contentRangeStarts(
-            response.value(forHTTPHeaderField: "Content-Range"),
-            at: record.existingBytes
-        ) {
-            throw ModelTransportError.invalidContentRange
-        }
-        try FileManager.default.createDirectory(
-            at: record.destination.deletingLastPathComponent(),
-            withIntermediateDirectories: true
-        )
-        if append {
-            let output = try FileHandle(forWritingTo: record.destination)
-            defer { try? output.close() }
-            try output.seekToEnd()
-            let input = try FileHandle(forReadingFrom: downloaded)
-            defer { try? input.close() }
-            while let chunk = try input.read(upToCount: 1_048_576), !chunk.isEmpty {
-                try output.write(contentsOf: chunk)
-            }
-            try output.synchronize()
-            try FileManager.default.removeItem(at: downloaded)
-        } else {
-            if FileManager.default.fileExists(atPath: record.destination.path) {
-                try FileManager.default.removeItem(at: record.destination)
-            }
-            try FileManager.default.moveItem(at: downloaded, to: record.destination)
-        }
     }
 
     private static func fileSize(at url: URL) -> Int {
@@ -211,12 +194,10 @@ final class BackgroundModelDownloadCoordinator: NSObject, @unchecked Sendable {
                 path: "BonsaiMobile/BackgroundTransfers",
                 directoryHint: .isDirectory
             )
-            let downloads = root.appending(path: "Downloads", directoryHint: .isDirectory)
-            try FileManager.default.createDirectory(at: downloads, withIntermediateDirectories: true)
             let ledger = try BackgroundTransferLedger(fileURL: root.appending(path: "transfers.json"))
-            return .init(ledger: ledger, downloadsRoot: downloads, error: nil)
+            return .init(ledger: ledger, error: nil)
         } catch {
-            return .init(ledger: nil, downloadsRoot: nil, error: error)
+            return .init(ledger: nil, error: error)
         }
     }
 }
@@ -227,18 +208,19 @@ extension BackgroundModelDownloadCoordinator: URLSessionDownloadDelegate {
         downloadTask: URLSessionDownloadTask,
         didFinishDownloadingTo location: URL
     ) {
-        guard let downloadsRoot, let description = downloadTask.taskDescription,
-              UUID(uuidString: description) != nil else {
+        guard let ledger, let description = downloadTask.taskDescription,
+              let id = UUID(uuidString: description),
+              let response = downloadTask.response as? HTTPURLResponse else {
             downloadTask.cancel()
             return
         }
-        let durable = downloadsRoot.appending(path: "\(description).download")
         do {
-            if FileManager.default.fileExists(atPath: durable.path) {
-                try FileManager.default.removeItem(at: durable)
-            }
-            try FileManager.default.moveItem(at: location, to: durable)
-            lock.withLock { durableDownloads[downloadTask.taskIdentifier] = durable }
+            _ = try ledger.claimBodySynchronously(
+                id: id,
+                temporaryBody: location,
+                statusCode: response.statusCode,
+                contentRange: response.value(forHTTPHeaderField: "Content-Range")
+            )
         } catch {
             Task { await finalize(task: downloadTask, error: error) }
         }

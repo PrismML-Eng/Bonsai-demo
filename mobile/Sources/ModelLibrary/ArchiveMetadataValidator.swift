@@ -38,10 +38,14 @@ struct ArchiveMetadataValidator: Sendable {
     }
 
     func validateUnixMetadata(mode: mode_t, extraFieldIDs: Set<UInt16>) throws {
+        try validateExtraFieldIDs(extraFieldIDs)
         let type = mode & S_IFMT
         guard type == S_IFREG || type == S_IFDIR else {
             throw ModelLibraryError.unsafeImport("unsupported archive entry type")
         }
+    }
+
+    private func validateExtraFieldIDs(_ extraFieldIDs: Set<UInt16>) throws {
         guard extraFieldIDs.isDisjoint(with: hardLinkMetadataIDs) else {
             throw ModelLibraryError.unsafeImport("hard-link archive metadata")
         }
@@ -64,10 +68,13 @@ struct ArchiveMetadataValidator: Sendable {
                 throw ModelLibraryError.unsafeImport("truncated central directory")
             }
             let operatingSystem = readUInt16(header, at: 4) >> 8
+            let extra = variable.subdata(in: nameLength ..< nameLength + extraLength)
+            let identifiers = try extraFieldIDs(extra)
             if operatingSystem == 3 || operatingSystem == 19 {
                 let mode = mode_t(readUInt32(header, at: 38) >> 16)
-                let extra = variable.subdata(in: nameLength ..< nameLength + extraLength)
-                try validateUnixMetadata(mode: mode, extraFieldIDs: try extraFieldIDs(extra))
+                try validateUnixMetadata(mode: mode, extraFieldIDs: identifiers)
+            } else {
+                try validateExtraFieldIDs(identifiers)
             }
             consumed += UInt64(46 + variableLength)
         }

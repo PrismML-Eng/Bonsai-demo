@@ -100,12 +100,170 @@ struct BackgroundTransferLedgerTests {
         #expect(await relaunched.record(id: resumableID)?.state == .resumable)
         #expect(await relaunched.record(id: failedID)?.state == .failed)
     }
+
+    @Test
+    func claimedBodySurvivesProcessMemoryLossAndReconcilesForPromotion() async throws {
+        let fixture = try Fixture()
+        let id = UUID(uuidString: "00000000-0000-0000-0000-000000000030")!
+        let policy = RecordingStoragePolicy()
+        let ledger = try BackgroundTransferLedger(fileURL: fixture.ledgerURL, storagePolicy: policy)
+        _ = try await ledger.create(
+            id: id,
+            source: fixture.source,
+            destination: fixture.root.appending(path: "model.partial"),
+            expectedSize: fixture.payload.count,
+            sha256: SHA256Verifier.digest(fixture.payload),
+            existingBytes: 0
+        )
+        let temporary = fixture.root.appending(path: "callback.tmp")
+        try fixture.payload.write(to: temporary)
+
+        let claimed = try await ledger.claimBody(
+            id: id,
+            temporaryBody: temporary,
+            statusCode: 200,
+            contentRange: nil
+        )
+
+        #expect(claimed.bodyURL == fixture.claimedBodyURL(id: id))
+        #expect(await ledger.record(id: id)?.state == .bodyClaimed)
+        #expect(policy.appliedURLs.contains(claimed.bodyURL))
+        let resourceValues = try claimed.bodyURL.resourceValues(forKeys: [.isExcludedFromBackupKey])
+        #expect(resourceValues.isExcludedFromBackup == true)
+
+        let relaunched = try BackgroundTransferLedger(fileURL: fixture.ledgerURL)
+        let reconciliation = try await relaunched.reconcile(tasks: [])
+        #expect(reconciliation.claimedBodies == [claimed])
+        #expect(await relaunched.record(id: id)?.state == .bodyClaimed)
+    }
+
+    @Test
+    func duplicateClaimAndCompletionCallbacksAreIdempotent() async throws {
+        let fixture = try Fixture()
+        let id = UUID(uuidString: "00000000-0000-0000-0000-000000000031")!
+        let ledger = try BackgroundTransferLedger(fileURL: fixture.ledgerURL)
+        _ = try await ledger.create(
+            id: id,
+            source: fixture.source,
+            destination: fixture.root.appending(path: "model.partial"),
+            expectedSize: fixture.payload.count,
+            sha256: SHA256Verifier.digest(fixture.payload),
+            existingBytes: 0
+        )
+        let first = fixture.root.appending(path: "first.tmp")
+        let duplicate = fixture.root.appending(path: "duplicate.tmp")
+        try fixture.payload.write(to: first)
+        try Data("duplicate".utf8).write(to: duplicate)
+
+        let initial = try await ledger.claimBody(
+            id: id,
+            temporaryBody: first,
+            statusCode: 200,
+            contentRange: nil
+        )
+        let repeated = try await ledger.claimBody(
+            id: id,
+            temporaryBody: duplicate,
+            statusCode: 200,
+            contentRange: nil
+        )
+
+        #expect(initial == repeated)
+        #expect(try Data(contentsOf: initial.bodyURL) == fixture.payload)
+        #expect(!FileManager.default.fileExists(atPath: duplicate.path))
+        try await ledger.markPromoted(id: id)
+        try await ledger.markPromoted(id: id)
+        #expect(await ledger.record(id: id)?.state == .completed)
+    }
+
+    @Test
+    func reconciliationCleansUnknownAndUnpersistedClaimBodies() async throws {
+        let fixture = try Fixture()
+        let knownID = UUID(uuidString: "00000000-0000-0000-0000-000000000032")!
+        let unknownID = UUID(uuidString: "00000000-0000-0000-0000-000000000033")!
+        let ledger = try BackgroundTransferLedger(fileURL: fixture.ledgerURL)
+        _ = try await ledger.create(
+            id: knownID,
+            source: fixture.source,
+            destination: fixture.root.appending(path: "model.partial"),
+            expectedSize: fixture.payload.count,
+            sha256: SHA256Verifier.digest(fixture.payload),
+            existingBytes: 0
+        )
+        try FileManager.default.createDirectory(
+            at: fixture.downloadsRoot,
+            withIntermediateDirectories: true
+        )
+        let knownOrphan = fixture.claimedBodyURL(id: knownID)
+        let unknownOrphan = fixture.claimedBodyURL(id: unknownID)
+        try fixture.payload.write(to: knownOrphan)
+        try fixture.payload.write(to: unknownOrphan)
+
+        let reconciliation = try await ledger.reconcile(tasks: [])
+
+        #expect(reconciliation.claimedBodies.isEmpty)
+        #expect(!FileManager.default.fileExists(atPath: knownOrphan.path))
+        #expect(!FileManager.default.fileExists(atPath: unknownOrphan.path))
+        #expect(await ledger.record(id: knownID)?.state == .resumable)
+    }
+
+    @Test
+    func reconciliationRecognizesPromotionCompletedBeforeLedgerUpdate() async throws {
+        let fixture = try Fixture()
+        let id = UUID(uuidString: "00000000-0000-0000-0000-000000000034")!
+        let destination = fixture.root.appending(path: "model.partial")
+        let ledger = try BackgroundTransferLedger(fileURL: fixture.ledgerURL)
+        _ = try await ledger.create(
+            id: id,
+            source: fixture.source,
+            destination: destination,
+            expectedSize: fixture.payload.count,
+            sha256: SHA256Verifier.digest(fixture.payload),
+            existingBytes: 0
+        )
+        let temporary = fixture.root.appending(path: "callback.tmp")
+        try fixture.payload.write(to: temporary)
+        let claim = try await ledger.claimBody(
+            id: id,
+            temporaryBody: temporary,
+            statusCode: 200,
+            contentRange: nil
+        )
+        try FileManager.default.moveItem(at: claim.bodyURL, to: destination)
+
+        let relaunched = try BackgroundTransferLedger(fileURL: fixture.ledgerURL)
+        let reconciliation = try await relaunched.reconcile(tasks: [])
+
+        #expect(reconciliation.claimedBodies.isEmpty)
+        #expect(await relaunched.record(id: id)?.state == .completed)
+    }
+}
+
+private final class RecordingStoragePolicy: BackgroundTransferStoragePolicy, @unchecked Sendable {
+    private let lock = NSLock()
+    private var storage: [URL] = []
+
+    var appliedURLs: [URL] { lock.withLock { storage } }
+
+    func applyRecursively(to url: URL) throws {
+        lock.withLock { storage.append(url) }
+        try DefaultBackgroundTransferStoragePolicy().applyRecursively(to: url)
+    }
 }
 
 private struct Fixture {
     let root: URL
     let ledgerURL: URL
     let source: URL
+    let payload = Data("durable model body".utf8)
+
+    var downloadsRoot: URL {
+        root.appending(path: "Downloads", directoryHint: .isDirectory)
+    }
+
+    func claimedBodyURL(id: UUID) -> URL {
+        downloadsRoot.appending(path: "\(id.uuidString.lowercased()).download")
+    }
 
     init() throws {
         root = FileManager.default.temporaryDirectory
