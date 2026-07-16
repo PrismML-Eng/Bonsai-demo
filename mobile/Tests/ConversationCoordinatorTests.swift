@@ -47,6 +47,96 @@ final class ConversationCoordinatorTests: XCTestCase {
     XCTAssertEqual(restoredSelection.conversationID, firstID)
   }
 
+  func testFailedCreateDoesNotChangeActiveSelectionOrPublishedIndex() async throws {
+    let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    let coordinator = try ConversationCoordinator(root: root, store: ConversationStore(root: root))
+    try await coordinator.bind(Self.installation(.oneBit27B, revisionDigit: "d"))
+    let before = try XCTUnwrap(await Self.snapshot(coordinator))
+    let navigationRoot = root.appending(path: "ConversationNavigation")
+    defer { try? Self.setWritable(true, directory: navigationRoot) }
+    try Self.setWritable(false, directory: navigationRoot)
+
+    do {
+      try await coordinator.createConversation()
+      XCTFail("read-only navigation storage must reject creation")
+    } catch {}
+
+    let afterFailure = try XCTUnwrap(await Self.snapshot(coordinator))
+    XCTAssertEqual(afterFailure, before)
+    XCTAssertEqual(try await coordinator.activeSelection().conversationID, before.selectedID)
+    try Self.setWritable(true, directory: navigationRoot)
+    try await coordinator.createConversation()
+    XCTAssertEqual(try XCTUnwrap(await Self.snapshot(coordinator)).conversations.count, 2)
+  }
+
+  func testFailedSelectDoesNotChangeHiddenActiveSelection() async throws {
+    let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    let coordinator = try ConversationCoordinator(root: root, store: ConversationStore(root: root))
+    try await coordinator.bind(Self.installation(.oneBit27B, revisionDigit: "e"))
+    let originalID = try await coordinator.activeSelection().conversationID
+    try await coordinator.createConversation()
+    let secondID = try await coordinator.activeSelection().conversationID
+    try await coordinator.selectConversation(originalID)
+    let navigationRoot = root.appending(path: "ConversationNavigation")
+    defer { try? Self.setWritable(true, directory: navigationRoot) }
+    try Self.setWritable(false, directory: navigationRoot)
+
+    do {
+      try await coordinator.selectConversation(secondID)
+      XCTFail("read-only navigation storage must reject selection")
+    } catch {}
+
+    XCTAssertEqual(try await coordinator.activeSelection().conversationID, originalID)
+    XCTAssertEqual(try XCTUnwrap(await Self.snapshot(coordinator)).selectedID, originalID)
+    try Self.setWritable(true, directory: navigationRoot)
+    try await coordinator.selectConversation(secondID)
+    XCTAssertEqual(try await coordinator.activeSelection().conversationID, secondID)
+  }
+
+  func testFailedRenameLeavesTitleEligibleForRetry() async throws {
+    let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    let coordinator = try ConversationCoordinator(root: root, store: ConversationStore(root: root))
+    try await coordinator.bind(Self.installation(.oneBit27B, revisionDigit: "f"))
+    let navigationRoot = root.appending(path: "ConversationNavigation")
+    defer { try? Self.setWritable(true, directory: navigationRoot) }
+    try Self.setWritable(false, directory: navigationRoot)
+
+    do {
+      try await coordinator.renameSelected(using: "Durable title")
+      XCTFail("read-only navigation storage must reject rename")
+    } catch {}
+
+    XCTAssertEqual(try XCTUnwrap(await Self.snapshot(coordinator)).conversations.single?.title,
+                   "New chat")
+    try Self.setWritable(true, directory: navigationRoot)
+    try await coordinator.renameSelected(using: "Durable title")
+    XCTAssertEqual(try XCTUnwrap(await Self.snapshot(coordinator)).conversations.single?.title,
+                   "Durable title")
+  }
+
+  func testFailedInitialBindDoesNotExposeUncommittedSelection() async throws {
+    let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    let coordinator = try ConversationCoordinator(root: root, store: ConversationStore(root: root))
+    let navigationRoot = root.appending(path: "ConversationNavigation")
+    defer { try? Self.setWritable(true, directory: navigationRoot) }
+    try Self.setWritable(false, directory: navigationRoot)
+
+    do {
+      try await coordinator.bind(Self.installation(.oneBit27B, revisionDigit: "1"))
+      XCTFail("read-only navigation storage must reject initial binding")
+    } catch {}
+    do {
+      _ = try await coordinator.activeSelection()
+      XCTFail("a failed bind must not expose an uncommitted selection")
+    } catch let error as ConversationCoordinatorError {
+      XCTAssertEqual(error, .noLoadedModel)
+    }
+
+    try Self.setWritable(true, directory: navigationRoot)
+    try await coordinator.bind(Self.installation(.oneBit27B, revisionDigit: "1"))
+    _ = try await coordinator.activeSelection().conversationID
+  }
+
   private static func snapshot(
     _ coordinator: ConversationCoordinator
   ) async -> ConversationNavigationSnapshot? {
@@ -61,6 +151,16 @@ final class ConversationCoordinatorTests: XCTestCase {
       directory: URL(fileURLWithPath: "/tmp/\(modelID.rawValue)-\(revisionDigit)"),
       revision: String(repeating: revisionDigit, count: 40))
   }
+
+  private static func setWritable(_ writable: Bool, directory: URL) throws {
+    try FileManager.default.setAttributes(
+      [.posixPermissions: writable ? 0o700 : 0o500],
+      ofItemAtPath: directory.path)
+  }
+}
+
+private extension Array {
+  var single: Element? { count == 1 ? first : nil }
 }
 
 @MainActor

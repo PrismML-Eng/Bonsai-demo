@@ -290,6 +290,150 @@ final class QuietGardenViewModelTests: XCTestCase {
     XCTAssertEqual(oldRuntime.streamedMessages.count, 1)
   }
 
+  func testCancelledSendQueuedBehindReplacementNeverRunsLaterAndGateRemainsUsable() async throws {
+    let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    let oldRuntime = PersistingRuntimeResource()
+    let loader = ControlledRuntimeLoader(resources: [
+      .oneBit27B: oldRuntime, .ternary27B: PersistingRuntimeResource()
+    ])
+    let engine = MLXInferenceEngine(loader: loader)
+    let coordinator = try ConversationCoordinator(root: root, store: ConversationStore(root: root))
+    let gate = ModelSessionGate()
+    let oneBit = ModelInstallation(modelID: .oneBit27B,
+                                   directory: URL(fileURLWithPath: "/tmp/cancel-send-one"),
+                                   revision: String(repeating: "8", count: 40))
+    let ternary = ModelInstallation(modelID: .ternary27B,
+                                    directory: URL(fileURLWithPath: "/tmp/cancel-send-ternary"),
+                                    revision: String(repeating: "9", count: 40))
+    let installations = [ModelID.oneBit27B: oneBit, .ternary27B: ternary]
+    let library = try LiveModelLibraryService(
+      root: root.appending(path: "Models"), engine: engine, conversations: coordinator,
+      sessionGate: gate, manifests: try Self.manifests(),
+      installationProvider: { installations[$0] })
+    try await library.perform(.load, for: .oneBit27B)
+    await loader.failNextLoad(of: .ternary27B)
+    let replacement = Task { try? await library.perform(.load, for: .ternary27B) }
+    await loader.waitUntilBlocked()
+    let registry = try ToolRegistry.live(notes: NotesStore(root: root))
+    let chat = AgentLoopChatService(
+      loop: AgentLoop(engine: engine, registry: registry), approvals: InteractiveApprovalGate(),
+      engine: engine, conversations: coordinator, sessionGate: gate)
+    let queuedSend = Task { () -> Result<[ChatSessionEvent], any Error> in
+      do {
+        return .success(try await Self.collect(
+          try await chat.stream(.init(prompt: "cancel me", effort: .off))))
+      }
+      catch { return .failure(error) }
+    }
+    for _ in 0..<20 { await Task.yield() }
+    queuedSend.cancel()
+    await loader.resumeBlockedLoad()
+    await replacement.value
+
+    guard case .failure(let error) = await queuedSend.value else {
+      return XCTFail("cancelled queued send unexpectedly produced a stream")
+    }
+    XCTAssertTrue(error is CancellationError)
+    XCTAssertTrue(oldRuntime.streamedMessages.isEmpty)
+    let selection = try await coordinator.activeSelection()
+    let persisted = try await ConversationStore(root: root).load(selection.conversationID,
+                                                                 for: .oneBit27B)
+    XCTAssertNil(persisted)
+
+    let laterEvents = try await Self.collect(
+      try await chat.stream(.init(prompt: "later", effort: .off)))
+    XCTAssertTrue(laterEvents.contains(.completed(.stop)), "gate must not deadlock after cancellation")
+    XCTAssertEqual(oldRuntime.streamedMessages.count, 1)
+  }
+
+  func testCancelledSwitchQueuedBehindReplacementNeverLoadsLaterAndGateRemainsUsable() async throws {
+    let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    let loader = ControlledRuntimeLoader(resources: [
+      .oneBit27B: PersistingRuntimeResource(), .ternary27B: PersistingRuntimeResource()
+    ])
+    let engine = MLXInferenceEngine(loader: loader)
+    let coordinator = try ConversationCoordinator(root: root, store: ConversationStore(root: root))
+    let gate = ModelSessionGate()
+    let oneBit = ModelInstallation(modelID: .oneBit27B,
+                                   directory: URL(fileURLWithPath: "/tmp/cancel-switch-one"),
+                                   revision: String(repeating: "a", count: 40))
+    let ternary = ModelInstallation(modelID: .ternary27B,
+                                    directory: URL(fileURLWithPath: "/tmp/cancel-switch-ternary"),
+                                    revision: String(repeating: "b", count: 40))
+    let installations = [ModelID.oneBit27B: oneBit, .ternary27B: ternary]
+    let library = try LiveModelLibraryService(
+      root: root.appending(path: "Models"), engine: engine, conversations: coordinator,
+      sessionGate: gate, manifests: try Self.manifests(),
+      installationProvider: { installations[$0] })
+    try await library.perform(.load, for: .oneBit27B)
+    await loader.failNextLoad(of: .ternary27B)
+    let holdingReplacement = Task { try? await library.perform(.load, for: .ternary27B) }
+    await loader.waitUntilBlocked()
+    let queuedSwitch = Task { () -> Result<Void, any Error> in
+      do { try await library.perform(.load, for: .ternary27B); return .success(()) }
+      catch { return .failure(error) }
+    }
+    for _ in 0..<20 { await Task.yield() }
+    queuedSwitch.cancel()
+    await loader.resumeBlockedLoad()
+    await holdingReplacement.value
+
+    guard case .failure(let error) = await queuedSwitch.value else {
+      return XCTFail("cancelled queued switch unexpectedly loaded a model")
+    }
+    XCTAssertTrue(error is CancellationError)
+    let modelAfterCancellation = await library.currentLoadedModelID()
+    XCTAssertEqual(modelAfterCancellation, .oneBit27B)
+
+    try await library.perform(.load, for: .ternary27B)
+    let modelAfterLaterSwitch = await library.currentLoadedModelID()
+    XCTAssertEqual(modelAfterLaterSwitch, .ternary27B,
+                   "gate must not deadlock after cancellation")
+  }
+
+  func testCommittedTurnCompletesWhenBestEffortRenameCannotPersist() async throws {
+    let runtime = PersistingRuntimeResource()
+    let engine = MLXInferenceEngine(loader: PersistingRuntimeLoader(resource: runtime))
+    let revision = String(repeating: "c", count: 40)
+    let installation = ModelInstallation(modelID: .oneBit27B,
+                                         directory: URL(fileURLWithPath: "/tmp/rename-failure"),
+                                         revision: revision)
+    try await engine.load(installation)
+    let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    let store = try ConversationStore(root: root)
+    let coordinator = try ConversationCoordinator(root: root, store: store)
+    try await coordinator.bind(installation)
+    let navigationRoot = root.appending(path: "ConversationNavigation")
+    defer {
+      try? FileManager.default.setAttributes([.posixPermissions: 0o700],
+                                             ofItemAtPath: navigationRoot.path)
+    }
+    try FileManager.default.setAttributes([.posixPermissions: 0o500],
+                                          ofItemAtPath: navigationRoot.path)
+    let registry = try ToolRegistry.live(notes: NotesStore(root: root))
+    let chat = AgentLoopChatService(
+      loop: AgentLoop(engine: engine, registry: registry), approvals: InteractiveApprovalGate(),
+      engine: engine, conversations: coordinator)
+
+    let events = try await Self.collect(
+      try await chat.stream(.init(prompt: "Keep this", effort: .off)))
+
+    XCTAssertTrue(events.contains(.completed(.stop)),
+                  "metadata failure after commit must not invite a duplicate retry")
+    let selection = try await coordinator.activeSelection()
+    let savedTurnCount = try await store.load(selection.conversationID,
+                                              for: .oneBit27B)?.completedTurns.count
+    XCTAssertEqual(savedTurnCount, 1)
+  }
+
+  private static func collect(
+    _ stream: AsyncThrowingStream<ChatSessionEvent, any Error>
+  ) async throws -> [ChatSessionEvent] {
+    var events: [ChatSessionEvent] = []
+    for try await event in stream { events.append(event) }
+    return events
+  }
+
   private static func manifests() throws -> [ModelID: ModelManifest] {
     let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
       .deletingLastPathComponent().appending(path: "Resources/Models/manifest.json")
