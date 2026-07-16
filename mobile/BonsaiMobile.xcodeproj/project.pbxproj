@@ -13,10 +13,19 @@
 		24C250F27F5F7EC29F652946 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = 056342B4C449BC4FB620893A /* ZIPFoundation */; };
 		2F536ED65F34A88DEF23ED07 /* Tokenizers in Frameworks */ = {isa = PBXBuildFile; productRef = 82A832B08BE4D6E49F59F560 /* Tokenizers */; };
 		3EEA47A5E8CCE2F09D5B567C /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = 9943147F24F82A85972D6C9B /* MLXLLM */; };
+		4417713B8641E69530BC3574 /* DomainContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C93D2F771D42F593A736FAB /* DomainContractTests.swift */; };
 		447E3736BCD9D6F872D82AE7 /* RuntimeProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE7E78660BF6A2E0B953F04E /* RuntimeProbe.swift */; };
+		4A2BEC05B9826BA84E7B7872 /* DeviceQualifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4651A7CF5BF341647B37C4AB /* DeviceQualifier.swift */; };
+		55A32617030A0372712E2E1A /* DeviceQualifierTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B22E9B7C916E74BE90126ED /* DeviceQualifierTests.swift */; };
 		62DD436A7B70739EC12B46B7 /* MLXVLM in Frameworks */ = {isa = PBXBuildFile; productRef = 6A095E1F640A9C82BA09731D /* MLXVLM */; };
+		669B3CED8DEA3B501B907829 /* GenerationEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3FD4FB8F474A92B165014EC /* GenerationEvent.swift */; };
+		90A55DA27F8DF61688C9393B /* manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = 3EE12FEE6B1549544599B272 /* manifest.json */; };
+		943838EEA36C1C1D8D0C4CAE /* ToolContracts.swift in Sources */ = {isa = PBXBuildFile; fileRef = B712483BA9C8DF8116DC1D4D /* ToolContracts.swift */; };
+		AE77A7DF0C8FAAA14DBE3F6E /* ModelDescriptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 843AAD749652A7FEB690E7CD /* ModelDescriptor.swift */; };
 		B1EADCA0FAE246BFB79C2258 /* MLXHuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = 95D56B5E7F56FB8C5CCAA9FD /* MLXHuggingFace */; };
+		B48F8998EBF60B95A86BEE4B /* DeviceQualification.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBBA6F970B4898D435D262A3 /* DeviceQualification.swift */; };
 		D4345CB4BFA46B46F6B53CA0 /* RuntimeProbeIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4716D451896187CAE2B44A74 /* RuntimeProbeIntegrationTests.swift */; };
+		E1A54858A3DE70F958CB2E5A /* .gitkeep in Resources */ = {isa = PBXBuildFile; fileRef = B7E24895C180A2118B61CC6F /* .gitkeep */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -44,17 +53,26 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		3EE12FEE6B1549544599B272 /* manifest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = manifest.json; sourceTree = "<group>"; };
 		4565078E0DBE173835DEB134 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
+		4651A7CF5BF341647B37C4AB /* DeviceQualifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceQualifier.swift; sourceTree = "<group>"; };
 		4716D451896187CAE2B44A74 /* RuntimeProbeIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeProbeIntegrationTests.swift; sourceTree = "<group>"; };
 		4AD4599B0C75322E14F23F65 /* BonsaiMobileTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = BonsaiMobileTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		5611C793C730ECD6BA228BCE /* BonsaiMobileUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = BonsaiMobileUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		5B22E9B7C916E74BE90126ED /* DeviceQualifierTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceQualifierTests.swift; sourceTree = "<group>"; };
 		7710E5D0CB4F246613D1A989 /* mlx-swift-lm */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "mlx-swift-lm"; path = ".build-dependencies/mlx-swift-lm"; sourceTree = SOURCE_ROOT; };
 		7B9E498AAB7E2658737AAD97 /* RuntimeProbeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeProbeTests.swift; sourceTree = "<group>"; };
+		843AAD749652A7FEB690E7CD /* ModelDescriptor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelDescriptor.swift; sourceTree = "<group>"; };
+		8C93D2F771D42F593A736FAB /* DomainContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DomainContractTests.swift; sourceTree = "<group>"; };
 		952A2D74B43F98B0EE43E369 /* BonsaiMobile.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = BonsaiMobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B712483BA9C8DF8116DC1D4D /* ToolContracts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolContracts.swift; sourceTree = "<group>"; };
+		B7E24895C180A2118B61CC6F /* .gitkeep */ = {isa = PBXFileReference; path = .gitkeep; sourceTree = "<group>"; };
 		C0668D4C090309F3550836AE /* BonsaiMobileIntegrationTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = BonsaiMobileIntegrationTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		DB8F93A9408A4EE6F88333F3 /* BonsaiMobileApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BonsaiMobileApp.swift; sourceTree = "<group>"; };
+		E3FD4FB8F474A92B165014EC /* GenerationEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenerationEvent.swift; sourceTree = "<group>"; };
 		EE7E78660BF6A2E0B953F04E /* RuntimeProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeProbe.swift; sourceTree = "<group>"; };
 		FB6844A1C9F2CD1F44BB7CEB /* .gitkeep */ = {isa = PBXFileReference; path = .gitkeep; sourceTree = "<group>"; };
+		FBBA6F970B4898D435D262A3 /* DeviceQualification.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceQualification.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -74,11 +92,21 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		3DCED7AAB2C5C7FFD0939909 /* ModelLibrary */ = {
+			isa = PBXGroup;
+			children = (
+				4651A7CF5BF341647B37C4AB /* DeviceQualifier.swift */,
+			);
+			path = ModelLibrary;
+			sourceTree = "<group>";
+		};
 		41C28FE3387C617F53E544CF /* Sources */ = {
 			isa = PBXGroup;
 			children = (
 				95EF8E8216046EAE19058DB4 /* App */,
+				6E1400D4D463D667CF24B4A8 /* Domain */,
 				7941C0B88E41BD1ABBE19D25 /* Inference */,
+				3DCED7AAB2C5C7FFD0939909 /* ModelLibrary */,
 			);
 			path = Sources;
 			sourceTree = "<group>";
@@ -94,6 +122,8 @@
 		4C49E64A053FDBE798D5740B /* Tests */ = {
 			isa = PBXGroup;
 			children = (
+				5B22E9B7C916E74BE90126ED /* DeviceQualifierTests.swift */,
+				8C93D2F771D42F593A736FAB /* DomainContractTests.swift */,
 				7B9E498AAB7E2658737AAD97 /* RuntimeProbeTests.swift */,
 			);
 			path = Tests;
@@ -116,11 +146,23 @@
 				4429FBD66020E510279C32C7 /* Config */,
 				B4C987CC9DE4041DE14AC5BE /* IntegrationTests */,
 				94BE9B0F8A0B13264BB48114 /* Packages */,
+				F52D527F4CE2830191F38297 /* Resources */,
 				41C28FE3387C617F53E544CF /* Sources */,
 				4C49E64A053FDBE798D5740B /* Tests */,
 				739962C99D54B4F015DBCE86 /* UITests */,
 				4FCC3AFEC5A5BAB056075248 /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		6E1400D4D463D667CF24B4A8 /* Domain */ = {
+			isa = PBXGroup;
+			children = (
+				FBBA6F970B4898D435D262A3 /* DeviceQualification.swift */,
+				E3FD4FB8F474A92B165014EC /* GenerationEvent.swift */,
+				843AAD749652A7FEB690E7CD /* ModelDescriptor.swift */,
+				B712483BA9C8DF8116DC1D4D /* ToolContracts.swift */,
+			);
+			path = Domain;
 			sourceTree = "<group>";
 		};
 		739962C99D54B4F015DBCE86 /* UITests */ = {
@@ -163,6 +205,23 @@
 			path = IntegrationTests;
 			sourceTree = "<group>";
 		};
+		F52D527F4CE2830191F38297 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				B7E24895C180A2118B61CC6F /* .gitkeep */,
+				FDBB56D6027B5F2E1A080C11 /* Models */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		FDBB56D6027B5F2E1A080C11 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				3EE12FEE6B1549544599B272 /* manifest.json */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -189,6 +248,7 @@
 			buildConfigurationList = 21A5B4E0FF2FA659C1BF4553 /* Build configuration list for PBXNativeTarget "BonsaiMobile" */;
 			buildPhases = (
 				34DC6021DDD457AAAA2CA84E /* Sources */,
+				E1B39898524E327D3C41DF14 /* Resources */,
 				4B91EAB9287D3F25CAB207EE /* Frameworks */,
 			);
 			buildRules = (
@@ -285,13 +345,30 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		E1B39898524E327D3C41DF14 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E1A54858A3DE70F958CB2E5A /* .gitkeep in Resources */,
+				90A55DA27F8DF61688C9393B /* manifest.json in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		34DC6021DDD457AAAA2CA84E /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				19EB0F0D12622A2ED3FFE1A7 /* BonsaiMobileApp.swift in Sources */,
+				B48F8998EBF60B95A86BEE4B /* DeviceQualification.swift in Sources */,
+				4A2BEC05B9826BA84E7B7872 /* DeviceQualifier.swift in Sources */,
+				669B3CED8DEA3B501B907829 /* GenerationEvent.swift in Sources */,
+				AE77A7DF0C8FAAA14DBE3F6E /* ModelDescriptor.swift in Sources */,
 				447E3736BCD9D6F872D82AE7 /* RuntimeProbe.swift in Sources */,
+				943838EEA36C1C1D8D0C4CAE /* ToolContracts.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -307,6 +384,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				55A32617030A0372712E2E1A /* DeviceQualifierTests.swift in Sources */,
+				4417713B8641E69530BC3574 /* DomainContractTests.swift in Sources */,
 				05BCFDDCC63422F50B0DEFF3 /* RuntimeProbeTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

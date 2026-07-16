@@ -26,8 +26,10 @@ targets:
     configFiles:
       Debug: Config/Base.xcconfig
       Release: Config/Base.xcconfig
-    sources: [Sources]
-    resources: [Resources]
+    sources:
+      - path: Sources
+      - path: Resources
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.prismml.BonsaiMobile
