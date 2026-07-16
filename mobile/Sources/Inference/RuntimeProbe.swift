@@ -56,7 +56,7 @@ enum RuntimeProbe {
                     )
                     continuation.yield(.modelLoaded(loadStarted.duration(to: clock.now)))
 
-                    let session = ChatSession(
+                    let session = MLXLMCommon.ChatSession(
                         container,
                         generateParameters: generationParameters
                     )

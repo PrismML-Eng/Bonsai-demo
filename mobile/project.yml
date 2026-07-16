@@ -103,3 +103,12 @@ schemes:
       targets: [BonsaiMobileIntegrationTests]
       environmentVariables:
         BONSAI_MODEL_DIR: "$(BONSAI_MODEL_DIR)"
+  BonsaiMobileIntegrationTests:
+    build:
+      targets:
+        BonsaiMobile: all
+        BonsaiMobileIntegrationTests: [test]
+    test:
+      targets: [BonsaiMobileIntegrationTests]
+      environmentVariables:
+        BONSAI_MODEL_DIR: "$(BONSAI_MODEL_DIR)"
