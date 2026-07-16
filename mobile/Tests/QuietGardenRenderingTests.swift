@@ -79,9 +79,37 @@ final class QuietGardenRenderingTests: XCTestCase {
     captureView.displayIfNeeded()
     let bitmap = try XCTUnwrap(captureView.bitmapImageRepForCachingDisplay(in: captureView.bounds))
     captureView.cacheDisplay(in: captureView.bounds, to: bitmap)
+    switch destination.lastPathComponent {
+    case "regular-light.png":
+      assertInk(in: bitmap, rect: NSRect(x: 12, y: 20, width: 330, height: 720),
+                brighterThan: nil, minimum: 300,
+                message: "regular RootView must visibly render model and conversation navigation")
+    case "compact-dark-accessibility.png":
+      assertInk(in: bitmap, rect: NSRect(x: 12, y: 790, width: 406, height: 100),
+                brighterThan: 0.55, minimum: 150,
+                message: "compact RootView must visibly render its model/library/conversation header")
+    default: break
+    }
     let png = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
     try png.write(to: destination, options: .atomic)
     window.orderOut(nil)
   }
+
+  private func assertInk(
+    in bitmap: NSBitmapImageRep, rect: NSRect, brighterThan: CGFloat?, minimum: Int, message: String
+  ) {
+    var contrastingPixels = 0
+    for row in Int(rect.minY)..<Int(rect.maxY) {
+      for column in Int(rect.minX)..<Int(rect.maxX) {
+        guard let color = bitmap.colorAt(x: column, y: row)?.usingColorSpace(.deviceRGB) else { continue }
+        let luminance = 0.2126 * color.redComponent
+          + 0.7152 * color.greenComponent + 0.0722 * color.blueComponent
+        let isInk = if let brighterThan { luminance > brighterThan } else { luminance < 0.55 }
+        if isInk { contrastingPixels += 1 }
+      }
+    }
+    XCTAssertGreaterThan(contrastingPixels, minimum, message)
+  }
+
 }
 #endif

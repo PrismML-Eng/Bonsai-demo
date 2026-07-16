@@ -33,12 +33,14 @@ protocol ModelLibraryServing: Sendable {
   func snapshots() async -> AsyncStream<ModelLibrarySnapshot>
   func perform(_ intent: ModelLibraryIntent, for modelID: ModelID) async throws
   func importModel(_ modelID: ModelID, from source: URL) async throws
+  func currentLoadedModelID() async -> ModelID?
 }
 
 extension ModelLibraryServing {
   func importModel(_ modelID: ModelID, from source: URL) async throws {
     throw LiveUIServiceError.importRequiresPicker
   }
+  func currentLoadedModelID() async -> ModelID? { nil }
 }
 
 @MainActor @Observable
@@ -87,6 +89,10 @@ final class ModelLibraryViewModel {
     }
     guard inFlightModelIDs.insert(modelID).inserted else { return }
     inFlightIntents[modelID] = action.intent
+    let replacesPublishedModel = action.intent == .load
+      || action.intent == .unload
+      || (action.intent == .delete && loadedModelID == modelID)
+    if replacesPublishedModel { loadedModelID = nil }
     refreshRows()
     defer {
       inFlightModelIDs.remove(modelID)
@@ -104,6 +110,9 @@ final class ModelLibraryViewModel {
       actionFailure = nil
       errorMessage = nil
     } catch {
+      if replacesPublishedModel {
+        loadedModelID = await service.currentLoadedModelID()
+      }
       actionFailure = Self.failure(for: action.intent, modelID: modelID, error: error)
       errorMessage = nil
     }

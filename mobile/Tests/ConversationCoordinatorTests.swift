@@ -62,3 +62,48 @@ final class ConversationCoordinatorTests: XCTestCase {
       revision: String(repeating: revisionDigit, count: 40))
   }
 }
+
+@MainActor
+final class ConversationNavigationViewModelTests: XCTestCase {
+  func testStartSubscribesAndCompactCreateListSelectPublishesState() async throws {
+    let first = try ConversationID("first")
+    let second = try ConversationID("second")
+    let service = PublishingConversationService()
+    let viewModel = ConversationNavigationViewModel(service: service)
+    viewModel.start()
+    await service.waitUntilSubscribed()
+    await service.publish(items: [.init(id: first, modelID: .oneBit27B,
+                                        modelRevision: String(repeating: "a", count: 40),
+                                        title: "First")], selected: first)
+    await Self.waitUntil { viewModel.selectedID == first }
+    XCTAssertEqual(viewModel.conversations.map(\.title), ["First"])
+
+    await service.publish(items: [
+      .init(id: first, modelID: .oneBit27B, modelRevision: String(repeating: "a", count: 40),
+            title: "First"),
+      .init(id: second, modelID: .oneBit27B, modelRevision: String(repeating: "a", count: 40),
+            title: "Second")
+    ], selected: second)
+    await Self.waitUntil { viewModel.selectedID == second }
+    XCTAssertEqual(viewModel.conversations.map(\.title), ["First", "Second"])
+  }
+
+  private static func waitUntil(_ predicate: @escaping () -> Bool) async {
+    for _ in 0..<100 where !predicate() { await Task.yield() }
+  }
+}
+
+private actor PublishingConversationService: ConversationNavigationServing {
+  private var continuation: AsyncStream<ConversationNavigationSnapshot>.Continuation?
+  func snapshots() -> AsyncStream<ConversationNavigationSnapshot> {
+    let pair = AsyncStream<ConversationNavigationSnapshot>.makeStream()
+    continuation = pair.continuation
+    return pair.stream
+  }
+  func createConversation() async throws {}
+  func selectConversation(_ id: ConversationID) async throws {}
+  func waitUntilSubscribed() async { while continuation == nil { await Task.yield() } }
+  func publish(items: [ConversationListItem], selected: ConversationID?) {
+    continuation?.yield(.init(installation: nil, conversations: items, selectedID: selected))
+  }
+}

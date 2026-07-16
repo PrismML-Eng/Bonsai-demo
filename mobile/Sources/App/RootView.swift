@@ -1,4 +1,6 @@
 import SwiftUI
+// Root composition intentionally keeps adaptive navigation and deterministic fixtures together.
+// swiftlint:disable file_length
 #if os(iOS)
 import UIKit
 #endif
@@ -129,20 +131,25 @@ struct RootView: View {
   var body: some View {
     Group {
         if RootNavigationState.layout(platform: platform, compactWidth: horizontalSizeClass == .compact) == .stack {
-          NavigationStack { ChatView(viewModel: chatViewModel).toolbar { libraryToolbar } }
-        } else {
-          NavigationSplitView {
-            regularSidebar
-              .navigationSplitViewColumnWidth(min: 300, ideal: 360)
-          } detail: {
-            ChatView(viewModel: chatViewModel)
+          NavigationStack {
+            VStack(spacing: 0) {
+              compactHeader
+              Divider()
+              ChatView(viewModel: chatViewModel)
+            }
           }
-          .navigationSplitViewStyle(.balanced)
+        } else {
+          regularWorkspace
         }
       }
       .animation(QuietGardenTheme.animation(reduceMotion: reduceMotion), value: horizontalSizeClass)
     .tint(QuietGardenTheme.accent)
     .accessibilityIdentifier(UIAccessibility.root)
+    .task {
+      libraryViewModel.start()
+      conversationViewModel.start()
+      await chatViewModel.start()
+    }
     .onChange(of: libraryViewModel.loadedModelID) {
       chatViewModel.isModelReady = libraryViewModel.loadedModelID != nil
       chatViewModel.loadedModelName = switch libraryViewModel.loadedModelID {
@@ -158,14 +165,41 @@ struct RootView: View {
     }
   }
 
-  @ToolbarContentBuilder private var libraryToolbar: some ToolbarContent {
-    ToolbarItem(placement: .navigation) {
+  @ViewBuilder private var regularWorkspace: some View {
+    #if os(macOS)
+    HSplitView {
+      regularSidebar.frame(minWidth: 300, idealWidth: 360, maxWidth: 420)
+      ChatView(viewModel: chatViewModel).frame(minWidth: 520)
+    }
+    #else
+    NavigationSplitView {
+      regularSidebar
+        .navigationSplitViewColumnWidth(min: 300, ideal: 360)
+    } detail: {
+      ChatView(viewModel: chatViewModel)
+    }
+    .navigationSplitViewStyle(.balanced)
+    #endif
+  }
+
+  private var compactHeader: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      HStack {
+        Text("Bonsai").font(.headline)
+        Spacer()
+        if let name = chatViewModel.loadedModelName {
+          Label(name, systemImage: "leaf.fill")
+            .font(.caption).foregroundStyle(.secondary)
+        } else {
+          Text("No model loaded").font(.caption).foregroundStyle(.secondary)
+        }
+      }
+      HStack {
       Button { showsLibrary = true } label: {
         Label("Model Library", systemImage: "shippingbox")
       }
       .accessibilityHint("Manage local Bonsai models")
-    }
-    ToolbarItem(placement: .primaryAction) {
+      Spacer()
       Menu {
         Button("New conversation") {
           Task {
@@ -186,11 +220,25 @@ struct RootView: View {
       } label: {
         Label("Conversations", systemImage: "bubble.left.and.bubble.right")
       }
+      }
     }
+    .buttonStyle(.borderless)
+    .padding(.horizontal, 16)
+    .padding(.vertical, 10)
+    .background(.bar)
   }
 
   private var regularSidebar: some View {
     VStack(spacing: 0) {
+      HStack {
+        VStack(alignment: .leading, spacing: 2) {
+          Text("Bonsai").font(.title2.weight(.semibold))
+          Text(chatViewModel.loadedModelName ?? "No model loaded")
+            .font(.caption).foregroundStyle(.secondary)
+        }
+        Spacer()
+      }
+      .padding(16)
       List(selection: Binding(
         get: { conversationViewModel.selectedID },
         set: { id in
@@ -216,11 +264,10 @@ struct RootView: View {
         }
       }
       .frame(minHeight: 150, idealHeight: 220)
-      .task { conversationViewModel.start() }
       Divider()
       ModelLibraryView(viewModel: libraryViewModel)
     }
-    .navigationTitle("Bonsai")
+    .background(QuietGardenTheme.paper)
   }
 }
 
@@ -303,16 +350,18 @@ struct RootComposition {
     let engine = MLXInferenceEngine()
     let conversations = try ConversationStore(root: support)
     let coordinator = try ConversationCoordinator(root: support, store: conversations)
+    let sessionGate = ModelSessionGate()
     let library = try LiveModelLibraryService(
       root: support.appending(path: "Models"),
       engine: engine,
-      conversations: coordinator)
+      conversations: coordinator,
+      sessionGate: sessionGate)
     let notes = try NotesStore(root: support)
     let registry = try ToolRegistry.live(notes: notes)
     let approvalGate = InteractiveApprovalGate()
     let loop = AgentLoop(engine: engine, registry: registry, approvals: approvalGate)
     let chat = AgentLoopChatService(loop: loop, approvals: approvalGate, engine: engine,
-                                    conversations: coordinator)
+                                    conversations: coordinator, sessionGate: sessionGate)
     let initial = ModelLibrarySnapshot.fixture(.empty)
     return RootComposition(
       libraryViewModel: ModelLibraryViewModel(service: library, platform: Self.platform, initial: initial),
@@ -371,3 +420,4 @@ private actor FixtureConversationService: ConversationNavigationServing {
   func createConversation() async throws {}
   func selectConversation(_ id: ConversationID) async throws {}
 }
+// swiftlint:enable file_length

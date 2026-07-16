@@ -133,6 +133,27 @@ final class ModelLibraryViewModelTests: XCTestCase {
       await operation.value
     }
   }
+
+  func testReplacementDisablesChatUntilPublishedAndRestoresPriorModelAfterFailure() async throws {
+    let snapshot = ModelLibrarySnapshot.fixture(.ready)
+    let service = ReplacementLibraryService(snapshot: snapshot)
+    let viewModel = ModelLibraryViewModel(service: service, platform: .mac, initial: snapshot)
+    let oneBitLoad = try XCTUnwrap(viewModel.rows.first { $0.id == .oneBit27B }?.primaryAction)
+    await viewModel.perform(oneBitLoad, modelID: .oneBit27B)
+    XCTAssertEqual(viewModel.loadedModelID, .oneBit27B)
+
+    let ternaryLoad = try XCTUnwrap(viewModel.rows.first { $0.id == .ternary27B }?.primaryAction)
+    await service.suspendNextLoadAndFail()
+    let replacement = Task { await viewModel.perform(ternaryLoad, modelID: .ternary27B) }
+    await service.waitUntilStarted()
+
+    XCTAssertNil(viewModel.loadedModelID, "replacement must withdraw chat readiness while in flight")
+    await service.finishReplacement()
+    await replacement.value
+
+    XCTAssertEqual(viewModel.loadedModelID, .oneBit27B)
+    XCTAssertTrue(try XCTUnwrap(viewModel.rows.first { $0.id == .oneBit27B }).isLoaded)
+  }
 }
 
 private actor RecordingLibraryService: ModelLibraryServing {
@@ -188,4 +209,31 @@ private actor SuspendingLibraryService: ModelLibraryServing {
   }
 
   func finish() { continuation?.resume(); continuation = nil }
+}
+
+private actor ReplacementLibraryService: ModelLibraryServing {
+  let snapshot: ModelLibrarySnapshot
+  private var loaded: ModelID?
+  private var shouldSuspendAndFail = false
+  private var started = false
+  private var continuation: CheckedContinuation<Void, Never>?
+
+  init(snapshot: ModelLibrarySnapshot) { self.snapshot = snapshot }
+  func snapshots() async -> AsyncStream<ModelLibrarySnapshot> {
+    AsyncStream { continuation in continuation.yield(snapshot); continuation.finish() }
+  }
+  func currentLoadedModelID() async -> ModelID? { loaded }
+  func perform(_ intent: ModelLibraryIntent, for modelID: ModelID) async throws {
+    guard intent == .load else { return }
+    if shouldSuspendAndFail {
+      started = true
+      await withCheckedContinuation { continuation = $0 }
+      shouldSuspendAndFail = false
+      throw LiveUIServiceError.modelNotInstalled
+    }
+    loaded = modelID
+  }
+  func suspendNextLoadAndFail() { shouldSuspendAndFail = true }
+  func waitUntilStarted() async { while !started { await Task.yield() } }
+  func finishReplacement() { continuation?.resume(); continuation = nil }
 }

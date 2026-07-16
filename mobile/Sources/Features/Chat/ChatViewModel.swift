@@ -100,6 +100,7 @@ final class ChatViewModel {
   var loadedModelName: String?
   private var generationTask: Task<Void, Never>?
   private var generationID: UUID?
+  private var activePrompt: String?
 
   init(service: any ChatSessionServing, isModelReady: Bool) {
     self.service = service
@@ -112,6 +113,7 @@ final class ChatViewModel {
   func send() async {
     guard canSend else { return }
     let prompt = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+    activePrompt = prompt
     draft = ""
     messages.append(.init(id: UUID(), role: .user, text: prompt))
     resetRunState()
@@ -214,7 +216,12 @@ final class ChatViewModel {
         activities[index] = activity
       } else { activities.append(activity) }
     case .completed(let completion):
-      terminalStatus = Self.label(completion)
+      switch completion {
+      case .runtimeFailure, .toolTurnLimit, .duplicateInvocationID:
+        markFailure(Self.label(completion), prompt: activePrompt ?? "")
+      default:
+        terminalStatus = Self.label(completion)
+      }
     case .failed(let message): markFailure(message, prompt: messages.last(where: { $0.role == .user })?.text ?? "")
     case .contextTrimmed(let notice):
       contextTrimNotice = "Removed \(notice.removedTurnCount) older turn(s) to fit context."
@@ -224,6 +231,7 @@ final class ChatViewModel {
   private func markStopped() { terminalStatus = "Stopped" }
   private func markFailure(_ message: String, prompt: String) {
     failedPrompt = prompt
+    draft = prompt
     terminalStatus = message
     recovery = .init(label: "Retry send")
   }

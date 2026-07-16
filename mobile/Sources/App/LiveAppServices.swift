@@ -1,4 +1,6 @@
 import Foundation
+// Live adapters remain colocated so their shared session transaction is reviewable as one unit.
+// swiftlint:disable file_length
 #if os(iOS)
 import UIKit
 #endif
@@ -17,25 +19,59 @@ enum LiveUIServiceError: Error, LocalizedError {
   }
 }
 
+/// Serializes model replacement and chat generation so the runtime and conversation binding
+/// are never observed at different installations.
+actor ModelSessionGate {
+  private var isHeld = false
+  private var waiters: [CheckedContinuation<Void, Never>] = []
+
+  func acquire() async {
+    if !isHeld {
+      isHeld = true
+      return
+    }
+    await withCheckedContinuation { waiters.append($0) }
+  }
+
+  func release() {
+    if waiters.isEmpty {
+      isHeld = false
+    } else {
+      waiters.removeFirst().resume()
+    }
+  }
+}
+
 actor LiveModelLibraryService: ModelLibraryServing {
   private let library: ModelLibrary
   private let engine: MLXInferenceEngine
   private let conversations: ConversationCoordinator
   private let manifests: [ModelID: ModelManifest]
-  private var loadedModelID: ModelID?
+  private let sessionGate: ModelSessionGate
+  private let installationProvider: (@Sendable (ModelID) async -> ModelInstallation?)?
+  private var loadedInstallation: ModelInstallation?
 
-  init(root: URL, engine: MLXInferenceEngine, conversations: ConversationCoordinator) throws {
+  init(root: URL, engine: MLXInferenceEngine, conversations: ConversationCoordinator,
+       sessionGate: ModelSessionGate = ModelSessionGate(),
+       manifests injectedManifests: [ModelID: ModelManifest]? = nil,
+       installationProvider: (@Sendable (ModelID) async -> ModelInstallation?)? = nil) throws {
     library = try ModelLibrary(root: root)
     self.engine = engine
     self.conversations = conversations
-    if let url = Bundle.main.url(forResource: "manifest", withExtension: "json", subdirectory: "Models"),
+    self.sessionGate = sessionGate
+    self.installationProvider = installationProvider
+    if let injectedManifests {
+      manifests = injectedManifests
+    } else if let url = Bundle.main.url(forResource: "manifest", withExtension: "json", subdirectory: "Models"),
        let catalog = try? JSONDecoder().decode(ModelCatalog.self, from: Data(contentsOf: url)) {
       manifests = Dictionary(uniqueKeysWithValues: catalog.models.map { ($0.id, $0.manifest) })
     } else { manifests = [:] }
   }
 
   func snapshots() async -> AsyncStream<ModelLibrarySnapshot> { await library.snapshots() }
+  func currentLoadedModelID() async -> ModelID? { loadedInstallation?.modelID }
 
+  // swiftlint:disable:next cyclomatic_complexity
   func perform(_ intent: ModelLibraryIntent, for modelID: ModelID) async throws {
     guard let manifest = manifests[modelID] else { throw LiveUIServiceError.missingManifest(modelID) }
     switch intent {
@@ -47,28 +83,61 @@ actor LiveModelLibraryService: ModelLibraryServing {
     case .importModel:
       throw LiveUIServiceError.importRequiresPicker
     case .load:
-      guard case .ready(let installation) = await library.state(for: modelID) else {
+      let installation: ModelInstallation?
+      if let installationProvider {
+        installation = await installationProvider(modelID)
+      } else if case .ready(let ready) = await library.state(for: modelID) {
+        installation = ready
+      } else {
+        installation = nil
+      }
+      guard let installation else {
         throw LiveUIServiceError.modelNotInstalled
       }
-      try await engine.load(installation)
+      await sessionGate.acquire()
+      defer { Task { await sessionGate.release() } }
+      let previous = loadedInstallation
       do {
+        try await engine.load(installation)
         try await conversations.bind(installation)
       } catch {
-        await engine.unload()
+        await restore(previous)
         throw error
       }
-      loadedModelID = modelID
+      loadedInstallation = installation
     case .unload:
+      await sessionGate.acquire()
+      defer { Task { await sessionGate.release() } }
       await engine.unload()
       await conversations.unbind()
-      loadedModelID = nil
+      loadedInstallation = nil
     case .delete:
-      if loadedModelID == modelID {
+      if loadedInstallation?.modelID == modelID {
+        await sessionGate.acquire()
+        defer { Task { await sessionGate.release() } }
         await engine.unload()
         await conversations.unbind()
-        loadedModelID = nil
+        loadedInstallation = nil
       }
       try await library.delete(modelID)
+    }
+  }
+
+  private func restore(_ installation: ModelInstallation?) async {
+    guard let installation else {
+      await engine.unload()
+      await conversations.unbind()
+      loadedInstallation = nil
+      return
+    }
+    do {
+      try await engine.load(installation)
+      try await conversations.bind(installation)
+      loadedInstallation = installation
+    } catch {
+      await engine.unload()
+      await conversations.unbind()
+      loadedInstallation = nil
     }
   }
 
@@ -87,7 +156,6 @@ actor LiveModelLibraryService: ModelLibraryServing {
     return .qualified([.textGeneration, .thinking, .toolCalling, .vision])
   }
 }
-
 actor InteractiveApprovalGate: ToolApprovalGate {
   private var observers: [UUID: AsyncStream<ToolApprovalRequest>.Continuation] = [:]
   private var pending: [String: CheckedContinuation<ToolApprovalDecision, any Error>] = [:]
@@ -134,26 +202,36 @@ actor AgentLoopChatService: ChatSessionServing {
   private let approvals: InteractiveApprovalGate
   private let engine: MLXInferenceEngine?
   private let conversations: ConversationCoordinator?
+  private let sessionGate: ModelSessionGate?
 
   static func shouldPersist(_ completion: AgentCompletion) -> Bool {
     completion == .stop || completion == .length
   }
 
   init(loop: AgentLoop, approvals: InteractiveApprovalGate,
-       engine: MLXInferenceEngine? = nil, conversations: ConversationCoordinator? = nil) {
+       engine: MLXInferenceEngine? = nil, conversations: ConversationCoordinator? = nil,
+       sessionGate: ModelSessionGate? = nil) {
     self.loop = loop
     self.approvals = approvals
     self.engine = engine
     self.conversations = conversations
+    self.sessionGate = sessionGate
   }
 
   // This function owns the lifecycle boundary for forwarding, persistence, and completion.
   // swiftlint:disable:next cyclomatic_complexity function_body_length
   func stream(_ request: ChatSendRequest) async throws -> AsyncThrowingStream<ChatSessionEvent, any Error> {
+    if let sessionGate { await sessionGate.acquire() }
     let userMessage = ConversationMessage(id: MessageID(UUID().uuidString), role: .user,
                                           content: request.prompt)
-    let persistence = try await persistentGeneration(userMessage: userMessage,
-                                                     effort: request.effort)
+    let persistence: PersistentGeneration?
+    do {
+      persistence = try await persistentGeneration(userMessage: userMessage,
+                                                    effort: request.effort)
+    } catch {
+      if let sessionGate { await sessionGate.release() }
+      throw error
+    }
     let generation: GenerationRequest
     if let prepared = persistence?.request {
       generation = prepared
@@ -164,6 +242,7 @@ actor AgentLoopChatService: ChatSessionServing {
     let liveEvents = await loop.events()
     return AsyncThrowingStream { continuation in
       let task = Task { [loop] in
+        defer { if let sessionGate = self.sessionGate { Task { await sessionGate.release() } } }
         let assistantID = UUID()
         continuation.yield(.assistantStarted(id: assistantID))
         if let notice = persistence?.trimNotice, notice.removedTurnCount > 0 {
@@ -329,3 +408,4 @@ actor AgentLoopChatService: ChatSessionServing {
     }
   }
 }
+// swiftlint:enable file_length

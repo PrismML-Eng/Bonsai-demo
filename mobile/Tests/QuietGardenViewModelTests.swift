@@ -1,6 +1,8 @@
 import XCTest
 import MLXLMCommon
 @testable import BonsaiMobile
+// Integration-style adapter tests deliberately share narrow runtime fixtures in this file.
+// swiftlint:disable file_length type_body_length
 
 @MainActor
 final class QuietGardenViewModelTests: XCTestCase {
@@ -32,8 +34,12 @@ final class QuietGardenViewModelTests: XCTestCase {
     XCTAssertNotNil(viewModel.metrics)
   }
 
-  func testRuntimeFailurePreservesUserMessageAndOffersRetry() async {
-    let service = ScriptedChatService(events: [.failed("Model memory was released.")])
+  func testProductionRuntimeFailureCompletionPreservesDraftAndOffersRetry() async throws {
+    let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    let engine = UIAgentEngine(events: [])
+    let service = AgentLoopChatService(
+      loop: AgentLoop(engine: engine, registry: try ToolRegistry.live(notes: NotesStore(root: root))),
+      approvals: InteractiveApprovalGate())
     let viewModel = ChatViewModel(service: service, isModelReady: true)
     viewModel.draft = "Please keep this"
 
@@ -41,7 +47,20 @@ final class QuietGardenViewModelTests: XCTestCase {
 
     XCTAssertEqual(viewModel.messages.first?.text, "Please keep this")
     XCTAssertEqual(viewModel.failedPrompt, "Please keep this")
+    XCTAssertEqual(viewModel.draft, "Please keep this")
     XCTAssertEqual(viewModel.recovery?.label, "Retry send")
+  }
+
+  func testProtocolFailureCompletionsExposeNamedRetrySend() async {
+    for completion in [AgentCompletion.toolTurnLimit(6), .duplicateInvocationID("duplicate")] {
+      let viewModel = ChatViewModel(
+        service: ScriptedChatService(events: [.completed(completion)]), isModelReady: true)
+      viewModel.draft = "recover me"
+      await viewModel.send()
+      XCTAssertEqual(viewModel.failedPrompt, "recover me")
+      XCTAssertEqual(viewModel.draft, "recover me")
+      XCTAssertEqual(viewModel.recovery?.label, "Retry send")
+    }
   }
 
   func testStopCancelsServiceAndRetainsPartialAnswer() async {
@@ -187,6 +206,97 @@ final class QuietGardenViewModelTests: XCTestCase {
     XCTAssertEqual(savedTernary?.modelRevision, ternaryRevision)
   }
 
+  func testLiveModelServicePublishesSuccessfulExactReplacement() async throws {
+    let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    let oneBit = ModelInstallation(modelID: .oneBit27B,
+                                   directory: URL(fileURLWithPath: "/tmp/live-one"),
+                                   revision: String(repeating: "4", count: 40))
+    let ternary = ModelInstallation(modelID: .ternary27B,
+                                    directory: URL(fileURLWithPath: "/tmp/live-ternary"),
+                                    revision: String(repeating: "5", count: 40))
+    let loader = ControlledRuntimeLoader(resources: [
+      .oneBit27B: PersistingRuntimeResource(), .ternary27B: PersistingRuntimeResource()
+    ])
+    let engine = MLXInferenceEngine(loader: loader)
+    let coordinator = try ConversationCoordinator(root: root, store: ConversationStore(root: root))
+    let installations = [ModelID.oneBit27B: oneBit, .ternary27B: ternary]
+    let service = try LiveModelLibraryService(
+      root: root.appending(path: "Models"), engine: engine, conversations: coordinator,
+      manifests: try Self.manifests(),
+      installationProvider: { installations[$0] })
+
+    try await service.perform(.load, for: .oneBit27B)
+    let first = try await coordinator.activeSelection()
+    try await service.perform(.load, for: .ternary27B)
+    let second = try await coordinator.activeSelection()
+
+    let loadedModelID = await service.currentLoadedModelID()
+    XCTAssertEqual(loadedModelID, .ternary27B)
+    XCTAssertEqual(second.installation, ternary)
+    XCTAssertNotEqual(first.conversationID, second.conversationID)
+  }
+
+  func testLiveModelServiceBlocksConcurrentSendAndRollsBackFailedReplacement() async throws {
+    let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    let oldRuntime = PersistingRuntimeResource()
+    let loader = ControlledRuntimeLoader(resources: [
+      .oneBit27B: oldRuntime, .ternary27B: PersistingRuntimeResource()
+    ])
+    let engine = MLXInferenceEngine(loader: loader)
+    let coordinator = try ConversationCoordinator(root: root, store: ConversationStore(root: root))
+    let gate = ModelSessionGate()
+    let oneBit = ModelInstallation(modelID: .oneBit27B,
+                                   directory: URL(fileURLWithPath: "/tmp/rollback-one"),
+                                   revision: String(repeating: "6", count: 40))
+    let ternary = ModelInstallation(modelID: .ternary27B,
+                                    directory: URL(fileURLWithPath: "/tmp/rollback-ternary"),
+                                    revision: String(repeating: "7", count: 40))
+    let installations = [ModelID.oneBit27B: oneBit, .ternary27B: ternary]
+    let library = try LiveModelLibraryService(
+      root: root.appending(path: "Models"), engine: engine, conversations: coordinator,
+      sessionGate: gate, manifests: try Self.manifests(),
+      installationProvider: { installations[$0] })
+    try await library.perform(.load, for: .oneBit27B)
+    await loader.failNextLoad(of: .ternary27B)
+    let replacement = Task {
+      do { try await library.perform(.load, for: .ternary27B); return false } catch { return true }
+    }
+    await loader.waitUntilBlocked()
+
+    let registry = try ToolRegistry.live(notes: NotesStore(root: root))
+    let chat = AgentLoopChatService(
+      loop: AgentLoop(engine: engine, registry: registry), approvals: InteractiveApprovalGate(),
+      engine: engine, conversations: coordinator, sessionGate: gate)
+    let concurrentSend = Task {
+      var events: [ChatSessionEvent] = []
+      if let stream = try? await chat.stream(.init(prompt: "still coherent", effort: .off)) {
+        do { for try await event in stream { events.append(event) } } catch {}
+      }
+      return events
+    }
+    for _ in 0..<20 { await Task.yield() }
+    XCTAssertTrue(oldRuntime.streamedMessages.isEmpty,
+                  "generation must not enter the runtime during replacement")
+
+    await loader.resumeBlockedLoad()
+    let replacementFailed = await replacement.value
+    XCTAssertTrue(replacementFailed)
+    let events = await concurrentSend.value
+    XCTAssertTrue(events.contains(.completed(.stop)))
+    let loadedModelID = await library.currentLoadedModelID()
+    let restoredSelection = try await coordinator.activeSelection()
+    XCTAssertEqual(loadedModelID, .oneBit27B)
+    XCTAssertEqual(restoredSelection.installation, oneBit)
+    XCTAssertEqual(oldRuntime.streamedMessages.count, 1)
+  }
+
+  private static func manifests() throws -> [ModelID: ModelManifest] {
+    let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+      .deletingLastPathComponent().appending(path: "Resources/Models/manifest.json")
+    let catalog = try JSONDecoder().decode(ModelCatalog.self, from: Data(contentsOf: url))
+    return Dictionary(uniqueKeysWithValues: catalog.models.map { ($0.id, $0.manifest) })
+  }
+
   func testPersistencePolicyCoversEveryTerminalClass() {
     XCTAssertTrue(AgentLoopChatService.shouldPersist(.stop))
     XCTAssertTrue(AgentLoopChatService.shouldPersist(.length))
@@ -236,6 +346,29 @@ private struct SwitchingRuntimeLoader: MLXRuntimeLoading {
   func load(_ installation: ModelInstallation) async throws -> any MLXRuntimeResource {
     try XCTUnwrap(resources[installation.modelID])
   }
+}
+
+private actor ControlledRuntimeLoader: MLXRuntimeLoading {
+  enum Failure: Error { case requested }
+  let resources: [ModelID: PersistingRuntimeResource]
+  private var failingModel: ModelID?
+  private var blocked = false
+  private var continuation: CheckedContinuation<Void, Never>?
+
+  init(resources: [ModelID: PersistingRuntimeResource]) { self.resources = resources }
+  func load(_ installation: ModelInstallation) async throws -> any MLXRuntimeResource {
+    if failingModel == installation.modelID {
+      blocked = true
+      await withCheckedContinuation { continuation = $0 }
+      blocked = false
+      failingModel = nil
+      throw Failure.requested
+    }
+    return try XCTUnwrap(resources[installation.modelID])
+  }
+  func failNextLoad(of modelID: ModelID) { failingModel = modelID }
+  func waitUntilBlocked() async { while !blocked { await Task.yield() } }
+  func resumeBlockedLoad() { continuation?.resume(); continuation = nil }
 }
 
 private final class PersistingRuntimeResource: MLXRuntimeResource, @unchecked Sendable {
@@ -317,3 +450,4 @@ private actor SuspendingChatService: ChatSessionServing {
     while !started { await Task.yield() }
   }
 }
+// swiftlint:enable file_length type_body_length
