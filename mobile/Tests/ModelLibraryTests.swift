@@ -5,6 +5,46 @@ import Testing
 @Suite("Model library")
 struct ModelLibraryTests {
     @Test
+    func relaunchReturnsBeforeSlowInstalledModelVerificationAndPublishesProgress() async throws {
+        let root = try temporaryDirectory()
+        let expected = Data("installed".utf8)
+        let manifest = try fixtureManifest(expected: expected)
+        let original = try ModelLibrary(
+            root: root,
+            transport: RecordingTransport(files: ["model.safetensors": expected]),
+            manifests: [manifest]
+        )
+        try await original.install(manifest, qualification: .qualified([.textGeneration]))
+        let verifier = SuspendingVerifier()
+
+        let started = ContinuousClock.now
+        let relaunched = try ModelLibrary(root: root, manifests: [manifest], verifier: verifier)
+        let constructionTime = started.duration(to: .now)
+
+        #expect(constructionTime < .milliseconds(100))
+        guard case .verifying(completedBytes: 0, totalBytes: expected.count) =
+                await relaunched.state(for: .oneBit27B) else {
+            Issue.record("Installed bytes must be unavailable for load until asynchronous verification finishes")
+            return
+        }
+
+        var snapshots = await relaunched.snapshots().makeAsyncIterator()
+        _ = await snapshots.next()
+        await verifier.waitUntilStarted()
+        guard case .verifying = await relaunched.state(for: .oneBit27B) else {
+            Issue.record("The visible state must remain verifying while hashing is suspended")
+            return
+        }
+        await verifier.release()
+
+        for _ in 0..<100 {
+            if case .ready = await relaunched.state(for: .oneBit27B) { return }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        Issue.record("Asynchronous verification never published ready")
+    }
+
+    @Test
     func corruptShardNeverBecomesReady() async throws {
         let root = try temporaryDirectory()
         let manifest = try fixtureManifest(expected: Data("good".utf8))
@@ -139,6 +179,40 @@ struct ModelLibraryTests {
         #expect(
             try Data(contentsOf: old.appending(path: "model.safetensors")) == expected
         )
+    }
+}
+
+private final class SuspendingVerifier: ModelFileVerifying, @unchecked Sendable {
+    private let condition = NSCondition()
+    private var started = false
+    private var released = false
+
+    func verify(
+        _ file: ModelManifest.File,
+        at url: URL,
+        progress: (@Sendable (Int) -> Void)?
+    ) throws {
+        condition.lock()
+        started = true
+        condition.broadcast()
+        while !released { condition.wait() }
+        condition.unlock()
+        try SHA256Verifier().verify(file, at: url, progress: progress)
+    }
+
+    func waitUntilStarted() async {
+        await Task.detached { [self] in
+            condition.lock()
+            while !started { condition.wait() }
+            condition.unlock()
+        }.value
+    }
+
+    func release() {
+        condition.lock()
+        released = true
+        condition.broadcast()
+        condition.unlock()
     }
 }
 
