@@ -1,0 +1,33 @@
+diff --git a/Package.swift b/Package.swift
+--- a/Package.swift
++++ b/Package.swift
+@@ -59,6 +59,6 @@ let package = Package(
+     ],
+     dependencies: [
+-        .package(url: "https://github.com/ml-explore/mlx-swift", .upToNextMinor(from: "0.31.4")),
++        .package(path: "../mlx-swift"),
+         // 602.0.0 floor: swift.org publishes signed prebuilt swift-syntax artifacts only for
+         // >= 602 tags on current toolchains; a 600.x/601.x resolution falls back to the full
+         // source compile of swift-syntax.
+diff --git a/Libraries/MLXLMCommon/MLXCompatibility.swift b/Libraries/MLXLMCommon/MLXCompatibility.swift
+new file mode 100644
+--- /dev/null
++++ b/Libraries/MLXLMCommon/MLXCompatibility.swift
+@@ -0,0 +1,17 @@
++import MLX
++
++// Backports APIs added after the pinned Prism MLX Swift revision.
++extension DType {
++    public var greatestFiniteMagnitudeArray: MLXArray {
++        guard let info = finfo else {
++            fatalError("greatestFiniteMagnitudeArray requires a floating-point dtype, got \(self)")
++        }
++        return MLXArray(info.max, dtype: self)
++    }
++}
++
++extension MLXArray {
++    public static func maskFill(for dtype: DType) -> MLXArray {
++        return -dtype.greatestFiniteMagnitudeArray
++    }
++}

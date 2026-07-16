@@ -1,0 +1,103 @@
+name: BonsaiMobile
+options:
+  deploymentTarget:
+    iOS: "17.0"
+    macOS: "14.0"
+packages:
+  MLXSwiftLM:
+    path: .build-dependencies/mlx-swift-lm
+  ZIPFoundation:
+    url: https://github.com/weichsel/ZIPFoundation.git
+    exactVersion: 0.9.19
+  SwiftTransformers:
+    url: https://github.com/huggingface/swift-transformers.git
+    exactVersion: 1.3.0
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    GCC_TREAT_WARNINGS_AS_ERRORS: YES
+    SWIFT_TREAT_WARNINGS_AS_ERRORS: YES
+    CODE_SIGNING_ALLOWED: NO
+targets:
+  BonsaiMobile:
+    type: application
+    supportedDestinations: [iOS, macOS]
+    platform: auto
+    configFiles:
+      Debug: Config/Base.xcconfig
+      Release: Config/Base.xcconfig
+    sources: [Sources]
+    resources: [Resources]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.prismml.BonsaiMobile
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Bonsai
+        INFOPLIST_KEY_NSCameraUsageDescription: Add a photo to a private on-device conversation.
+        INFOPLIST_KEY_NSPhotoLibraryUsageDescription: Add a photo to a private on-device conversation.
+    dependencies:
+      - package: MLXSwiftLM
+        product: MLXLLM
+      - package: MLXSwiftLM
+        product: MLXVLM
+      - package: MLXSwiftLM
+        product: MLXLMCommon
+      - package: MLXSwiftLM
+        product: MLXHuggingFace
+      - package: SwiftTransformers
+        product: Tokenizers
+      - package: ZIPFoundation
+  BonsaiMobileTests:
+    type: bundle.unit-test
+    supportedDestinations: [iOS, macOS]
+    platform: auto
+    sources: [Tests]
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.prismml.BonsaiMobileTests
+        "TEST_HOST[sdk=macosx*]": "$(BUILT_PRODUCTS_DIR)/BonsaiMobile.app/Contents/MacOS/BonsaiMobile"
+        "BUNDLE_LOADER[sdk=macosx*]": "$(TEST_HOST)"
+    dependencies:
+      - target: BonsaiMobile
+  BonsaiMobileIntegrationTests:
+    type: bundle.unit-test
+    supportedDestinations: [iOS, macOS]
+    platform: auto
+    sources: [IntegrationTests]
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.prismml.BonsaiMobileIntegrationTests
+        "TEST_HOST[sdk=macosx*]": "$(BUILT_PRODUCTS_DIR)/BonsaiMobile.app/Contents/MacOS/BonsaiMobile"
+        "BUNDLE_LOADER[sdk=macosx*]": "$(TEST_HOST)"
+    dependencies:
+      - target: BonsaiMobile
+  BonsaiMobileUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [UITests]
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.prismml.BonsaiMobileUITests
+    dependencies:
+      - target: BonsaiMobile
+schemes:
+  BonsaiMobile:
+    build:
+      targets:
+        BonsaiMobile: all
+        BonsaiMobileTests: [test]
+    test:
+      targets: [BonsaiMobileTests]
+  RuntimeProbe:
+    build:
+      targets:
+        BonsaiMobile: all
+        BonsaiMobileIntegrationTests: [test]
+    test:
+      targets: [BonsaiMobileIntegrationTests]
+      environmentVariables:
+        BONSAI_MODEL_DIR: "$(BONSAI_MODEL_DIR)"

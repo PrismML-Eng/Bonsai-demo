@@ -194,6 +194,11 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
+# Bonsai Mobile generated build inputs and outputs
+mobile/.build-dependencies/
+mobile/DerivedData/
+mobile/TestResults/
+
 # Cursor
 #  Cursor is an AI-powered code editor. `.cursorignore` specifies files/directories to
 #  exclude from AI features like autocomplete and code analysis. Recommended for sensitive data

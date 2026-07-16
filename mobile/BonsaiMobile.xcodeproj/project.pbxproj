@@ -1,0 +1,749 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		05BCFDDCC63422F50B0DEFF3 /* RuntimeProbeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B9E498AAB7E2658737AAD97 /* RuntimeProbeTests.swift */; };
+		0DC5787FD6497E652FEC2AC3 /* MLXLMCommon in Frameworks */ = {isa = PBXBuildFile; productRef = CE0D83BFD83F3BD1FAB0B05D /* MLXLMCommon */; };
+		19EB0F0D12622A2ED3FFE1A7 /* BonsaiMobileApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB8F93A9408A4EE6F88333F3 /* BonsaiMobileApp.swift */; };
+		24C250F27F5F7EC29F652946 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = 056342B4C449BC4FB620893A /* ZIPFoundation */; };
+		2F536ED65F34A88DEF23ED07 /* Tokenizers in Frameworks */ = {isa = PBXBuildFile; productRef = 82A832B08BE4D6E49F59F560 /* Tokenizers */; };
+		3EEA47A5E8CCE2F09D5B567C /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = 9943147F24F82A85972D6C9B /* MLXLLM */; };
+		447E3736BCD9D6F872D82AE7 /* RuntimeProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE7E78660BF6A2E0B953F04E /* RuntimeProbe.swift */; };
+		62DD436A7B70739EC12B46B7 /* MLXVLM in Frameworks */ = {isa = PBXBuildFile; productRef = 6A095E1F640A9C82BA09731D /* MLXVLM */; };
+		B1EADCA0FAE246BFB79C2258 /* MLXHuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = 95D56B5E7F56FB8C5CCAA9FD /* MLXHuggingFace */; };
+		D4345CB4BFA46B46F6B53CA0 /* RuntimeProbeIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4716D451896187CAE2B44A74 /* RuntimeProbeIntegrationTests.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		093216AD2BDC314277C02580 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 16AD27B2C706E59641499B96 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4F1A4BC7D2BBD00131D935B9;
+			remoteInfo = BonsaiMobile;
+		};
+		454FF90456F4A77CC3CCBC6B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 16AD27B2C706E59641499B96 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4F1A4BC7D2BBD00131D935B9;
+			remoteInfo = BonsaiMobile;
+		};
+		F9F62BABC143A842D0526E6D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 16AD27B2C706E59641499B96 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4F1A4BC7D2BBD00131D935B9;
+			remoteInfo = BonsaiMobile;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		4565078E0DBE173835DEB134 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
+		4716D451896187CAE2B44A74 /* RuntimeProbeIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeProbeIntegrationTests.swift; sourceTree = "<group>"; };
+		4AD4599B0C75322E14F23F65 /* BonsaiMobileTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = BonsaiMobileTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		5611C793C730ECD6BA228BCE /* BonsaiMobileUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = BonsaiMobileUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		7710E5D0CB4F246613D1A989 /* mlx-swift-lm */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "mlx-swift-lm"; path = ".build-dependencies/mlx-swift-lm"; sourceTree = SOURCE_ROOT; };
+		7B9E498AAB7E2658737AAD97 /* RuntimeProbeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeProbeTests.swift; sourceTree = "<group>"; };
+		952A2D74B43F98B0EE43E369 /* BonsaiMobile.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = BonsaiMobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C0668D4C090309F3550836AE /* BonsaiMobileIntegrationTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = BonsaiMobileIntegrationTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		DB8F93A9408A4EE6F88333F3 /* BonsaiMobileApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BonsaiMobileApp.swift; sourceTree = "<group>"; };
+		EE7E78660BF6A2E0B953F04E /* RuntimeProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeProbe.swift; sourceTree = "<group>"; };
+		FB6844A1C9F2CD1F44BB7CEB /* .gitkeep */ = {isa = PBXFileReference; path = .gitkeep; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		4B91EAB9287D3F25CAB207EE /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3EEA47A5E8CCE2F09D5B567C /* MLXLLM in Frameworks */,
+				62DD436A7B70739EC12B46B7 /* MLXVLM in Frameworks */,
+				0DC5787FD6497E652FEC2AC3 /* MLXLMCommon in Frameworks */,
+				B1EADCA0FAE246BFB79C2258 /* MLXHuggingFace in Frameworks */,
+				2F536ED65F34A88DEF23ED07 /* Tokenizers in Frameworks */,
+				24C250F27F5F7EC29F652946 /* ZIPFoundation in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		41C28FE3387C617F53E544CF /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				95EF8E8216046EAE19058DB4 /* App */,
+				7941C0B88E41BD1ABBE19D25 /* Inference */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		4429FBD66020E510279C32C7 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				4565078E0DBE173835DEB134 /* Base.xcconfig */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+		4C49E64A053FDBE798D5740B /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				7B9E498AAB7E2658737AAD97 /* RuntimeProbeTests.swift */,
+			);
+			path = Tests;
+			sourceTree = "<group>";
+		};
+		4FCC3AFEC5A5BAB056075248 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				952A2D74B43F98B0EE43E369 /* BonsaiMobile.app */,
+				C0668D4C090309F3550836AE /* BonsaiMobileIntegrationTests.xctest */,
+				4AD4599B0C75322E14F23F65 /* BonsaiMobileTests.xctest */,
+				5611C793C730ECD6BA228BCE /* BonsaiMobileUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		6A385A9191D1B5984184C7AF = {
+			isa = PBXGroup;
+			children = (
+				4429FBD66020E510279C32C7 /* Config */,
+				B4C987CC9DE4041DE14AC5BE /* IntegrationTests */,
+				94BE9B0F8A0B13264BB48114 /* Packages */,
+				41C28FE3387C617F53E544CF /* Sources */,
+				4C49E64A053FDBE798D5740B /* Tests */,
+				739962C99D54B4F015DBCE86 /* UITests */,
+				4FCC3AFEC5A5BAB056075248 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		739962C99D54B4F015DBCE86 /* UITests */ = {
+			isa = PBXGroup;
+			children = (
+				FB6844A1C9F2CD1F44BB7CEB /* .gitkeep */,
+			);
+			path = UITests;
+			sourceTree = "<group>";
+		};
+		7941C0B88E41BD1ABBE19D25 /* Inference */ = {
+			isa = PBXGroup;
+			children = (
+				EE7E78660BF6A2E0B953F04E /* RuntimeProbe.swift */,
+			);
+			path = Inference;
+			sourceTree = "<group>";
+		};
+		94BE9B0F8A0B13264BB48114 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				7710E5D0CB4F246613D1A989 /* mlx-swift-lm */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+		95EF8E8216046EAE19058DB4 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				DB8F93A9408A4EE6F88333F3 /* BonsaiMobileApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		B4C987CC9DE4041DE14AC5BE /* IntegrationTests */ = {
+			isa = PBXGroup;
+			children = (
+				4716D451896187CAE2B44A74 /* RuntimeProbeIntegrationTests.swift */,
+			);
+			path = IntegrationTests;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		0CE7CF01ADEAE425F2B063F7 /* BonsaiMobileUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 129A9C67E80316BE4E169954 /* Build configuration list for PBXNativeTarget "BonsaiMobileUITests" */;
+			buildPhases = (
+				857E3DA9FDF11185816523BE /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D7DA4C641439CB6315A62A3E /* PBXTargetDependency */,
+			);
+			name = BonsaiMobileUITests;
+			packageProductDependencies = (
+			);
+			productName = BonsaiMobileUITests;
+			productReference = 5611C793C730ECD6BA228BCE /* BonsaiMobileUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		4F1A4BC7D2BBD00131D935B9 /* BonsaiMobile */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 21A5B4E0FF2FA659C1BF4553 /* Build configuration list for PBXNativeTarget "BonsaiMobile" */;
+			buildPhases = (
+				34DC6021DDD457AAAA2CA84E /* Sources */,
+				4B91EAB9287D3F25CAB207EE /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = BonsaiMobile;
+			packageProductDependencies = (
+				9943147F24F82A85972D6C9B /* MLXLLM */,
+				6A095E1F640A9C82BA09731D /* MLXVLM */,
+				CE0D83BFD83F3BD1FAB0B05D /* MLXLMCommon */,
+				95D56B5E7F56FB8C5CCAA9FD /* MLXHuggingFace */,
+				82A832B08BE4D6E49F59F560 /* Tokenizers */,
+				056342B4C449BC4FB620893A /* ZIPFoundation */,
+			);
+			productName = BonsaiMobile;
+			productReference = 952A2D74B43F98B0EE43E369 /* BonsaiMobile.app */;
+			productType = "com.apple.product-type.application";
+		};
+		B49464B9409A30717FC1837F /* BonsaiMobileIntegrationTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 8F9A5F5A09074DB79F02E922 /* Build configuration list for PBXNativeTarget "BonsaiMobileIntegrationTests" */;
+			buildPhases = (
+				67E206BC03A107441D37FBCC /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A177790A811E4925A5313A2D /* PBXTargetDependency */,
+			);
+			name = BonsaiMobileIntegrationTests;
+			packageProductDependencies = (
+			);
+			productName = BonsaiMobileIntegrationTests;
+			productReference = C0668D4C090309F3550836AE /* BonsaiMobileIntegrationTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		C6087041C6667BD4EE47949F /* BonsaiMobileTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1A0DE6E32E5EA09DF29F081 /* Build configuration list for PBXNativeTarget "BonsaiMobileTests" */;
+			buildPhases = (
+				7E70917BA3BAE23D5CC98016 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				DB7F455E334CA586852EBBC9 /* PBXTargetDependency */,
+			);
+			name = BonsaiMobileTests;
+			packageProductDependencies = (
+			);
+			productName = BonsaiMobileTests;
+			productReference = 4AD4599B0C75322E14F23F65 /* BonsaiMobileTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		16AD27B2C706E59641499B96 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					0CE7CF01ADEAE425F2B063F7 = {
+						TestTargetID = 4F1A4BC7D2BBD00131D935B9;
+					};
+				};
+			};
+			buildConfigurationList = 5EFFAFD3301739DCC714E2FC /* Build configuration list for PBXProject "BonsaiMobile" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 6A385A9191D1B5984184C7AF;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				16BCE6087BD425DEAA538900 /* XCRemoteSwiftPackageReference "swift-transformers" */,
+				055E0FEE91B103145BD754DF /* XCRemoteSwiftPackageReference "ZIPFoundation" */,
+				9CBD89527ED3FF1316DC3648 /* XCLocalSwiftPackageReference ".build-dependencies/mlx-swift-lm" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 4FCC3AFEC5A5BAB056075248 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				4F1A4BC7D2BBD00131D935B9 /* BonsaiMobile */,
+				B49464B9409A30717FC1837F /* BonsaiMobileIntegrationTests */,
+				C6087041C6667BD4EE47949F /* BonsaiMobileTests */,
+				0CE7CF01ADEAE425F2B063F7 /* BonsaiMobileUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		34DC6021DDD457AAAA2CA84E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				19EB0F0D12622A2ED3FFE1A7 /* BonsaiMobileApp.swift in Sources */,
+				447E3736BCD9D6F872D82AE7 /* RuntimeProbe.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		67E206BC03A107441D37FBCC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D4345CB4BFA46B46F6B53CA0 /* RuntimeProbeIntegrationTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7E70917BA3BAE23D5CC98016 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				05BCFDDCC63422F50B0DEFF3 /* RuntimeProbeTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		857E3DA9FDF11185816523BE /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A177790A811E4925A5313A2D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4F1A4BC7D2BBD00131D935B9 /* BonsaiMobile */;
+			targetProxy = 093216AD2BDC314277C02580 /* PBXContainerItemProxy */;
+		};
+		D7DA4C641439CB6315A62A3E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4F1A4BC7D2BBD00131D935B9 /* BonsaiMobile */;
+			targetProxy = 454FF90456F4A77CC3CCBC6B /* PBXContainerItemProxy */;
+		};
+		DB7F455E334CA586852EBBC9 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4F1A4BC7D2BBD00131D935B9 /* BonsaiMobile */;
+			targetProxy = F9F62BABC143A842D0526E6D /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		0E498325A93CB266E991793F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGNING_ALLOWED = NO;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		3557B3111C93998F3157D44F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				"BUNDLE_LOADER[sdk=macosx*]" = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.prismml.BonsaiMobileTests;
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BonsaiMobile.app/BonsaiMobile";
+				"TEST_HOST[sdk=macosx*]" = "$(BUILT_PRODUCTS_DIR)/BonsaiMobile.app/Contents/MacOS/BonsaiMobile";
+			};
+			name = Release;
+		};
+		4A53FEEEF6F33DA206424A6A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				"BUNDLE_LOADER[sdk=macosx*]" = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.prismml.BonsaiMobileIntegrationTests;
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BonsaiMobile.app/BonsaiMobile";
+				"TEST_HOST[sdk=macosx*]" = "$(BUILT_PRODUCTS_DIR)/BonsaiMobile.app/Contents/MacOS/BonsaiMobile";
+			};
+			name = Release;
+		};
+		5CAB5D789C735F4BAEA953F3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.prismml.BonsaiMobileUITests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = BonsaiMobile;
+			};
+			name = Release;
+		};
+		69F50536276DCBADB66A61E9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 4565078E0DBE173835DEB134 /* Base.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Bonsai;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Add a photo to a private on-device conversation.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Add a photo to a private on-device conversation.";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.prismml.BonsaiMobile;
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		75910A28CBAF4380FEB09EF0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				"BUNDLE_LOADER[sdk=macosx*]" = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.prismml.BonsaiMobileTests;
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BonsaiMobile.app/BonsaiMobile";
+				"TEST_HOST[sdk=macosx*]" = "$(BUILT_PRODUCTS_DIR)/BonsaiMobile.app/Contents/MacOS/BonsaiMobile";
+			};
+			name = Debug;
+		};
+		93211699B1009693C8280BD1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.prismml.BonsaiMobileUITests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = BonsaiMobile;
+			};
+			name = Debug;
+		};
+		9DC0C9E9D178A8E67EF4298E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				"BUNDLE_LOADER[sdk=macosx*]" = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.prismml.BonsaiMobileIntegrationTests;
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BonsaiMobile.app/BonsaiMobile";
+				"TEST_HOST[sdk=macosx*]" = "$(BUILT_PRODUCTS_DIR)/BonsaiMobile.app/Contents/MacOS/BonsaiMobile";
+			};
+			name = Debug;
+		};
+		E2B8BAC2B93F90B6DA51CD2E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGNING_ALLOWED = NO;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		FFC7848734CA2C94E2FAFA55 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 4565078E0DBE173835DEB134 /* Base.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Bonsai;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Add a photo to a private on-device conversation.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Add a photo to a private on-device conversation.";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.prismml.BonsaiMobile;
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		129A9C67E80316BE4E169954 /* Build configuration list for PBXNativeTarget "BonsaiMobileUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				93211699B1009693C8280BD1 /* Debug */,
+				5CAB5D789C735F4BAEA953F3 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		21A5B4E0FF2FA659C1BF4553 /* Build configuration list for PBXNativeTarget "BonsaiMobile" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FFC7848734CA2C94E2FAFA55 /* Debug */,
+				69F50536276DCBADB66A61E9 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		5EFFAFD3301739DCC714E2FC /* Build configuration list for PBXProject "BonsaiMobile" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E2B8BAC2B93F90B6DA51CD2E /* Debug */,
+				0E498325A93CB266E991793F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		8F9A5F5A09074DB79F02E922 /* Build configuration list for PBXNativeTarget "BonsaiMobileIntegrationTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9DC0C9E9D178A8E67EF4298E /* Debug */,
+				4A53FEEEF6F33DA206424A6A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		A1A0DE6E32E5EA09DF29F081 /* Build configuration list for PBXNativeTarget "BonsaiMobileTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				75910A28CBAF4380FEB09EF0 /* Debug */,
+				3557B3111C93998F3157D44F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		9CBD89527ED3FF1316DC3648 /* XCLocalSwiftPackageReference ".build-dependencies/mlx-swift-lm" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ".build-dependencies/mlx-swift-lm";
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		055E0FEE91B103145BD754DF /* XCRemoteSwiftPackageReference "ZIPFoundation" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/weichsel/ZIPFoundation.git";
+			requirement = {
+				kind = exactVersion;
+				version = 0.9.19;
+			};
+		};
+		16BCE6087BD425DEAA538900 /* XCRemoteSwiftPackageReference "swift-transformers" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/huggingface/swift-transformers.git";
+			requirement = {
+				kind = exactVersion;
+				version = 1.3.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		056342B4C449BC4FB620893A /* ZIPFoundation */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 055E0FEE91B103145BD754DF /* XCRemoteSwiftPackageReference "ZIPFoundation" */;
+			productName = ZIPFoundation;
+		};
+		6A095E1F640A9C82BA09731D /* MLXVLM */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MLXVLM;
+		};
+		82A832B08BE4D6E49F59F560 /* Tokenizers */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 16BCE6087BD425DEAA538900 /* XCRemoteSwiftPackageReference "swift-transformers" */;
+			productName = Tokenizers;
+		};
+		95D56B5E7F56FB8C5CCAA9FD /* MLXHuggingFace */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MLXHuggingFace;
+		};
+		9943147F24F82A85972D6C9B /* MLXLLM */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MLXLLM;
+		};
+		CE0D83BFD83F3BD1FAB0B05D /* MLXLMCommon */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MLXLMCommon;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 16AD27B2C706E59641499B96 /* Project object */;
+}
