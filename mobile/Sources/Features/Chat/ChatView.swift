@@ -11,13 +11,14 @@ struct ChatView: View {
     .background(QuietGardenTheme.paper)
     .navigationTitle("On-device chat")
     .toolbar { ToolbarItem(placement: .primaryAction) { modelStatus } }
+    .task { await viewModel.start() }
   }
 
   private var modelStatus: some View {
-    Label(viewModel.isModelReady ? "Bonsai 27B loaded" : "No model loaded",
+    Label(viewModel.loadedModelName.map { "\($0) loaded" } ?? "No model loaded",
           systemImage: viewModel.isModelReady ? "leaf.fill" : "leaf")
       .font(.caption).foregroundStyle(viewModel.isModelReady ? QuietGardenTheme.success : .secondary)
-      .accessibilityLabel(viewModel.isModelReady ? "Bonsai 27B is loaded locally" : "No model is loaded")
+      .accessibilityLabel(viewModel.loadedModelName.map { "\($0) is loaded locally" } ?? "No model is loaded")
   }
 
   private var emptyState: some View {
@@ -43,6 +44,10 @@ struct ChatView: View {
           }
           AgentActivityView(activities: viewModel.activities) { action in
             await viewModel.respond(to: action)
+          }
+          if let notice = viewModel.contextTrimNotice {
+            Label(notice, systemImage: "text.badge.minus")
+              .font(.footnote).foregroundStyle(.secondary)
           }
           if let recovery = viewModel.recovery {
             HStack {

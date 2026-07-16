@@ -43,6 +43,29 @@ struct ModelLibraryTests {
     }
 
     @Test
+    func verifyAgainRehashesInstalledBytesAndPublishesTypedFailure() async throws {
+        let root = try temporaryDirectory()
+        let expected = Data("garden".utf8)
+        let manifest = try fixtureManifest(expected: expected)
+        let library = try ModelLibrary(
+            root: root,
+            transport: RecordingTransport(files: ["model.safetensors": expected])
+        )
+        try await library.install(manifest, qualification: .qualified([.textGeneration]))
+        try Data("tamper".utf8).write(
+            to: root.appending(path: "installed/oneBit27B/model.safetensors")
+        )
+
+        await #expect(throws: ModelLibraryError.hashMismatch("model.safetensors")) {
+            try await library.verify(manifest)
+        }
+        guard case .failed = await library.state(for: .oneBit27B) else {
+            Issue.record("Expected visible verification failure")
+            return
+        }
+    }
+
+    @Test
     func unqualifiedInstallDoesNotAllocateOrDownload() async throws {
         let root = try temporaryDirectory()
         let transport = RecordingTransport(files: [:])

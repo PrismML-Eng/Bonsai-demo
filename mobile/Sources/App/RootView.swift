@@ -5,7 +5,13 @@ import UIKit
 
 enum RootLayout: Equatable, Sendable { case stack, split }
 enum RootNavigationState {
-  static func layout(forCompactWidth compact: Bool) -> RootLayout { compact ? .stack : .split }
+  static func layout(platform: Platform, compactWidth: Bool) -> RootLayout {
+    switch platform {
+    case .iPhone: .stack
+    case .iPad: compactWidth ? .stack : .split
+    case .mac: .split
+    }
+  }
 }
 
 enum UIFixture: String, CaseIterable, Sendable {
@@ -17,7 +23,12 @@ enum UIFixture: String, CaseIterable, Sendable {
   case pendingNoteWrite = "pending-note-write"
   case toolFailure = "tool-failure"
   case recoverableFailure = "recoverable-failure"
+  case cancelledGeneration = "cancelled-generation"
+  case contextTrimmed = "context-trimmed"
+  case toolDenied = "tool-denied"
 
+  // Fixture coverage intentionally keeps every deterministic product state together.
+  // swiftlint:disable:next cyclomatic_complexity function_body_length
   func makeState() -> UIFixtureState {
     let assistantID = UUID(uuidString: "F17109A6-83C2-4FC7-9513-882049015BE3")!
     let baseMessages = [
@@ -61,13 +72,28 @@ enum UIFixture: String, CaseIterable, Sendable {
                                       detail: "Review the tool request and retry.", actions: [])])
     case .recoverableFailure:
       return .init(library: .fixture(.recoverableFailure), platform: .mac, modelReady: false)
+    case .cancelledGeneration:
+      return .init(library: .fixture(.ready), platform: .mac, modelReady: true,
+                   messages: baseMessages, terminalStatus: "Stopped")
+    case .contextTrimmed:
+      return .init(library: .fixture(.ready), platform: .mac, modelReady: true,
+                   messages: baseMessages, contextTrimNotice: "Older turns were removed to fit context.")
+    case .toolDenied:
+      return .init(library: .fixture(.ready), platform: .mac, modelReady: true,
+                   messages: baseMessages,
+                   activities: [.init(id: "denied", kind: .denied, title: "Local notes denied",
+                                      detail: "No changes were made.", actions: [])])
     }
   }
 
   static func from(arguments: [String]) -> UIFixture? {
+    #if !DEBUG
+    return nil
+    #else
     guard let index = arguments.firstIndex(where: { $0 == "-ui-fixture" || $0 == "--ui-fixture" }),
           arguments.indices.contains(index + 1) else { return nil }
     return UIFixture(rawValue: arguments[index + 1])
+    #endif
   }
 }
 
@@ -79,22 +105,27 @@ struct UIFixtureState: Equatable, Sendable {
   var reasoning = ReasoningPresentation()
   var metrics: GenerationMetrics?
   var activities: [AgentActivityPresentation] = []
+  var terminalStatus: String?
+  var contextTrimNotice: String?
 }
 
 struct RootView: View {
   @State private var libraryViewModel: ModelLibraryViewModel
   @State private var chatViewModel: ChatViewModel
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+  @State private var showsLibrary = false
+  private let platform: Platform
 
   init(composition: RootComposition = .process()) {
     _libraryViewModel = State(initialValue: composition.libraryViewModel)
     _chatViewModel = State(initialValue: composition.chatViewModel)
+    platform = composition.platform
   }
 
   var body: some View {
-    GeometryReader { proxy in
-      Group {
-        if RootNavigationState.layout(forCompactWidth: proxy.size.width < 720) == .stack {
+    Group {
+        if RootNavigationState.layout(platform: platform, compactWidth: horizontalSizeClass == .compact) == .stack {
           NavigationStack { ChatView(viewModel: chatViewModel).toolbar { libraryToolbar } }
         } else {
           NavigationSplitView {
@@ -105,18 +136,25 @@ struct RootView: View {
           .navigationSplitViewStyle(.balanced)
         }
       }
-      .animation(QuietGardenTheme.animation(reduceMotion: reduceMotion), value: proxy.size.width < 720)
-    }
+      .animation(QuietGardenTheme.animation(reduceMotion: reduceMotion), value: horizontalSizeClass)
     .tint(QuietGardenTheme.accent)
     .accessibilityIdentifier(UIAccessibility.root)
     .onChange(of: libraryViewModel.loadedModelID) {
       chatViewModel.isModelReady = libraryViewModel.loadedModelID != nil
+      chatViewModel.loadedModelName = switch libraryViewModel.loadedModelID {
+      case .oneBit27B: "Bonsai 27B · 1-bit"
+      case .ternary27B: "Ternary Bonsai 27B"
+      case nil: nil
+      }
+    }
+    .sheet(isPresented: $showsLibrary) {
+      NavigationStack { ModelLibraryView(viewModel: libraryViewModel) }
     }
   }
 
   @ToolbarContentBuilder private var libraryToolbar: some ToolbarContent {
     ToolbarItem(placement: .navigation) {
-      NavigationLink { ModelLibraryView(viewModel: libraryViewModel) } label: {
+      Button { showsLibrary = true } label: {
         Label("Model Library", systemImage: "shippingbox")
       }
       .accessibilityHint("Manage local Bonsai models")
@@ -128,13 +166,16 @@ struct RootView: View {
 struct RootComposition {
   let libraryViewModel: ModelLibraryViewModel
   let chatViewModel: ChatViewModel
+  let platform: Platform
 
   static func process() -> RootComposition {
     if let fixture = UIFixture.from(arguments: ProcessInfo.processInfo.arguments) {
       return fixtureComposition(fixture.makeState())
     }
     do { return try live() } catch {
-      return fixtureComposition(UIFixture.recoverableFailure.makeState())
+      let composition = fixtureComposition(UIFixture.emptyLibrary.makeState())
+      composition.libraryViewModel.present(error: "App setup failed: \(error.localizedDescription)")
+      return composition
     }
   }
 
@@ -149,7 +190,8 @@ struct RootComposition {
                                                  initial: state.library)
     let chatViewModel = ChatViewModel(service: chat, isModelReady: state.modelReady)
     chatViewModel.applyFixture(state)
-    return RootComposition(libraryViewModel: libraryViewModel, chatViewModel: chatViewModel)
+    return RootComposition(libraryViewModel: libraryViewModel, chatViewModel: chatViewModel,
+                           platform: state.platform)
   }
 
   private static func live() throws -> RootComposition {
@@ -162,11 +204,14 @@ struct RootComposition {
     let registry = try ToolRegistry.live(notes: notes)
     let approvalGate = InteractiveApprovalGate()
     let loop = AgentLoop(engine: engine, registry: registry, approvals: approvalGate)
-    let chat = AgentLoopChatService(loop: loop, approvals: approvalGate)
+    let conversations = try ConversationStore(root: support)
+    let chat = AgentLoopChatService(loop: loop, approvals: approvalGate, engine: engine,
+                                    conversationStore: conversations,
+                                    conversationID: try ConversationID("main"))
     let initial = ModelLibrarySnapshot.fixture(.empty)
     return RootComposition(
       libraryViewModel: ModelLibraryViewModel(service: library, platform: Self.platform, initial: initial),
-      chatViewModel: ChatViewModel(service: chat, isModelReady: false)
+      chatViewModel: ChatViewModel(service: chat, isModelReady: false), platform: Self.platform
     )
   }
 

@@ -40,12 +40,15 @@ struct ContextTrimmer: Sendable {
         self.promptCounter = promptCounter
     }
 
-    func trim(_ conversation: Conversation) async throws -> ContextTrimResult {
+    func trim(
+        _ conversation: Conversation,
+        appending requiredMessages: [ConversationMessage] = []
+    ) async throws -> ContextTrimResult {
         guard limit >= 0 else { throw ContextTrimmerError.invalidLimit(limit) }
-        try validateUniqueIDs(conversation.contextMessages)
+        try validateUniqueIDs(conversation.contextMessages + requiredMessages)
 
         guard let newestIndex = conversation.completedTurns.indices.last else {
-            let messages = [conversation.systemInstruction]
+            let messages = [conversation.systemInstruction] + requiredMessages
             let count = try await count(messages)
             guard count <= limit else {
                 throw ContextTrimmerError.requiredContextExceedsLimit(
@@ -62,7 +65,7 @@ struct ContextTrimmer: Sendable {
         }
 
         var keptStart = newestIndex
-        var keptMessages = candidateMessages(conversation, start: keptStart)
+        var keptMessages = candidateMessages(conversation, start: keptStart) + requiredMessages
         var keptTokenCount = try await count(keptMessages)
         guard keptTokenCount <= limit else {
             throw ContextTrimmerError.requiredContextExceedsLimit(
@@ -73,7 +76,7 @@ struct ContextTrimmer: Sendable {
 
         if newestIndex > 0 {
             for index in stride(from: newestIndex - 1, through: 0, by: -1) {
-                let candidate = candidateMessages(conversation, start: index)
+                let candidate = candidateMessages(conversation, start: index) + requiredMessages
                 let candidateCount = try await count(candidate)
                 guard candidateCount <= limit else { break }
                 keptStart = index

@@ -24,6 +24,25 @@ struct ContextTrimmerTests {
     }
 
     @Test
+    func pendingUserMessageIsRequiredAndOlderWholeTurnsAreTrimmedAroundIt() async throws {
+        let conversation = try Self.conversation(turns: [
+            Self.turn("old", roles: [.user, .assistant]),
+            Self.turn("new", roles: [.user, .assistant])
+        ])
+        let pending = ConversationMessage(id: MessageID("pending"), role: .user, content: "next")
+        let counter = ExactPromptCounter(counts: [
+            "system,old-0,old-1,new-0,new-1,pending": 5_000,
+            "system,new-0,new-1,pending": 2_200
+        ])
+
+        let result = try await ContextTrimmer(promptCounter: counter)
+            .trim(conversation, appending: [pending])
+
+        #expect(result.keptMessages.map(\.id.rawValue) == ["system", "new-0", "new-1", "pending"])
+        #expect(result.notice == .init(removedTurnCount: 1, removedMessageCount: 2))
+    }
+
+    @Test
     func neverSplitsAToolCallResultTransaction() async throws {
         let conversation = try Self.conversation(turns: [
             Self.turn("old", roles: [.user, .toolCall, .toolResult, .assistant]),

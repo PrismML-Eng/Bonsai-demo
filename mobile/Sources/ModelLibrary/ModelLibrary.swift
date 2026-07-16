@@ -1,6 +1,9 @@
 import Darwin
 import Foundation
 
+// The actor keeps transactional install, verify, import, and recovery invariants together.
+// swiftlint:disable file_length
+
 actor ModelLibrary {
     private let root: URL
     private let transport: any ModelFileTransport
@@ -58,18 +61,27 @@ actor ModelLibrary {
         try prepareDirectory(staging)
         do {
             let required = manifest.files.filter { !$0.isOptional }
-            var completed = 0
-            publish(.installing(completedFiles: completed, totalFiles: required.count), for: manifest.id)
+            let totalBytes = required.reduce(0) { $0 + $1.sizeBytes }
+            var completedBytes = 0
+            publish(.transferring(completedBytes: 0, totalBytes: totalBytes), for: manifest.id)
             for file in required {
                 try Task.checkCancellation()
                 let destination = try descendant(file.path, under: staging)
                 if isVerified(file, at: destination) {
-                    completed += 1
-                    publish(.installing(completedFiles: completed, totalFiles: required.count), for: manifest.id)
+                    completedBytes += file.sizeBytes
+                    publish(.transferring(completedBytes: completedBytes, totalBytes: totalBytes), for: manifest.id)
                     continue
                 }
                 let source = try sourceURL(for: file, manifest: manifest)
-                try await transport.download(file, from: source, to: destination)
+                if let progressTransport = transport as? any ProgressReportingModelFileTransport {
+                    let base = completedBytes
+                    try await progressTransport.download(file, from: source, to: destination) { [weak self] bytes in
+                        await self?.publish(.transferring(completedBytes: base + bytes,
+                                                         totalBytes: totalBytes), for: manifest.id)
+                    }
+                } else {
+                    try await transport.download(file, from: source, to: destination)
+                }
                 do {
                     try verifier.verify(file, at: destination)
                     try Self.applyStoragePolicyRecursively(to: destination)
@@ -77,8 +89,8 @@ actor ModelLibrary {
                     try? FileManager.default.removeItem(at: destination)
                     throw error
                 }
-                completed += 1
-                publish(.installing(completedFiles: completed, totalFiles: required.count), for: manifest.id)
+                completedBytes += file.sizeBytes
+                publish(.transferring(completedBytes: completedBytes, totalBytes: totalBytes), for: manifest.id)
             }
             try promote(staging, manifest: manifest)
         } catch is CancellationError {
@@ -92,6 +104,31 @@ actor ModelLibrary {
 
     func resume(_ manifest: ModelManifest, qualification: DeviceQualification) async throws {
         try await install(manifest, qualification: qualification)
+    }
+
+    func verify(_ manifest: ModelManifest) throws {
+        let operation = try beginOperation(for: manifest.id)
+        defer { endOperation(operation, for: manifest.id) }
+        guard case .ready(let installation) = state(for: manifest.id) else {
+            throw ModelLibraryError.missingFile(manifest.id.rawValue)
+        }
+        let required = manifest.files.filter { !$0.isOptional }
+        let total = required.reduce(0) { $0 + $1.sizeBytes }
+        var base = 0
+        publish(.verifying(completedBytes: 0, totalBytes: total), for: manifest.id)
+        do {
+            for file in required {
+                let fileBase = base
+                try verifier.verify(file, at: try descendant(file.path, under: installation.directory)) {
+                    self.publish(.verifying(completedBytes: fileBase + $0, totalBytes: total), for: manifest.id)
+                }
+                base += file.sizeBytes
+            }
+            publish(.ready(installation), for: manifest.id)
+        } catch {
+            publish(.failed(String(describing: error)), for: manifest.id)
+            throw error
+        }
     }
 
     func importModel(

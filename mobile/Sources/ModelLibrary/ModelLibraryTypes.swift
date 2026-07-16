@@ -14,6 +14,9 @@ struct ModelInstallationRecord: Codable {
 enum ModelLibraryState: Equatable, Sendable {
     case notInstalled
     case installing(completedFiles: Int, totalFiles: Int)
+    case transferring(completedBytes: Int, totalBytes: Int)
+    case verifying(completedBytes: Int, totalBytes: Int)
+    case loading
     case ready(ModelInstallation)
     case cancelled
     case failed(String)

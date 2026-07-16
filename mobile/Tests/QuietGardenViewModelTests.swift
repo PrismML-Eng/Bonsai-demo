@@ -1,4 +1,5 @@
 import XCTest
+import MLXLMCommon
 @testable import BonsaiMobile
 
 @MainActor
@@ -26,6 +27,36 @@ final class QuietGardenViewModelTests: XCTestCase {
       snapshot: .fixture(.recoverableFailure), loadedModelID: nil, platform: .mac
     )[0]
     XCTAssertEqual(failed.recovery?.label, "Retry download")
+  }
+
+  func testLibraryMapsExactByteProgressAndImportRequestsPicker() async throws {
+    let snapshot = ModelLibrarySnapshot(states: [
+      .oneBit27B: .transferring(completedBytes: 25, totalBytes: 100),
+      .ternary27B: .notInstalled
+    ])
+    let service = RecordingLibraryService(snapshot: snapshot)
+    let viewModel = ModelLibraryViewModel(service: service, platform: .mac, initial: snapshot)
+    let row = try XCTUnwrap(viewModel.rows.first { $0.id == .oneBit27B })
+    XCTAssertEqual(try XCTUnwrap(row.progress), 0.25, accuracy: 0.001)
+
+    let importRow = try XCTUnwrap(viewModel.rows.first { $0.id == .ternary27B })
+    let importAction = try XCTUnwrap(importRow.secondaryActions.first)
+    await viewModel.perform(importAction, modelID: .ternary27B)
+    XCTAssertEqual(viewModel.pendingImportModelID, .ternary27B)
+    let recordedIntent = await service.lastIntent
+    XCTAssertNil(recordedIntent)
+  }
+
+  func testSuccessfulDeleteClearsStaleLoadedIdentity() async throws {
+    let snapshot = ModelLibrarySnapshot.fixture(.ready)
+    let service = RecordingLibraryService(snapshot: snapshot)
+    let viewModel = ModelLibraryViewModel(service: service, platform: .mac, initial: snapshot)
+    let load = try XCTUnwrap(viewModel.rows.first { $0.id == .oneBit27B }?.primaryAction)
+    await viewModel.perform(load, modelID: .oneBit27B)
+    let delete = try XCTUnwrap(viewModel.rows.first { $0.id == .oneBit27B }?
+      .secondaryActions.first { $0.intent == .delete })
+    await viewModel.perform(delete, modelID: .oneBit27B)
+    XCTAssertNil(viewModel.loadedModelID)
   }
 
   func testLibraryLoadIntentUpdatesLoadedStateAndChatReadinessContract() async throws {
@@ -111,15 +142,18 @@ final class QuietGardenViewModelTests: XCTestCase {
   func testFixturesAreDeterministicAndCoverRequiredStates() {
     XCTAssertEqual(Set(UIFixture.allCases), [
       .emptyLibrary, .downloading, .unsupportedTernary, .readyChat,
-      .streamingReasoning, .pendingNoteWrite, .toolFailure, .recoverableFailure
+      .streamingReasoning, .pendingNoteWrite, .toolFailure, .recoverableFailure,
+      .cancelledGeneration, .contextTrimmed, .toolDenied
     ])
     XCTAssertEqual(UIFixture.readyChat.makeState(), UIFixture.readyChat.makeState())
     XCTAssertEqual(UIAccessibility.chatComposer, "chat.composer")
   }
 
-  func testNavigationContractUsesStackForCompactAndSplitForRegular() {
-    XCTAssertEqual(RootNavigationState.layout(forCompactWidth: true), .stack)
-    XCTAssertEqual(RootNavigationState.layout(forCompactWidth: false), .split)
+  func testNavigationContractUsesPlatformAndHorizontalSizeClass() {
+    XCTAssertEqual(RootNavigationState.layout(platform: .iPhone, compactWidth: false), .stack)
+    XCTAssertEqual(RootNavigationState.layout(platform: .iPad, compactWidth: true), .stack)
+    XCTAssertEqual(RootNavigationState.layout(platform: .iPad, compactWidth: false), .split)
+    XCTAssertEqual(RootNavigationState.layout(platform: .mac, compactWidth: true), .split)
   }
 
   func testLiveAgentAdapterForwardsOrderedReasoningAnswerAndMetrics() async throws {
@@ -132,7 +166,7 @@ final class QuietGardenViewModelTests: XCTestCase {
     let gate = InteractiveApprovalGate()
     let service = AgentLoopChatService(loop: AgentLoop(engine: engine, registry: registry), approvals: gate)
 
-    let stream = try await service.stream(.init(prompt: "Hi", effort: .medium))
+    let stream = try await service.stream(.init(prompt: "Hi", effort: .high))
     var received: [ChatSessionEvent] = []
     for try await event in stream { received.append(event) }
 
@@ -140,14 +174,76 @@ final class QuietGardenViewModelTests: XCTestCase {
     XCTAssertEqual(received.compactMap { if case .answer(let value) = $0 { value } else { nil } },
                    ["Hello ", "there"])
     XCTAssertTrue(received.contains(.metrics(metrics)))
+    let recordedRequest = await engine.lastRequest
+    XCTAssertEqual(recordedRequest?.reasoningBudget, 8_192)
+  }
+
+  func testLiveAgentAdapterPersistsAndReplaysStructuredMultiTurnConversation() async throws {
+    let runtime = PersistingRuntimeResource()
+    let engine = MLXInferenceEngine(loader: PersistingRuntimeLoader(resource: runtime))
+    let revision = String(repeating: "a", count: 40)
+    try await engine.load(.init(modelID: .oneBit27B,
+                                directory: URL(fileURLWithPath: "/tmp/persisting-runtime"),
+                                revision: revision))
+    let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    let store = try ConversationStore(root: root)
+    let registry = try ToolRegistry.live(notes: NotesStore(root: root))
+    let gate = InteractiveApprovalGate()
+    let service = AgentLoopChatService(
+      loop: AgentLoop(engine: engine, registry: registry), approvals: gate, engine: engine,
+      conversationStore: store, conversationID: try ConversationID("main"),
+      modelRevision: revision)
+
+    for prompt in ["first", "second"] {
+      for try await _ in try await service.stream(.init(prompt: prompt, effort: .off)) {}
+    }
+
+    let loaded = try await store.load(ConversationID("main"), for: .oneBit27B)
+    let saved = try XCTUnwrap(loaded)
+    XCTAssertEqual(saved.completedTurns.count, 2)
+    XCTAssertEqual(runtime.streamedMessages.count, 2)
+    XCTAssertEqual(runtime.streamedMessages[1].map(\.role),
+                   [.system, .user, .assistant, .user])
+  }
+}
+
+private struct PersistingRuntimeLoader: MLXRuntimeLoading {
+  let resource: PersistingRuntimeResource
+  func load(_ installation: ModelInstallation) async throws -> any MLXRuntimeResource { resource }
+}
+
+private final class PersistingRuntimeResource: MLXRuntimeResource, @unchecked Sendable {
+  let reasoningConfig: ReasoningConfig? = nil
+  private let lock = NSLock()
+  private(set) var streamedMessages: [[ConversationMessage]] = []
+  func configure(_ request: GenerationRequest) {}
+  func streamDetails(to prompt: String) -> AsyncThrowingStream<MLXLMCommon.Generation, Error> {
+    fatalError("structured generation required")
+  }
+  func streamDetails(to messages: [ConversationMessage]) throws
+    -> AsyncThrowingStream<MLXLMCommon.Generation, Error> {
+    lock.withLock { streamedMessages.append(messages) }
+    let pair = AsyncThrowingStream<MLXLMCommon.Generation, Error>.makeStream()
+    pair.continuation.yield(.chunk("answer"))
+    pair.continuation.yield(.info(.init(promptTokenCount: messages.count,
+                                       generationTokenCount: 1, promptTime: 0.01,
+                                       generationTime: 0.01, stopReason: .stop)))
+    pair.continuation.finish()
+    return pair.stream
+  }
+  func preparedPromptTokenCount(for messages: [ConversationMessage], reasoningEnabled: Bool,
+                                tools: [GenerationToolSpecification]) async throws -> Int {
+    messages.count
   }
 }
 
 private actor UIAgentEngine: AgentInferenceStreaming {
   let events: [GenerationEvent]
+  private(set) var lastRequest: GenerationRequest?
   init(events: [GenerationEvent]) { self.events = events }
   func generate(_ request: GenerationRequest) async throws
     -> AsyncThrowingStream<GenerationEvent, any Error> {
+    lastRequest = request
     let pair = AsyncThrowingStream<GenerationEvent, any Error>.makeStream()
     events.forEach { pair.continuation.yield($0) }
     pair.continuation.finish()

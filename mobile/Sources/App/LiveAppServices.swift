@@ -41,9 +41,7 @@ actor LiveModelLibraryService: ModelLibraryServing {
       let qualification = await qualification(for: modelID)
       try await library.install(manifest, qualification: qualification)
     case .verify:
-      guard case .ready = await library.state(for: modelID) else {
-        throw LiveUIServiceError.modelNotInstalled
-      }
+      try await library.verify(manifest)
     case .importModel:
       throw LiveUIServiceError.importRequiresPicker
     case .load:
@@ -59,6 +57,11 @@ actor LiveModelLibraryService: ModelLibraryServing {
       if loadedModelID == modelID { await engine.unload(); loadedModelID = nil }
       try await library.delete(modelID)
     }
+  }
+
+  func importModel(_ modelID: ModelID, from source: URL) async throws {
+    guard let manifest = manifests[modelID] else { throw LiveUIServiceError.missingManifest(modelID) }
+    try await library.importModel(manifest, from: source, qualification: await qualification(for: modelID))
   }
 
   private func qualification(for modelID: ModelID) async -> DeviceQualification {
@@ -108,22 +111,55 @@ actor InteractiveApprovalGate: ToolApprovalGate {
 }
 
 actor AgentLoopChatService: ChatSessionServing {
-  private let loop: AgentLoop
-  private let approvals: InteractiveApprovalGate
-
-  init(loop: AgentLoop, approvals: InteractiveApprovalGate) {
-    self.loop = loop
-    self.approvals = approvals
+  private struct PersistentGeneration {
+    let conversation: Conversation
+    let trim: ContextTrimResult
+    let request: GenerationRequest
   }
 
+  private let loop: AgentLoop
+  private let approvals: InteractiveApprovalGate
+  private let engine: MLXInferenceEngine?
+  private let conversationStore: ConversationStore?
+  private let conversationID: ConversationID?
+  private let modelID: ModelID
+  private let modelRevision: String
+
+  init(loop: AgentLoop, approvals: InteractiveApprovalGate,
+       engine: MLXInferenceEngine? = nil, conversationStore: ConversationStore? = nil,
+       conversationID: ConversationID? = nil, modelID: ModelID = .oneBit27B,
+       modelRevision: String = String(repeating: "a", count: 40)) {
+    self.loop = loop
+    self.approvals = approvals
+    self.engine = engine
+    self.conversationStore = conversationStore
+    self.conversationID = conversationID
+    self.modelID = modelID
+    self.modelRevision = modelRevision
+  }
+
+  // This function owns the lifecycle boundary for forwarding, persistence, and completion.
+  // swiftlint:disable:next cyclomatic_complexity function_body_length
   func stream(_ request: ChatSendRequest) async throws -> AsyncThrowingStream<ChatSessionEvent, any Error> {
-    let generation = try GenerationRequest(prompt: request.prompt,
-                                           reasoningEnabled: request.effort != .off)
+    let userMessage = ConversationMessage(id: MessageID(UUID().uuidString), role: .user,
+                                          content: request.prompt)
+    let persistence = try await persistentGeneration(userMessage: userMessage,
+                                                     effort: request.effort)
+    let generation: GenerationRequest
+    if let prepared = persistence?.request {
+      generation = prepared
+    } else {
+      generation = try GenerationRequest(prompt: request.prompt,
+                                         reasoningBudget: request.effort.tokenBudget)
+    }
     let liveEvents = await loop.events()
     return AsyncThrowingStream { continuation in
       let task = Task { [loop] in
         let assistantID = UUID()
         continuation.yield(.assistantStarted(id: assistantID))
+        if let notice = persistence?.trim.notice, notice.removedTurnCount > 0 {
+          continuation.yield(.contextTrimmed(notice))
+        }
         let forwardingTask = Task {
           var index = 0
           for await event in liveEvents {
@@ -133,7 +169,7 @@ actor AgentLoopChatService: ChatSessionServing {
             case .metrics(let metrics): continuation.yield(.metrics(metrics))
             case .toolRequest(let invocation):
               continuation.yield(.activity(.init(
-                id: "\(invocation.id)-requested",
+                id: invocation.id,
                 kind: .requested,
                 title: "\(Self.toolTitle(invocation.name)) requested",
                 detail: nil,
@@ -152,6 +188,10 @@ actor AgentLoopChatService: ChatSessionServing {
         do {
           let result = try await loop.run(generation)
           await forwardingTask.value
+          if let conversation = persistence?.conversation {
+            try await self.persist(result: result, userMessage: userMessage,
+                                   conversation: conversation)
+          }
           continuation.yield(.completed(result.completion))
           continuation.finish()
         } catch {
@@ -163,6 +203,20 @@ actor AgentLoopChatService: ChatSessionServing {
   }
 
   func cancel() async { await loop.cancel() }
+
+  func history() async throws -> [ChatMessagePresentation] {
+    guard let conversationStore, let conversationID,
+          let conversation = try await conversationStore.load(conversationID, for: modelID) else { return [] }
+    return conversation.completedTurns.flatMap { turn in
+      turn.messages.compactMap { message in
+        switch message.role {
+        case .user: ChatMessagePresentation(id: UUID(), role: .user, text: message.content)
+        case .assistant: ChatMessagePresentation(id: UUID(), role: .assistant, text: message.content)
+        default: nil
+        }
+      }
+    }
+  }
 
   func respond(to action: ActivityAction) async {
     switch action {
@@ -181,17 +235,66 @@ actor AgentLoopChatService: ChatSessionServing {
     }
   }
 
+  private func persistentGeneration(userMessage: ConversationMessage, effort: ReasoningEffort)
+    async throws -> PersistentGeneration? {
+    guard let engine, let conversationStore, let conversationID else { return nil }
+    let conversation = try await conversationStore.load(conversationID, for: modelID)
+      ?? Conversation(id: conversationID, modelID: modelID, modelRevision: modelRevision, revision: 0,
+                      systemInstruction: .init(id: MessageID("system"), role: .system,
+                                               content: "You are Bonsai, a private on-device assistant."),
+                      completedTurns: [])
+    let tools = await loop.toolSpecifications()
+    let prepared = try await engine.preparedGeneration(
+      for: conversation, appending: [userMessage], reasoningBudget: effort.tokenBudget, tools: tools)
+    return PersistentGeneration(
+      conversation: conversation,
+      trim: prepared.trim,
+      request: prepared.request)
+  }
+
+  private func persist(result: AgentRunResult, userMessage: ConversationMessage,
+                       conversation: Conversation) async throws {
+    guard let conversationStore, !result.answer.isEmpty else { return }
+    var messages = [userMessage]
+    var knownInvocations: [String: ToolInvocation] = [:]
+    for activity in result.activities {
+      switch activity {
+      case .pendingApproval(let request): knownInvocations[request.invocation.id] = request.invocation
+      case .running(let invocation): knownInvocations[invocation.id] = invocation
+      default: break
+      }
+    }
+    for result in result.toolResults {
+      guard let invocation = knownInvocations[result.invocationID] else { continue }
+      messages.append(.init(id: MessageID(UUID().uuidString), role: .toolCall,
+                            content: String(data: try JSONEncoder().encode(invocation), encoding: .utf8)!,
+                            transactionID: invocation.id))
+      messages.append(.init(id: MessageID(UUID().uuidString), role: .toolResult,
+                            content: result.contentJSON, transactionID: invocation.id))
+    }
+    messages.append(.init(id: MessageID(UUID().uuidString), role: .assistant, content: result.answer))
+    let updated = try Conversation(id: conversation.id, modelID: conversation.modelID,
+                                   modelRevision: conversation.modelRevision,
+                                   revision: conversation.revision + 1,
+                                   systemInstruction: conversation.systemInstruction,
+                                   completedTurns: conversation.completedTurns + [
+                                    .init(id: UUID().uuidString, messages: messages,
+                                          reasoningText: result.reasoning.isEmpty ? nil : result.reasoning)
+                                   ])
+    try await conversationStore.save(updated)
+  }
+
   private static func presentation(_ activity: AgentActivity, index: Int) -> AgentActivityPresentation? {
     switch activity {
     case .generating:
       return .init(id: "generating-\(index)", kind: .requested, title: "Generating locally",
                    detail: nil, actions: [])
     case .pendingApproval(let request):
-      return .pendingApproval(id: "\(request.invocation.id)-approval",
+      return .pendingApproval(id: request.invocation.id,
                               toolName: toolTitle(request.invocation.name),
                               effect: request.effect, invocation: request.invocation)
     case .running(let invocation):
-      return .init(id: "\(invocation.id)-running", kind: .running,
+      return .init(id: invocation.id, kind: .running,
                    title: "Running \(toolTitle(invocation.name))",
                    detail: "On this device", actions: [])
     case .result(let result):
@@ -200,7 +303,7 @@ actor AgentLoopChatService: ChatSessionServing {
       case .denied: .denied
       case .failed: .failed
       }
-      return .init(id: "\(result.invocationID)-result", kind: kind,
+      return .init(id: result.invocationID, kind: kind,
                    title: result.status == .succeeded ? "Tool finished" : "Tool \(result.status.rawValue)",
                    detail: result.contentJSON, actions: [])
     case .terminal(let completion):

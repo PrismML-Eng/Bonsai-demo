@@ -103,6 +103,28 @@ final class MLXInferenceIntegrationTests: XCTestCase {
     await engine.unload()
   }
 
+  func testPublicOneBitBoundedReasoningClosesAndProducesFinalAnswer() async throws {
+    let engine = MLXInferenceEngine()
+    try await engine.load(.init(modelID: .oneBit27B, directory: try Self.modelDirectory(),
+                                revision: "public-local-fixture"))
+    let budget = 32
+    let events = try await Self.collect(try await engine.generate(
+      try GenerationRequest(prompt: "Think briefly, then answer with exactly: green",
+                            reasoningBudget: budget, maxTokens: 128)
+    ))
+    let reasoning = events.text(for: .reasoning)
+    let answer = events.text(for: .answer)
+    print("BoundedReasoningRaw reasoning=\(reasoning) answer=\(answer)")
+    XCTAssertFalse(reasoning.isEmpty)
+    XCTAssertFalse(answer.isEmpty)
+    XCTAssertFalse(answer.contains("</think>"))
+    XCTAssertEqual(events.terminalCount, 1)
+    let generated = try XCTUnwrap(events.compactMap(\.metrics).last?.generatedTokenCount)
+    XCTAssertGreaterThan(generated, budget, "generation continued after the forced reasoning close")
+    print("BoundedReasoning budget=\(budget) totalGenerated=\(generated) answer=\(answer)")
+    await engine.unload()
+  }
+
   func testPublicOneBitReasoningCancellationAndReloadCycles() async throws {
     let modelDirectory = try Self.modelDirectory()
     let installation = ModelInstallation(
@@ -133,7 +155,7 @@ final class MLXInferenceIntegrationTests: XCTestCase {
       try await engine.generate(
         try GenerationRequest(
           prompt: "Think briefly, then answer with exactly: green",
-          reasoningEnabled: true,
+          reasoningBudget: 32,
           maxTokens: 256
         )
       )

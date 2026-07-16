@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct ModelLibraryView: View {
   @Bindable var viewModel: ModelLibraryViewModel
@@ -18,6 +19,24 @@ struct ModelLibraryView: View {
     .navigationTitle("Bonsai")
     .accessibilityIdentifier(UIAccessibility.modelLibrary)
     .task { viewModel.start() }
+    .fileImporter(isPresented: Binding(
+      get: { viewModel.pendingImportModelID != nil },
+      set: { if !$0 { viewModel.pendingImportModelID = nil } }
+    ), allowedContentTypes: [.folder, .zip], allowsMultipleSelection: false) { result in
+      guard case .success(let urls) = result, let source = urls.first else { return }
+      Task {
+        let access = source.startAccessingSecurityScopedResource()
+        defer { if access { source.stopAccessingSecurityScopedResource() } }
+        await viewModel.importPending(from: source)
+      }
+    }
+    .safeAreaInset(edge: .bottom) {
+      if let error = viewModel.errorMessage {
+        HStack { Image(systemName: "exclamationmark.triangle.fill"); Text(error); Spacer() }
+          .font(.footnote).padding().background(.regularMaterial)
+          .accessibilityLabel("Model action failed. \(error). Try the action again.")
+      }
+    }
   }
 
   private func modelRow(_ row: ModelRowPresentation) -> some View {
@@ -68,6 +87,7 @@ struct ModelLibraryView: View {
 
   private func actionControl(_ action: ModelActionPresentation, row: ModelRowPresentation) -> some View {
     Button(action.label) { Task { await viewModel.perform(action, modelID: row.id) } }
+      .disabled(viewModel.inFlightModelIDs.contains(row.id))
       .controlSize(.regular).frame(minHeight: QuietGardenTheme.minimumTarget)
       .accessibilityHint("\(action.label) \(row.name)")
   }

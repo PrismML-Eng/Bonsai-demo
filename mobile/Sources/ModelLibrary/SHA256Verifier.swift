@@ -7,18 +7,22 @@ struct SHA256Verifier: Sendable {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 
-    func verify(_ file: ModelManifest.File, at url: URL) throws {
+    func verify(_ file: ModelManifest.File, at url: URL,
+                progress: ((Int) -> Void)? = nil) throws {
         let actual = try NoFollowRegularFile.withDescriptor(at: url, logicalPath: file.path) { descriptor, info in
             guard info.st_size == file.sizeBytes else {
                 throw ModelLibraryError.sizeMismatch(file.path)
             }
             var hasher = SHA256()
             var buffer = [UInt8](repeating: 0, count: 1_048_576)
+            var completed = 0
             while true {
                 try Task.checkCancellation()
                 let byteCount = try NoFollowRegularFile.read(descriptor, into: &buffer)
                 guard byteCount > 0 else { break }
                 hasher.update(data: Data(buffer[0..<byteCount]))
+                completed += byteCount
+                progress?(completed)
             }
             return hasher.finalize().map { String(format: "%02x", $0) }.joined()
         }

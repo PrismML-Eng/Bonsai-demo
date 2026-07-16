@@ -31,3 +31,122 @@ new file mode 100644
 +        return -dtype.greatestFiniteMagnitudeArray
 +    }
 +}
+diff --git a/Libraries/MLXLMCommon/ChatSession.swift b/Libraries/MLXLMCommon/ChatSession.swift
+--- a/Libraries/MLXLMCommon/ChatSession.swift
++++ b/Libraries/MLXLMCommon/ChatSession.swift
+@@ -166,2 +166,10 @@ public final class ChatSession {
+     public var additionalContext: [String: any Sendable]?
++    /// `0` disables reasoning through the chat template, `-1` is unlimited,
++    /// and a positive value forces the model's reasoning close delimiter after
++    /// exactly this many generated reasoning tokens.
++    public var reasoningBudget: Int = -1
++    /// Optional app-supplied delimiter for locally registered reasoning models.
++    /// This takes precedence over model-configuration inference, which can be
++    /// absent for custom local model architectures.
++    public var reasoningEndDelimiter: String?
+     public var tools: [ToolSpec]?
+@@ -587,3 +595,4 @@ public final class ChatSession {
+                 instructions, processing, tools, toolDispatch,
+-                additionalContext, cache, loadedDraftModel, generateParameters, speculativeDecoding
++                additionalContext, reasoningBudget, reasoningEndDelimiter,
++                cache, loadedDraftModel, generateParameters, speculativeDecoding
+             ] in
+@@ -664,2 +673,24 @@ public final class ChatSession {
+                             // next tool restart — anchors correctly.
++                            let baseProcessor = generateParameters.processor()
++                            let budgetProcessor: LogitProcessor?
++                            if reasoningBudget > 0 {
++                                guard let delimiter = reasoningEndDelimiter
++                                        ?? modelConfiguration.reasoningConfig?.endDelimiter else {
++                                    throw ReasoningBudgetError.missingEndDelimiter
++                                }
++                                let delimiterTokens = tokenizer.encode(
++                                    text: delimiter, addSpecialTokens: false)
++                                guard delimiterTokens.count == 1,
++                                      let endTokenID = delimiterTokens.first else {
++                                    throw ReasoningBudgetError.endDelimiterIsNotSingleToken(
++                                        delimiter)
++                                }
++                                budgetProcessor = ReasoningBudgetProcessor(
++                                    upstream: baseProcessor,
++                                    budget: reasoningBudget,
++                                    endTokenID: endTokenID
++                                )
++                            } else {
++                                budgetProcessor = baseProcessor
++                            }
+                             let iterator = try TokenIterator(
+@@ -667,3 +698,6 @@ public final class ChatSession {
+                                 state: lmState,
+-                                parameters: generateParameters)
++                                processor: budgetProcessor,
++                                sampler: generateParameters.sampler(),
++                                prefillStepSize: generateParameters.prefillStepSize,
++                                maxTokens: generateParameters.maxTokens)
+                             lmState = iterator.state
+diff --git a/Libraries/MLXLMCommon/Evaluate.swift b/Libraries/MLXLMCommon/Evaluate.swift
+--- a/Libraries/MLXLMCommon/Evaluate.swift
++++ b/Libraries/MLXLMCommon/Evaluate.swift
+@@ -44,3 +44,61 @@ public protocol LogitProcessor {
+ }
+-
++
++public enum ReasoningBudgetError: LocalizedError, Sendable {
++    case missingEndDelimiter
++    case endDelimiterIsNotSingleToken(String)
++
++    public var errorDescription: String? {
++        switch self {
++        case .missingEndDelimiter:
++            "A positive reasoning budget requires a configured reasoning end delimiter."
++        case .endDelimiterIsNotSingleToken(let delimiter):
++            "The reasoning end delimiter must encode to exactly one token: \(delimiter)"
++        }
++    }
++}
++
++/// Composes an existing processor with a token-accurate reasoning budget. Once
++/// the budget is exhausted, exactly the configured close-delimiter token is
++/// forced and normal answer generation resumes.
++public struct ReasoningBudgetProcessor: LogitProcessor {
++    private var upstream: LogitProcessor?
++    private let budget: Int
++    private let endTokenID: Int
++    private var reasoningTokenCount = 0
++    private var didClose = false
++
++    public init(upstream: LogitProcessor?, budget: Int, endTokenID: Int) {
++        self.upstream = upstream
++        self.budget = budget
++        self.endTokenID = endTokenID
++    }
++
++    mutating public func prompt(_ prompt: MLXArray) {
++        reasoningTokenCount = 0
++        didClose = false
++        upstream?.prompt(prompt)
++    }
++
++    public func process(logits: MLXArray) -> MLXArray {
++        let processed = upstream?.process(logits: logits) ?? logits
++        guard !didClose, reasoningTokenCount >= budget else { return processed }
++        let masked = MLXArray.full(
++            processed.shape,
++            values: MLXArray.maskFill(for: processed.dtype),
++            dtype: processed.dtype
++        )
++        return masked.at[0..., endTokenID].add(-MLXArray.maskFill(for: processed.dtype))
++    }
++
++    mutating public func didSample(token: MLXArray) {
++        upstream?.didSample(token: token)
++        guard !didClose else { return }
++        if token.item(Int.self) == endTokenID {
++            didClose = true
++        } else {
++            reasoningTokenCount += 1
++        }
++    }
++}
++
+ /// Parameters for text generation, see ``TokenIterator``.

@@ -19,11 +19,16 @@ struct AgentActivityView: View {
                   .fixedSize(horizontal: false, vertical: true)
               }
               if !activity.actions.isEmpty {
-                HStack {
+                ViewThatFits(in: .horizontal) {
+                  HStack {
+                    ForEach(Array(activity.actions.enumerated()), id: \.offset) { _, action in
+                      styledButton(action)
+                    }
+                  }
+                  VStack(alignment: .leading) {
                   ForEach(Array(activity.actions.enumerated()), id: \.offset) { _, action in
-                    if action.label == "Allow once" {
-                      activityButton(action).buttonStyle(.borderedProminent).tint(QuietGardenTheme.accent)
-                    } else { activityButton(action).buttonStyle(.bordered) }
+                    styledButton(action)
+                  }
                   }
                 }
               }
@@ -44,6 +49,12 @@ struct AgentActivityView: View {
       .frame(minHeight: QuietGardenTheme.minimumTarget)
       .accessibilityIdentifier(action.label == "Allow once"
         ? UIAccessibility.approvalAllow : UIAccessibility.approvalDeny)
+  }
+
+  @ViewBuilder private func styledButton(_ action: ActivityActionPresentation) -> some View {
+    if action.label == "Allow once" {
+      activityButton(action).buttonStyle(.borderedProminent).tint(QuietGardenTheme.accent)
+    } else { activityButton(action).buttonStyle(.bordered) }
   }
 
   private func icon(_ kind: AgentActivityKind) -> String {

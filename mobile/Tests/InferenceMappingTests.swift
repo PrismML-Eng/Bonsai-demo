@@ -10,10 +10,25 @@ struct InferenceMappingTests {
         #expect(throws: GenerationRequestError.invalidMaxTokens(0)) {
             try GenerationRequest(prompt: "hello", reasoningEnabled: false, maxTokens: 0)
         }
-        #expect(throws: GenerationRequestError.invalidMaxTokens(4_097)) {
-            try GenerationRequest(prompt: "hello", reasoningEnabled: false, maxTokens: 4_097)
+        #expect(throws: GenerationRequestError.invalidMaxTokens(16_385)) {
+            try GenerationRequest(prompt: "hello", reasoningEnabled: false, maxTokens: 16_385)
         }
-        #expect(try GenerationRequest(prompt: "hello").maxTokens == 512)
+        #expect(try GenerationRequest(prompt: "hello").maxTokens == 12_288)
+    }
+
+    @Test
+    func exactReasoningBudgetSurvivesToolReplacement() throws {
+        for budget in [-1, 0, 512, 2_048, 8_192] {
+            let request = try GenerationRequest(prompt: "hello", reasoningBudget: budget)
+            let replaced = request.replacingTools([
+                .init(name: "calculator", description: "Calculate", parametersJSON: "{}")
+            ])
+            #expect(replaced.reasoningBudget == budget)
+            #expect(replaced.reasoningEnabled == (budget != 0))
+        }
+        #expect(throws: GenerationRequestError.invalidReasoningBudget(-2)) {
+            try GenerationRequest(prompt: "hello", reasoningBudget: -2)
+        }
     }
 
     @Test

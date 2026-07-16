@@ -155,7 +155,7 @@ private final class LiveMLXRuntimeResource: MLXRuntimeResource, @unchecked Senda
   init(container: ModelContainer, reasoningConfig: ReasoningConfig?) {
     self.container = container
     self.reasoningConfig = reasoningConfig
-    session = Self.makeSession(container: container)
+    session = Self.makeSession(container: container, reasoningConfig: reasoningConfig)
   }
 
   func configure(_ request: GenerationRequest) {
@@ -176,7 +176,7 @@ private final class LiveMLXRuntimeResource: MLXRuntimeResource, @unchecked Senda
     to messages: [ConversationMessage]
   ) throws -> AsyncThrowingStream<MLXLMCommon.Generation, Error> {
     guard let configuredRequest else { throw MLXInferenceError.tokenCountingUnavailable }
-    let created = Self.makeSession(container: container)
+    let created = Self.makeSession(container: container, reasoningConfig: reasoningConfig)
     Self.configure(created, request: configuredRequest)
     session = created
     sessionIdentity = UUID()
@@ -221,18 +221,23 @@ private final class LiveMLXRuntimeResource: MLXRuntimeResource, @unchecked Senda
 
   private func ensureSession() -> MLXLMCommon.ChatSession {
     if let session { return session }
-    let created = Self.makeSession(container: container)
+    let created = Self.makeSession(container: container, reasoningConfig: reasoningConfig)
     session = created
     sessionIdentity = UUID()
     return created
   }
 
-  private static func makeSession(container: ModelContainer) -> MLXLMCommon.ChatSession {
-    MLXLMCommon.ChatSession(
+  private static func makeSession(
+    container: ModelContainer,
+    reasoningConfig: ReasoningConfig?
+  ) -> MLXLMCommon.ChatSession {
+    let session = MLXLMCommon.ChatSession(
       container,
       generateParameters: parameters(maxTokens: GenerationRequest.defaultMaxTokens),
       processing: processing
     )
+    session.reasoningEndDelimiter = reasoningConfig?.endDelimiter
+    return session
   }
 
   private static let processing = UserInput.Processing(
@@ -242,6 +247,7 @@ private final class LiveMLXRuntimeResource: MLXRuntimeResource, @unchecked Senda
   private static func configure(_ session: MLXLMCommon.ChatSession, request: GenerationRequest) {
     session.generateParameters = parameters(maxTokens: request.maxTokens)
     session.additionalContext = ["enable_thinking": request.reasoningEnabled]
+    session.reasoningBudget = request.reasoningBudget
     session.tools = try? MLXPromptComposer.toolSpecs(request.tools)
   }
 

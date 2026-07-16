@@ -83,6 +83,7 @@ enum AgentLiveEvent: Equatable, Sendable {
 
 struct AgentRunResult: Equatable, Sendable {
   let answer: String
+  let reasoning: String
   let toolResults: [AgentToolResult]
   let activities: [AgentActivity]
   let completion: AgentCompletion
@@ -109,6 +110,7 @@ actor AgentLoop {
   }
 
   func activities() -> [AgentActivity] { currentActivities }
+  func toolSpecifications() -> [GenerationToolSpecification] { registry.specifications }
 
   func events() -> AsyncStream<AgentLiveEvent> {
     let id = UUID()
@@ -124,14 +126,14 @@ actor AgentLoop {
     guard activeRun == nil else {
       let completion = AgentCompletion.runtimeFailure("agent_run_already_active")
       return AgentRunResult(
-        answer: "", toolResults: [], activities: [.terminal(completion)], completion: completion
+        answer: "", reasoning: "", toolResults: [], activities: [.terminal(completion)], completion: completion
       )
     }
     let runID = UUID()
     let task = Task { [weak self] in
       guard let self else {
         return AgentRunResult(
-          answer: "", toolResults: [], activities: [.terminal(.cancelled)], completion: .cancelled)
+          answer: "", reasoning: "", toolResults: [], activities: [.terminal(.cancelled)], completion: .cancelled)
       }
       return await self.performRun(request.replacingTools(self.registry.specifications))
     }
@@ -146,24 +148,25 @@ actor AgentLoop {
     currentActivities = []
     appendActivity(.generating)
     var answer = ""
+    var reasoning = ""
     var results: [AgentToolResult] = []
     var seenIDs: Set<String> = []
     var toolTurns = 0
     do {
       var stream = try await engine.generate(request)
       while true {
-        let batch = try await consume(stream, answer: &answer)
+        let batch = try await consume(stream, answer: &answer, reasoning: &reasoning)
         switch batch.completion {
         case .stop:
-          return finish(.stop, answer: answer, results: results)
+          return finish(.stop, answer: answer, reasoning: reasoning, results: results)
         case .length:
-          return finish(.length, answer: answer, results: results)
+          return finish(.length, answer: answer, reasoning: reasoning, results: results)
         case .cancelled:
-          return finish(.cancelled, answer: answer, results: results)
+          return finish(.cancelled, answer: answer, reasoning: reasoning, results: results)
         case .toolRequest:
           guard toolTurns < Self.maximumToolTurns else {
             return finish(
-              .toolTurnLimit(Self.maximumToolTurns), answer: answer, results: results
+              .toolTurnLimit(Self.maximumToolTurns), answer: answer, reasoning: reasoning, results: results
             )
           }
           toolTurns += 1
@@ -172,7 +175,7 @@ actor AgentLoop {
             try Task.checkCancellation()
             guard seenIDs.insert(invocation.id).inserted else {
               return finish(
-                .duplicateInvocationID(invocation.id), answer: answer, results: results
+                .duplicateInvocationID(invocation.id), answer: answer, reasoning: reasoning, results: results
               )
             }
             let result = try await execute(invocation)
@@ -187,9 +190,10 @@ actor AgentLoop {
         }
       }
     } catch is CancellationError {
-      return finish(.cancelled, answer: answer, results: results)
+      return finish(.cancelled, answer: answer, reasoning: reasoning, results: results)
     } catch {
-      return finish(.runtimeFailure(String(describing: error)), answer: answer, results: results)
+      return finish(.runtimeFailure(String(describing: error)), answer: answer,
+                    reasoning: reasoning, results: results)
     }
   }
 
@@ -240,7 +244,8 @@ actor AgentLoop {
 
   private func consume(
     _ stream: AsyncThrowingStream<GenerationEvent, any Error>,
-    answer: inout String
+    answer: inout String,
+    reasoning: inout String
   ) async throws -> (invocations: [ToolInvocation], completion: CompletionReason) {
     var invocations: [ToolInvocation] = []
     var completion: CompletionReason?
@@ -256,7 +261,7 @@ actor AgentLoop {
       case .completed(let reason):
         guard completion == nil else { throw AgentStreamProtocolError.duplicateCompletion }
         completion = reason
-      case .reasoning(let text): publish(.reasoning(text))
+      case .reasoning(let text): reasoning += text; publish(.reasoning(text))
       case .metrics(let metrics): publish(.metrics(metrics))
       }
     }
@@ -268,12 +273,14 @@ actor AgentLoop {
   private func finish(
     _ completion: AgentCompletion,
     answer: String,
+    reasoning: String,
     results: [AgentToolResult]
   ) -> AgentRunResult {
     appendActivity(.terminal(completion))
     publish(.completed(completion))
     return AgentRunResult(
       answer: answer,
+      reasoning: reasoning,
       toolResults: results,
       activities: currentActivities,
       completion: completion

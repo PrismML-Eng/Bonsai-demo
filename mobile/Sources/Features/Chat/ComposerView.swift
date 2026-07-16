@@ -20,18 +20,21 @@ struct ComposerView: View {
             .buttonStyle(.borderedProminent).tint(QuietGardenTheme.danger)
             .frame(minWidth: 44, minHeight: 44).accessibilityLabel("Stop generation")
             .accessibilityIdentifier(UIAccessibility.stop)
+            .keyboardShortcut(.cancelAction)
         } else {
           Button { Task { await viewModel.send() } } label: { Image(systemName: "arrow.up") }
             .buttonStyle(.borderedProminent).tint(QuietGardenTheme.accent)
             .frame(minWidth: 44, minHeight: 44).disabled(!viewModel.canSend)
             .accessibilityLabel("Send message").accessibilityIdentifier(UIAccessibility.send)
+            .keyboardShortcut(.return, modifiers: [.command])
         }
       }
       HStack {
         Picker("Reasoning effort", selection: $viewModel.effort) {
           ForEach(ReasoningEffort.allCases) { effort in Text(effort.rawValue).tag(effort) }
         }
-        .pickerStyle(.menu).fixedSize().accessibilityValue(viewModel.effort.rawValue)
+        .pickerStyle(.menu).fixedSize().frame(minHeight: QuietGardenTheme.minimumTarget)
+        .accessibilityValue(viewModel.effort.rawValue)
         Spacer()
         Label("Local only", systemImage: "lock.fill").font(.caption).foregroundStyle(.secondary)
       }

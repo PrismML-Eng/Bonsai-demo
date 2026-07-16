@@ -79,6 +79,20 @@ struct ConversationMessage: Codable, Equatable, Sendable {
 struct CompletedConversationTurn: Codable, Equatable, Sendable {
     let id: String
     let messages: [ConversationMessage]
+    let reasoningText: String?
+
+    init(id: String, messages: [ConversationMessage], reasoningText: String? = nil) {
+        self.id = id
+        self.messages = messages
+        self.reasoningText = reasoningText
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        messages = try container.decode([ConversationMessage].self, forKey: .messages)
+        reasoningText = try container.decodeIfPresent(String.self, forKey: .reasoningText)
+    }
 }
 
 struct Conversation: Codable, Equatable, Sendable {

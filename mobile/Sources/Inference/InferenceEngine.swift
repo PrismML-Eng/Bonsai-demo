@@ -2,6 +2,7 @@ import Foundation
 
 enum GenerationRequestError: Error, Equatable, Sendable {
     case invalidMaxTokens(Int)
+    case invalidReasoningBudget(Int)
 }
 
 struct GenerationToolSpecification: Equatable, Sendable {
@@ -11,27 +12,33 @@ struct GenerationToolSpecification: Equatable, Sendable {
 }
 
 struct GenerationRequest: Equatable, Sendable {
-    static let defaultMaxTokens = 512
-    static let maximumMaxTokens = 4_096
+    static let defaultMaxTokens = 12_288
+    static let maximumMaxTokens = 16_384
 
     let prompt: String
     let messages: [ConversationMessage]?
     let tools: [GenerationToolSpecification]
-    let reasoningEnabled: Bool
+    let reasoningBudget: Int
+    var reasoningEnabled: Bool { reasoningBudget != 0 }
     let maxTokens: Int
 
     init(
         prompt: String,
         reasoningEnabled: Bool = true,
+        reasoningBudget: Int? = nil,
         maxTokens: Int = defaultMaxTokens
     ) throws {
         guard (1...Self.maximumMaxTokens).contains(maxTokens) else {
             throw GenerationRequestError.invalidMaxTokens(maxTokens)
         }
+        let resolvedBudget = reasoningBudget ?? (reasoningEnabled ? -1 : 0)
+        guard resolvedBudget >= -1 else {
+            throw GenerationRequestError.invalidReasoningBudget(resolvedBudget)
+        }
         self.prompt = prompt
         messages = nil
         tools = []
-        self.reasoningEnabled = reasoningEnabled
+        self.reasoningBudget = resolvedBudget
         self.maxTokens = maxTokens
     }
 
@@ -39,15 +46,20 @@ struct GenerationRequest: Equatable, Sendable {
         messages: [ConversationMessage],
         tools: [GenerationToolSpecification] = [],
         reasoningEnabled: Bool = true,
+        reasoningBudget: Int? = nil,
         maxTokens: Int = defaultMaxTokens
     ) throws {
         guard (1...Self.maximumMaxTokens).contains(maxTokens) else {
             throw GenerationRequestError.invalidMaxTokens(maxTokens)
         }
+        let resolvedBudget = reasoningBudget ?? (reasoningEnabled ? -1 : 0)
+        guard resolvedBudget >= -1 else {
+            throw GenerationRequestError.invalidReasoningBudget(resolvedBudget)
+        }
         self.prompt = messages.last?.content ?? ""
         self.messages = messages
         self.tools = tools
-        self.reasoningEnabled = reasoningEnabled
+        self.reasoningBudget = resolvedBudget
         self.maxTokens = maxTokens
     }
 
@@ -56,7 +68,7 @@ struct GenerationRequest: Equatable, Sendable {
             validatedPrompt: prompt,
             messages: messages,
             tools: tools,
-            reasoningEnabled: reasoningEnabled,
+            reasoningBudget: reasoningBudget,
             maxTokens: maxTokens
         )
     }
@@ -65,13 +77,13 @@ struct GenerationRequest: Equatable, Sendable {
         validatedPrompt: String,
         messages: [ConversationMessage]?,
         tools: [GenerationToolSpecification],
-        reasoningEnabled: Bool,
+        reasoningBudget: Int,
         maxTokens: Int
     ) {
         prompt = validatedPrompt
         self.messages = messages
         self.tools = tools
-        self.reasoningEnabled = reasoningEnabled
+        self.reasoningBudget = reasoningBudget
         self.maxTokens = maxTokens
     }
 }

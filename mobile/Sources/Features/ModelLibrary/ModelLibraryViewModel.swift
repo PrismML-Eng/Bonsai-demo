@@ -26,6 +26,13 @@ struct ModelRowPresentation: Identifiable, Equatable, Sendable {
 protocol ModelLibraryServing: Sendable {
   func snapshots() async -> AsyncStream<ModelLibrarySnapshot>
   func perform(_ intent: ModelLibraryIntent, for modelID: ModelID) async throws
+  func importModel(_ modelID: ModelID, from source: URL) async throws
+}
+
+extension ModelLibraryServing {
+  func importModel(_ modelID: ModelID, from source: URL) async throws {
+    throw LiveUIServiceError.importRequiresPicker
+  }
 }
 
 @MainActor @Observable
@@ -35,6 +42,8 @@ final class ModelLibraryViewModel {
   private(set) var rows: [ModelRowPresentation]
   private(set) var errorMessage: String?
   private(set) var loadedModelID: ModelID?
+  private(set) var inFlightModelIDs: Set<ModelID> = []
+  var pendingImportModelID: ModelID?
   private var latestSnapshot: ModelLibrarySnapshot
   private var observationTask: Task<Void, Never>?
 
@@ -56,18 +65,37 @@ final class ModelLibraryViewModel {
     }
   }
 
+  func present(error: String) { errorMessage = error }
+
   func perform(_ action: ModelActionPresentation, modelID: ModelID) async {
+    if action.intent == .importModel { pendingImportModelID = modelID; return }
+    guard inFlightModelIDs.insert(modelID).inserted else { return }
+    defer { inFlightModelIDs.remove(modelID) }
     do {
       try await service.perform(action.intent, for: modelID)
       switch action.intent {
       case .load: loadedModelID = modelID
       case .unload: loadedModelID = nil
+      case .delete: if loadedModelID == modelID { loadedModelID = nil }
       default: break
       }
       rows = Self.rows(snapshot: latestSnapshot, loadedModelID: loadedModelID, platform: platform)
       errorMessage = nil
     } catch {
       errorMessage = String(describing: error)
+    }
+  }
+
+  func importPending(from source: URL) async {
+    guard let modelID = pendingImportModelID,
+          inFlightModelIDs.insert(modelID).inserted else { return }
+    pendingImportModelID = nil
+    defer { inFlightModelIDs.remove(modelID) }
+    do {
+      try await service.importModel(modelID, from: source)
+      errorMessage = nil
+    } catch {
+      errorMessage = "Import failed: \(error.localizedDescription)"
     }
   }
 
@@ -82,6 +110,8 @@ final class ModelLibraryViewModel {
     }
   }
 
+  // Exhaustively maps every domain state to its complete row action model.
+  // swiftlint:disable:next function_body_length
   private static func row(
     id: ModelID, state: ModelLibraryState, loadedModelID: ModelID?, platform: Platform
   ) -> ModelRowPresentation {
@@ -105,6 +135,24 @@ final class ModelLibraryViewModel {
                    status: "Downloading \(completed) of \(total) files", detail: nil,
                    progress: progress, primaryAction: nil, secondaryActions: [], recovery: nil,
                    isLoaded: false)
+    case .transferring(let completed, let total):
+      let progress = total > 0 ? Double(completed) / Double(total) : 0
+      let completedText = ByteCountFormatter.string(
+        fromByteCount: Int64(completed), countStyle: .file)
+      let totalText = ByteCountFormatter.string(
+        fromByteCount: Int64(total), countStyle: .file)
+      return .init(id: id, name: name, footprint: footprint,
+                   status: "Downloading \(completedText) of \(totalText)",
+                   detail: nil, progress: progress, primaryAction: nil, secondaryActions: [],
+                   recovery: nil, isLoaded: false)
+    case .verifying(let completed, let total):
+      return .init(id: id, name: name, footprint: footprint, status: "Verifying model files",
+                   detail: nil, progress: total > 0 ? Double(completed) / Double(total) : 0,
+                   primaryAction: nil, secondaryActions: [], recovery: nil, isLoaded: false)
+    case .loading:
+      return .init(id: id, name: name, footprint: footprint, status: "Loading into memory",
+                   detail: nil, progress: nil, primaryAction: nil, secondaryActions: [],
+                   recovery: nil, isLoaded: false)
     case .ready:
       let loaded = loadedModelID == id
       return .init(id: id, name: name, footprint: footprint,

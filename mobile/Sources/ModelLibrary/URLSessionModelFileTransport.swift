@@ -11,7 +11,7 @@ enum ModelTransportError: Error, Equatable, Sendable {
     case duplicateWaiter
 }
 
-final class URLSessionModelFileTransport: ModelFileTransport, @unchecked Sendable {
+final class URLSessionModelFileTransport: ProgressReportingModelFileTransport, @unchecked Sendable {
     private let configuration: URLSessionConfiguration
     private let usesAppBackgroundCoordinator: Bool
 
@@ -27,6 +27,11 @@ final class URLSessionModelFileTransport: ModelFileTransport, @unchecked Sendabl
     }
 
     func download(_ file: ModelManifest.File, from source: URL, to destination: URL) async throws {
+        try await download(file, from: source, to: destination, progress: { _ in })
+    }
+
+    func download(_ file: ModelManifest.File, from source: URL, to destination: URL,
+                  progress: @escaping @Sendable (Int) async -> Void) async throws {
         guard source.scheme?.lowercased() == "https" || Self.isLoopback(source) else {
             throw ModelTransportError.insecureURL
         }
@@ -37,6 +42,7 @@ final class URLSessionModelFileTransport: ModelFileTransport, @unchecked Sendabl
                 from: source,
                 to: destination
             )
+            await progress(file.sizeBytes)
             return
         }
         #endif
@@ -56,7 +62,8 @@ final class URLSessionModelFileTransport: ModelFileTransport, @unchecked Sendabl
                     destination: destination,
                     existingBytes: existing,
                     permitsLoopback: Self.isLoopback(source),
-                    completion: continuation
+                    completion: continuation,
+                    progress: progress
                 )
                 let session = URLSession(configuration: configuration, delegate: delegate, delegateQueue: nil)
                 holder.registerPreStoreCancellation { delegate.cancelBeforeStart() }
@@ -129,17 +136,22 @@ private final class StreamingDownloadDelegate: NSObject, URLSessionDataDelegate,
     private var output: FileHandle?
     private var terminalError: Error?
     private var completion: CheckedContinuation<Void, Error>?
+    private let progress: @Sendable (Int) async -> Void
+    private var receivedBytes: Int
 
     init(
         destination: URL,
         existingBytes: Int,
         permitsLoopback: Bool,
-        completion: CheckedContinuation<Void, Error>
+        completion: CheckedContinuation<Void, Error>,
+        progress: @escaping @Sendable (Int) async -> Void
     ) {
         self.destination = destination
         self.existingBytes = existingBytes
         self.permitsLoopback = permitsLoopback
         self.completion = completion
+        self.progress = progress
+        receivedBytes = existingBytes
     }
 
     func cancelBeforeStart() {
@@ -190,7 +202,10 @@ private final class StreamingDownloadDelegate: NSObject, URLSessionDataDelegate,
             try lock.withLock {
                 guard terminalError == nil, let output else { return }
                 try output.write(contentsOf: data)
+                receivedBytes += data.count
             }
+            let current = lock.withLock { receivedBytes }
+            Task { await progress(current) }
         } catch {
             lock.withLock { terminalError = error }
         }

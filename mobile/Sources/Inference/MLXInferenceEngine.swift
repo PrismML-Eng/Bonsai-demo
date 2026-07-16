@@ -211,23 +211,33 @@ actor MLXInferenceEngine: InferenceEngine {
 
   func preparedGeneration(
     for conversation: Conversation,
+    appending requiredMessages: [ConversationMessage] = [],
     limit: Int = ContextTrimmer.defaultLimit,
     reasoningEnabled: Bool = true,
+    reasoningBudget: Int? = nil,
     tools: [GenerationToolSpecification] = [],
     maxTokens: Int = GenerationRequest.defaultMaxTokens
   ) async throws -> (trim: ContextTrimResult, request: GenerationRequest) {
-    let trim = try await trimContext(
-      conversation,
+    guard activeGeneration == nil, let runtime, let installation else {
+      throw activeGeneration == nil ? MLXInferenceError.modelNotLoaded : MLXInferenceError.generationAlreadyActive
+    }
+    guard conversation.modelID == installation.modelID else {
+      throw MLXInferenceError.conversationModelMismatch(expected: installation.modelID,
+                                                         attempted: conversation.modelID)
+    }
+    let enabled = (reasoningBudget ?? (reasoningEnabled ? -1 : 0)) != 0
+    let trim = try await ContextTrimmer(
       limit: limit,
-      reasoningEnabled: reasoningEnabled,
-      tools: tools
-    )
+      promptCounter: MLXConversationPromptCounter(runtime: runtime, reasoningEnabled: enabled,
+                                                   tools: tools)
+    ).trim(conversation, appending: requiredMessages)
     return (
       trim,
       try GenerationRequest(
         messages: trim.keptMessages,
         tools: tools,
-        reasoningEnabled: reasoningEnabled,
+        reasoningEnabled: enabled,
+        reasoningBudget: reasoningBudget,
         maxTokens: maxTokens
       )
     )

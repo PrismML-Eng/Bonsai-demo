@@ -66,6 +66,7 @@ enum ChatSessionEvent: Equatable, Sendable {
   case activity(AgentActivityPresentation)
   case completed(AgentCompletion)
   case failed(String)
+  case contextTrimmed(ContextTrimNotice)
 }
 
 protocol ChatSessionServing: Sendable {
@@ -73,10 +74,12 @@ protocol ChatSessionServing: Sendable {
     -> AsyncThrowingStream<ChatSessionEvent, any Error>
   func cancel() async
   func respond(to action: ActivityAction) async
+  func history() async throws -> [ChatMessagePresentation]
 }
 
 extension ChatSessionServing {
   func respond(to action: ActivityAction) async {}
+  func history() async throws -> [ChatMessagePresentation] { [] }
 }
 
 @MainActor @Observable
@@ -92,13 +95,16 @@ final class ChatViewModel {
   private(set) var failedPrompt: String?
   private(set) var recovery: RecoveryPresentation?
   private(set) var terminalStatus: String?
+  private(set) var contextTrimNotice: String?
   var isModelReady: Bool
+  var loadedModelName: String?
   private var generationTask: Task<Void, Never>?
   private var generationID: UUID?
 
   init(service: any ChatSessionServing, isModelReady: Bool) {
     self.service = service
     self.isModelReady = isModelReady
+    loadedModelName = isModelReady ? "Bonsai 27B · 1-bit" : nil
   }
 
   var canSend: Bool { isModelReady && !isGenerating && !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
@@ -137,6 +143,11 @@ final class ChatViewModel {
     if terminalStatus == nil { terminalStatus = "Complete" }
   }
 
+  func start() async {
+    guard messages.isEmpty else { return }
+    if let history = try? await service.history() { messages = history }
+  }
+
   func retry() async {
     guard let failedPrompt else { return }
     draft = failedPrompt
@@ -157,6 +168,8 @@ final class ChatViewModel {
     reasoning = state.reasoning
     metrics = state.metrics
     activities = state.activities
+    terminalStatus = state.terminalStatus
+    contextTrimNotice = state.contextTrimNotice
   }
 
   private func resetRunState() {
@@ -166,8 +179,11 @@ final class ChatViewModel {
     failedPrompt = nil
     recovery = nil
     terminalStatus = nil
+    contextTrimNotice = nil
   }
 
+  // All stream event variants converge here so presentation updates stay atomic.
+  // swiftlint:disable:next cyclomatic_complexity
   private func consume(_ event: ChatSessionEvent) {
     switch event {
     case .assistantStarted(let id):
@@ -189,6 +205,8 @@ final class ChatViewModel {
     case .completed(let completion):
       terminalStatus = Self.label(completion)
     case .failed(let message): markFailure(message, prompt: messages.last(where: { $0.role == .user })?.text ?? "")
+    case .contextTrimmed(let notice):
+      contextTrimNotice = "Removed \(notice.removedTurnCount) older turn(s) to fit context."
     }
   }
 
