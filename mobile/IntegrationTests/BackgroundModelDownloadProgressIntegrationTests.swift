@@ -5,6 +5,53 @@ import Testing
 @Suite("Real background URLSession download progress")
 struct BackgroundDownloadProgressTests {
     @Test
+    func relaunchPromotesClaimWithoutCreatingReplacementDownload() async throws {
+        let fixture = try await BackgroundProgressLoopbackFixture.start()
+        defer { fixture.stop() }
+        let ledgerURL = fixture.directory.appending(path: "relaunch-ledger.json")
+        let destination = fixture.directory.appending(path: "relaunched/model.safetensors")
+        let transferID = UUID()
+        let initialLedger = try BackgroundTransferLedger(fileURL: ledgerURL)
+        _ = try await initialLedger.create(
+            id: transferID,
+            source: fixture.slowURL,
+            destination: destination,
+            expectedSize: fixture.file.sizeBytes,
+            sha256: fixture.file.sha256,
+            existingBytes: 0
+        )
+        let callbackBody = fixture.directory.appending(path: "persisted-callback.download")
+        try fixture.payload.write(to: callbackBody)
+        _ = try await initialLedger.claimBody(
+            id: transferID,
+            temporaryBody: callbackBody,
+            statusCode: 200,
+            contentRange: nil
+        )
+
+        let relaunchedLedger = try BackgroundTransferLedger(fileURL: ledgerURL)
+        let coordinator = BackgroundModelDownloadCoordinator(
+            ledger: relaunchedLedger,
+            configuration: .ephemeral,
+            permitsLoopback: true
+        )
+        let recorder = BackgroundProgressRecorder()
+
+        try await coordinator.download(
+            fixture.file,
+            from: fixture.slowURL,
+            to: destination,
+            progress: { await recorder.append($0) }
+        )
+
+        #expect(await recorder.values == [fixture.payload.count])
+        #expect(fixture.requestCount == 0)
+        #expect(await relaunchedLedger.allRecords().count == 1)
+        #expect(await relaunchedLedger.record(id: transferID)?.state == .completed)
+        try SHA256Verifier().verify(fixture.file, at: destination)
+    }
+
+    @Test
     func rangeDownloadReportsExistingPlusReceivedBytesAndFinishesExactly() async throws {
         let fixture = try await BackgroundProgressLoopbackFixture.start()
         defer { fixture.stop() }
@@ -120,13 +167,27 @@ private final class BackgroundProgressLoopbackFixture: @unchecked Sendable {
     let payload: Data
     let file: ModelManifest.File
     let slowURL: URL
+    let logURL: URL
     private let process: Process
 
-    private init(directory: URL, payload: Data, file: ModelManifest.File, slowURL: URL, process: Process) {
+    var requestCount: Int {
+        guard let text = try? String(contentsOf: logURL, encoding: .utf8) else { return 0 }
+        return text.split(whereSeparator: \.isNewline).count
+    }
+
+    private init(
+        directory: URL,
+        payload: Data,
+        file: ModelManifest.File,
+        slowURL: URL,
+        logURL: URL,
+        process: Process
+    ) {
         self.directory = directory
         self.payload = payload
         self.file = file
         self.slowURL = slowURL
+        self.logURL = logURL
         self.process = process
     }
 
@@ -166,6 +227,7 @@ private final class BackgroundProgressLoopbackFixture: @unchecked Sendable {
             payload: payload,
             file: file,
             slowURL: #require(URL(string: "http://127.0.0.1:\(resolvedPort)/slow")),
+            logURL: logURL,
             process: process
         )
     }
