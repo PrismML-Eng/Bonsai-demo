@@ -38,9 +38,9 @@ enum CalculatorParser {
       var value = try term()
       while true {
         skipWhitespace()
-        if consume("+") {
+        if try consume("+") {
           value = try checked(value + term())
-        } else if consume("-") {
+        } else if try consume("-") {
           value = try checked(value - term())
         } else {
           return value
@@ -52,13 +52,13 @@ enum CalculatorParser {
       var value = try unary()
       while true {
         skipWhitespace()
-        if consume("*") {
+        if try consume("*") {
           value = try checked(value * unary())
-        } else if consume("/") {
+        } else if try consume("/") {
           let rhs = try unary()
           guard rhs != 0 else { throw CalculatorError.divisionByZero }
           value = try checked(value / rhs)
-        } else if consume("%") {
+        } else if try consume("%") {
           let rhs = try unary()
           guard rhs != 0 else { throw CalculatorError.divisionByZero }
           value = try checked(value.truncatingRemainder(dividingBy: rhs))
@@ -70,19 +70,19 @@ enum CalculatorParser {
 
     private mutating func unary() throws -> Double {
       skipWhitespace()
-      if consume("-") { return try checked(-unary()) }
-      if consume("+") { return try unary() }
+      if try consume("-") { return try checked(-unary()) }
+      if try consume("+") { return try unary() }
       return try primary()
     }
 
     private mutating func primary() throws -> Double {
       skipWhitespace()
-      if consume("(") {
+      if try consume("(") {
         depth += 1
         guard depth <= 32 else { throw CalculatorError.excessiveNesting }
         let value = try expression()
         skipWhitespace()
-        guard consume(")") else { throw CalculatorError.malformedExpression }
+        guard try consume(")") else { throw CalculatorError.malformedExpression }
         depth -= 1
         return value
       }
@@ -112,10 +112,10 @@ enum CalculatorParser {
       while index < characters.count, characters[index].isWhitespace { index += 1 }
     }
 
-    private mutating func consume(_ character: Character) -> Bool {
+    private mutating func consume(_ character: Character) throws -> Bool {
       guard index < characters.count, characters[index] == character else { return false }
       index += 1
-      try? recordToken()
+      try recordToken()
       return true
     }
 
@@ -140,7 +140,11 @@ struct CalculatorTool: OfflineTool {
       "{\"additionalProperties\":false,\"properties\":{\"expression\":{\"maxLength\":1024,\"type\":\"string\"}},\"required\":[\"expression\"],\"type\":\"object\"}"
   )
 
-  func validate(arguments: ToolJSON) throws { _ = try arguments.requiredString("expression") }
+  func validate(arguments: ToolJSON) throws {
+    try arguments.requireObjectKeys(allowed: ["expression"], required: ["expression"])
+    let expression = try arguments.requiredString("expression")
+    guard expression.utf8.count <= 1_024 else { throw ToolBoundaryError.invalid("expression") }
+  }
   func execute(arguments: ToolJSON) async throws -> ToolJSON {
     let result = try CalculatorParser.evaluate(arguments.requiredString("expression"))
     return .object(["result": .double(result)])

@@ -243,6 +243,10 @@ actor MLXInferenceEngine: InferenceEngine {
     )
   }
 
+  func continuationDebugSnapshot() -> MLXContinuationDebugSnapshot {
+    runtime?.continuationDebugSnapshot ?? .unavailable
+  }
+
   private nonisolated static func runGeneration(
     request: GenerationRequest,
     runtime: any MLXRuntimeResource,

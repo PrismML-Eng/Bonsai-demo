@@ -29,6 +29,7 @@ indirect enum ToolJSON: Codable, Equatable, Sendable {
 
   static func decode(_ string: String) throws -> ToolJSON {
     guard string.utf8.count <= maximumBytes else { throw ToolBoundaryError.excessiveBytes }
+    try ToolJSONPreflight.validate(Data(string.utf8))
     let value: ToolJSON
     do { value = try JSONDecoder().decode(ToolJSON.self, from: Data(string.utf8)) } catch {
       throw ToolBoundaryError.invalidJSON
@@ -41,6 +42,15 @@ indirect enum ToolJSON: Codable, Equatable, Sendable {
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
     let data = (try? encoder.encode(self)) ?? Data("null".utf8)
+    return String(data: data, encoding: .utf8) ?? "null"
+  }
+
+  func boundedJSONString() throws -> String {
+    try validate(depth: 0)
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+    let data = try encoder.encode(self)
+    guard data.count <= Self.maximumBytes else { throw ToolBoundaryError.excessiveBytes }
     return String(data: data, encoding: .utf8) ?? "null"
   }
 
@@ -67,6 +77,16 @@ indirect enum ToolJSON: Codable, Equatable, Sendable {
     guard let value = values[key] else { throw ToolBoundaryError.missing(key) }
     guard case .int(let int) = value else { throw ToolBoundaryError.invalid(key) }
     return int
+  }
+
+  func requireObjectKeys(allowed: Set<String>, required: Set<String>) throws {
+    let values = try object()
+    guard Set(values.keys).isSubset(of: allowed) else {
+      throw ToolBoundaryError.invalid("additionalProperties")
+    }
+    guard required.isSubset(of: Set(values.keys)) else {
+      throw ToolBoundaryError.missing(required.subtracting(values.keys).sorted().first ?? "field")
+    }
   }
 
   // Exhaustively traverses every JSON case and enforces independent limits.
@@ -134,6 +154,90 @@ indirect enum ToolJSON: Codable, Equatable, Sendable {
   }
 }
 
+private enum ToolJSONPreflight {
+  private struct Container {
+    let opener: UInt8
+    var separators = 0
+    var hasContent = false
+  }
+
+  // Scanner exhaustively handles structural bytes before recursive decoding.
+  // swiftlint:disable:next cyclomatic_complexity
+  static func validate(_ data: Data) throws {
+    let bytes = Array(data)
+    var stack: [Container] = []
+    var index = 0
+    while index < bytes.count {
+      let byte = bytes[index]
+      switch byte {
+      case 0x22:
+        if !stack.isEmpty { stack[stack.count - 1].hasContent = true }
+        index = try scanString(bytes, from: index + 1)
+      case 0x5B, 0x7B:
+        if !stack.isEmpty { stack[stack.count - 1].hasContent = true }
+        stack.append(Container(opener: byte))
+        guard stack.count <= ToolJSON.maximumDepth else {
+          throw ToolBoundaryError.excessiveDepth
+        }
+        index += 1
+      case 0x5D, 0x7D:
+        guard let container = stack.popLast(),
+              (container.opener == 0x5B && byte == 0x5D)
+                || (container.opener == 0x7B && byte == 0x7D) else {
+          throw ToolBoundaryError.invalidJSON
+        }
+        try validateCount(container)
+        index += 1
+      case 0x2C:
+        guard !stack.isEmpty else { throw ToolBoundaryError.invalidJSON }
+        stack[stack.count - 1].separators += 1
+        try validateCount(stack[stack.count - 1])
+        index += 1
+      case 0x20, 0x09, 0x0A, 0x0D, 0x3A:
+        index += 1
+      default:
+        if !stack.isEmpty { stack[stack.count - 1].hasContent = true }
+        index += 1
+      }
+    }
+    guard stack.isEmpty else { throw ToolBoundaryError.invalidJSON }
+  }
+
+  private static func scanString(_ bytes: [UInt8], from start: Int) throws -> Int {
+    var index = start
+    var rawBytes = 0
+    while index < bytes.count {
+      if bytes[index] == 0x22 {
+        guard rawBytes <= ToolJSON.maximumStringBytes else {
+          throw ToolBoundaryError.excessiveString
+        }
+        return index + 1
+      }
+      if bytes[index] == 0x5C {
+        index += 1
+        guard index < bytes.count else { throw ToolBoundaryError.invalidJSON }
+        if bytes[index] == 0x75 {
+          guard index + 4 < bytes.count else { throw ToolBoundaryError.invalidJSON }
+          index += 4
+        }
+      }
+      rawBytes += 1
+      guard rawBytes <= ToolJSON.maximumStringBytes else {
+        throw ToolBoundaryError.excessiveString
+      }
+      index += 1
+    }
+    throw ToolBoundaryError.invalidJSON
+  }
+
+  private static func validateCount(_ container: Container) throws {
+    let count = container.hasContent ? container.separators + 1 : 0
+    guard count <= ToolJSON.maximumContainerCount else {
+      throw ToolBoundaryError.excessiveContainer
+    }
+  }
+}
+
 struct OfflineToolSchema: Equatable, Sendable {
   let name: String
   let description: String
@@ -146,9 +250,11 @@ protocol OfflineTool: Sendable {
   func approval(for arguments: ToolJSON) throws -> ToolApproval
   func effect(for arguments: ToolJSON) throws -> String
   func execute(arguments: ToolJSON) async throws -> ToolJSON
+  func cancel() async
 }
 
 extension OfflineTool {
   func approval(for arguments: ToolJSON) throws -> ToolApproval { .automaticReadOnly }
   func effect(for arguments: ToolJSON) throws -> String { schema.description }
+  func cancel() async {}
 }

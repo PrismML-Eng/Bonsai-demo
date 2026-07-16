@@ -41,15 +41,17 @@ actor NotesStore {
 
   func create(title: String, body: String, now: Date = .now) async throws -> LocalNote {
     try Self.validate(title: title, body: body)
-    var current = try await archive()
-    guard current.notes.count < Self.maximumNotes else { throw NotesStoreError.noteLimitReached }
     let note = LocalNote(
       id: UUID(), revision: 1, title: title, body: body, createdAt: now, updatedAt: now
     )
-    current.notes.append(note)
-    try Task.checkCancellation()
-    try await save(current)
-    return note
+    return try await storage.transaction(identifier: identifier) { data in
+      var current = try Self.decodeArchive(data)
+      guard current.notes.count < Self.maximumNotes else {
+        throw NotesStoreError.noteLimitReached
+      }
+      current.notes.append(note)
+      return (try Self.encode(current), note)
+    }
   }
 
   func update(
@@ -60,56 +62,59 @@ actor NotesStore {
     now: Date = .now
   ) async throws -> LocalNote {
     try Self.validate(title: title, body: body)
-    var current = try await archive()
-    guard let index = current.notes.firstIndex(where: { $0.id == id }) else {
-      throw NotesStoreError.missing(id)
+    return try await storage.transaction(identifier: identifier) { data in
+      var current = try Self.decodeArchive(data)
+      guard let index = current.notes.firstIndex(where: { $0.id == id }) else {
+        throw NotesStoreError.missing(id)
+      }
+      let old = current.notes[index]
+      guard old.revision == expectedRevision else {
+        throw NotesStoreError.staleRevision(current: old.revision, attempted: expectedRevision)
+      }
+      let note = LocalNote(
+        id: id, revision: old.revision + 1, title: title, body: body,
+        createdAt: old.createdAt, updatedAt: now)
+      current.notes[index] = note
+      return (try Self.encode(current), note)
     }
-    let old = current.notes[index]
-    guard old.revision == expectedRevision else {
-      throw NotesStoreError.staleRevision(current: old.revision, attempted: expectedRevision)
-    }
-    let note = LocalNote(
-      id: id,
-      revision: old.revision + 1,
-      title: title,
-      body: body,
-      createdAt: old.createdAt,
-      updatedAt: now
-    )
-    current.notes[index] = note
-    try Task.checkCancellation()
-    try await save(current)
-    return note
   }
 
   func delete(id: UUID, expectedRevision: UInt64) async throws -> LocalNote {
-    var current = try await archive()
-    guard let index = current.notes.firstIndex(where: { $0.id == id }) else {
-      throw NotesStoreError.missing(id)
+    return try await storage.transaction(identifier: identifier) { data in
+      var current = try Self.decodeArchive(data)
+      guard let index = current.notes.firstIndex(where: { $0.id == id }) else {
+        throw NotesStoreError.missing(id)
+      }
+      let note = current.notes[index]
+      guard note.revision == expectedRevision else {
+        throw NotesStoreError.staleRevision(current: note.revision, attempted: expectedRevision)
+      }
+      current.notes.remove(at: index)
+      return (try Self.encode(current), note)
     }
-    let note = current.notes[index]
-    guard note.revision == expectedRevision else {
-      throw NotesStoreError.staleRevision(current: note.revision, attempted: expectedRevision)
-    }
-    current.notes.remove(at: index)
-    try Task.checkCancellation()
-    try await save(current)
-    return note
   }
 
   private func archive() async throws -> Archive {
     guard let data = try await storage.read(identifier: identifier) else {
       return Archive(notes: [])
     }
-    do { return try JSONDecoder().decode(Archive.self, from: data) } catch {
+    do { return try Self.decodeArchive(data) } catch {
       try await storage.quarantine(identifier: identifier)
       throw NotesStoreError.corruptStore
     }
   }
 
-  private func save(_ archive: Archive) async throws {
-    let data = try await storage.encoded(archive)
-    try await storage.write(data, identifier: identifier)
+  private static func decodeArchive(_ data: Data?) throws -> Archive {
+    guard let data else { return Archive(notes: []) }
+    do { return try JSONDecoder().decode(Archive.self, from: data) } catch {
+      throw NotesStoreError.corruptStore
+    }
+  }
+
+  private static func encode(_ archive: Archive) throws -> Data {
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+    return try encoder.encode(archive)
   }
 
   private static func validate(title: String, body: String) throws {

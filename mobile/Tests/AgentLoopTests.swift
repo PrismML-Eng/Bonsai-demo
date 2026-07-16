@@ -99,6 +99,109 @@ struct AgentLoopTests {
     }
   }
 
+  @Test func invalidSchemaNeverRequestsApprovalOrExecutes() async throws {
+    let call = ToolInvocation(
+      id: "invalid-note", name: "local_notes",
+      argumentsJSON: "{\"action\":\"create\",\"title\":\"x\",\"body\":\"y\",\"extra\":true}")
+    let engine = ScriptedAgentEngine(
+      initial: [.toolRequest(call), .completed(.toolRequest)],
+      continuations: [[.answer("invalid handled"), .completed(.stop)]])
+    let gate = RecordingGate(decision: .allowOnce)
+    let notes = try NotesStore(root: temporaryDirectory())
+    let result = try await AgentLoop(
+      engine: engine, registry: try .live(notes: notes), approvals: gate
+    ).run(try GenerationRequest(prompt: "invalid", reasoningEnabled: false))
+    #expect(result.toolResults.first?.status == .failed)
+    #expect(await gate.effects.isEmpty)
+    #expect(try await notes.list().isEmpty)
+  }
+
+  @Test func multipleToolsExecuteAndContinueInRequestOrder() async throws {
+    let calls = [
+      ToolInvocation(id: "first", name: "calculator", argumentsJSON: "{\"expression\":\"2+2\"}"),
+      ToolInvocation(id: "second", name: "calculator", argumentsJSON: "{\"expression\":\"3+3\"}")
+    ]
+    let engine = ScriptedAgentEngine(
+      initial: calls.map(GenerationEvent.toolRequest) + [.completed(.toolRequest)],
+      continuations: [[.answer("done"), .completed(.stop)]])
+    let notes = try NotesStore(root: temporaryDirectory())
+    let result = try await AgentLoop(engine: engine, registry: try .live(notes: notes))
+      .run(try GenerationRequest(prompt: "two", reasoningEnabled: false))
+    #expect(result.toolResults.map(\.invocationID) == ["first", "second"])
+    #expect(result.toolResults.map(\.contentJSON) == ["{\"result\":4}", "{\"result\":6}"])
+    #expect(await engine.exchanges.first?.invocations.map(\.id) == ["first", "second"])
+  }
+
+  @Test func cancelInterruptsPendingApprovalAndPublishesCancelledTerminal() async throws {
+    let call = ToolInvocation(
+      id: "pending", name: "local_notes",
+      argumentsJSON: "{\"action\":\"create\",\"title\":\"x\",\"body\":\"y\"}")
+    let engine = ScriptedAgentEngine(
+      initial: [.toolRequest(call), .completed(.toolRequest)], continuations: [])
+    let gate = SuspendingApprovalGate()
+    let notes = try NotesStore(root: temporaryDirectory())
+    let loop = AgentLoop(engine: engine, registry: try .live(notes: notes), approvals: gate)
+    let run = Task { try await loop.run(try GenerationRequest(prompt: "cancel", reasoningEnabled: false)) }
+    await gate.waitUntilPending()
+
+    await loop.cancel()
+    #expect(await gate.cancellationCount == 1)
+    await gate.releaseDeniedIfNeeded()
+    let result = try await run.value
+    #expect(result.completion == .cancelled)
+    #expect(result.activities.last == .terminal(.cancelled))
+    #expect(try await notes.list().isEmpty)
+  }
+
+  @Test func cancelInterruptsGenerationAndToolExecution() async throws {
+    let generationEngine = SuspendingGenerationEngine()
+    let notes = try NotesStore(root: temporaryDirectory())
+    let generationLoop = AgentLoop(
+      engine: generationEngine, registry: try .live(notes: notes))
+    let generationRun = Task {
+      try await generationLoop.run(
+        try GenerationRequest(prompt: "wait", reasoningEnabled: false))
+    }
+    await generationEngine.waitUntilGenerating()
+    await generationLoop.cancel()
+    let generationResult = try await generationRun.value
+    #expect(generationResult.completion == .cancelled)
+    #expect(await generationEngine.cancellationCount == 1)
+
+    let tool = SuspendingTool()
+    let call = ToolInvocation(id: "slow", name: "slow_tool", argumentsJSON: "{}")
+    let toolEngine = ScriptedAgentEngine(
+      initial: [.toolRequest(call), .completed(.toolRequest)], continuations: [])
+    let toolLoop = AgentLoop(engine: toolEngine, registry: try ToolRegistry([tool]))
+    let toolRun = Task {
+      try await toolLoop.run(try GenerationRequest(prompt: "tool", reasoningEnabled: false))
+    }
+    await tool.waitUntilRunning()
+    await toolLoop.cancel()
+    #expect(try await toolRun.value.completion == .cancelled)
+    #expect(await tool.cancellationCount == 1)
+  }
+
+  @Test func oversizedNotesListBecomesSmallModelVisibleFailure() async throws {
+    let notes = try NotesStore(root: temporaryDirectory())
+    for index in 0...ToolJSON.maximumContainerCount {
+      _ = try await notes.create(title: "note-\(index)", body: "body")
+    }
+    let call = ToolInvocation(
+      id: "list", name: "local_notes", argumentsJSON: "{\"action\":\"list\"}")
+    let engine = ScriptedAgentEngine(
+      initial: [.toolRequest(call), .completed(.toolRequest)],
+      continuations: [[.answer("bounded"), .completed(.stop)]])
+    let result = try await AgentLoop(engine: engine, registry: try .live(notes: notes))
+      .run(try GenerationRequest(prompt: "list", reasoningEnabled: false))
+    #expect(result.toolResults.first?.status == .failed)
+    #expect((result.toolResults.first?.contentJSON.utf8.count ?? .max) < 1_024)
+    #expect(result.activities.contains { activity in
+      if case .result(let value) = activity { return value.status == .failed }
+      return false
+    })
+  }
+
   private func temporaryDirectory() -> URL {
     FileManager.default.temporaryDirectory.appending(path: "AgentLoopTests-\(UUID())")
   }
@@ -114,10 +217,94 @@ private actor RecordingGate: ToolApprovalGate {
   }
 }
 
+private actor SuspendingApprovalGate: ToolApprovalGate {
+  private var continuation: CheckedContinuation<ToolApprovalDecision, any Error>?
+  private var waiters: [CheckedContinuation<Void, Never>] = []
+  private(set) var cancellationCount = 0
+
+  func requestAllowOnce(_ request: ToolApprovalRequest) async throws -> ToolApprovalDecision {
+    waiters.forEach { $0.resume() }
+    waiters.removeAll()
+    return try await withCheckedThrowingContinuation { continuation = $0 }
+  }
+
+  func waitUntilPending() async {
+    if continuation != nil { return }
+    await withCheckedContinuation { waiters.append($0) }
+  }
+
+  func cancelPending() {
+    cancellationCount += 1
+    continuation?.resume(throwing: CancellationError())
+    continuation = nil
+  }
+
+  func releaseDeniedIfNeeded() {
+    continuation?.resume(returning: .deny)
+    continuation = nil
+  }
+}
+
+private actor SuspendingTool: OfflineTool {
+  nonisolated let schema = OfflineToolSchema(
+    name: "slow_tool", description: "Wait until cancelled.",
+    parametersJSON: "{\"additionalProperties\":false,\"properties\":{},\"type\":\"object\"}")
+  private var continuation: CheckedContinuation<ToolJSON, any Error>?
+  private var waiters: [CheckedContinuation<Void, Never>] = []
+  private(set) var cancellationCount = 0
+
+  nonisolated func validate(arguments: ToolJSON) throws {
+    guard try arguments.object().isEmpty else { throw ToolBoundaryError.invalid("arguments") }
+  }
+  func execute(arguments: ToolJSON) async throws -> ToolJSON {
+    waiters.forEach { $0.resume() }
+    waiters.removeAll()
+    return try await withCheckedThrowingContinuation { continuation = $0 }
+  }
+  func waitUntilRunning() async {
+    if continuation != nil { return }
+    await withCheckedContinuation { waiters.append($0) }
+  }
+  func cancel() {
+    cancellationCount += 1
+    continuation?.resume(throwing: CancellationError())
+    continuation = nil
+  }
+}
+
+private actor SuspendingGenerationEngine: AgentInferenceStreaming {
+  private var continuation: AsyncThrowingStream<GenerationEvent, any Error>.Continuation?
+  private var waiters: [CheckedContinuation<Void, Never>] = []
+  private(set) var cancellationCount = 0
+  func generate(_ request: GenerationRequest) async throws -> AsyncThrowingStream<GenerationEvent, any Error> {
+    let pair = AsyncThrowingStream<GenerationEvent, any Error>.makeStream()
+    continuation = pair.continuation
+    waiters.forEach { $0.resume() }
+    waiters.removeAll()
+    return pair.stream
+  }
+  func continueAfterTools(
+    _ exchange: AgentToolExchange
+  ) async throws -> AsyncThrowingStream<GenerationEvent, any Error> {
+    throw CancellationError()
+  }
+  func waitUntilGenerating() async {
+    if continuation != nil { return }
+    await withCheckedContinuation { waiters.append($0) }
+  }
+  func cancel() {
+    cancellationCount += 1
+    continuation?.yield(.completed(.cancelled))
+    continuation?.finish()
+    continuation = nil
+  }
+}
+
 private actor ScriptedAgentEngine: AgentInferenceStreaming {
   private let initial: [GenerationEvent]
   private var continuations: [[GenerationEvent]]
   private(set) var continuationCount = 0
+  private(set) var exchanges: [AgentToolExchange] = []
   init(initial: [GenerationEvent], continuations: [[GenerationEvent]]) {
     self.initial = initial
     self.continuations = continuations
@@ -131,6 +318,7 @@ private actor ScriptedAgentEngine: AgentInferenceStreaming {
     GenerationEvent, any Error
   > {
     continuationCount += 1
+    exchanges.append(exchange)
     return Self.stream(continuations.removeFirst())
   }
   func cancel() async {}

@@ -115,6 +115,25 @@ struct AtomicJSONStoreTests {
         #expect(synchronizer.count == 2)
     }
 
+    @Test
+    func cancellationWhilePromotionIsPausedNeverCommitsTemporaryData() async throws {
+        let root = try Self.temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let hook = PausingPromotionHook()
+        let store = try AtomicJSONStore(root: root, promotionHook: hook)
+        try await store.write(Data("old".utf8), identifier: "record")
+        hook.arm()
+        let write = Task {
+            try await store.write(Data("cancelled-new".utf8), identifier: "record")
+        }
+        hook.waitUntilPaused()
+        write.cancel()
+        hook.resume()
+
+        await #expect(throws: CancellationError.self) { try await write.value }
+        #expect(try await store.read(identifier: "record") == Data("old".utf8))
+    }
+
     private static func temporaryDirectory() throws -> URL {
         let url = FileManager.default.temporaryDirectory
             .appending(path: "bonsai-atomic-tests-\(UUID().uuidString)", directoryHint: .isDirectory)
@@ -155,5 +174,37 @@ private final class ReplacingPromotionHook: AtomicStorePromotionHook, @unchecked
         let destination = root.appending(path: "\(identifier).json")
         try FileManager.default.removeItem(at: destination)
         try FileManager.default.createSymbolicLink(at: destination, withDestinationURL: external)
+    }
+}
+
+private final class PausingPromotionHook: AtomicStorePromotionHook, @unchecked Sendable {
+    private let condition = NSCondition()
+    private var armed = false
+    private var paused = false
+    private var released = false
+
+    func arm() { condition.withLock { armed = true } }
+
+    func willPromote(identifier: String) throws {
+        condition.lock()
+        defer { condition.unlock() }
+        guard armed else { return }
+        armed = false
+        paused = true
+        condition.broadcast()
+        while !released { condition.wait() }
+    }
+
+    func waitUntilPaused() {
+        condition.lock()
+        defer { condition.unlock() }
+        while !paused { condition.wait() }
+    }
+
+    func resume() {
+        condition.withLock {
+            released = true
+            condition.broadcast()
+        }
     }
 }

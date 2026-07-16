@@ -5,6 +5,8 @@ import XCTest
 
 // swiftlint:disable:next type_body_length
 final class MLXInferenceIntegrationTests: XCTestCase {
+  // One real-model lane intentionally keeps timing, result, and identity proof together.
+  // swiftlint:disable:next function_body_length
   func testRealToolRoundTrip() async throws {
     let modelDirectory = try Self.modelDirectory()
     let engine = MLXInferenceEngine()
@@ -22,6 +24,7 @@ final class MLXInferenceIntegrationTests: XCTestCase {
     )
     let registry = try ToolRegistry.live(notes: NotesStore(root: notesRoot))
     let before = await engine.debugSnapshot()
+    let continuationBefore = await engine.continuationDebugSnapshot()
     let runStart = clock.now
     let result = try await AgentLoop(
       engine: engine, registry: registry
@@ -42,14 +45,24 @@ final class MLXInferenceIntegrationTests: XCTestCase {
       ))
     let runDuration = runStart.duration(to: clock.now)
     let after = await engine.debugSnapshot()
+    let continuationAfter = await engine.continuationDebugSnapshot()
 
     XCTAssertEqual(result.toolResults.count, 1)
     XCTAssertEqual(result.toolResults.first?.status, .succeeded)
+    XCTAssertEqual(result.toolResults.first?.invocationID.isEmpty, false)
+    XCTAssertEqual(result.toolResults.first?.contentJSON, "{\"result\":708}")
     XCTAssertEqual(result.completion, .stop)
-    XCTAssertFalse(result.answer.isEmpty)
+    XCTAssertEqual(result.answer.trimmingCharacters(in: .whitespacesAndNewlines), "708")
     XCTAssertEqual(before.loadedModelID, after.loadedModelID)
     XCTAssertTrue(before.hasContainer && after.hasContainer)
     XCTAssertTrue(before.hasSession && after.hasSession)
+    XCTAssertEqual(continuationBefore.runtimeIdentity, continuationAfter.runtimeIdentity)
+    XCTAssertEqual(
+      continuationAfter.generationSessionIdentity,
+      continuationAfter.continuationSessionIdentity)
+    XCTAssertEqual(continuationAfter.sessionIdentity, continuationAfter.continuationSessionIdentity)
+    XCTAssertEqual(continuationAfter.continuationCount, 1)
+    XCTAssertEqual(continuationAfter.fullHistoryReplayCount, 1)
     print(
       // swiftlint:disable:next line_length
       "RealToolRoundTrip load=\(loadDuration) total=\(runDuration) result=\(result.toolResults[0].contentJSON) answer=\(result.answer)"

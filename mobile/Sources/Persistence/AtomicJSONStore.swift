@@ -133,6 +133,7 @@ actor AtomicJSONStore {
         guard fsync(descriptor) == 0 else { throw POSIXError(.init(rawValue: errno)!) }
         try rejectNonRegularExistingLeaf(destination)
         try promotionHook.willPromote(identifier: identifier)
+        try Task.checkCancellation()
         let renameResult = temporary.withCString { temporaryName in
             destination.withCString { destinationName in
                 renameat(rootDescriptor, temporaryName, rootDescriptor, destinationName)
@@ -141,6 +142,23 @@ actor AtomicJSONStore {
         guard renameResult == 0 else { throw POSIXError(.init(rawValue: errno)!) }
         promoted = true
         try directorySynchronizer.synchronize(directoryDescriptor: rootDescriptor)
+    }
+
+    /// Serializes a read-check-write transaction across every store instance
+    /// opened on the same directory vnode. The advisory directory lock also
+    /// coordinates separate process-local actors and cooperating processes.
+    func transaction<Result: Sendable>(
+        identifier: String,
+        _ transform: @Sendable (Data?) throws -> (data: Data, result: Result)
+    ) throws -> Result {
+        guard flock(rootDescriptor, LOCK_EX) == 0 else {
+            throw POSIXError(.init(rawValue: errno)!)
+        }
+        defer { _ = flock(rootDescriptor, LOCK_UN) }
+        let mutation = try transform(try read(identifier: identifier))
+        try Task.checkCancellation()
+        try write(mutation.data, identifier: identifier)
+        return mutation.result
     }
 
     func quarantine(identifier: String) throws {

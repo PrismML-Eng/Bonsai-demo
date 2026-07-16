@@ -39,6 +39,7 @@ enum LocalReasoningConfigResolver {
 protocol MLXRuntimeResource: AnyObject, Sendable {
   var reasoningConfig: ReasoningConfig? { get }
   var hasSession: Bool { get }
+  var continuationDebugSnapshot: MLXContinuationDebugSnapshot { get }
   func configure(_ request: GenerationRequest)
   func streamDetails(
     to prompt: String
@@ -59,6 +60,7 @@ protocol MLXRuntimeResource: AnyObject, Sendable {
 
 extension MLXRuntimeResource {
   var hasSession: Bool { true }
+  var continuationDebugSnapshot: MLXContinuationDebugSnapshot { .unavailable }
   func releaseOptionalSession() {}
   func streamDetails(
     to messages: [ConversationMessage]
@@ -77,6 +79,19 @@ extension MLXRuntimeResource {
   ) async throws -> Int {
     throw MLXInferenceError.tokenCountingUnavailable
   }
+}
+
+struct MLXContinuationDebugSnapshot: Equatable, Sendable {
+  let runtimeIdentity: UUID?
+  let sessionIdentity: UUID?
+  let generationSessionIdentity: UUID?
+  let continuationSessionIdentity: UUID?
+  let continuationCount: Int
+  let fullHistoryReplayCount: Int
+
+  static let unavailable = MLXContinuationDebugSnapshot(
+    runtimeIdentity: nil, sessionIdentity: nil, generationSessionIdentity: nil,
+    continuationSessionIdentity: nil, continuationCount: 0, fullHistoryReplayCount: 0)
 }
 
 protocol MLXCacheClearing: Sendable {
@@ -119,8 +134,23 @@ private final class LiveMLXRuntimeResource: MLXRuntimeResource, @unchecked Senda
   private let container: ModelContainer
   private var session: MLXLMCommon.ChatSession?
   private var configuredRequest: GenerationRequest?
+  private let runtimeIdentity = UUID()
+  private var sessionIdentity = UUID()
+  private var generationSessionIdentity: UUID?
+  private var continuationSessionIdentity: UUID?
+  private var continuationCount = 0
+  private var fullHistoryReplayCount = 0
   let reasoningConfig: ReasoningConfig?
   var hasSession: Bool { session != nil }
+  var continuationDebugSnapshot: MLXContinuationDebugSnapshot {
+    MLXContinuationDebugSnapshot(
+      runtimeIdentity: runtimeIdentity,
+      sessionIdentity: session == nil ? nil : sessionIdentity,
+      generationSessionIdentity: generationSessionIdentity,
+      continuationSessionIdentity: continuationSessionIdentity,
+      continuationCount: continuationCount,
+      fullHistoryReplayCount: fullHistoryReplayCount)
+  }
 
   init(container: ModelContainer, reasoningConfig: ReasoningConfig?) {
     self.container = container
@@ -137,7 +167,9 @@ private final class LiveMLXRuntimeResource: MLXRuntimeResource, @unchecked Senda
   func streamDetails(
     to prompt: String
   ) -> AsyncThrowingStream<MLXLMCommon.Generation, Error> {
-    ensureSession().streamDetails(to: prompt)
+    let activeSession = ensureSession()
+    generationSessionIdentity = sessionIdentity
+    return activeSession.streamDetails(to: prompt)
   }
 
   func streamDetails(
@@ -147,6 +179,9 @@ private final class LiveMLXRuntimeResource: MLXRuntimeResource, @unchecked Senda
     let created = Self.makeSession(container: container)
     Self.configure(created, request: configuredRequest)
     session = created
+    sessionIdentity = UUID()
+    generationSessionIdentity = sessionIdentity
+    fullHistoryReplayCount += 1
     return created.streamDetails(to: try MLXPromptComposer.chatMessages(messages))
   }
 
@@ -158,7 +193,10 @@ private final class LiveMLXRuntimeResource: MLXRuntimeResource, @unchecked Senda
     // tool call already live in this session's KV cache. A compact user-role
     // continuation keeps that cache warm and carries every correlation ID
     // without replaying or re-prefilling the conversation.
-    return ensureSession().streamDetails(
+    let activeSession = ensureSession()
+    continuationSessionIdentity = sessionIdentity
+    continuationCount += 1
+    return activeSession.streamDetails(
       to: try MLXPromptComposer.toolContinuationPrompt(exchange)
     )
   }
@@ -185,6 +223,7 @@ private final class LiveMLXRuntimeResource: MLXRuntimeResource, @unchecked Senda
     if let session { return session }
     let created = Self.makeSession(container: container)
     session = created
+    sessionIdentity = UUID()
     return created
   }
 

@@ -9,6 +9,11 @@ struct ToolApprovalRequest: Equatable, Sendable {
 
 protocol ToolApprovalGate: Sendable {
   func requestAllowOnce(_ request: ToolApprovalRequest) async throws -> ToolApprovalDecision
+  func cancelPending() async
+}
+
+extension ToolApprovalGate {
+  func cancelPending() async {}
 }
 
 struct AllowingApprovalGate: ToolApprovalGate {
@@ -68,6 +73,8 @@ actor AgentLoop {
   private let registry: ToolRegistry
   private let approvals: any ToolApprovalGate
   private var currentActivities: [AgentActivity] = []
+  private var activeRun: (id: UUID, task: Task<AgentRunResult, Never>)?
+  private var activeTool: (any OfflineTool)?
 
   init(
     engine: any AgentInferenceStreaming,
@@ -82,55 +89,86 @@ actor AgentLoop {
   func activities() -> [AgentActivity] { currentActivities }
 
   func run(_ request: GenerationRequest) async throws -> AgentRunResult {
+    guard activeRun == nil else {
+      return finish(.runtimeFailure("agent_run_already_active"), answer: "", results: [])
+    }
+    let runID = UUID()
+    let task = Task { [weak self] in
+      guard let self else {
+        return AgentRunResult(
+          answer: "", toolResults: [], activities: [.terminal(.cancelled)], completion: .cancelled)
+      }
+      return await self.performRun(request)
+    }
+    activeRun = (runID, task)
+    let result = await task.value
+    if activeRun?.id == runID { activeRun = nil }
+    activeTool = nil
+    return result
+  }
+
+  private func performRun(_ request: GenerationRequest) async -> AgentRunResult {
     currentActivities = [.generating]
     var answer = ""
     var results: [AgentToolResult] = []
     var seenIDs: Set<String> = []
     var toolTurns = 0
-    var stream = try await engine.generate(request)
-
-    while true {
-      let batch = try await consume(stream, answer: &answer)
-      switch batch.completion {
-      case .stop:
-        return finish(.stop, answer: answer, results: results)
-      case .length:
-        return finish(.length, answer: answer, results: results)
-      case .cancelled:
-        return finish(.cancelled, answer: answer, results: results)
-      case .toolRequest:
-        guard toolTurns < Self.maximumToolTurns else {
-          return finish(
-            .toolTurnLimit(Self.maximumToolTurns), answer: answer, results: results
-          )
-        }
-        toolTurns += 1
-        var exchangeResults: [AgentToolResult] = []
-        for invocation in batch.invocations {
-          try Task.checkCancellation()
-          guard seenIDs.insert(invocation.id).inserted else {
+    do {
+      var stream = try await engine.generate(request)
+      while true {
+        let batch = try await consume(stream, answer: &answer)
+        switch batch.completion {
+        case .stop:
+          return finish(.stop, answer: answer, results: results)
+        case .length:
+          return finish(.length, answer: answer, results: results)
+        case .cancelled:
+          return finish(.cancelled, answer: answer, results: results)
+        case .toolRequest:
+          guard toolTurns < Self.maximumToolTurns else {
             return finish(
-              .duplicateInvocationID(invocation.id), answer: answer, results: results
+              .toolTurnLimit(Self.maximumToolTurns), answer: answer, results: results
             )
           }
-          let result = try await execute(invocation)
-          results.append(result)
-          exchangeResults.append(result)
-          currentActivities.append(.result(result))
+          toolTurns += 1
+          var exchangeResults: [AgentToolResult] = []
+          for invocation in batch.invocations {
+            try Task.checkCancellation()
+            guard seenIDs.insert(invocation.id).inserted else {
+              return finish(
+                .duplicateInvocationID(invocation.id), answer: answer, results: results
+              )
+            }
+            let result = try await execute(invocation)
+            results.append(result)
+            exchangeResults.append(result)
+            currentActivities.append(.result(result))
+          }
+          stream = try await engine.continueAfterTools(
+            AgentToolExchange(invocations: batch.invocations, results: exchangeResults)
+          )
+          currentActivities.append(.generating)
         }
-        stream = try await engine.continueAfterTools(
-          AgentToolExchange(invocations: batch.invocations, results: exchangeResults)
-        )
-        currentActivities.append(.generating)
       }
+    } catch is CancellationError {
+      return finish(.cancelled, answer: answer, results: results)
+    } catch {
+      return finish(.runtimeFailure(String(describing: error)), answer: answer, results: results)
     }
   }
 
-  func cancel() async { await engine.cancel() }
+  func cancel() async {
+    activeRun?.task.cancel()
+    await approvals.cancelPending()
+    await activeTool?.cancel()
+    await engine.cancel()
+  }
 
   private func execute(_ invocation: ToolInvocation) async throws -> AgentToolResult {
     do {
       let (tool, arguments) = try registry.resolve(invocation)
+      activeTool = tool
+      defer { activeTool = nil }
       if try tool.approval(for: arguments) == .requireAllowOnce {
         let request = ToolApprovalRequest(
           invocation: invocation, effect: try tool.effect(for: arguments)
@@ -146,11 +184,13 @@ actor AgentLoop {
       }
       try Task.checkCancellation()
       currentActivities.append(.running(invocation))
-      let value = try await tool.execute(arguments: arguments)
-      try Task.checkCancellation()
-      return AgentToolResult(
-        invocationID: invocation.id, status: .succeeded, contentJSON: value.jsonString
-      )
+            let value = try await tool.execute(arguments: arguments)
+            try Task.checkCancellation()
+            return AgentToolResult(
+                invocationID: invocation.id,
+                status: .succeeded,
+                contentJSON: try value.boundedJSONString()
+            )
     } catch is CancellationError {
       throw CancellationError()
     } catch {
@@ -177,6 +217,7 @@ actor AgentLoop {
       case .reasoning, .metrics: break
       }
     }
+    try Task.checkCancellation()
     return (invocations, completion ?? .stop)
   }
 

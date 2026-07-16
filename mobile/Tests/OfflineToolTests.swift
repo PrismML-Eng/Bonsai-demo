@@ -22,6 +22,27 @@ struct OfflineToolTests {
     }
   }
 
+  @Test func boundedEncoderRejectsEveryResultBoundary() {
+    #expect(throws: ToolBoundaryError.excessiveDepth) {
+      try nestedJSON(depth: 17).boundedJSONString()
+    }
+    #expect(throws: ToolBoundaryError.excessiveContainer) {
+      try ToolJSON.array(Array(repeating: .null, count: 129)).boundedJSONString()
+    }
+    #expect(throws: ToolBoundaryError.excessiveString) {
+      try ToolJSON.string(String(repeating: "x", count: 8_193)).boundedJSONString()
+    }
+    #expect(throws: ToolBoundaryError.excessiveBytes) {
+      let values = (0..<128).map { ToolJSON.string(String(repeating: "x", count: 127) + "\($0)") }
+      _ = try ToolJSON.array(values).boundedJSONString()
+    }
+  }
+
+  @Test func preflightRejectsExtremeNestingBeforeFoundationDecode() {
+    let deep = String(repeating: "[", count: 500) + "0" + String(repeating: "]", count: 500)
+    #expect(throws: ToolBoundaryError.excessiveDepth) { try ToolJSON.decode(deep) }
+  }
+
   @Test func dateAndDeviceResultsAreDeterministicAndPrivate() async throws {
     let date = DateTool(
       now: { Date(timeIntervalSince1970: 0) }, locale: Locale(identifier: "en_US_POSIX"),
@@ -38,6 +59,10 @@ struct OfflineToolTests {
 
   private func temporaryDirectory() -> URL {
     FileManager.default.temporaryDirectory.appending(path: "OfflineToolTests-\(UUID())")
+  }
+
+  private func nestedJSON(depth: Int) -> ToolJSON {
+    (0..<depth).reduce(.null) { value, _ in .array([value]) }
   }
 }
 

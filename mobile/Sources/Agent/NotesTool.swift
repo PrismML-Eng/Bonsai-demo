@@ -6,26 +6,52 @@ struct NotesTool: OfflineTool {
     description: "List, read, create, update, or delete private local notes.",
     parametersJSON:
       // swiftlint:disable:next line_length
-      "{\"additionalProperties\":false,\"properties\":{\"action\":{\"enum\":[\"list\",\"read\",\"create\",\"update\",\"delete\"],\"type\":\"string\"},\"body\":{\"maxLength\":32768,\"type\":\"string\"},\"expectedRevision\":{\"minimum\":1,\"type\":\"integer\"},\"id\":{\"type\":\"string\"},\"title\":{\"maxLength\":256,\"type\":\"string\"}},\"required\":[\"action\"],\"type\":\"object\"}"
+      "{\"additionalProperties\":false,\"properties\":{\"action\":{\"enum\":[\"list\",\"read\",\"create\",\"update\",\"delete\"],\"type\":\"string\"},\"body\":{\"maxLength\":8192,\"type\":\"string\"},\"expectedRevision\":{\"minimum\":1,\"type\":\"integer\"},\"id\":{\"type\":\"string\"},\"title\":{\"maxLength\":256,\"type\":\"string\"}},\"required\":[\"action\"],\"type\":\"object\"}"
   )
   let store: NotesStore
 
+  // Action-specific schemas deliberately share one exhaustive boundary.
+  // swiftlint:disable:next cyclomatic_complexity
   func validate(arguments: ToolJSON) throws {
-    switch try arguments.requiredString("action") {
-    case "list": break
-    case "read": _ = try noteID(arguments)
+    let action = try arguments.requiredString("action")
+    let allowed: Set<String>
+    let required: Set<String>
+    switch action {
+    case "list":
+      allowed = ["action"]
+      required = ["action"]
+    case "read":
+      allowed = ["action", "id"]
+      required = allowed
     case "create":
-      _ = try arguments.requiredString("title")
-      _ = try arguments.requiredString("body")
+      allowed = ["action", "title", "body"]
+      required = allowed
     case "update":
-      _ = try noteID(arguments)
-      _ = try arguments.requiredInt("expectedRevision")
-      _ = try arguments.requiredString("title")
-      _ = try arguments.requiredString("body")
+      allowed = ["action", "id", "expectedRevision", "title", "body"]
+      required = allowed
     case "delete":
-      _ = try noteID(arguments)
-      _ = try arguments.requiredInt("expectedRevision")
+      allowed = ["action", "id", "expectedRevision"]
+      required = allowed
     default: throw ToolBoundaryError.invalid("action")
+    }
+    try arguments.requireObjectKeys(allowed: allowed, required: required)
+    if allowed.contains("id") { _ = try noteID(arguments) }
+    if allowed.contains("expectedRevision") {
+      guard try arguments.requiredInt("expectedRevision") >= 1 else {
+        throw ToolBoundaryError.invalid("expectedRevision")
+      }
+    }
+    if allowed.contains("title") {
+      let title = try arguments.requiredString("title")
+      guard !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+            title.utf8.count <= NotesStore.maximumTitleBytes else {
+        throw ToolBoundaryError.invalid("title")
+      }
+    }
+    if allowed.contains("body") {
+      guard try arguments.requiredString("body").utf8.count <= ToolJSON.maximumStringBytes else {
+        throw ToolBoundaryError.invalid("body")
+      }
     }
   }
 

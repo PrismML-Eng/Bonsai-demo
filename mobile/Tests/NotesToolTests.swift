@@ -32,4 +32,28 @@ struct NotesToolTests {
     #expect(try tool.effect(for: arguments) == "Create note titled ‘Private’ with body ‘Local’")
     #expect(try await store.list().isEmpty)
   }
+
+  @Test func concurrentStoresAllowOnlyOneWriterForARevision() async throws {
+    let root = FileManager.default.temporaryDirectory.appending(path: "NotesRace-\(UUID())")
+    let first = try NotesStore(root: root)
+    let second = try NotesStore(root: root)
+    let note = try await first.create(title: "v1", body: "body")
+
+    let outcomes = await withTaskGroup(of: Bool.self, returning: [Bool].self) { group in
+      for (store, title) in [(first, "v2-a"), (second, "v2-b")] {
+        group.addTask {
+          do {
+            _ = try await store.update(
+              id: note.id, expectedRevision: 1, title: title, body: "body")
+            return true
+          } catch { return false }
+        }
+      }
+      var values: [Bool] = []
+      for await value in group { values.append(value) }
+      return values
+    }
+    #expect(outcomes.filter { $0 }.count == 1)
+    #expect(try await first.read(id: note.id)?.revision == 2)
+  }
 }

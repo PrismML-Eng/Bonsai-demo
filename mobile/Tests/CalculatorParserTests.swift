@@ -20,8 +20,11 @@ struct CalculatorParserTests {
       try CalculatorParser.evaluate(
         String(repeating: "(", count: 33) + "1" + String(repeating: ")", count: 33))
     }
-    #expect(throws: CalculatorError.excessiveTokens) {
-      try CalculatorParser.evaluate(Array(repeating: "1", count: 130).joined(separator: "+"))
-    }
+        #expect(throws: CalculatorError.excessiveTokens) {
+            try CalculatorParser.evaluate(Array(repeating: "1", count: 130).joined(separator: "+"))
+        }
+        #expect(throws: CalculatorError.excessiveTokens) {
+            try CalculatorParser.evaluate(String(repeating: "+", count: 129) + "1")
+        }
   }
 }
