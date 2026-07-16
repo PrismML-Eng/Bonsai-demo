@@ -5,6 +5,12 @@ import MLXVLM
 import Tokenizers
 
 enum RuntimeProbe {
+    static let generationParameters = GenerateParameters(
+        maxTokens: 256,
+        temperature: 0,
+        seed: 0
+    )
+
     enum Error: Swift.Error, Equatable {
         case modelDirectoryMissing
     }
@@ -50,7 +56,10 @@ enum RuntimeProbe {
                     )
                     continuation.yield(.modelLoaded(loadStarted.duration(to: clock.now)))
 
-                    let session = ChatSession(container)
+                    let session = ChatSession(
+                        container,
+                        generateParameters: generationParameters
+                    )
                     for try await generation in session.streamDetails(
                         to: "Reply with exactly: bonsai ready"
                     ) {
