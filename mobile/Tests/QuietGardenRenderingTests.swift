@@ -6,6 +6,20 @@ import XCTest
 
 @MainActor
 final class QuietGardenRenderingTests: XCTestCase {
+  func testSemanticRegionOracleRejectsAFlatPlaceholder() throws {
+    let bitmap = try XCTUnwrap(NSBitmapImageRep(
+      bitmapDataPlanes: nil, pixelsWide: 200, pixelsHigh: 200,
+      bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+      colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
+    NSColor.white.setFill()
+    NSRect(x: 0, y: 0, width: 200, height: 200).fill()
+
+    XCTAssertThrowsError(try requireSemanticRegion(
+      in: bitmap,
+      rect: NSRect(x: 20, y: 20, width: 160, height: 160),
+      meaning: "expected control"))
+  }
+
   func testActualProductViewsRenderRegularCompactAndAccessibilityType() throws {
     let directory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
       .deletingLastPathComponent().deletingLastPathComponent()
