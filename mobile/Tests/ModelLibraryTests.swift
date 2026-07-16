@@ -190,7 +190,7 @@ private final class SuspendingVerifier: ModelFileVerifying, @unchecked Sendable 
     func verify(
         _ file: ModelManifest.File,
         at url: URL,
-        progress: (@Sendable (Int) -> Void)?
+        progress: ((Int) -> Void)?
     ) throws {
         condition.lock()
         started = true
