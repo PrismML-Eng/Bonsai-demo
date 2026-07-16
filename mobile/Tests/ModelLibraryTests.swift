@@ -15,7 +15,7 @@ struct ModelLibraryTests {
             manifests: [manifest]
         )
         try await original.install(manifest, qualification: .qualified([.textGeneration]))
-        let verifier = SuspendingVerifier()
+        let verifier = SlowVerifier(delay: 0.25)
 
         let started = ContinuousClock.now
         let relaunched = try ModelLibrary(root: root, manifests: [manifest], verifier: verifier)
@@ -30,12 +30,11 @@ struct ModelLibraryTests {
 
         var snapshots = await relaunched.snapshots().makeAsyncIterator()
         _ = await snapshots.next()
-        await verifier.waitUntilStarted()
+        try await Task.sleep(for: .milliseconds(50))
         guard case .verifying = await relaunched.state(for: .oneBit27B) else {
-            Issue.record("The visible state must remain verifying while hashing is suspended")
+            Issue.record("The visible state must remain verifying while slow hashing is running")
             return
         }
-        verifier.release()
 
         for _ in 0..<100 {
             if case .ready = await relaunched.state(for: .oneBit27B) { return }
@@ -182,30 +181,16 @@ struct ModelLibraryTests {
     }
 }
 
-private final class SuspendingVerifier: ModelFileVerifying, @unchecked Sendable {
-    private let started = DispatchSemaphore(value: 0)
-    private let released = DispatchSemaphore(value: 0)
+private struct SlowVerifier: ModelFileVerifying {
+    let delay: TimeInterval
 
     func verify(
         _ file: ModelManifest.File,
         at url: URL,
         progress: ((Int) -> Void)?
     ) throws {
-        started.signal()
-        released.wait()
+        Thread.sleep(forTimeInterval: delay)
         try SHA256Verifier().verify(file, at: url, progress: progress)
-    }
-
-    func waitUntilStarted() async {
-        await Task.detached { [started] in Self.blockingWait(started) }.value
-    }
-
-    func release() {
-        released.signal()
-    }
-
-    private static func blockingWait(_ semaphore: DispatchSemaphore) {
-        semaphore.wait()
     }
 }
 
