@@ -156,6 +156,13 @@ actor BackgroundTransferLedger {
         }
     }
 
+    func completedRecords(destination: URL) -> [BackgroundTransferRecord] {
+        records.values.filter {
+            $0.destination.standardizedFileURL == destination.standardizedFileURL &&
+                $0.state == .completed
+        }.sorted { $0.taskDescription < $1.taskDescription }
+    }
+
     func allRecords() -> [BackgroundTransferRecord] {
         records.values.sorted { $0.taskDescription < $1.taskDescription }
     }

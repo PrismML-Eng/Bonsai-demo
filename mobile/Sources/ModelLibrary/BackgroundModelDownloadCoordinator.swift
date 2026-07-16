@@ -50,8 +50,7 @@ final class BackgroundModelDownloadCoordinator: NSObject {
     ) async throws {
         guard let ledger else { throw initializationError ?? CocoaError(.fileWriteUnknown) }
         try validateSource(source)
-        let reconciledCompletions = try await reconcileTasks(using: ledger)
-        if Self.containsCompletion(reconciledCompletions, file: file, destination: destination) {
+        if try await reconcileAndReuseCompletion(using: ledger, file: file, destination: destination) {
             await progress(file.sizeBytes)
             return
         }
@@ -137,12 +136,32 @@ final class BackgroundModelDownloadCoordinator: NSObject {
 
     private func reconcileTasks(
         using ledger: BackgroundTransferLedger
-    ) async throws -> [BackgroundTransferRecord] {
+    ) async throws {
         await reconciliationGate.acquire()
         do {
-            let completions = try await performReconciliation(using: ledger)
+            try await performReconciliation(using: ledger)
             await reconciliationGate.release()
-            return completions
+        } catch {
+            await reconciliationGate.release()
+            throw error
+        }
+    }
+
+    private func reconcileAndReuseCompletion(
+        using ledger: BackgroundTransferLedger,
+        file: ModelManifest.File,
+        destination: URL
+    ) async throws -> Bool {
+        await reconciliationGate.acquire()
+        do {
+            try await performReconciliation(using: ledger)
+            let reusable = try await BackgroundDurableCompletionResolver().reuse(
+                using: ledger,
+                file: file,
+                destination: destination
+            )
+            await reconciliationGate.release()
+            return reusable
         } catch {
             await reconciliationGate.release()
             throw error
@@ -151,7 +170,7 @@ final class BackgroundModelDownloadCoordinator: NSObject {
 
     private func performReconciliation(
         using ledger: BackgroundTransferLedger
-    ) async throws -> [BackgroundTransferRecord] {
+    ) async throws {
         let allTasks = await withCheckedContinuation { continuation in
             session().getAllTasks { continuation.resume(returning: $0) }
         }
@@ -173,13 +192,9 @@ final class BackgroundModelDownloadCoordinator: NSObject {
                 if attachment.decision == .resume { task.resume() }
             }
         }
-        var completions: [BackgroundTransferRecord] = []
         for claim in reconciliation.claimedBodies {
-            if let completed = await finalizeClaim(claim, ledger: ledger) {
-                completions.append(completed)
-            }
+            await finalizeClaim(claim, ledger: ledger)
         }
-        return completions
     }
 
     private func finalize(task: URLSessionTask, error: Error?) async {
@@ -193,7 +208,7 @@ final class BackgroundModelDownloadCoordinator: NSObject {
         do {
             if let error { throw error }
             if let claim = try await ledger.adoptPersistedClaim(id: id) {
-                _ = await finalizeClaim(claim, ledger: ledger)
+                await finalizeClaim(claim, ledger: ledger)
             } else if await ledger.record(id: id)?.state == .completed {
                 resolve(id: id, result: .success(()))
             } else {
@@ -211,14 +226,14 @@ final class BackgroundModelDownloadCoordinator: NSObject {
     private func finalizeClaim(
         _ claim: BackgroundTransferClaim,
         ledger: BackgroundTransferLedger
-    ) async -> BackgroundTransferRecord? {
+    ) async {
         do {
             guard let record = await ledger.record(id: claim.transferID) else {
                 throw BackgroundTransferLedgerError.unknownTransfer
             }
             if record.state == .completed {
                 resolve(id: record.id, result: .success(()))
-                return record
+                return
             }
             try BackgroundTransferPromoter().promote(claim, record: record)
             try await ledger.markPromoted(id: record.id)
@@ -228,7 +243,6 @@ final class BackgroundModelDownloadCoordinator: NSObject {
             )
             await progressBridge.flush(id: record.id)
             resolve(id: record.id, result: .success(()))
-            return record
         } catch {
             progressBridge.detach(id: claim.transferID)
             try? await ledger.finish(
@@ -237,7 +251,6 @@ final class BackgroundModelDownloadCoordinator: NSObject {
                 isResumable: Self.isResumable(error)
             )
             resolve(id: claim.transferID, result: .failure(error))
-            return nil
         }
     }
 
@@ -327,18 +340,6 @@ private extension BackgroundModelDownloadCoordinator {
         let isAllowed = source.scheme?.lowercased() == "https" ||
             (permitsLoopback && URLSessionModelFileTransport.isLoopback(source))
         guard isAllowed else { throw ModelTransportError.insecureURL }
-    }
-
-    static func containsCompletion(
-        _ records: [BackgroundTransferRecord],
-        file: ModelManifest.File,
-        destination: URL
-    ) -> Bool {
-        records.contains {
-            $0.destination.standardizedFileURL == destination.standardizedFileURL &&
-                $0.expectedSize == file.sizeBytes &&
-                $0.sha256.caseInsensitiveCompare(file.sha256) == .orderedSame
-        }
     }
 
     static func transferState(_ state: URLSessionTask.State) -> BackgroundTransferTaskState {

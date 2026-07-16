@@ -79,3 +79,25 @@ actor BackgroundReconciliationGate {
         waiters.removeFirst().resume()
     }
 }
+
+struct BackgroundDurableCompletionResolver {
+    func reuse(
+        using ledger: BackgroundTransferLedger,
+        file: ModelManifest.File,
+        destination: URL
+    ) async throws -> Bool {
+        let records = await ledger.completedRecords(destination: destination)
+        var reused = false
+        for record in records {
+            let metadataMatches = record.expectedSize == file.sizeBytes &&
+                record.sha256.caseInsensitiveCompare(file.sha256) == .orderedSame
+            if !reused, metadataMatches,
+               (try? SHA256Verifier().verify(file, at: destination)) != nil {
+                reused = true
+            } else {
+                try await ledger.remove(id: record.id)
+            }
+        }
+        return reused
+    }
+}
