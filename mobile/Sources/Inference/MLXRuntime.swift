@@ -5,6 +5,35 @@ import MLXLMCommon
 import MLXVLM
 import Tokenizers
 
+private struct LocalReasoningBaseConfiguration: Decodable {
+    let modelType: String
+
+    enum CodingKeys: String, CodingKey {
+        case modelType = "model_type"
+    }
+}
+
+enum LocalReasoningConfigResolver {
+    static func resolve(
+        runtimeConfig: ReasoningConfig?,
+        configData: Data,
+        modelID: String
+    ) -> ReasoningConfig? {
+        if let runtimeConfig { return runtimeConfig }
+        guard let base = try? JSONDecoder().decode(
+            LocalReasoningBaseConfiguration.self,
+            from: configData
+        ) else {
+            return nil
+        }
+        return ReasoningConfig.infer(
+            from: base.modelType,
+            modelId: modelID,
+            configData: configData
+        )
+    }
+}
+
 protocol MLXRuntimeResource: AnyObject, Sendable {
     var reasoningConfig: ReasoningConfig? { get }
     var hasSession: Bool { get }
@@ -13,11 +42,15 @@ protocol MLXRuntimeResource: AnyObject, Sendable {
         to prompt: String
     ) -> AsyncThrowingStream<MLXLMCommon.Generation, Error>
     func releaseOptionalSession()
+    func tokenCounts(for messages: [ConversationMessage]) async throws -> [MessageID: Int]
 }
 
 extension MLXRuntimeResource {
     var hasSession: Bool { true }
     func releaseOptionalSession() {}
+    func tokenCounts(for messages: [ConversationMessage]) async throws -> [MessageID: Int] {
+        throw MLXInferenceError.tokenCountingUnavailable
+    }
 }
 
 protocol MLXCacheClearing: Sendable {
@@ -82,6 +115,17 @@ private final class LiveMLXRuntimeResource: MLXRuntimeResource, @unchecked Senda
 
     func releaseOptionalSession() {
         session = nil
+    }
+
+    func tokenCounts(for messages: [ConversationMessage]) async throws -> [MessageID: Int] {
+        var counts: [MessageID: Int] = [:]
+        counts.reserveCapacity(messages.count)
+        for message in messages {
+            counts[message.id] = await container.encode(
+                ConversationTokenText.canonical(message)
+            ).count
+        }
+        return counts
     }
 
     private func ensureSession() -> MLXLMCommon.ChatSession {

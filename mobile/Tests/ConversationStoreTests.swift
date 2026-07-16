@@ -18,6 +18,28 @@ struct ConversationStoreTests {
     }
 
     @Test
+    func higherRevisionCannotRebindConversationOwnership() async throws {
+        let root = try Self.temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = try ConversationStore(root: root)
+        let original = try Self.conversation(revision: 1, modelID: .oneBit27B)
+        try await store.save(original)
+        let file = root.appending(path: "Conversations/garden-1.json")
+        let originalBytes = try Data(contentsOf: file)
+
+        await #expect(throws: ConversationStoreError.ownershipMismatch(
+            expected: .oneBit27B,
+            attempted: .ternary27B
+        )) {
+            try await store.save(Self.conversation(revision: 2, modelID: .ternary27B))
+        }
+
+        #expect(try Data(contentsOf: file) == originalBytes)
+        #expect(try await store.load(original.id, for: .oneBit27B) == original)
+        #expect(try await store.load(original.id, for: .ternary27B) == nil)
+    }
+
+    @Test
     func failedStaleSavePreservesLastGoodConversation() async throws {
         let root = try Self.temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
@@ -166,11 +188,12 @@ struct ConversationStoreTests {
 
     private static func conversation(
         revision: UInt64,
+        modelID: ModelID = .oneBit27B,
         answer: String = "answer"
     ) throws -> Conversation {
         try Conversation(
             id: ConversationID("garden-1"),
-            modelID: .oneBit27B,
+            modelID: modelID,
             modelRevision: String(repeating: "a", count: 40),
             revision: revision,
             systemInstruction: ConversationMessage(

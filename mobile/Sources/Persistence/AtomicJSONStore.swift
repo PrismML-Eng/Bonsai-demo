@@ -7,6 +7,12 @@ enum AtomicJSONStoreError: Error, Equatable, Sendable {
     case unreadable
 }
 
+protocol AtomicDataStoring: Sendable {
+    func read(identifier: String) async throws -> Data?
+    func write(_ data: Data, identifier: String) async throws
+    func quarantine(identifier: String) async throws
+}
+
 actor AtomicJSONStore {
     private let root: URL
     private let fileManager: FileManager
@@ -115,3 +121,5 @@ actor AtomicJSONStore {
         try url.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink == true
     }
 }
+
+extension AtomicJSONStore: AtomicDataStoring {}

@@ -4,6 +4,31 @@ protocol ConversationTokenCounting: Sendable {
     func tokenCount(for message: ConversationMessage) throws -> Int
 }
 
+enum ConversationTokenCountError: Error, Equatable, Sendable {
+    case missingCount(MessageID)
+}
+
+struct PrecountedConversationTokenCounter: ConversationTokenCounting {
+    private let counts: [MessageID: Int]
+
+    init(counts: [MessageID: Int]) {
+        self.counts = counts
+    }
+
+    func tokenCount(for message: ConversationMessage) throws -> Int {
+        guard let count = counts[message.id] else {
+            throw ConversationTokenCountError.missingCount(message.id)
+        }
+        return count
+    }
+}
+
+enum ConversationTokenText {
+    static func canonical(_ message: ConversationMessage) -> String {
+        "<|\(message.role.rawValue)|>\n\(message.content)"
+    }
+}
+
 enum ContextTrimmerError: Error, Equatable, Sendable {
     case invalidLimit(Int)
     case invalidTokenCount(messageID: MessageID, count: Int)
@@ -41,8 +66,7 @@ struct ContextTrimmer: Sendable {
     func trim(_ conversation: Conversation) throws -> ContextTrimResult {
         guard limit >= 0 else { throw ContextTrimmerError.invalidLimit(limit) }
 
-        let messages = [conversation.systemInstruction]
-            + conversation.completedTurns.flatMap(\.messages)
+        let messages = conversation.contextMessages
         let counts = try validatedCounts(messages)
         let systemCount = counts[conversation.systemInstruction.id] ?? 0
 

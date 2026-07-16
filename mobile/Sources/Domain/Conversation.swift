@@ -193,4 +193,8 @@ struct Conversation: Codable, Equatable, Sendable {
         }
         return true
     }
+
+    var contextMessages: [ConversationMessage] {
+        [systemInstruction] + completedTurns.flatMap(\.messages)
+    }
 }

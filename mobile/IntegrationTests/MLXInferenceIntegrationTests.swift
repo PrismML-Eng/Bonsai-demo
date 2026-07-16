@@ -3,6 +3,31 @@ import XCTest
 @testable import BonsaiMobile
 
 final class MLXInferenceIntegrationTests: XCTestCase {
+    func testPublicOneBitTokenizerBackedContextComposition() async throws {
+        let modelDirectory = try Self.modelDirectory()
+        let engine = MLXInferenceEngine()
+        try await engine.load(
+            ModelInstallation(
+                modelID: .oneBit27B,
+                directory: modelDirectory,
+                revision: "public-local-fixture"
+            )
+        )
+        let before = await engine.debugSnapshot()
+
+        let result = try await engine.trimContext(Self.contextConversation())
+
+        XCTAssertGreaterThan(result.keptTokenCount, 0)
+        XCTAssertLessThanOrEqual(result.keptTokenCount, ContextTrimmer.defaultLimit)
+        XCTAssertEqual(
+            result.removedMessageIDs.map(\.rawValue),
+            ["old-user", "old-assistant"]
+        )
+        let after = await engine.debugSnapshot()
+        XCTAssertEqual(after, before)
+        await engine.unload()
+    }
+
     func testPublicOneBitReasoningCancellationAndReloadCycles() async throws {
         let modelDirectory = try Self.modelDirectory()
         let installation = ModelInstallation(
@@ -169,6 +194,46 @@ final class MLXInferenceIntegrationTests: XCTestCase {
             throw MLXInferenceError.modelDirectoryMissing
         }
         return directory
+    }
+
+    private static func contextConversation() throws -> Conversation {
+        try Conversation(
+            id: ConversationID("real-context"),
+            modelID: .oneBit27B,
+            modelRevision: String(repeating: "a", count: 40),
+            revision: 1,
+            systemInstruction: .init(
+                id: MessageID("system"),
+                role: .system,
+                content: "You are Bonsai."
+            ),
+            completedTurns: [
+                .init(id: "old", messages: [
+                    .init(
+                        id: MessageID("old-user"),
+                        role: .user,
+                        content: String(repeating: "old context ", count: 6_000)
+                    ),
+                    .init(
+                        id: MessageID("old-assistant"),
+                        role: .assistant,
+                        content: "old answer"
+                    )
+                ]),
+                .init(id: "new", messages: [
+                    .init(
+                        id: MessageID("new-user"),
+                        role: .user,
+                        content: "What stays?"
+                    ),
+                    .init(
+                        id: MessageID("new-assistant"),
+                        role: .assistant,
+                        content: "The newest complete turn."
+                    )
+                ])
+            ]
+        )
     }
 
     private static func collect(

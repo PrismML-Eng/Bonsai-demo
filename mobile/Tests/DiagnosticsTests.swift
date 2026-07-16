@@ -55,6 +55,26 @@ struct DiagnosticsTests {
         #expect(names[0].hasPrefix("events.corrupt."))
     }
 
+    @Test
+    func failedAppendPreservesPriorSynchronizedEnvelopeBytesAndRecords() async throws {
+        let root = try Self.temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let backing = try AtomicJSONStore(root: root)
+        let storage = FailingAtomicDiagnosticStorage(backing: backing)
+        let store = try DiagnosticsStore(storage: storage, retentionLimit: 3)
+        let original = try Self.record(index: 1)
+        try await store.append(original)
+        let originalBytes = try #require(await backing.read(identifier: "events"))
+        await storage.failNextWrite()
+
+        await #expect(throws: DiagnosticStorageFailure.injected) {
+            try await store.append(Self.record(index: 2))
+        }
+
+        #expect(try await backing.read(identifier: "events") == originalBytes)
+        #expect(try await store.records() == [original])
+    }
+
     private static func record(index: Int) throws -> DiagnosticRecord {
         try DiagnosticRecord(
             stage: .generation,
@@ -82,4 +102,31 @@ struct DiagnosticsTests {
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
     }
+}
+
+private enum DiagnosticStorageFailure: Error { case injected }
+
+private actor FailingAtomicDiagnosticStorage: AtomicDataStoring {
+    private let backing: AtomicJSONStore
+    private var shouldFailWrite = false
+
+    init(backing: AtomicJSONStore) { self.backing = backing }
+
+    func read(identifier: String) async throws -> Data? {
+        try await backing.read(identifier: identifier)
+    }
+
+    func write(_ data: Data, identifier: String) async throws {
+        if shouldFailWrite {
+            shouldFailWrite = false
+            throw DiagnosticStorageFailure.injected
+        }
+        try await backing.write(data, identifier: identifier)
+    }
+
+    func quarantine(identifier: String) async throws {
+        try await backing.quarantine(identifier: identifier)
+    }
+
+    func failNextWrite() { shouldFailWrite = true }
 }

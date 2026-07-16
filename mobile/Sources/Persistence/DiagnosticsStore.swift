@@ -10,14 +10,21 @@ actor DiagnosticsStore {
         let records: [DiagnosticRecord]
     }
 
-    private let storage: AtomicJSONStore
+    private let storage: any AtomicDataStoring
     private let retentionLimit: Int
 
     init(root: URL, retentionLimit: Int = 200) throws {
+        try self.init(
+            storage: AtomicJSONStore(root: root.appending(path: "Diagnostics")),
+            retentionLimit: retentionLimit
+        )
+    }
+
+    init(storage: any AtomicDataStoring, retentionLimit: Int = 200) throws {
         guard retentionLimit > 0 else {
             throw DiagnosticsStoreError.invalidRetentionLimit
         }
-        storage = try AtomicJSONStore(root: root.appending(path: "Diagnostics"))
+        self.storage = storage
         self.retentionLimit = retentionLimit
     }
 
@@ -27,7 +34,9 @@ actor DiagnosticsStore {
         if current.count > retentionLimit {
             current.removeFirst(current.count - retentionLimit)
         }
-        let data = try await storage.encoded(Envelope(records: current))
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        let data = try encoder.encode(Envelope(records: current))
         try await storage.write(data, identifier: "events")
     }
 

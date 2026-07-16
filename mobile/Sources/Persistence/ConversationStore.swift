@@ -1,6 +1,7 @@
 import Foundation
 
 enum ConversationStoreError: Error, Equatable, Sendable {
+    case ownershipMismatch(expected: ModelID, attempted: ModelID)
     case staleRevision(current: UInt64, attempted: UInt64)
     case corruptConversation(ConversationID)
 }
@@ -38,12 +39,19 @@ actor ConversationStore {
     }
 
     private func performSave(_ conversation: Conversation) async throws {
-        if let current = try await decoded(conversation.id),
-           conversation.revision <= current.revision {
-            throw ConversationStoreError.staleRevision(
-                current: current.revision,
-                attempted: conversation.revision
-            )
+        if let current = try await decoded(conversation.id) {
+            guard current.modelID == conversation.modelID else {
+                throw ConversationStoreError.ownershipMismatch(
+                    expected: current.modelID,
+                    attempted: conversation.modelID
+                )
+            }
+            guard conversation.revision > current.revision else {
+                throw ConversationStoreError.staleRevision(
+                    current: current.revision,
+                    attempted: conversation.revision
+                )
+            }
         }
         let data = try await storage.encoded(conversation)
         try await storage.write(data, identifier: conversation.id.rawValue)

@@ -98,6 +98,50 @@ struct MLXInferenceLifecycleTests {
         #expect(await engine.debugSnapshot() == .loaded(.oneBit27B))
     }
 
+    @Test
+    func tokenizerBackedContextCompositionTrimsWithoutChangingRuntimeState() async throws {
+        let loader = SuspendingRuntimeLoader(tokenCounts: [
+            "system": 100,
+            "old-user": 1_200,
+            "old-assistant": 1_300,
+            "new-user": 1_000,
+            "new-assistant": 1_000
+        ])
+        let engine = MLXInferenceEngine(loader: loader)
+        let load = Task { try await engine.load(Self.installation(.oneBit27B)) }
+        await loader.waitForStarts(1)
+        await loader.finishNext()
+        try await load.value
+        let before = await engine.debugSnapshot()
+
+        let result = try await engine.trimContext(Self.contextConversation())
+
+        #expect(result.keptTokenCount == 2_100)
+        #expect(result.removedMessageIDs.map(\.rawValue) == ["old-user", "old-assistant"])
+        #expect(await engine.debugSnapshot() == before)
+        #expect(await loader.tokenCountRequestCount == 1)
+    }
+
+    private static func contextConversation() throws -> Conversation {
+        try Conversation(
+            id: ConversationID("context"),
+            modelID: .oneBit27B,
+            modelRevision: String(repeating: "a", count: 40),
+            revision: 1,
+            systemInstruction: .init(id: MessageID("system"), role: .system, content: "system"),
+            completedTurns: [
+                .init(id: "old", messages: [
+                    .init(id: MessageID("old-user"), role: .user, content: "old user"),
+                    .init(id: MessageID("old-assistant"), role: .assistant, content: "old answer")
+                ]),
+                .init(id: "new", messages: [
+                    .init(id: MessageID("new-user"), role: .user, content: "new user"),
+                    .init(id: MessageID("new-assistant"), role: .assistant, content: "new answer")
+                ])
+            ]
+        )
+    }
+
     private static func installation(_ id: ModelID) -> ModelInstallation {
         ModelInstallation(
             modelID: id,
@@ -135,6 +179,12 @@ private actor SuspendingRuntimeLoader: MLXRuntimeLoading {
     private(set) var returnedResources = 0
     private var cancellationCount = 0
     private var concurrentLoads = 0
+    private let tokenCounts: [String: Int]
+    private(set) var tokenCountRequestCount = 0
+
+    init(tokenCounts: [String: Int] = [:]) {
+        self.tokenCounts = tokenCounts
+    }
 
     func load(_ installation: ModelInstallation) async throws -> any MLXRuntimeResource {
         startedModels.append(installation.modelID)
@@ -164,8 +214,16 @@ private actor SuspendingRuntimeLoader: MLXRuntimeLoading {
         let next = pending.removeFirst()
         concurrentLoads -= 1
         returnedResources += 1
-        next.continuation.resume(returning: FakeRuntimeResource(modelID: next.modelID))
+        next.continuation.resume(
+            returning: FakeRuntimeResource(
+                modelID: next.modelID,
+                tokenCounts: tokenCounts,
+                didCountTokens: { await self.recordTokenCountRequest() }
+            )
+        )
     }
+
+    private func recordTokenCountRequest() { tokenCountRequestCount += 1 }
 
     private func resumeStartWaiters() {
         let ready = startWaiters.filter { startedModels.count >= $0.count }
@@ -185,12 +243,29 @@ private final class FakeRuntimeResource: MLXRuntimeResource, @unchecked Sendable
     let modelID: ModelID
     let reasoningConfig: ReasoningConfig? = nil
     private(set) var hasSession = true
+    private let tokenCounts: [String: Int]
+    private let didCountTokens: @Sendable () async -> Void
 
-    init(modelID: ModelID) { self.modelID = modelID }
+    init(
+        modelID: ModelID,
+        tokenCounts: [String: Int] = [:],
+        didCountTokens: @escaping @Sendable () async -> Void = {}
+    ) {
+        self.modelID = modelID
+        self.tokenCounts = tokenCounts
+        self.didCountTokens = didCountTokens
+    }
 
     func configure(_ request: GenerationRequest) { hasSession = true }
 
     func releaseOptionalSession() { hasSession = false }
+
+    func tokenCounts(for messages: [ConversationMessage]) async throws -> [MessageID: Int] {
+        await didCountTokens()
+        return Dictionary(uniqueKeysWithValues: messages.map {
+            ($0.id, tokenCounts[$0.id.rawValue, default: 1])
+        })
+    }
 
     func streamDetails(to prompt: String) -> AsyncThrowingStream<MLXLMCommon.Generation, Error> {
         AsyncThrowingStream { $0.finish() }

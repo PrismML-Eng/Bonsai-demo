@@ -8,6 +8,8 @@ enum MLXInferenceError: Error, Equatable, Sendable {
     case generationAlreadyActive
     case reasoningUnavailable
     case invalidToolArgumentsEncoding
+    case tokenCountingUnavailable
+    case conversationModelMismatch(expected: ModelID, attempted: ModelID)
 }
 
 enum MLXGenerationMapper {
@@ -46,35 +48,6 @@ enum MLXGenerationMapper {
         data.append(arguments)
         let digest = SHA256.hash(data: data)
         return "mlx-" + digest.prefix(8).map { String(format: "%02x", $0) }.joined()
-    }
-}
-
-private struct LocalReasoningBaseConfiguration: Decodable {
-    let modelType: String
-
-    enum CodingKeys: String, CodingKey {
-        case modelType = "model_type"
-    }
-}
-
-enum LocalReasoningConfigResolver {
-    static func resolve(
-        runtimeConfig: ReasoningConfig?,
-        configData: Data,
-        modelID: String
-    ) -> ReasoningConfig? {
-        if let runtimeConfig { return runtimeConfig }
-        guard let base = try? JSONDecoder().decode(
-            LocalReasoningBaseConfiguration.self,
-            from: configData
-        ) else {
-            return nil
-        }
-        return ReasoningConfig.infer(
-            from: base.modelType,
-            modelId: modelID,
-            configData: configData
-        )
     }
 }
 
@@ -201,6 +174,31 @@ actor MLXInferenceEngine: InferenceEngine {
 
     func clearReusableCaches() {
         cacheClearer.clear()
+    }
+
+    func trimContext(
+        _ conversation: Conversation,
+        limit: Int = ContextTrimmer.defaultLimit
+    ) async throws -> ContextTrimResult {
+        guard activeGeneration == nil else {
+            throw MLXInferenceError.generationAlreadyActive
+        }
+        guard let runtime, let installation else {
+            throw MLXInferenceError.modelNotLoaded
+        }
+        guard conversation.modelID == installation.modelID else {
+            throw MLXInferenceError.conversationModelMismatch(
+                expected: installation.modelID,
+                attempted: conversation.modelID
+            )
+        }
+        let intent = latestIntent
+        let counts = try await runtime.tokenCounts(for: conversation.contextMessages)
+        try ensureCurrent(intent)
+        return try ContextTrimmer(
+            limit: limit,
+            tokenCounter: PrecountedConversationTokenCounter(counts: counts)
+        ).trim(conversation)
     }
 
     func debugSnapshot() -> DebugSnapshot {
