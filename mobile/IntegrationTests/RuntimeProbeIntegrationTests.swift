@@ -12,23 +12,42 @@ final class RuntimeProbeIntegrationTests: XCTestCase {
         let clock = ContinuousClock()
         let started = clock.now
         var firstTokenDuration: Duration?
+        var modelLoadDuration: Duration?
+        var generationTokenCount: Int?
+        var tokensPerSecond: Double?
         var output = ""
-        var chunkCount = 0
 
-        for try await chunk in RuntimeProbe.run(modelDirectory: URL(fileURLWithPath: path)) {
-            if firstTokenDuration == nil {
-                firstTokenDuration = started.duration(to: clock.now)
+        for try await event in RuntimeProbe.measuredRun(
+            modelDirectory: URL(fileURLWithPath: path)
+        ) {
+            switch event {
+            case .modelLoaded(let duration):
+                modelLoadDuration = duration
+            case .chunk(let chunk):
+                if firstTokenDuration == nil {
+                    firstTokenDuration = started.duration(to: clock.now)
+                }
+                output += chunk
+            case .completed(let info):
+                generationTokenCount = info.generationTokenCount
+                tokensPerSecond = info.tokensPerSecond
             }
-            output += chunk
-            chunkCount += 1
         }
 
         let elapsed = started.duration(to: clock.now)
         print(
-            "RuntimeProbe first-token=\(String(describing: firstTokenDuration)) "
-                + "elapsed=\(elapsed) chunks=\(chunkCount)"
+            "RuntimeProbe model-load=\(String(describing: modelLoadDuration)) "
+                + "first-token=\(String(describing: firstTokenDuration)) elapsed=\(elapsed)"
+        )
+        print(
+            "RuntimeProbe generated-tokens=\(String(describing: generationTokenCount)) "
+                + "tokens-per-second=\(String(describing: tokensPerSecond))"
         )
         print("RuntimeProbe output=\(output)")
+        XCTAssertNotNil(modelLoadDuration)
+        XCTAssertNotNil(firstTokenDuration)
+        XCTAssertGreaterThan(generationTokenCount ?? 0, 0)
+        XCTAssertGreaterThan(tokensPerSecond ?? 0, 0)
         XCTAssertFalse(output.isEmpty)
         XCTAssertTrue(output.localizedCaseInsensitiveContains("bonsai ready"))
     }

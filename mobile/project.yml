@@ -18,7 +18,6 @@ settings:
     SWIFT_STRICT_CONCURRENCY: complete
     GCC_TREAT_WARNINGS_AS_ERRORS: YES
     SWIFT_TREAT_WARNINGS_AS_ERRORS: YES
-    CODE_SIGNING_ALLOWED: NO
 targets:
   BonsaiMobile:
     type: application
