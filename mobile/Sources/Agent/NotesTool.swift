@@ -1,0 +1,103 @@
+import Foundation
+
+struct NotesTool: OfflineTool {
+  let schema = OfflineToolSchema(
+    name: "local_notes",
+    description: "List, read, create, update, or delete private local notes.",
+    parametersJSON:
+      // swiftlint:disable:next line_length
+      "{\"additionalProperties\":false,\"properties\":{\"action\":{\"enum\":[\"list\",\"read\",\"create\",\"update\",\"delete\"],\"type\":\"string\"},\"body\":{\"maxLength\":32768,\"type\":\"string\"},\"expectedRevision\":{\"minimum\":1,\"type\":\"integer\"},\"id\":{\"type\":\"string\"},\"title\":{\"maxLength\":256,\"type\":\"string\"}},\"required\":[\"action\"],\"type\":\"object\"}"
+  )
+  let store: NotesStore
+
+  func validate(arguments: ToolJSON) throws {
+    switch try arguments.requiredString("action") {
+    case "list": break
+    case "read": _ = try noteID(arguments)
+    case "create":
+      _ = try arguments.requiredString("title")
+      _ = try arguments.requiredString("body")
+    case "update":
+      _ = try noteID(arguments)
+      _ = try arguments.requiredInt("expectedRevision")
+      _ = try arguments.requiredString("title")
+      _ = try arguments.requiredString("body")
+    case "delete":
+      _ = try noteID(arguments)
+      _ = try arguments.requiredInt("expectedRevision")
+    default: throw ToolBoundaryError.invalid("action")
+    }
+  }
+
+  func approval(for arguments: ToolJSON) throws -> ToolApproval {
+    try validate(arguments: arguments)
+    return switch try arguments.requiredString("action") {
+    case "list", "read": ToolApproval.automaticReadOnly
+    default: ToolApproval.requireAllowOnce
+    }
+  }
+
+  func effect(for arguments: ToolJSON) throws -> String {
+    try validate(arguments: arguments)
+    return switch try arguments.requiredString("action") {
+    case "list": "List local notes"
+    case "read": "Read local note \(try noteID(arguments).uuidString)"
+    case "create":
+      // swiftlint:disable:next line_length
+      "Create note titled ‘\(try arguments.requiredString("title"))’ with body ‘\(try arguments.requiredString("body"))’"
+    case "update":
+      // swiftlint:disable:next line_length
+      "Update note \(try noteID(arguments).uuidString) at revision \(try arguments.requiredInt("expectedRevision")) to title ‘\(try arguments.requiredString("title"))’ and body ‘\(try arguments.requiredString("body"))’"
+    case "delete":
+      "Delete note \(try noteID(arguments).uuidString) at revision \(try arguments.requiredInt("expectedRevision"))"
+    default: throw ToolBoundaryError.invalid("action")
+    }
+  }
+
+  func execute(arguments: ToolJSON) async throws -> ToolJSON {
+    try validate(arguments: arguments)
+    switch try arguments.requiredString("action") {
+    case "list": return .object(["notes": .array(try await store.list().map(Self.json))])
+    case "read":
+      return .object(["note": try await store.read(id: noteID(arguments)).map(Self.json) ?? .null])
+    case "create":
+      return Self.json(
+        try await store.create(
+          title: arguments.requiredString("title"), body: arguments.requiredString("body")
+        ))
+    case "update":
+      return Self.json(
+        try await store.update(
+          id: noteID(arguments),
+          expectedRevision: UInt64(try arguments.requiredInt("expectedRevision")),
+          title: arguments.requiredString("title"),
+          body: arguments.requiredString("body")
+        ))
+    case "delete":
+      return Self.json(
+        try await store.delete(
+          id: noteID(arguments),
+          expectedRevision: UInt64(try arguments.requiredInt("expectedRevision"))
+        ))
+    default: throw ToolBoundaryError.invalid("action")
+    }
+  }
+
+  private func noteID(_ arguments: ToolJSON) throws -> UUID {
+    guard let id = UUID(uuidString: try arguments.requiredString("id")) else {
+      throw ToolBoundaryError.invalid("id")
+    }
+    return id
+  }
+
+  private static func json(_ note: LocalNote) -> ToolJSON {
+    .object([
+      "id": .string(note.id.uuidString),
+      "revision": .int(Int(note.revision)),
+      "title": .string(note.title),
+      "body": .string(note.body),
+      "createdAt": .string(ISO8601DateFormatter().string(from: note.createdAt)),
+      "updatedAt": .string(ISO8601DateFormatter().string(from: note.updatedAt))
+    ])
+  }
+}
