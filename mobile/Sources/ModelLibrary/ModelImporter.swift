@@ -66,6 +66,7 @@ struct ModelImporter: Sendable {
             $0 = $0.addingReportingOverflow(UInt64($1.sizeBytes)).partialValue
         }
         var validation = ArchiveValidationState(maximumDeclared: maximumDeclared)
+        var validatedFiles: [(entry: Entry, logical: String)] = []
         for entry in archive {
             try Task.checkCancellation()
             guard let logical = try validatedArchivePath(
@@ -79,11 +80,15 @@ struct ModelImporter: Sendable {
                 expected: expected,
                 validation: &validation
             )
-            let destination = try safeDestination(logical, under: staging)
-            try extract(entry, from: archive, to: destination)
+            validatedFiles.append((entry, logical))
         }
         for file in manifest.files where !file.isOptional && !validation.seen.contains(file.path) {
             throw ModelLibraryError.missingFile(file.path)
+        }
+        for validated in validatedFiles {
+            try Task.checkCancellation()
+            let destination = try safeDestination(validated.logical, under: staging)
+            try extract(validated.entry, from: archive, to: destination)
         }
     }
 
@@ -97,6 +102,14 @@ struct ModelImporter: Sendable {
             throw ModelLibraryError.unsafeImport(entry.path)
         }
         guard validation.allPaths.insert(logical).inserted else {
+            throw ModelLibraryError.duplicatePath(logical)
+        }
+        let requiredPaths = expected.keys
+        guard !requiredPaths.contains(where: { logical.hasPrefix($0 + "/") }) else {
+            throw ModelLibraryError.duplicatePath(logical)
+        }
+        guard entry.type == .directory
+                || !requiredPaths.contains(where: { $0.hasPrefix(logical + "/") }) else {
             throw ModelLibraryError.duplicatePath(logical)
         }
         if entry.type == .directory {

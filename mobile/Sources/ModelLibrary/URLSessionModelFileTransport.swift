@@ -12,17 +12,33 @@ enum ModelTransportError: Error, Equatable, Sendable {
 
 final class URLSessionModelFileTransport: ModelFileTransport, @unchecked Sendable {
     private let configuration: URLSessionConfiguration
+    private let usesAppBackgroundCoordinator: Bool
 
     init(
-        configuration: URLSessionConfiguration = URLSessionModelFileTransport.productionConfiguration()
+        configuration: URLSessionConfiguration? = nil
     ) {
-        self.configuration = Self.sanitized(configuration)
+        #if os(iOS)
+        usesAppBackgroundCoordinator = configuration == nil
+        #else
+        usesAppBackgroundCoordinator = false
+        #endif
+        self.configuration = Self.sanitized(configuration ?? .ephemeral)
     }
 
     func download(_ file: ModelManifest.File, from source: URL, to destination: URL) async throws {
         guard source.scheme?.lowercased() == "https" || Self.isLoopback(source) else {
             throw ModelTransportError.insecureURL
         }
+        #if os(iOS)
+        if usesAppBackgroundCoordinator {
+            try await BackgroundModelDownloadCoordinator.shared.download(
+                file,
+                from: source,
+                to: destination
+            )
+            return
+        }
+        #endif
         let existing = Self.fileSize(at: destination)
         var request = URLRequest(url: source)
         request.httpMethod = "GET"
@@ -35,23 +51,6 @@ final class URLSessionModelFileTransport: ModelFileTransport, @unchecked Sendabl
         defer { holder.invalidate() }
         try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
-                if configuration.identifier != nil {
-                    let delegate = BackgroundDownloadDelegate(
-                        destination: destination,
-                        existingBytes: existing,
-                        permitsLoopback: Self.isLoopback(source),
-                        completion: continuation
-                    )
-                    let session = URLSession(
-                        configuration: configuration,
-                        delegate: delegate,
-                        delegateQueue: nil
-                    )
-                    holder.registerPreStoreCancellation { delegate.cancelBeforeStart() }
-                    guard holder.store(session) else { return }
-                    session.downloadTask(with: request).resume()
-                    return
-                }
                 let delegate = StreamingDownloadDelegate(
                     destination: destination,
                     existingBytes: existing,
@@ -118,128 +117,6 @@ final class URLSessionModelFileTransport: ModelFileTransport, @unchecked Sendabl
         sanitized.setValue(nil, forHTTPHeaderField: "Authorization")
         sanitized.setValue(nil, forHTTPHeaderField: "Cookie")
         return sanitized
-    }
-}
-
-private final class BackgroundDownloadDelegate: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
-    private let lock = NSLock()
-    private let destination: URL
-    private let existingBytes: Int
-    private let permitsLoopback: Bool
-    private var terminalError: Error?
-    private var completion: CheckedContinuation<Void, Error>?
-
-    init(
-        destination: URL,
-        existingBytes: Int,
-        permitsLoopback: Bool,
-        completion: CheckedContinuation<Void, Error>
-    ) {
-        self.destination = destination
-        self.existingBytes = existingBytes
-        self.permitsLoopback = permitsLoopback
-        self.completion = completion
-    }
-
-    func cancelBeforeStart() {
-        let continuation = lock.withLock { () -> CheckedContinuation<Void, Error>? in
-            defer { completion = nil }
-            return completion
-        }
-        continuation?.resume(throwing: CancellationError())
-    }
-
-    func urlSession(
-        _: URLSession,
-        downloadTask: URLSessionDownloadTask,
-        didFinishDownloadingTo location: URL
-    ) {
-        do {
-            guard let http = downloadTask.response as? HTTPURLResponse else {
-                throw ModelTransportError.invalidResponse
-            }
-            guard (200 ... 299).contains(http.statusCode) else {
-                throw ModelTransportError.httpStatus(http.statusCode)
-            }
-            let append = existingBytes > 0 && http.statusCode == 206
-            if append, !URLSessionModelFileTransport.contentRangeStarts(
-                http.value(forHTTPHeaderField: "Content-Range"),
-                at: existingBytes
-            ) {
-                throw ModelTransportError.invalidContentRange
-            }
-            try FileManager.default.createDirectory(
-                at: destination.deletingLastPathComponent(),
-                withIntermediateDirectories: true
-            )
-            if append {
-                let output = try FileHandle(forWritingTo: destination)
-                defer { try? output.close() }
-                try output.seekToEnd()
-                let input = try FileHandle(forReadingFrom: location)
-                defer { try? input.close() }
-                while true {
-                    try Task.checkCancellation()
-                    let chunk = try input.read(upToCount: 1_048_576) ?? Data()
-                    guard !chunk.isEmpty else { break }
-                    try output.write(contentsOf: chunk)
-                }
-                try output.synchronize()
-            } else {
-                if FileManager.default.fileExists(atPath: destination.path) {
-                    try FileManager.default.removeItem(at: destination)
-                }
-                try FileManager.default.moveItem(at: location, to: destination)
-            }
-        } catch {
-            lock.withLock { terminalError = error }
-        }
-    }
-
-    func urlSession(
-        _: URLSession,
-        downloadTask _: URLSessionDownloadTask,
-        didWriteData _: Int64,
-        totalBytesWritten _: Int64,
-        totalBytesExpectedToWrite _: Int64
-    ) {}
-
-    func urlSession(_: URLSession, task _: URLSessionTask, didCompleteWithError error: Error?) {
-        let result: Result<Void, Error> = lock.withLock {
-            if let terminalError { return .failure(terminalError) }
-            if let error { return .failure(error) }
-            return .success(())
-        }
-        let continuation = lock.withLock { () -> CheckedContinuation<Void, Error>? in
-            defer { completion = nil }
-            return completion
-        }
-        continuation?.resume(with: result)
-    }
-
-    func urlSession(
-        _: URLSession,
-        task _: URLSessionTask,
-        willPerformHTTPRedirection _: HTTPURLResponse,
-        newRequest request: URLRequest,
-        completionHandler: @escaping @Sendable (URLRequest?) -> Void
-    ) {
-        completionHandler(
-            URLSessionModelFileTransport.sanitizedRedirect(request, permitsLoopback: permitsLoopback)
-        )
-    }
-
-    func urlSession(
-        _: URLSession,
-        task _: URLSessionTask,
-        didReceive challenge: URLAuthenticationChallenge,
-        completionHandler: @escaping @Sendable (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
-    ) {
-        if challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust {
-            completionHandler(.performDefaultHandling, nil)
-        } else {
-            completionHandler(.rejectProtectionSpace, nil)
-        }
     }
 }
 

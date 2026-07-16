@@ -67,21 +67,28 @@ struct ArchiveMetadataValidator: Sendable {
             if operatingSystem == 3 || operatingSystem == 19 {
                 let mode = mode_t(readUInt32(header, at: 38) >> 16)
                 let extra = variable.subdata(in: nameLength ..< nameLength + extraLength)
-                try validateUnixMetadata(mode: mode, extraFieldIDs: extraFieldIDs(extra))
+                try validateUnixMetadata(mode: mode, extraFieldIDs: try extraFieldIDs(extra))
             }
             consumed += UInt64(46 + variableLength)
         }
         guard consumed == size else { throw ModelLibraryError.unsafeImport("invalid central directory size") }
     }
 
-    private func extraFieldIDs(_ data: Data) -> Set<UInt16> {
+    private func extraFieldIDs(_ data: Data) throws -> Set<UInt16> {
         var result: Set<UInt16> = []
         var offset = 0
-        while offset + 4 <= data.count {
+        while offset < data.count {
+            guard offset + 4 <= data.count else {
+                throw ModelLibraryError.unsafeImport("truncated archive metadata")
+            }
             let identifier = readUInt16(data, at: offset)
             let length = Int(readUInt16(data, at: offset + 2))
-            guard offset + 4 + length <= data.count else { break }
-            result.insert(identifier)
+            guard offset + 4 + length <= data.count else {
+                throw ModelLibraryError.unsafeImport("truncated archive metadata")
+            }
+            guard result.insert(identifier).inserted else {
+                throw ModelLibraryError.unsafeImport("duplicate archive metadata")
+            }
             offset += 4 + length
         }
         return result

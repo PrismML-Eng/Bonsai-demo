@@ -155,12 +155,17 @@ actor ModelLibrary {
     func delete(_ id: ModelID) throws {
         let operation = try beginOperation(for: id)
         defer { endOperation(operation, for: id) }
-        for url in [installedURL(for: id), stagingURL(for: id)] {
+        let targets = [installedURL(for: id), stagingURL(for: id)]
+        var existingTargets: [URL] = []
+        for url in targets {
             try validateManagedAncestors(for: url)
-            guard FileManager.default.fileExists(atPath: url.path) else { continue }
-            guard try Self.lstatType(at: url) != .typeSymbolicLink else {
+            guard let type = try Self.lstatTypeIfPresent(at: url) else { continue }
+            guard type != .typeSymbolicLink else {
                 throw ModelLibraryError.unsafeManagedPath(url.lastPathComponent)
             }
+            existingTargets.append(url)
+        }
+        for url in existingTargets {
             try FileManager.default.removeItem(at: url)
         }
         publish(.notInstalled, for: id)
@@ -302,6 +307,14 @@ private extension ModelLibrary {
         case S_IFREG: return .typeRegular
         case S_IFLNK: return .typeSymbolicLink
         default: return .typeUnknown
+        }
+    }
+
+    private static func lstatTypeIfPresent(at url: URL) throws -> FileAttributeType? {
+        do {
+            return try lstatType(at: url)
+        } catch let error as POSIXError where error.code == .ENOENT {
+            return nil
         }
     }
 
