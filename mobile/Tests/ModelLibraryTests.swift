@@ -183,36 +183,25 @@ struct ModelLibraryTests {
 }
 
 private final class SuspendingVerifier: ModelFileVerifying, @unchecked Sendable {
-    private let condition = NSCondition()
-    private var started = false
-    private var released = false
+    private let started = DispatchSemaphore(value: 0)
+    private let released = DispatchSemaphore(value: 0)
 
     func verify(
         _ file: ModelManifest.File,
         at url: URL,
         progress: ((Int) -> Void)?
     ) throws {
-        condition.lock()
-        started = true
-        condition.broadcast()
-        while !released { condition.wait() }
-        condition.unlock()
+        started.signal()
+        released.wait()
         try SHA256Verifier().verify(file, at: url, progress: progress)
     }
 
     func waitUntilStarted() async {
-        await Task.detached { [self] in
-            condition.lock()
-            while !started { condition.wait() }
-            condition.unlock()
-        }.value
+        await Task.detached { [started] in started.wait() }.value
     }
 
     func release() {
-        condition.lock()
-        released = true
-        condition.broadcast()
-        condition.unlock()
+        released.signal()
     }
 }
 
