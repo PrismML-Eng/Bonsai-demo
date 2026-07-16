@@ -219,6 +219,7 @@ mlx/
 .venv-jupyter/
 .openwebui/
 .superpowers/
+.worktrees/
 .webui_secret_key
 .DS_Store
 *.tar.gz
