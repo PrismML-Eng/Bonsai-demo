@@ -2,7 +2,7 @@ import Darwin
 import Foundation
 
 // The actor keeps transactional install, verify, import, and recovery invariants together.
-// swiftlint:disable file_length
+// swiftlint:disable file_length type_body_length
 
 actor ModelLibrary {
     private let root: URL
@@ -315,6 +315,7 @@ actor ModelLibrary {
         observers.removeValue(forKey: id)
     }
 }
+// swiftlint:enable type_body_length
 
 private extension ModelLibrary {
     private func beginOperation(for id: ModelID) throws -> UUID {
@@ -466,3 +467,4 @@ private extension ModelLibrary {
         #endif
     }
 }
+// swiftlint:enable file_length

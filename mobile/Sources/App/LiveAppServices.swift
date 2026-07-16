@@ -38,8 +38,7 @@ actor ModelSessionGate {
     }
     let id = UUID()
     try await withTaskCancellationHandler {
-      try await withCheckedThrowingContinuation {
-        (continuation: CheckedContinuation<Void, any Error>) in
+      try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
         if Task.isCancelled {
           continuation.resume(throwing: CancellationError())
         } else {
@@ -100,7 +99,7 @@ actor LiveModelLibraryService: ModelLibraryServing {
   func snapshots() async -> AsyncStream<ModelLibrarySnapshot> { await library.snapshots() }
   func currentLoadedModelID() async -> ModelID? { loadedInstallation?.modelID }
 
-  // swiftlint:disable:next cyclomatic_complexity
+  // swiftlint:disable:next cyclomatic_complexity function_body_length
   func perform(_ intent: ModelLibraryIntent, for modelID: ModelID) async throws {
     guard let manifest = manifests[modelID] else { throw LiveUIServiceError.missingManifest(modelID) }
     switch intent {

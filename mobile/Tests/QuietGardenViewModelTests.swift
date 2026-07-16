@@ -322,8 +322,7 @@ final class QuietGardenViewModelTests: XCTestCase {
       do {
         return .success(try await Self.collect(
           try await chat.stream(.init(prompt: "cancel me", effort: .off))))
-      }
-      catch { return .failure(error) }
+      } catch { return .failure(error) }
     }
     for _ in 0..<20 { await Task.yield() }
     queuedSend.cancel()
@@ -370,8 +369,9 @@ final class QuietGardenViewModelTests: XCTestCase {
     let holdingReplacement = Task { try? await library.perform(.load, for: .ternary27B) }
     await loader.waitUntilBlocked()
     let queuedSwitch = Task { () -> Result<Void, any Error> in
-      do { try await library.perform(.load, for: .ternary27B); return .success(()) }
-      catch { return .failure(error) }
+      do { try await library.perform(.load, for: .ternary27B); return .success(()) } catch {
+        return .failure(error)
+      }
     }
     for _ in 0..<20 { await Task.yield() }
     queuedSwitch.cancel()

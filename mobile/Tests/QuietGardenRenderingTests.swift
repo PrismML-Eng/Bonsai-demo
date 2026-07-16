@@ -62,6 +62,8 @@ final class QuietGardenRenderingTests: XCTestCase {
     )
   }
 
+  // Artifact-specific semantic contracts intentionally stay adjacent to capture.
+  // swiftlint:disable:next function_body_length
   private func render<V: View>(
     _ content: V,
     size: CGSize,

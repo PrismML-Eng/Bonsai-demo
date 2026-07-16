@@ -1,6 +1,8 @@
 import Foundation
 import Testing
 @testable import BonsaiMobile
+// Installation, recovery, import, and launch contracts intentionally share fixture helpers.
+// swiftlint:disable file_length
 
 @Suite("Model library")
 struct ModelLibraryTests {
@@ -467,3 +469,4 @@ private struct CancellingTransport: ModelFileTransport {
         throw CancellationError()
     }
 }
+// swiftlint:enable file_length
