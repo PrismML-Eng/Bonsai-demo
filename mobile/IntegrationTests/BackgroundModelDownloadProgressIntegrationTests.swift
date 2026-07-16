@@ -5,6 +5,55 @@ import Testing
 @Suite("Real background URLSession download progress")
 struct BackgroundDownloadProgressTests {
     @Test
+    func downloadReusesDurableCompletionAfterSeparateRelaunchRestore() async throws {
+        let fixture = try await BackgroundProgressLoopbackFixture.start()
+        defer { fixture.stop() }
+        let ledgerURL = fixture.directory.appending(path: "separate-restore-ledger.json")
+        let destination = fixture.directory.appending(path: "separate-restore/model.safetensors")
+        let transferID = UUID()
+        let initialLedger = try BackgroundTransferLedger(fileURL: ledgerURL)
+        _ = try await initialLedger.create(
+            id: transferID,
+            source: fixture.slowURL,
+            destination: destination,
+            expectedSize: fixture.file.sizeBytes,
+            sha256: fixture.file.sha256,
+            existingBytes: 0
+        )
+        let callbackBody = fixture.directory.appending(path: "separate-restore.download")
+        try fixture.payload.write(to: callbackBody)
+        _ = try await initialLedger.claimBody(
+            id: transferID,
+            temporaryBody: callbackBody,
+            statusCode: 200,
+            contentRange: nil
+        )
+
+        let relaunchedLedger = try BackgroundTransferLedger(fileURL: ledgerURL)
+        let coordinator = BackgroundModelDownloadCoordinator(
+            ledger: relaunchedLedger,
+            configuration: .ephemeral,
+            permitsLoopback: true
+        )
+        coordinator.restoreBackgroundTasks()
+        try await waitForCompletedTransfer(transferID, in: relaunchedLedger)
+        try SHA256Verifier().verify(fixture.file, at: destination)
+        let recorder = BackgroundProgressRecorder()
+
+        try await coordinator.download(
+            fixture.file,
+            from: fixture.slowURL,
+            to: destination,
+            progress: { await recorder.append($0) }
+        )
+
+        #expect(await recorder.values == [fixture.payload.count])
+        #expect(fixture.requestCount == 0)
+        #expect(await relaunchedLedger.allRecords().count == 1)
+        #expect(await relaunchedLedger.record(id: transferID)?.state == .completed)
+    }
+
+    @Test
     func relaunchPromotesClaimWithoutCreatingReplacementDownload() async throws {
         let fixture = try await BackgroundProgressLoopbackFixture.start()
         defer { fixture.stop() }
@@ -143,6 +192,17 @@ struct BackgroundDownloadProgressTests {
         #expect(await recorder.values.count == countAfterCancellation)
         let record = try #require(await ledger.activeRecord(destination: destination))
         #expect(record.state == .resumable)
+    }
+
+    private func waitForCompletedTransfer(
+        _ id: UUID,
+        in ledger: BackgroundTransferLedger
+    ) async throws {
+        for _ in 0 ..< 300 {
+            if await ledger.record(id: id)?.state == .completed { return }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        throw CocoaError(.fileReadUnknown)
     }
 }
 
