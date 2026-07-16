@@ -30,9 +30,9 @@ struct ModelLibraryTests {
 
         var snapshots = await relaunched.snapshots().makeAsyncIterator()
         _ = await snapshots.next()
-        try await Task.sleep(for: .milliseconds(50))
-        guard case .verifying = await relaunched.state(for: .oneBit27B) else {
-            Issue.record("The visible state must remain verifying while slow hashing is running")
+        guard case .verifying(completedBytes: 1, totalBytes: expected.count)? =
+                await snapshots.next()?.states[.oneBit27B] else {
+            Issue.record("Slow background hashing must publish visible incremental verification progress")
             return
         }
 
@@ -189,6 +189,7 @@ private struct SlowVerifier: ModelFileVerifying {
         at url: URL,
         progress: ((Int) -> Void)?
     ) throws {
+        progress?(min(1, file.sizeBytes))
         Thread.sleep(forTimeInterval: delay)
         try SHA256Verifier().verify(file, at: url, progress: progress)
     }
