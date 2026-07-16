@@ -62,6 +62,7 @@ targets:
         "BUNDLE_LOADER[sdk=macosx*]": "$(TEST_HOST)"
     dependencies:
       - target: BonsaiMobile
+      - package: ZIPFoundation
   BonsaiMobileIntegrationTests:
     type: bundle.unit-test
     supportedDestinations: [iOS, macOS]
