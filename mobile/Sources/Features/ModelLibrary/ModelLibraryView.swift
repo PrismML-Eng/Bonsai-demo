@@ -31,10 +31,20 @@ struct ModelLibraryView: View {
       }
     }
     .safeAreaInset(edge: .bottom) {
-      if let error = viewModel.errorMessage {
+      if let failure = viewModel.actionFailure {
+        ViewThatFits(in: .horizontal) {
+          HStack { failureLabel(failure); Spacer(); recoveryButton(failure) }
+          VStack(alignment: .leading, spacing: QuietGardenTheme.spacingS) {
+            failureLabel(failure)
+            recoveryButton(failure)
+          }
+        }
+        .font(.footnote).padding().background(.regularMaterial)
+        .accessibilityElement(children: .contain)
+      } else if let error = viewModel.errorMessage {
         HStack { Image(systemName: "exclamationmark.triangle.fill"); Text(error); Spacer() }
           .font(.footnote).padding().background(.regularMaterial)
-          .accessibilityLabel("Model action failed. \(error). Try the action again.")
+          .accessibilityLabel("Model Library error. \(error)")
       }
     }
   }
@@ -60,17 +70,41 @@ struct ModelLibraryView: View {
         ProgressView(value: progress).tint(QuietGardenTheme.accent)
           .accessibilityValue(Text("\(Int(progress * 100)) percent"))
       }
-      HStack(spacing: QuietGardenTheme.spacingS) {
-        if let action = row.primaryAction { actionButton(action, row: row, prominent: true) }
-        if let recovery = row.recovery { actionButton(recovery, row: row, prominent: true) }
-        ForEach(Array(row.secondaryActions.enumerated()), id: \.offset) { _, action in
-          actionButton(action, row: row, prominent: false)
+      ViewThatFits(in: .horizontal) {
+        HStack(spacing: QuietGardenTheme.spacingS) {
+          actionControls(for: row)
+        }
+        VStack(alignment: .leading, spacing: QuietGardenTheme.spacingS) {
+          actionControls(for: row)
         }
       }
     }
     .padding(.vertical, QuietGardenTheme.spacingXS)
     .accessibilityElement(children: .contain)
     .accessibilityIdentifier("model.\(row.id.rawValue)")
+  }
+
+  @ViewBuilder
+  private func actionControls(for row: ModelRowPresentation) -> some View {
+    if let action = row.primaryAction { actionButton(action, row: row, prominent: true) }
+    if let recovery = row.recovery { actionButton(recovery, row: row, prominent: true) }
+    ForEach(Array(row.secondaryActions.enumerated()), id: \.offset) { _, action in
+      actionButton(action, row: row, prominent: false)
+    }
+  }
+
+  private func failureLabel(_ failure: ModelActionFailurePresentation) -> some View {
+    Label(failure.message, systemImage: "exclamationmark.triangle.fill")
+      .fixedSize(horizontal: false, vertical: true)
+  }
+
+  private func recoveryButton(_ failure: ModelActionFailurePresentation) -> some View {
+    Button(failure.recovery.label) {
+      Task { await viewModel.perform(failure.recovery, modelID: failure.modelID) }
+    }
+    .buttonStyle(.borderedProminent)
+    .frame(minHeight: QuietGardenTheme.minimumTarget)
+    .accessibilityHint("Try the failed model action again")
   }
 
   private func actionButton(

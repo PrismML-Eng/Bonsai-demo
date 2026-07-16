@@ -148,6 +148,17 @@ final class ChatViewModel {
     if let history = try? await service.history() { messages = history }
   }
 
+  func reloadHistory() async {
+    generationTask?.cancel()
+    await service.cancel()
+    messages = (try? await service.history()) ?? []
+    reasoning = .init()
+    metrics = nil
+    activities = []
+    terminalStatus = nil
+    contextTrimNotice = nil
+  }
+
   func retry() async {
     guard let failedPrompt else { return }
     draft = failedPrompt

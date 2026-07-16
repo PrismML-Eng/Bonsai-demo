@@ -3,6 +3,8 @@ import XCTest
 
 @testable import BonsaiMobile
 
+// Real-model lifecycle, tool, and bounded-reasoning evidence intentionally remains co-located.
+// swiftlint:disable file_length
 // swiftlint:disable:next type_body_length
 final class MLXInferenceIntegrationTests: XCTestCase {
   // One real-model lane intentionally keeps timing, result, and identity proof together.
@@ -121,7 +123,22 @@ final class MLXInferenceIntegrationTests: XCTestCase {
     XCTAssertEqual(events.terminalCount, 1)
     let generated = try XCTUnwrap(events.compactMap(\.metrics).last?.generatedTokenCount)
     XCTAssertGreaterThan(generated, budget, "generation continued after the forced reasoning close")
+    let debug = await engine.continuationDebugSnapshot()
+    XCTAssertEqual(debug.reasoningBudget, budget)
+    XCTAssertEqual(debug.sampledReasoningTokenCount, budget)
+    XCTAssertEqual(debug.forcedReasoningCloseTokenIndex, budget)
+    XCTAssertTrue(debug.didSampleForcedReasoningClose)
     print("BoundedReasoning budget=\(budget) totalGenerated=\(generated) answer=\(answer)")
+
+    let unlimitedEvents = try await Self.collect(try await engine.generate(
+      try GenerationRequest(prompt: "Think briefly, then answer with exactly: blue",
+                            reasoningBudget: -1, maxTokens: 64)
+    ))
+    XCTAssertFalse(unlimitedEvents.text(for: .reasoning).isEmpty)
+    let unlimitedDebug = await engine.continuationDebugSnapshot()
+    XCTAssertEqual(unlimitedDebug.reasoningBudget, -1)
+    XCTAssertNil(unlimitedDebug.forcedReasoningCloseTokenIndex)
+    XCTAssertFalse(unlimitedDebug.didSampleForcedReasoningClose)
     await engine.unload()
   }
 
@@ -398,3 +415,4 @@ extension GenerationEvent {
     if case .completed(let reason) = self { reason } else { nil }
   }
 }
+// swiftlint:enable file_length

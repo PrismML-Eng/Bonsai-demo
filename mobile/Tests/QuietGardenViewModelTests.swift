@@ -4,75 +4,6 @@ import MLXLMCommon
 
 @MainActor
 final class QuietGardenViewModelTests: XCTestCase {
-  func testTernaryIsUnsupportedOnIPhoneAndCannotLoad() {
-    let rows = ModelLibraryViewModel.rows(
-      snapshot: .fixture(.ready),
-      loadedModelID: nil,
-      platform: .iPhone
-    )
-
-    let ternary = try? XCTUnwrap(rows.first { $0.id == .ternary27B })
-    XCTAssertEqual(ternary?.detail, "Ternary requires a verified high-memory iPad or Mac.")
-    XCTAssertEqual(ternary?.primaryAction, nil)
-  }
-
-  func testLibraryMapsProgressAndRecoveryActions() throws {
-    let downloading = ModelLibraryViewModel.rows(
-      snapshot: .fixture(.downloading), loadedModelID: nil, platform: .mac
-    )[0]
-    XCTAssertEqual(try XCTUnwrap(downloading.progress), 0.4, accuracy: 0.001)
-    XCTAssertEqual(downloading.status, "Downloading 2 of 5 files")
-
-    let failed = ModelLibraryViewModel.rows(
-      snapshot: .fixture(.recoverableFailure), loadedModelID: nil, platform: .mac
-    )[0]
-    XCTAssertEqual(failed.recovery?.label, "Retry download")
-  }
-
-  func testLibraryMapsExactByteProgressAndImportRequestsPicker() async throws {
-    let snapshot = ModelLibrarySnapshot(states: [
-      .oneBit27B: .transferring(completedBytes: 25, totalBytes: 100),
-      .ternary27B: .notInstalled
-    ])
-    let service = RecordingLibraryService(snapshot: snapshot)
-    let viewModel = ModelLibraryViewModel(service: service, platform: .mac, initial: snapshot)
-    let row = try XCTUnwrap(viewModel.rows.first { $0.id == .oneBit27B })
-    XCTAssertEqual(try XCTUnwrap(row.progress), 0.25, accuracy: 0.001)
-
-    let importRow = try XCTUnwrap(viewModel.rows.first { $0.id == .ternary27B })
-    let importAction = try XCTUnwrap(importRow.secondaryActions.first)
-    await viewModel.perform(importAction, modelID: .ternary27B)
-    XCTAssertEqual(viewModel.pendingImportModelID, .ternary27B)
-    let recordedIntent = await service.lastIntent
-    XCTAssertNil(recordedIntent)
-  }
-
-  func testSuccessfulDeleteClearsStaleLoadedIdentity() async throws {
-    let snapshot = ModelLibrarySnapshot.fixture(.ready)
-    let service = RecordingLibraryService(snapshot: snapshot)
-    let viewModel = ModelLibraryViewModel(service: service, platform: .mac, initial: snapshot)
-    let load = try XCTUnwrap(viewModel.rows.first { $0.id == .oneBit27B }?.primaryAction)
-    await viewModel.perform(load, modelID: .oneBit27B)
-    let delete = try XCTUnwrap(viewModel.rows.first { $0.id == .oneBit27B }?
-      .secondaryActions.first { $0.intent == .delete })
-    await viewModel.perform(delete, modelID: .oneBit27B)
-    XCTAssertNil(viewModel.loadedModelID)
-  }
-
-  func testLibraryLoadIntentUpdatesLoadedStateAndChatReadinessContract() async throws {
-    let snapshot = ModelLibrarySnapshot.fixture(.ready)
-    let service = RecordingLibraryService(snapshot: snapshot)
-    let viewModel = ModelLibraryViewModel(service: service, platform: .mac, initial: snapshot)
-    let row = try XCTUnwrap(viewModel.rows.first { $0.id == .oneBit27B })
-    let action = try XCTUnwrap(row.primaryAction)
-
-    await viewModel.perform(action, modelID: .oneBit27B)
-
-    let intent = await service.lastIntent
-    XCTAssertEqual(intent, .load)
-    XCTAssertTrue(try XCTUnwrap(viewModel.rows.first { $0.id == .oneBit27B }).isLoaded)
-  }
-
   func testReasoningEffortMapsToBudgets() {
     XCTAssertEqual(ReasoningEffort.off.tokenBudget, 0)
     XCTAssertEqual(ReasoningEffort.low.tokenBudget, 512)
@@ -187,29 +118,124 @@ final class QuietGardenViewModelTests: XCTestCase {
                                 revision: revision))
     let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
     let store = try ConversationStore(root: root)
+    let coordinator = try ConversationCoordinator(root: root, store: store)
+    try await coordinator.bind(.init(modelID: .oneBit27B,
+                                     directory: URL(fileURLWithPath: "/tmp/persisting-runtime"),
+                                     revision: revision))
     let registry = try ToolRegistry.live(notes: NotesStore(root: root))
     let gate = InteractiveApprovalGate()
     let service = AgentLoopChatService(
       loop: AgentLoop(engine: engine, registry: registry), approvals: gate, engine: engine,
-      conversationStore: store, conversationID: try ConversationID("main"),
-      modelRevision: revision)
+      conversations: coordinator)
 
     for prompt in ["first", "second"] {
       for try await _ in try await service.stream(.init(prompt: prompt, effort: .off)) {}
     }
 
-    let loaded = try await store.load(ConversationID("main"), for: .oneBit27B)
+    let selection = try await coordinator.activeSelection()
+    let loaded = try await store.load(selection.conversationID, for: .oneBit27B)
     let saved = try XCTUnwrap(loaded)
     XCTAssertEqual(saved.completedTurns.count, 2)
     XCTAssertEqual(runtime.streamedMessages.count, 2)
     XCTAssertEqual(runtime.streamedMessages[1].map(\.role),
                    [.system, .user, .assistant, .user])
   }
+
+  func testLiveAgentAdapterSwitchesOneBitToTernaryWithoutCrossModelHistory() async throws {
+    let oneBitRuntime = PersistingRuntimeResource()
+    let ternaryRuntime = PersistingRuntimeResource()
+    let loader = SwitchingRuntimeLoader(resources: [
+      .oneBit27B: oneBitRuntime,
+      .ternary27B: ternaryRuntime
+    ])
+    let engine = MLXInferenceEngine(loader: loader)
+    let oneBitRevision = String(repeating: "1", count: 40)
+    let ternaryRevision = String(repeating: "2", count: 40)
+    let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    let store = try ConversationStore(root: root)
+    let coordinator = try ConversationCoordinator(root: root, store: store)
+    let registry = try ToolRegistry.live(notes: NotesStore(root: root))
+    let service = AgentLoopChatService(
+      loop: AgentLoop(engine: engine, registry: registry),
+      approvals: InteractiveApprovalGate(),
+      engine: engine,
+      conversations: coordinator)
+
+    let oneBit = ModelInstallation(modelID: .oneBit27B,
+                                   directory: URL(fileURLWithPath: "/tmp/one-bit"),
+                                   revision: oneBitRevision)
+    try await engine.load(oneBit)
+    try await coordinator.bind(oneBit)
+    for try await _ in try await service.stream(.init(prompt: "one", effort: .off)) {}
+    let oneBitSelection = try await coordinator.activeSelection()
+
+    let ternary = ModelInstallation(modelID: .ternary27B,
+                                    directory: URL(fileURLWithPath: "/tmp/ternary"),
+                                    revision: ternaryRevision)
+    try await engine.load(ternary)
+    try await coordinator.bind(ternary)
+    for try await _ in try await service.stream(.init(prompt: "two", effort: .off)) {}
+    let ternarySelection = try await coordinator.activeSelection()
+
+    XCTAssertNotEqual(oneBitSelection.conversationID, ternarySelection.conversationID)
+    XCTAssertEqual(oneBitSelection.installation.revision, oneBitRevision)
+    XCTAssertEqual(ternarySelection.installation.revision, ternaryRevision)
+    XCTAssertEqual(ternaryRuntime.streamedMessages.single?.map(\.role), [.system, .user])
+    let savedOneBit = try await store.load(oneBitSelection.conversationID, for: .oneBit27B)
+    let savedTernary = try await store.load(ternarySelection.conversationID, for: .ternary27B)
+    XCTAssertEqual(savedOneBit?.modelRevision, oneBitRevision)
+    XCTAssertEqual(savedTernary?.modelRevision, ternaryRevision)
+  }
+
+  func testPersistencePolicyCoversEveryTerminalClass() {
+    XCTAssertTrue(AgentLoopChatService.shouldPersist(.stop))
+    XCTAssertTrue(AgentLoopChatService.shouldPersist(.length))
+    XCTAssertFalse(AgentLoopChatService.shouldPersist(.cancelled))
+    XCTAssertFalse(AgentLoopChatService.shouldPersist(.toolTurnLimit(6)))
+    XCTAssertFalse(AgentLoopChatService.shouldPersist(.duplicateInvocationID("duplicate")))
+    XCTAssertFalse(AgentLoopChatService.shouldPersist(.runtimeFailure("fatal")))
+  }
+
+  func testCancelledPartialTurnIsNotRestoredAsCompletedHistory() async throws {
+    for completion in [CompletionReason.stop, .length, .cancelled] {
+      let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+      let store = try ConversationStore(root: root)
+      let coordinator = try ConversationCoordinator(root: root, store: store)
+      let installation = ModelInstallation(
+        modelID: .oneBit27B,
+        directory: URL(fileURLWithPath: "/tmp/terminal-runtime"),
+        revision: String(repeating: "3", count: 40))
+      try await coordinator.bind(installation)
+      let engine = UIAgentEngine(events: [.answer("partial"), .completed(completion)])
+      let registry = try ToolRegistry.live(notes: NotesStore(root: root))
+      let service = AgentLoopChatService(
+        loop: AgentLoop(engine: engine, registry: registry),
+        approvals: InteractiveApprovalGate(),
+        conversations: coordinator)
+
+      let request = ChatSendRequest(prompt: "keep draft", effort: .off)
+      for try await _ in try await service.stream(request) {}
+      let selection = try await coordinator.activeSelection()
+      let saved = try await store.load(selection.conversationID, for: .oneBit27B)
+      if completion == .stop || completion == .length {
+        XCTAssertEqual(saved?.completedTurns.count, 1, "completion=\(completion)")
+      } else {
+        XCTAssertNil(saved, "partial turn persisted for completion=\(completion)")
+      }
+    }
+  }
 }
 
 private struct PersistingRuntimeLoader: MLXRuntimeLoading {
   let resource: PersistingRuntimeResource
   func load(_ installation: ModelInstallation) async throws -> any MLXRuntimeResource { resource }
+}
+
+private struct SwitchingRuntimeLoader: MLXRuntimeLoading {
+  let resources: [ModelID: PersistingRuntimeResource]
+  func load(_ installation: ModelInstallation) async throws -> any MLXRuntimeResource {
+    try XCTUnwrap(resources[installation.modelID])
+  }
 }
 
 private final class PersistingRuntimeResource: MLXRuntimeResource, @unchecked Sendable {
@@ -235,6 +261,10 @@ private final class PersistingRuntimeResource: MLXRuntimeResource, @unchecked Se
                                 tools: [GenerationToolSpecification]) async throws -> Int {
     messages.count
   }
+}
+
+private extension Array {
+  var single: Element? { count == 1 ? first : nil }
 }
 
 private actor UIAgentEngine: AgentInferenceStreaming {
@@ -266,16 +296,6 @@ private actor ScriptedChatService: ChatSessionServing {
   }
 
   func cancel() async {}
-}
-
-private actor RecordingLibraryService: ModelLibraryServing {
-  let snapshot: ModelLibrarySnapshot
-  private(set) var lastIntent: ModelLibraryIntent?
-  init(snapshot: ModelLibrarySnapshot) { self.snapshot = snapshot }
-  func snapshots() async -> AsyncStream<ModelLibrarySnapshot> {
-    AsyncStream { continuation in continuation.yield(snapshot); continuation.finish() }
-  }
-  func perform(_ intent: ModelLibraryIntent, for modelID: ModelID) async throws { lastIntent = intent }
 }
 
 private actor SuspendingChatService: ChatSessionServing {

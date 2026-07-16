@@ -112,6 +112,7 @@ struct UIFixtureState: Equatable, Sendable {
 struct RootView: View {
   @State private var libraryViewModel: ModelLibraryViewModel
   @State private var chatViewModel: ChatViewModel
+  @State private var conversationViewModel: ConversationNavigationViewModel
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @Environment(\.horizontalSizeClass) private var horizontalSizeClass
   @State private var showsLibrary = false
@@ -120,6 +121,8 @@ struct RootView: View {
   init(composition: RootComposition = .process()) {
     _libraryViewModel = State(initialValue: composition.libraryViewModel)
     _chatViewModel = State(initialValue: composition.chatViewModel)
+    _conversationViewModel = State(initialValue: composition.conversationViewModel)
+    _showsLibrary = State(initialValue: composition.showsLibraryOnLaunch)
     platform = composition.platform
   }
 
@@ -129,7 +132,8 @@ struct RootView: View {
           NavigationStack { ChatView(viewModel: chatViewModel).toolbar { libraryToolbar } }
         } else {
           NavigationSplitView {
-            ModelLibraryView(viewModel: libraryViewModel)
+            regularSidebar
+              .navigationSplitViewColumnWidth(min: 300, ideal: 360)
           } detail: {
             ChatView(viewModel: chatViewModel)
           }
@@ -146,9 +150,11 @@ struct RootView: View {
       case .ternary27B: "Ternary Bonsai 27B"
       case nil: nil
       }
+      Task { await chatViewModel.reloadHistory() }
     }
     .sheet(isPresented: $showsLibrary) {
       NavigationStack { ModelLibraryView(viewModel: libraryViewModel) }
+        .frame(minWidth: 320, minHeight: 600)
     }
   }
 
@@ -159,6 +165,62 @@ struct RootView: View {
       }
       .accessibilityHint("Manage local Bonsai models")
     }
+    ToolbarItem(placement: .primaryAction) {
+      Menu {
+        Button("New conversation") {
+          Task {
+            await chatViewModel.stop()
+            await conversationViewModel.create()
+            await chatViewModel.reloadHistory()
+          }
+        }
+        ForEach(conversationViewModel.conversations) { item in
+          Button(item.title) {
+            Task {
+              await chatViewModel.stop()
+              await conversationViewModel.select(item.id)
+              await chatViewModel.reloadHistory()
+            }
+          }
+        }
+      } label: {
+        Label("Conversations", systemImage: "bubble.left.and.bubble.right")
+      }
+    }
+  }
+
+  private var regularSidebar: some View {
+    VStack(spacing: 0) {
+      List(selection: Binding(
+        get: { conversationViewModel.selectedID },
+        set: { id in
+          guard let id else { return }
+          Task {
+            await chatViewModel.stop()
+            await conversationViewModel.select(id)
+            await chatViewModel.reloadHistory()
+          }
+        }
+      )) {
+        Section("Conversations") {
+          ForEach(conversationViewModel.conversations) { item in
+            Text(item.title).tag(item.id)
+          }
+          Button("New conversation", systemImage: "square.and.pencil") {
+            Task {
+              await chatViewModel.stop()
+              await conversationViewModel.create()
+              await chatViewModel.reloadHistory()
+            }
+          }
+        }
+      }
+      .frame(minHeight: 150, idealHeight: 220)
+      .task { conversationViewModel.start() }
+      Divider()
+      ModelLibraryView(viewModel: libraryViewModel)
+    }
+    .navigationTitle("Bonsai")
   }
 }
 
@@ -166,7 +228,9 @@ struct RootView: View {
 struct RootComposition {
   let libraryViewModel: ModelLibraryViewModel
   let chatViewModel: ChatViewModel
+  let conversationViewModel: ConversationNavigationViewModel
   let platform: Platform
+  let showsLibraryOnLaunch: Bool
 
   static func process() -> RootComposition {
     if let fixture = UIFixture.from(arguments: ProcessInfo.processInfo.arguments) {
@@ -179,19 +243,57 @@ struct RootComposition {
     }
   }
 
-  static func fixture(_ fixture: UIFixture) -> RootComposition {
-    fixtureComposition(fixture.makeState())
+  static func fixture(
+    _ fixture: UIFixture,
+    platform: Platform? = nil,
+    showsLibrary: Bool = false
+  ) -> RootComposition {
+    fixtureComposition(
+      fixture.makeState(),
+      platform: platform,
+      showsLibrary: showsLibrary)
   }
 
-  private static func fixtureComposition(_ state: UIFixtureState) -> RootComposition {
+  private static func fixtureComposition(
+    _ state: UIFixtureState,
+    platform: Platform? = nil,
+    showsLibrary: Bool = false
+  ) -> RootComposition {
+    let resolvedPlatform = platform ?? state.platform
     let library = FixtureModelLibraryService(snapshot: state.library)
     let chat = FixtureChatService()
-    let libraryViewModel = ModelLibraryViewModel(service: library, platform: state.platform,
+    let fixtureRevision = String(repeating: "f", count: 40)
+    let fixtureInstallation = ModelInstallation(
+      modelID: .oneBit27B,
+      directory: URL(fileURLWithPath: "/fixture/one-bit"),
+      revision: fixtureRevision)
+    let fixtureConversationID: ConversationID
+    do {
+      fixtureConversationID = try ConversationID("fixture-chat")
+    } catch {
+      preconditionFailure("The static fixture conversation identifier must remain valid: \(error)")
+    }
+    let fixtureConversation = ConversationListItem(
+      id: fixtureConversationID,
+      modelID: .oneBit27B,
+      modelRevision: fixtureRevision,
+      title: "Private on-device chat")
+    let navigationSnapshot = ConversationNavigationSnapshot(
+      installation: state.modelReady ? fixtureInstallation : nil,
+      conversations: state.modelReady ? [fixtureConversation] : [],
+      selectedID: state.modelReady ? fixtureConversation.id : nil)
+    let navigation = FixtureConversationService(snapshot: navigationSnapshot)
+    let libraryViewModel = ModelLibraryViewModel(service: library, platform: resolvedPlatform,
                                                  initial: state.library)
     let chatViewModel = ChatViewModel(service: chat, isModelReady: state.modelReady)
     chatViewModel.applyFixture(state)
-    return RootComposition(libraryViewModel: libraryViewModel, chatViewModel: chatViewModel,
-                           platform: state.platform)
+    return RootComposition(
+      libraryViewModel: libraryViewModel,
+      chatViewModel: chatViewModel,
+      conversationViewModel: ConversationNavigationViewModel(
+        service: navigation, initial: navigationSnapshot),
+      platform: resolvedPlatform,
+      showsLibraryOnLaunch: showsLibrary)
   }
 
   private static func live() throws -> RootComposition {
@@ -199,19 +301,25 @@ struct RootComposition {
                                               appropriateFor: nil, create: true)
       .appending(path: "BonsaiMobile", directoryHint: .isDirectory)
     let engine = MLXInferenceEngine()
-    let library = try LiveModelLibraryService(root: support.appending(path: "Models"), engine: engine)
+    let conversations = try ConversationStore(root: support)
+    let coordinator = try ConversationCoordinator(root: support, store: conversations)
+    let library = try LiveModelLibraryService(
+      root: support.appending(path: "Models"),
+      engine: engine,
+      conversations: coordinator)
     let notes = try NotesStore(root: support)
     let registry = try ToolRegistry.live(notes: notes)
     let approvalGate = InteractiveApprovalGate()
     let loop = AgentLoop(engine: engine, registry: registry, approvals: approvalGate)
-    let conversations = try ConversationStore(root: support)
     let chat = AgentLoopChatService(loop: loop, approvals: approvalGate, engine: engine,
-                                    conversationStore: conversations,
-                                    conversationID: try ConversationID("main"))
+                                    conversations: coordinator)
     let initial = ModelLibrarySnapshot.fixture(.empty)
     return RootComposition(
       libraryViewModel: ModelLibraryViewModel(service: library, platform: Self.platform, initial: initial),
-      chatViewModel: ChatViewModel(service: chat, isModelReady: false), platform: Self.platform
+      chatViewModel: ChatViewModel(service: chat, isModelReady: false),
+      conversationViewModel: ConversationNavigationViewModel(service: coordinator),
+      platform: Self.platform,
+      showsLibraryOnLaunch: false
     )
   }
 
@@ -244,4 +352,22 @@ private actor FixtureChatService: ChatSessionServing {
     }
   }
   func cancel() async {}
+}
+
+private actor FixtureConversationService: ConversationNavigationServing {
+  let snapshot: ConversationNavigationSnapshot
+
+  init(snapshot: ConversationNavigationSnapshot) {
+    self.snapshot = snapshot
+  }
+
+  func snapshots() -> AsyncStream<ConversationNavigationSnapshot> {
+    AsyncStream { continuation in
+      continuation.yield(snapshot)
+      continuation.finish()
+    }
+  }
+
+  func createConversation() async throws {}
+  func selectConversation(_ id: ConversationID) async throws {}
 }

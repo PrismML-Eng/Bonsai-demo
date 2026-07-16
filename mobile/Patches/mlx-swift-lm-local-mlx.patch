@@ -34,25 +34,29 @@ new file mode 100644
 diff --git a/Libraries/MLXLMCommon/ChatSession.swift b/Libraries/MLXLMCommon/ChatSession.swift
 --- a/Libraries/MLXLMCommon/ChatSession.swift
 +++ b/Libraries/MLXLMCommon/ChatSession.swift
-@@ -166,2 +166,10 @@ public final class ChatSession {
+@@ -166,2 +166,12 @@ public final class ChatSession {
      public var additionalContext: [String: any Sendable]?
 +    /// `0` disables reasoning through the chat template, `-1` is unlimited,
 +    /// and a positive value forces the model's reasoning close delimiter after
 +    /// exactly this many generated reasoning tokens.
 +    public var reasoningBudget: Int = -1
++    /// Token-accurate debug evidence for the most recent generation.
++    public let reasoningBudgetTelemetry = ReasoningBudgetTelemetry()
 +    /// Optional app-supplied delimiter for locally registered reasoning models.
 +    /// This takes precedence over model-configuration inference, which can be
 +    /// absent for custom local model architectures.
 +    public var reasoningEndDelimiter: String?
      public var tools: [ToolSpec]?
-@@ -587,3 +595,4 @@ public final class ChatSession {
+@@ -587,3 +597,5 @@ public final class ChatSession {
                  instructions, processing, tools, toolDispatch,
 -                additionalContext, cache, loadedDraftModel, generateParameters, speculativeDecoding
 +                additionalContext, reasoningBudget, reasoningEndDelimiter,
++                reasoningBudgetTelemetry,
 +                cache, loadedDraftModel, generateParameters, speculativeDecoding
              ] in
-@@ -664,2 +673,24 @@ public final class ChatSession {
+@@ -664,2 +676,26 @@ public final class ChatSession {
                              // next tool restart — anchors correctly.
++                            reasoningBudgetTelemetry.reset(budget: reasoningBudget)
 +                            let baseProcessor = generateParameters.processor()
 +                            let budgetProcessor: LogitProcessor?
 +                            if reasoningBudget > 0 {
@@ -70,13 +74,14 @@ diff --git a/Libraries/MLXLMCommon/ChatSession.swift b/Libraries/MLXLMCommon/Cha
 +                                budgetProcessor = ReasoningBudgetProcessor(
 +                                    upstream: baseProcessor,
 +                                    budget: reasoningBudget,
-+                                    endTokenID: endTokenID
++                                    endTokenID: endTokenID,
++                                    telemetry: reasoningBudgetTelemetry
 +                                )
 +                            } else {
 +                                budgetProcessor = baseProcessor
 +                            }
                              let iterator = try TokenIterator(
-@@ -667,3 +698,6 @@ public final class ChatSession {
+@@ -667,3 +703,6 @@ public final class ChatSession {
                                  state: lmState,
 -                                parameters: generateParameters)
 +                                processor: budgetProcessor,
@@ -87,7 +92,7 @@ diff --git a/Libraries/MLXLMCommon/ChatSession.swift b/Libraries/MLXLMCommon/Cha
 diff --git a/Libraries/MLXLMCommon/Evaluate.swift b/Libraries/MLXLMCommon/Evaluate.swift
 --- a/Libraries/MLXLMCommon/Evaluate.swift
 +++ b/Libraries/MLXLMCommon/Evaluate.swift
-@@ -44,3 +44,61 @@ public protocol LogitProcessor {
+@@ -44,3 +44,124 @@ public protocol LogitProcessor {
  }
 -
 +
@@ -105,6 +110,58 @@ diff --git a/Libraries/MLXLMCommon/Evaluate.swift b/Libraries/MLXLMCommon/Evalua
 +    }
 +}
 +
++public struct ReasoningBudgetDebugSnapshot: Equatable, Sendable {
++    public let reasoningBudget: Int
++    public let sampledReasoningTokenCount: Int
++    public let forcedCloseTokenIndex: Int?
++    public let didSampleForcedClose: Bool
++}
++
++/// Thread-safe instrumentation shared between a chat session and the value-type
++/// logit processor copied into its token iterator.
++public final class ReasoningBudgetTelemetry: @unchecked Sendable {
++    private let lock = NSLock()
++    private var reasoningBudget = -1
++    private var sampledReasoningTokenCount = 0
++    private var forcedCloseTokenIndex: Int?
++    private var didSampleForcedClose = false
++
++    public init() {}
++
++    public var snapshot: ReasoningBudgetDebugSnapshot {
++        lock.withLock {
++            ReasoningBudgetDebugSnapshot(
++                reasoningBudget: reasoningBudget,
++                sampledReasoningTokenCount: sampledReasoningTokenCount,
++                forcedCloseTokenIndex: forcedCloseTokenIndex,
++                didSampleForcedClose: didSampleForcedClose)
++        }
++    }
++
++    func reset(budget: Int) {
++        lock.withLock {
++            reasoningBudget = budget
++            sampledReasoningTokenCount = 0
++            forcedCloseTokenIndex = nil
++            didSampleForcedClose = false
++        }
++    }
++
++    func recordReasoningToken(count: Int) {
++        lock.withLock { sampledReasoningTokenCount = count }
++    }
++
++    func recordForcedClose(at tokenIndex: Int) {
++        lock.withLock {
++            if forcedCloseTokenIndex == nil { forcedCloseTokenIndex = tokenIndex }
++        }
++    }
++
++    func recordSampledForcedClose() {
++        lock.withLock { didSampleForcedClose = true }
++    }
++}
++
 +/// Composes an existing processor with a token-accurate reasoning budget. Once
 +/// the budget is exhausted, exactly the configured close-delimiter token is
 +/// forced and normal answer generation resumes.
@@ -112,24 +169,31 @@ diff --git a/Libraries/MLXLMCommon/Evaluate.swift b/Libraries/MLXLMCommon/Evalua
 +    private var upstream: LogitProcessor?
 +    private let budget: Int
 +    private let endTokenID: Int
++    private let telemetry: ReasoningBudgetTelemetry
 +    private var reasoningTokenCount = 0
 +    private var didClose = false
 +
-+    public init(upstream: LogitProcessor?, budget: Int, endTokenID: Int) {
++    public init(
++        upstream: LogitProcessor?, budget: Int, endTokenID: Int,
++        telemetry: ReasoningBudgetTelemetry
++    ) {
 +        self.upstream = upstream
 +        self.budget = budget
 +        self.endTokenID = endTokenID
++        self.telemetry = telemetry
 +    }
 +
 +    mutating public func prompt(_ prompt: MLXArray) {
 +        reasoningTokenCount = 0
 +        didClose = false
++        telemetry.reset(budget: budget)
 +        upstream?.prompt(prompt)
 +    }
 +
 +    public func process(logits: MLXArray) -> MLXArray {
 +        let processed = upstream?.process(logits: logits) ?? logits
 +        guard !didClose, reasoningTokenCount >= budget else { return processed }
++        telemetry.recordForcedClose(at: reasoningTokenCount)
 +        let masked = MLXArray.full(
 +            processed.shape,
 +            values: MLXArray.maskFill(for: processed.dtype),
@@ -142,9 +206,13 @@ diff --git a/Libraries/MLXLMCommon/Evaluate.swift b/Libraries/MLXLMCommon/Evalua
 +        upstream?.didSample(token: token)
 +        guard !didClose else { return }
 +        if token.item(Int.self) == endTokenID {
++            if reasoningTokenCount >= budget {
++                telemetry.recordSampledForcedClose()
++            }
 +            didClose = true
 +        } else {
 +            reasoningTokenCount += 1
++            telemetry.recordReasoningToken(count: reasoningTokenCount)
 +        }
 +    }
 +}

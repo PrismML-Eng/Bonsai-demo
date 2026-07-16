@@ -20,12 +20,14 @@ enum LiveUIServiceError: Error, LocalizedError {
 actor LiveModelLibraryService: ModelLibraryServing {
   private let library: ModelLibrary
   private let engine: MLXInferenceEngine
+  private let conversations: ConversationCoordinator
   private let manifests: [ModelID: ModelManifest]
   private var loadedModelID: ModelID?
 
-  init(root: URL, engine: MLXInferenceEngine) throws {
+  init(root: URL, engine: MLXInferenceEngine, conversations: ConversationCoordinator) throws {
     library = try ModelLibrary(root: root)
     self.engine = engine
+    self.conversations = conversations
     if let url = Bundle.main.url(forResource: "manifest", withExtension: "json", subdirectory: "Models"),
        let catalog = try? JSONDecoder().decode(ModelCatalog.self, from: Data(contentsOf: url)) {
       manifests = Dictionary(uniqueKeysWithValues: catalog.models.map { ($0.id, $0.manifest) })
@@ -49,12 +51,23 @@ actor LiveModelLibraryService: ModelLibraryServing {
         throw LiveUIServiceError.modelNotInstalled
       }
       try await engine.load(installation)
+      do {
+        try await conversations.bind(installation)
+      } catch {
+        await engine.unload()
+        throw error
+      }
       loadedModelID = modelID
     case .unload:
       await engine.unload()
+      await conversations.unbind()
       loadedModelID = nil
     case .delete:
-      if loadedModelID == modelID { await engine.unload(); loadedModelID = nil }
+      if loadedModelID == modelID {
+        await engine.unload()
+        await conversations.unbind()
+        loadedModelID = nil
+      }
       try await library.delete(modelID)
     }
   }
@@ -113,29 +126,25 @@ actor InteractiveApprovalGate: ToolApprovalGate {
 actor AgentLoopChatService: ChatSessionServing {
   private struct PersistentGeneration {
     let conversation: Conversation
-    let trim: ContextTrimResult
-    let request: GenerationRequest
+    let trimNotice: ContextTrimNotice?
+    let request: GenerationRequest?
   }
 
   private let loop: AgentLoop
   private let approvals: InteractiveApprovalGate
   private let engine: MLXInferenceEngine?
-  private let conversationStore: ConversationStore?
-  private let conversationID: ConversationID?
-  private let modelID: ModelID
-  private let modelRevision: String
+  private let conversations: ConversationCoordinator?
+
+  static func shouldPersist(_ completion: AgentCompletion) -> Bool {
+    completion == .stop || completion == .length
+  }
 
   init(loop: AgentLoop, approvals: InteractiveApprovalGate,
-       engine: MLXInferenceEngine? = nil, conversationStore: ConversationStore? = nil,
-       conversationID: ConversationID? = nil, modelID: ModelID = .oneBit27B,
-       modelRevision: String = String(repeating: "a", count: 40)) {
+       engine: MLXInferenceEngine? = nil, conversations: ConversationCoordinator? = nil) {
     self.loop = loop
     self.approvals = approvals
     self.engine = engine
-    self.conversationStore = conversationStore
-    self.conversationID = conversationID
-    self.modelID = modelID
-    self.modelRevision = modelRevision
+    self.conversations = conversations
   }
 
   // This function owns the lifecycle boundary for forwarding, persistence, and completion.
@@ -157,7 +166,7 @@ actor AgentLoopChatService: ChatSessionServing {
       let task = Task { [loop] in
         let assistantID = UUID()
         continuation.yield(.assistantStarted(id: assistantID))
-        if let notice = persistence?.trim.notice, notice.removedTurnCount > 0 {
+        if let notice = persistence?.trimNotice, notice.removedTurnCount > 0 {
           continuation.yield(.contextTrimmed(notice))
         }
         let forwardingTask = Task {
@@ -205,8 +214,7 @@ actor AgentLoopChatService: ChatSessionServing {
   func cancel() async { await loop.cancel() }
 
   func history() async throws -> [ChatMessagePresentation] {
-    guard let conversationStore, let conversationID,
-          let conversation = try await conversationStore.load(conversationID, for: modelID) else { return [] }
+    guard let conversation = try await conversations?.loadSelected() else { return [] }
     return conversation.completedTurns.flatMap { turn in
       turn.messages.compactMap { message in
         switch message.role {
@@ -237,24 +245,32 @@ actor AgentLoopChatService: ChatSessionServing {
 
   private func persistentGeneration(userMessage: ConversationMessage, effort: ReasoningEffort)
     async throws -> PersistentGeneration? {
-    guard let engine, let conversationStore, let conversationID else { return nil }
-    let conversation = try await conversationStore.load(conversationID, for: modelID)
-      ?? Conversation(id: conversationID, modelID: modelID, modelRevision: modelRevision, revision: 0,
+    guard let conversations else { return nil }
+    let selection = try await conversations.activeSelection()
+    let conversation = try await conversations.loadSelected()
+      ?? Conversation(id: selection.conversationID,
+                      modelID: selection.installation.modelID,
+                      modelRevision: selection.installation.revision,
+                      revision: 0,
                       systemInstruction: .init(id: MessageID("system"), role: .system,
                                                content: "You are Bonsai, a private on-device assistant."),
                       completedTurns: [])
+    guard let engine else {
+      return PersistentGeneration(conversation: conversation, trimNotice: nil, request: nil)
+    }
     let tools = await loop.toolSpecifications()
     let prepared = try await engine.preparedGeneration(
       for: conversation, appending: [userMessage], reasoningBudget: effort.tokenBudget, tools: tools)
     return PersistentGeneration(
       conversation: conversation,
-      trim: prepared.trim,
+      trimNotice: prepared.trim.notice,
       request: prepared.request)
   }
 
   private func persist(result: AgentRunResult, userMessage: ConversationMessage,
                        conversation: Conversation) async throws {
-    guard let conversationStore, !result.answer.isEmpty else { return }
+    guard let conversations, !result.answer.isEmpty,
+          Self.shouldPersist(result.completion) else { return }
     var messages = [userMessage]
     var knownInvocations: [String: ToolInvocation] = [:]
     for activity in result.activities {
@@ -281,7 +297,8 @@ actor AgentLoopChatService: ChatSessionServing {
                                     .init(id: UUID().uuidString, messages: messages,
                                           reasoningText: result.reasoning.isEmpty ? nil : result.reasoning)
                                    ])
-    try await conversationStore.save(updated)
+    try await conversations.save(updated)
+    try await conversations.renameSelected(using: userMessage.content)
   }
 
   private static func presentation(_ activity: AgentActivity, index: Int) -> AgentActivityPresentation? {

@@ -10,6 +10,12 @@ struct ModelActionPresentation: Equatable, Sendable {
   let intent: ModelLibraryIntent
 }
 
+struct ModelActionFailurePresentation: Equatable, Sendable {
+  let message: String
+  let modelID: ModelID
+  let recovery: ModelActionPresentation
+}
+
 struct ModelRowPresentation: Identifiable, Equatable, Sendable {
   let id: ModelID
   let name: String
@@ -41,8 +47,10 @@ final class ModelLibraryViewModel {
   private let platform: Platform
   private(set) var rows: [ModelRowPresentation]
   private(set) var errorMessage: String?
+  private(set) var actionFailure: ModelActionFailurePresentation?
   private(set) var loadedModelID: ModelID?
   private(set) var inFlightModelIDs: Set<ModelID> = []
+  private(set) var inFlightIntents: [ModelID: ModelLibraryIntent] = [:]
   var pendingImportModelID: ModelID?
   private var latestSnapshot: ModelLibrarySnapshot
   private var observationTask: Task<Void, Never>?
@@ -60,17 +68,31 @@ final class ModelLibraryViewModel {
       for await snapshot in await service.snapshots() {
         guard !Task.isCancelled, let self else { return }
         self.latestSnapshot = snapshot
-        self.rows = Self.rows(snapshot: snapshot, loadedModelID: self.loadedModelID, platform: self.platform)
+        self.refreshRows()
       }
     }
   }
 
-  func present(error: String) { errorMessage = error }
+  func present(error: String) {
+    actionFailure = nil
+    errorMessage = error
+  }
 
   func perform(_ action: ModelActionPresentation, modelID: ModelID) async {
-    if action.intent == .importModel { pendingImportModelID = modelID; return }
+    if action.intent == .importModel {
+      actionFailure = nil
+      errorMessage = nil
+      pendingImportModelID = modelID
+      return
+    }
     guard inFlightModelIDs.insert(modelID).inserted else { return }
-    defer { inFlightModelIDs.remove(modelID) }
+    inFlightIntents[modelID] = action.intent
+    refreshRows()
+    defer {
+      inFlightModelIDs.remove(modelID)
+      inFlightIntents.removeValue(forKey: modelID)
+      refreshRows()
+    }
     do {
       try await service.perform(action.intent, for: modelID)
       switch action.intent {
@@ -79,10 +101,11 @@ final class ModelLibraryViewModel {
       case .delete: if loadedModelID == modelID { loadedModelID = nil }
       default: break
       }
-      rows = Self.rows(snapshot: latestSnapshot, loadedModelID: loadedModelID, platform: platform)
+      actionFailure = nil
       errorMessage = nil
     } catch {
-      errorMessage = String(describing: error)
+      actionFailure = Self.failure(for: action.intent, modelID: modelID, error: error)
+      errorMessage = nil
     }
   }
 
@@ -90,24 +113,74 @@ final class ModelLibraryViewModel {
     guard let modelID = pendingImportModelID,
           inFlightModelIDs.insert(modelID).inserted else { return }
     pendingImportModelID = nil
-    defer { inFlightModelIDs.remove(modelID) }
+    inFlightIntents[modelID] = .importModel
+    defer {
+      inFlightModelIDs.remove(modelID)
+      inFlightIntents.removeValue(forKey: modelID)
+    }
     do {
       try await service.importModel(modelID, from: source)
+      actionFailure = nil
       errorMessage = nil
     } catch {
-      errorMessage = "Import failed: \(error.localizedDescription)"
+      actionFailure = Self.failure(for: .importModel, modelID: modelID, error: error)
+      errorMessage = nil
     }
   }
 
   static func rows(
     snapshot: ModelLibrarySnapshot,
     loadedModelID: ModelID?,
-    platform: Platform
+    platform: Platform,
+    inFlightIntents: [ModelID: ModelLibraryIntent] = [:]
   ) -> [ModelRowPresentation] {
     ModelID.allCases.map { id in
-      row(id: id, state: snapshot.states[id] ?? .notInstalled,
+      let state = presentationState(
+        snapshot.states[id] ?? .notInstalled,
+        for: inFlightIntents[id])
+      return row(id: id, state: state,
           loadedModelID: loadedModelID, platform: platform)
     }
+  }
+
+  private func refreshRows() {
+    rows = Self.rows(
+      snapshot: latestSnapshot,
+      loadedModelID: loadedModelID,
+      platform: platform,
+      inFlightIntents: inFlightIntents)
+  }
+
+  private static func presentationState(
+    _ state: ModelLibraryState,
+    for intent: ModelLibraryIntent?
+  ) -> ModelLibraryState {
+    switch intent {
+    case .load: .loading
+    case .verify: .verifying(completedBytes: 0, totalBytes: 0)
+    default: state
+    }
+  }
+
+  private static func failure(
+    for intent: ModelLibraryIntent,
+    modelID: ModelID,
+    error: any Error
+  ) -> ModelActionFailurePresentation {
+    let action: String
+    switch intent {
+    case .download, .retryDownload: action = "download"
+    case .verify: action = "verification"
+    case .importModel: action = "import"
+    case .load: action = "load"
+    case .unload: action = "unload"
+    case .delete: action = "delete"
+    }
+    let description = (error as? any LocalizedError)?.errorDescription ?? error.localizedDescription
+    return .init(
+      message: "Model \(action) failed. \(description)",
+      modelID: modelID,
+      recovery: .init(label: "Retry \(action)", intent: intent))
   }
 
   // Exhaustively maps every domain state to its complete row action model.

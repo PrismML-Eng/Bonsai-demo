@@ -88,10 +88,16 @@ struct MLXContinuationDebugSnapshot: Equatable, Sendable {
   let continuationSessionIdentity: UUID?
   let continuationCount: Int
   let fullHistoryReplayCount: Int
+  let reasoningBudget: Int
+  let sampledReasoningTokenCount: Int
+  let forcedReasoningCloseTokenIndex: Int?
+  let didSampleForcedReasoningClose: Bool
 
   static let unavailable = MLXContinuationDebugSnapshot(
     runtimeIdentity: nil, sessionIdentity: nil, generationSessionIdentity: nil,
-    continuationSessionIdentity: nil, continuationCount: 0, fullHistoryReplayCount: 0)
+    continuationSessionIdentity: nil, continuationCount: 0, fullHistoryReplayCount: 0,
+    reasoningBudget: -1, sampledReasoningTokenCount: 0,
+    forcedReasoningCloseTokenIndex: nil, didSampleForcedReasoningClose: false)
 }
 
 protocol MLXCacheClearing: Sendable {
@@ -143,13 +149,18 @@ private final class LiveMLXRuntimeResource: MLXRuntimeResource, @unchecked Senda
   let reasoningConfig: ReasoningConfig?
   var hasSession: Bool { session != nil }
   var continuationDebugSnapshot: MLXContinuationDebugSnapshot {
-    MLXContinuationDebugSnapshot(
+    let reasoning = session?.reasoningBudgetTelemetry.snapshot
+    return MLXContinuationDebugSnapshot(
       runtimeIdentity: runtimeIdentity,
       sessionIdentity: session == nil ? nil : sessionIdentity,
       generationSessionIdentity: generationSessionIdentity,
       continuationSessionIdentity: continuationSessionIdentity,
       continuationCount: continuationCount,
-      fullHistoryReplayCount: fullHistoryReplayCount)
+      fullHistoryReplayCount: fullHistoryReplayCount,
+      reasoningBudget: reasoning?.reasoningBudget ?? -1,
+      sampledReasoningTokenCount: reasoning?.sampledReasoningTokenCount ?? 0,
+      forcedReasoningCloseTokenIndex: reasoning?.forcedCloseTokenIndex,
+      didSampleForcedReasoningClose: reasoning?.didSampleForcedClose ?? false)
   }
 
   init(container: ModelContainer, reasoningConfig: ReasoningConfig?) {
