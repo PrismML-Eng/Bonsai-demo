@@ -10,6 +10,8 @@
 - Managed roots and ancestors are checked with `lstat` plus canonical descendants before mutation. Delete preflights installed, staging, and managed trash; cleans staging first; atomically renames the installed tree into trash; and publishes `.notInstalled` only after the rename. Trash removal is best-effort and stale trash is recovered on relaunch. Injected ordinary I/O failures prove every thrown staging cleanup or installed rename retains installed bytes and truthful `.ready`; installed is never recursively deleted in place.
 - `URLSessionModelFileTransport` streams response chunks directly to a managed partial. It continues only from a validated `206 Content-Range`; a server returning `200` to a Range request truncates and safely restarts the file. Its public API accepts no credentials, configuration strips credential/cookie/cache stores and sensitive headers, redirects remain HTTPS-only (except explicit loopback tests), and non-server-trust authentication challenges are rejected.
 - Production iOS downloads are owned by one app-scoped `BackgroundModelDownloadCoordinator` and one stable background session. A platform-independent durable ledger persists a unique UUID/task description before task creation, then binds the URLSession task identifier. `didFinishDownloadingTo` synchronously moves bytes to deterministic managed storage, applies backup/file-protection policy, and writes an atomic claim sidecar before returning. `didComplete` and relaunch reconciliation adopt the claim without process memory, clean unknown/pre-persist orphans, and idempotently promote full or Range-tail bodies through verified atomic rename. `BonsaiAppDelegate` bridges `handleEventsForBackgroundURLSession`; foreground/macOS/test configurations preserve the streaming partial-file path.
+- Background completion delivery now uses a locked per-transfer state machine that retains terminal results until a waiter consumes them, ignores duplicate callbacks, and rejects a duplicate waiter with a typed transport error. Restored-task reconciliation observes the URLSession task state and explicitly resumes a durably bound suspended task. Session creation is a locked one-time operation, mutable delegate state is isolated in locked owners, and reconciliation is serialized through an actor gate.
+- Managed reconstruction opens required files and installation records with `O_NOFOLLOW`, validates the opened descriptor against `lstat` device/inode identity, and reads/hash-checks only through that descriptor. Corrupt ledgers now classify malformed JSON, duplicate transfer IDs, and unsupported states, quarantine the original bytes, and recover with a clean empty ledger.
 
 ## Files changed
 
@@ -35,7 +37,9 @@
 - Delete crash-consistency RED failed on the intentionally absent filesystem seam. GREEN fault-injects ordinary staging-removal and installed-rename I/O errors, verifies retained `.ready` bytes, and verifies best-effort trash recovery on relaunch.
 - Archive host RED showed DOS and NTFS made-by bytes bypassing both hard-link IDs and malformed/truncated/duplicate extras. GREEN exhaustively checks all 256 host-byte values: extra-field structure and hard-link IDs always reject, while Unix mode interpretation remains limited to Unix 3 and macOS 19.
 - Claimed-body RED failed on absent policy/claim APIs. GREEN proves deterministic claim paths, atomic persistence across simulated memory loss, recursive policy application, unknown/pre-persist orphan cleanup, already-promoted recovery, and duplicate callback idempotence. A second RED/GREEN cycle adds verified atomic promotion for both full bodies and Range tails.
-- Final full `BonsaiMobile` regression: `/tmp/task3-final3-unit.xcresult` `Passed`; 74 test cases / 604 parameterized invocations, 0 failures, 0 skips.
+- Quality-review RED proved the completion registry, restored-task state policy, typed duplicate-waiter error, and bind-to-resume restoration contract were absent. GREEN covers terminal-before-registration, 200 concurrent register/resolve races, duplicate callback/waiter idempotence, restored state decisions, and a durable bind -> relaunch -> suspended-task resume reconciliation.
+- No-follow RED proved symlinked required files and installation records were followed during reconstruction. GREEN covers both leaf-symlink cases plus descriptor-based bounded SHA verification. Ledger-corruption RED proved recovery types were absent; GREEN covers malformed bytes, duplicate IDs, and unsupported states without trapping.
+- Final full `BonsaiMobile` regression: `/tmp/task3-quality-fixes-final-unit.xcresult` `Passed`; 86 test cases / 619 reported executions, 0 failures, 0 skips.
 
 ## Real loopback Range evidence
 
@@ -45,7 +49,7 @@
 - A second 777-byte partial emitted `Range: bytes=777-`; the `/ignore` endpoint deliberately returned 200, proving the client truncated instead of concatenating. Final size/SHA-256 passed.
 - During debugging, the initial post-resume verifier failure was isolated to cached `URL.resourceValues` metadata: request logs and `wc -c` both proved the file was complete. Switching verification to fresh `FileManager.attributesOfItem` fixed the exact rerun without changing transport behavior.
 - Cancellation testing uses the throttled `/slow` endpoint: cancelling mid-transfer preserves the partial, a single Range resume completes and verifies it, and cancellation immediately after task creation completes in under one second without leaking a continuation.
-- Final `RuntimeProbe` scheme (`/tmp/task3-final3-integration.xcresult`): 3 real loopback passes, 1 explicit no-model skip, 0 failures. Final unit, integration, and promoter result-bundle scans found no continuation-misuse, leaked-continuation, compiler-warning, or error markers.
+- Final `RuntimeProbe` scheme (`/tmp/task3-quality-fixes-final-integration.xcresult`): 3 real loopback passes, 1 explicit no-model skip, 0 failures. Final unit and integration scans found no continuation-misuse or leaked-continuation markers; the only warning is Xcode's expected AppIntents metadata skip for a target without AppIntents.
 
 ## Import attack coverage
 
@@ -60,10 +64,10 @@
 
 ## Final verification
 
-- SwiftLint strict: 0 violations in 35 Swift files.
-- XcodeGen determinism: two consecutive generations produced pbxproj SHA-1 `0cd233cd03418a84e98fac6af437ac37da8983f3`.
+- SwiftLint strict: 0 violations in 39 Swift files.
+- XcodeGen determinism: two consecutive generations produced pbxproj SHA-1 `681ddc271f3a962a58051303842465ff4914ccab`.
 - `git diff --check`, Python fixture bytecode compilation, and bootstrap shell syntax: passed.
-- Generic iOS build could not start because this Xcode installation does not have the iOS 26.5 platform component installed; Xcode marks `Any iOS Device` ineligible. The production target passes the available macOS Swift 6 build/test lane.
+- Static iOS-source assertions confirm there is no lazy session, no broad coordinator `@unchecked Sendable`, and no payload-less `ModelLibraryError.operationInProgress` call. Generic iOS build still cannot start because this Xcode installation does not have the iOS 26.5 platform component installed; Xcode marks `Any iOS Device` ineligible. The platform-independent lifecycle state machines pass the available macOS Swift 6 build/test lane.
 
 ## Commit and remaining risks
 

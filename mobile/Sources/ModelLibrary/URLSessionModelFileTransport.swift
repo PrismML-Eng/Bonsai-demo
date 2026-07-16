@@ -8,6 +8,7 @@ enum ModelTransportError: Error, Equatable, Sendable {
     case invalidResponse
     case httpStatus(Int)
     case invalidContentRange
+    case duplicateWaiter
 }
 
 final class URLSessionModelFileTransport: ModelFileTransport, @unchecked Sendable {

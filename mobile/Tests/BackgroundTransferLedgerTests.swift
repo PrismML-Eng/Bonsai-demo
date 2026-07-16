@@ -5,6 +5,55 @@ import Testing
 @Suite("Durable background transfer ledger")
 struct BackgroundTransferLedgerTests {
     @Test
+    func malformedLedgerIsQuarantinedAndRecoveredAsEmpty() async throws {
+        let fixture = try Fixture()
+        let malformed = Data("not-json".utf8)
+        try malformed.write(to: fixture.ledgerURL)
+
+        let ledger = try BackgroundTransferLedger(fileURL: fixture.ledgerURL)
+
+        let recovery = try #require(await ledger.recovery)
+        #expect(recovery.corruption == .malformedData)
+        #expect(try Data(contentsOf: recovery.quarantinedFile) == malformed)
+        #expect(await ledger.allRecords().isEmpty)
+        #expect(FileManager.default.fileExists(atPath: fixture.ledgerURL.path))
+    }
+
+    @Test
+    func duplicateTransferIDsAreQuarantinedWithoutTrapping() async throws {
+        let fixture = try Fixture()
+        let record = fixture.storedRecord(state: .pending)
+        let duplicateData = try JSONEncoder().encode([record, record])
+        try duplicateData.write(to: fixture.ledgerURL)
+
+        let ledger = try BackgroundTransferLedger(fileURL: fixture.ledgerURL)
+
+        let recovery = try #require(await ledger.recovery)
+        #expect(recovery.corruption == .duplicateTransferID(record.id))
+        #expect(try Data(contentsOf: recovery.quarantinedFile) == duplicateData)
+        #expect(await ledger.allRecords().isEmpty)
+    }
+
+    @Test
+    func unsupportedLedgerStateIsQuarantinedWithTypedReason() async throws {
+        let fixture = try Fixture()
+        let encoded = try JSONEncoder().encode([fixture.storedRecord(state: .pending)])
+        var rawRecords = try #require(
+            JSONSerialization.jsonObject(with: encoded) as? [[String: Any]]
+        )
+        rawRecords[0]["state"] = "paused-by-future-version"
+        let unsupportedData = try JSONSerialization.data(withJSONObject: rawRecords, options: .sortedKeys)
+        try unsupportedData.write(to: fixture.ledgerURL)
+
+        let ledger = try BackgroundTransferLedger(fileURL: fixture.ledgerURL)
+
+        let recovery = try #require(await ledger.recovery)
+        #expect(recovery.corruption == .unsupportedState("paused-by-future-version"))
+        #expect(try Data(contentsOf: recovery.quarantinedFile) == unsupportedData)
+        #expect(await ledger.allRecords().isEmpty)
+    }
+
+    @Test
     func createPersistsUniqueTransferBeforeTaskBinding() async throws {
         let fixture = try Fixture()
         let firstID = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
@@ -263,6 +312,23 @@ private struct Fixture {
 
     func claimedBodyURL(id: UUID) -> URL {
         downloadsRoot.appending(path: "\(id.uuidString.lowercased()).download")
+    }
+
+    func storedRecord(state: BackgroundTransferRecord.State) -> BackgroundTransferRecord {
+        BackgroundTransferRecord(
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000099")!,
+            source: source,
+            destination: root.appending(path: "stored.partial"),
+            expectedSize: payload.count,
+            sha256: SHA256Verifier.digest(payload),
+            existingBytes: 0,
+            taskIdentifier: nil,
+            state: state,
+            failureReason: nil,
+            claimedBodyPath: nil,
+            responseStatusCode: nil,
+            responseContentRange: nil
+        )
     }
 
     init() throws {

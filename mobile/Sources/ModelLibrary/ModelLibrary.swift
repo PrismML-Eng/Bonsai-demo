@@ -23,7 +23,7 @@ actor ModelLibrary {
         try FileManager.default.createDirectory(at: self.root, withIntermediateDirectories: true)
         try Self.validateManagedRoot(self.root)
         try Self.prepareTrash(at: self.root, fileSystem: managedFileSystem)
-        try Self.applyStoragePolicyRecursively(to: self.root)
+        try Self.applyStoragePolicyRecursively(to: self.root, rejectingSymlinks: false)
         let resolvedManifests = manifests ?? Self.bundledManifests()
         knownManifests = Dictionary(uniqueKeysWithValues: resolvedManifests.map { ($0.id, $0) })
         states = try Self.reconstructStates(root: self.root, manifests: knownManifests)
@@ -325,7 +325,6 @@ private extension ModelLibrary {
             return nil
         }
     }
-
     private static func bundledManifests() -> [ModelManifest] {
         guard let url = Bundle.main.url(forResource: "manifest", withExtension: "json", subdirectory: "Models"),
               let data = try? Data(contentsOf: url),
@@ -334,10 +333,8 @@ private extension ModelLibrary {
         }
         return catalog.models.map(\.manifest)
     }
-
     private static func reconstructStates(
-        root: URL,
-        manifests: [ModelID: ModelManifest]
+        root: URL, manifests: [ModelID: ModelManifest]
     ) throws -> [ModelID: ModelLibraryState] {
         var result: [ModelID: ModelLibraryState] = [:]
         for id in ModelID.allCases {
@@ -352,7 +349,10 @@ private extension ModelLibrary {
                 continue
             }
             let recordURL = directory.appending(path: ".bonsai-installation.json")
-            guard let data = try? Data(contentsOf: recordURL),
+            guard let data = try? NoFollowRegularFile.readAll(
+                at: recordURL, logicalPath: ".bonsai-installation.json",
+                maximumSize: 64 * 1_024
+            ),
                   let record = try? JSONDecoder().decode(ModelInstallationRecord.self, from: data),
                   record.modelID == id,
                   record.revision == manifest.revision else {
@@ -370,15 +370,15 @@ private extension ModelLibrary {
         }
         return result
     }
-
-    private static func applyStoragePolicyRecursively(to url: URL) throws {
+    private static func applyStoragePolicyRecursively(to url: URL, rejectingSymlinks: Bool = true) throws {
         try applyStoragePolicy(to: url)
         guard (try? lstatType(at: url)) == .typeDirectory,
               let enumerator = FileManager.default.enumerator(at: url, includingPropertiesForKeys: nil) else {
             return
         }
         for case let child as URL in enumerator {
-            guard try lstatType(at: child) != .typeSymbolicLink else {
+            if try lstatType(at: child) == .typeSymbolicLink {
+                guard rejectingSymlinks else { continue }
                 throw ModelLibraryError.unsafeManagedPath(child.path)
             }
             try applyStoragePolicy(to: child)

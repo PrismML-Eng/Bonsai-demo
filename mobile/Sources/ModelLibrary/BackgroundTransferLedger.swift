@@ -29,11 +29,33 @@ struct BackgroundTransferRecord: Codable, Equatable, Identifiable, Sendable {
 struct BackgroundTransferTaskIdentity: Equatable, Sendable {
     let taskIdentifier: Int
     let taskDescription: String?
+    let state: BackgroundTransferTaskState
+
+    init(
+        taskIdentifier: Int,
+        taskDescription: String?,
+        state: BackgroundTransferTaskState = .running
+    ) {
+        self.taskIdentifier = taskIdentifier
+        self.taskDescription = taskDescription
+        self.state = state
+    }
 }
 
 struct BackgroundTransferAttachment: Equatable, Sendable {
     let transferID: UUID
     let taskIdentifier: Int
+    let decision: BackgroundRestoredTaskDecision
+
+    init(
+        transferID: UUID,
+        taskIdentifier: Int,
+        decision: BackgroundRestoredTaskDecision = .reattach
+    ) {
+        self.transferID = transferID
+        self.taskIdentifier = taskIdentifier
+        self.decision = decision
+    }
 }
 
 struct BackgroundTransferReconciliation: Equatable, Sendable {
@@ -47,10 +69,28 @@ enum BackgroundTransferLedgerError: Error, Equatable {
     case unknownTransfer
 }
 
+enum BackgroundTransferLedgerCorruption: Error, Equatable, Sendable {
+    case malformedData
+    case duplicateTransferID(UUID)
+    case unsupportedState(String)
+}
+
+struct BackgroundTransferLedgerRecovery: Equatable, Sendable {
+    let corruption: BackgroundTransferLedgerCorruption
+    let quarantinedFile: URL
+}
+
+private struct BackgroundTaskReconciliation {
+    var claimed = Set<UUID>()
+    var attachments: [BackgroundTransferAttachment] = []
+    var cancellations: [Int] = []
+}
+
 actor BackgroundTransferLedger {
     private let fileURL: URL
     nonisolated private let bodyStore: BackgroundTransferBodyStore
     private var records: [UUID: BackgroundTransferRecord]
+    let recovery: BackgroundTransferLedgerRecovery?
 
     init(
         fileURL: URL,
@@ -59,13 +99,21 @@ actor BackgroundTransferLedger {
         self.fileURL = fileURL
         bodyStore = try BackgroundTransferBodyStore(ledgerFileURL: fileURL, policy: storagePolicy)
         if FileManager.default.fileExists(atPath: fileURL.path) {
-            let stored = try JSONDecoder().decode(
-                [BackgroundTransferRecord].self,
-                from: Data(contentsOf: fileURL)
-            )
-            records = Dictionary(uniqueKeysWithValues: stored.map { ($0.id, $0) })
+            do {
+                records = try BackgroundTransferLedgerStorage.decode(Data(contentsOf: fileURL))
+                recovery = nil
+            } catch {
+                let corruption = error as? BackgroundTransferLedgerCorruption ?? .malformedData
+                recovery = try BackgroundTransferLedgerStorage.quarantine(
+                    fileURL,
+                    corruption: corruption
+                )
+                records = [:]
+                try BackgroundTransferLedgerStorage.persist(records, to: fileURL)
+            }
         } else {
             records = [:]
+            recovery = nil
         }
     }
 
@@ -173,30 +221,8 @@ actor BackgroundTransferLedger {
             clearClaimFields(&record)
             records[id] = record
         }
-        var claimed = Set<UUID>()
-        var attachments: [BackgroundTransferAttachment] = []
-        var cancellations: [Int] = []
-
-        for task in tasks.sorted(by: { $0.taskIdentifier < $1.taskIdentifier }) {
-            guard let description = task.taskDescription,
-                  let id = UUID(uuidString: description),
-                  var record = records[id],
-                  record.state != .failed,
-                  record.state != .completed,
-                  !claimed.contains(id),
-                  record.taskIdentifier == nil || record.taskIdentifier == task.taskIdentifier else {
-                cancellations.append(task.taskIdentifier)
-                continue
-            }
-            claimed.insert(id)
-            record.taskIdentifier = task.taskIdentifier
-            record.state = .running
-            record.failureReason = nil
-            records[id] = record
-            attachments.append(.init(transferID: id, taskIdentifier: task.taskIdentifier))
-        }
-
-        for (id, var record) in records where !claimed.contains(id) {
+        let taskResult = reconcileTaskIdentities(tasks)
+        for (id, var record) in records where !taskResult.claimed.contains(id) {
             if record.state == .pending || record.state == .running {
                 record.taskIdentifier = nil
                 record.state = .resumable
@@ -206,10 +232,48 @@ actor BackgroundTransferLedger {
         }
         try persist()
         return BackgroundTransferReconciliation(
-            reattached: attachments,
-            taskIdentifiersToCancel: cancellations,
+            reattached: taskResult.attachments,
+            taskIdentifiersToCancel: taskResult.cancellations,
             claimedBodies: diskClaims
         )
+    }
+
+    private func reconcileTaskIdentities(
+        _ tasks: [BackgroundTransferTaskIdentity]
+    ) -> BackgroundTaskReconciliation {
+        var result = BackgroundTaskReconciliation()
+
+        for task in tasks.sorted(by: { $0.taskIdentifier < $1.taskIdentifier }) {
+            guard let description = task.taskDescription,
+                  let id = UUID(uuidString: description),
+                  var record = records[id],
+                  record.state != .failed,
+                  record.state != .completed,
+                  !result.claimed.contains(id) else {
+                result.cancellations.append(task.taskIdentifier)
+                continue
+            }
+            let decision = BackgroundRestoredTaskPolicy.decision(
+                isDurablyBound: record.taskIdentifier == task.taskIdentifier,
+                taskState: task.state
+            )
+            guard decision != .cancel else {
+                result.cancellations.append(task.taskIdentifier)
+                continue
+            }
+            result.claimed.insert(id)
+            record.taskIdentifier = task.taskIdentifier
+            record.state = .running
+            record.failureReason = nil
+            records[id] = record
+            result.attachments.append(.init(
+                transferID: id,
+                taskIdentifier: task.taskIdentifier,
+                decision: decision
+            ))
+        }
+
+        return result
     }
 
     func finish(id: UUID, failure: String?, isResumable: Bool) throws {
@@ -284,15 +348,6 @@ actor BackgroundTransferLedger {
     }
 
     private func persist() throws {
-        let directory = fileURL.deletingLastPathComponent()
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        let data = try encoder.encode(allRecords())
-        try data.write(to: fileURL, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
-        var values = URLResourceValues()
-        values.isExcludedFromBackup = true
-        var mutableURL = fileURL
-        try mutableURL.setResourceValues(values)
+        try BackgroundTransferLedgerStorage.persist(records, to: fileURL)
     }
 }

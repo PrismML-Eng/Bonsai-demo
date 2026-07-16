@@ -16,9 +16,12 @@
 		19EB0F0D12622A2ED3FFE1A7 /* BonsaiMobileApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB8F93A9408A4EE6F88333F3 /* BonsaiMobileApp.swift */; };
 		234F0A83349E0E5B3FD021B8 /* ModelArchiveImporterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 664036C4891B230797661F95 /* ModelArchiveImporterTests.swift */; };
 		24C250F27F5F7EC29F652946 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = 056342B4C449BC4FB620893A /* ZIPFoundation */; };
+		2822D9FC4EC3FF2D5BF5E2E9 /* BackgroundTransferLedgerStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2D09A513F78C6AABAB103C /* BackgroundTransferLedgerStorage.swift */; };
 		2F536ED65F34A88DEF23ED07 /* Tokenizers in Frameworks */ = {isa = PBXBuildFile; productRef = 82A832B08BE4D6E49F59F560 /* Tokenizers */; };
+		3CA57FC6807E0DBDE557BAD0 /* BackgroundTransferCompletionRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 220E4995627C7B667E6CE3D8 /* BackgroundTransferCompletionRegistry.swift */; };
 		3D320AA97FEF29AE7A3A9B82 /* BonsaiAppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0BACEDE0B1749D71819FC44 /* BonsaiAppDelegate.swift */; };
 		3EEA47A5E8CCE2F09D5B567C /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = 9943147F24F82A85972D6C9B /* MLXLLM */; };
+		426A3A95E710DE00DD6CF574 /* BackgroundTransferCompletionRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F94951512FC7DFC224F0BE48 /* BackgroundTransferCompletionRegistryTests.swift */; };
 		4417713B8641E69530BC3574 /* DomainContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C93D2F771D42F593A736FAB /* DomainContractTests.swift */; };
 		4447FE1914BEA93B4C77FBD6 /* BackgroundModelDownloadCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03640C2EC9090EF0A788975 /* BackgroundModelDownloadCoordinator.swift */; };
 		447E3736BCD9D6F872D82AE7 /* RuntimeProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE7E78660BF6A2E0B953F04E /* RuntimeProbe.swift */; };
@@ -39,6 +42,7 @@
 		943838EEA36C1C1D8D0C4CAE /* ToolContracts.swift in Sources */ = {isa = PBXBuildFile; fileRef = B712483BA9C8DF8116DC1D4D /* ToolContracts.swift */; };
 		97132FE92A5B99FC6A9C5685 /* ModelFileTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CE47A0DEE7166D8D3D5F237 /* ModelFileTransport.swift */; };
 		A51DC54EE357885E5DDB5D76 /* URLSessionModelFileTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3E96940CC5B6E831FE6D5ED /* URLSessionModelFileTransport.swift */; };
+		A96E3680D4113BDA67852F0A /* BackgroundTransferRestorationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C8990C9A529F5D5F8320B31 /* BackgroundTransferRestorationTests.swift */; };
 		AE77A7DF0C8FAAA14DBE3F6E /* ModelDescriptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 843AAD749652A7FEB690E7CD /* ModelDescriptor.swift */; };
 		B1EADCA0FAE246BFB79C2258 /* MLXHuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = 95D56B5E7F56FB8C5CCAA9FD /* MLXHuggingFace */; };
 		B48F8998EBF60B95A86BEE4B /* DeviceQualification.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBBA6F970B4898D435D262A3 /* DeviceQualification.swift */; };
@@ -81,6 +85,8 @@
 		09D3F5EA04B40FF9FDFB01AA /* ModelLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelLibrary.swift; sourceTree = "<group>"; };
 		1D67F10949D64049D3272FCD /* ModelArchiveImporterHostMetadataTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelArchiveImporterHostMetadataTests.swift; sourceTree = "<group>"; };
 		213E3C6095AA9D82261353B2 /* SuspendingModelTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuspendingModelTransport.swift; sourceTree = "<group>"; };
+		220E4995627C7B667E6CE3D8 /* BackgroundTransferCompletionRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundTransferCompletionRegistry.swift; sourceTree = "<group>"; };
+		2C8990C9A529F5D5F8320B31 /* BackgroundTransferRestorationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundTransferRestorationTests.swift; sourceTree = "<group>"; };
 		33C44325F2B36B9680594A62 /* ModelLibraryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelLibraryTests.swift; sourceTree = "<group>"; };
 		3EA39828481B42E66BC5B98A /* BackgroundTransferPromoterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundTransferPromoterTests.swift; sourceTree = "<group>"; };
 		3EE12FEE6B1549544599B272 /* manifest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = manifest.json; sourceTree = "<group>"; };
@@ -119,9 +125,11 @@
 		E503A0EDD77ED1ECF44BBE9B /* ModelTransportPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelTransportPolicyTests.swift; sourceTree = "<group>"; };
 		EE7E78660BF6A2E0B953F04E /* RuntimeProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeProbe.swift; sourceTree = "<group>"; };
 		F0BACEDE0B1749D71819FC44 /* BonsaiAppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BonsaiAppDelegate.swift; sourceTree = "<group>"; };
+		F94951512FC7DFC224F0BE48 /* BackgroundTransferCompletionRegistryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundTransferCompletionRegistryTests.swift; sourceTree = "<group>"; };
 		F9C5239DAAB0A9F813B82EA7 /* ModelLibraryTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelLibraryTypes.swift; sourceTree = "<group>"; };
 		FB6844A1C9F2CD1F44BB7CEB /* .gitkeep */ = {isa = PBXFileReference; path = .gitkeep; sourceTree = "<group>"; };
 		FBBA6F970B4898D435D262A3 /* DeviceQualification.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceQualification.swift; sourceTree = "<group>"; };
+		FD2D09A513F78C6AABAB103C /* BackgroundTransferLedgerStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundTransferLedgerStorage.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -155,7 +163,9 @@
 				61D695EE149EFC0A40D13F02 /* ArchiveMetadataValidator.swift */,
 				A03640C2EC9090EF0A788975 /* BackgroundModelDownloadCoordinator.swift */,
 				923116C1A669C71329B4EC80 /* BackgroundTransferBodyStore.swift */,
+				220E4995627C7B667E6CE3D8 /* BackgroundTransferCompletionRegistry.swift */,
 				666DE75FE333B9837276F6AE /* BackgroundTransferLedger.swift */,
+				FD2D09A513F78C6AABAB103C /* BackgroundTransferLedgerStorage.swift */,
 				8C34C3FBC9422689CCE1AB67 /* BackgroundTransferPromoter.swift */,
 				4651A7CF5BF341647B37C4AB /* DeviceQualifier.swift */,
 				DF353AB043C4DA845E2A2E09 /* ModelDownloadSessionHolder.swift */,
@@ -192,8 +202,10 @@
 			isa = PBXGroup;
 			children = (
 				9A50A852C61912BB4AB1097F /* ArchiveMetadataValidatorTests.swift */,
+				F94951512FC7DFC224F0BE48 /* BackgroundTransferCompletionRegistryTests.swift */,
 				B0410EA01F4A4238343A9374 /* BackgroundTransferLedgerTests.swift */,
 				3EA39828481B42E66BC5B98A /* BackgroundTransferPromoterTests.swift */,
+				2C8990C9A529F5D5F8320B31 /* BackgroundTransferRestorationTests.swift */,
 				5B22E9B7C916E74BE90126ED /* DeviceQualifierTests.swift */,
 				8C93D2F771D42F593A736FAB /* DomainContractTests.swift */,
 				1D67F10949D64049D3272FCD /* ModelArchiveImporterHostMetadataTests.swift */,
@@ -448,7 +460,9 @@
 				05D9F1842D97C25A72203770 /* ArchiveMetadataValidator.swift in Sources */,
 				4447FE1914BEA93B4C77FBD6 /* BackgroundModelDownloadCoordinator.swift in Sources */,
 				B70F9060A3D924488F6DA231 /* BackgroundTransferBodyStore.swift in Sources */,
+				3CA57FC6807E0DBDE557BAD0 /* BackgroundTransferCompletionRegistry.swift in Sources */,
 				1203008D444C0C6180D00A21 /* BackgroundTransferLedger.swift in Sources */,
+				2822D9FC4EC3FF2D5BF5E2E9 /* BackgroundTransferLedgerStorage.swift in Sources */,
 				F5DC52FA5237E02164DA2221 /* BackgroundTransferPromoter.swift in Sources */,
 				3D320AA97FEF29AE7A3A9B82 /* BonsaiAppDelegate.swift in Sources */,
 				19EB0F0D12622A2ED3FFE1A7 /* BonsaiMobileApp.swift in Sources */,
@@ -482,8 +496,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				569EFDB122F314FEEB7870E3 /* ArchiveMetadataValidatorTests.swift in Sources */,
+				426A3A95E710DE00DD6CF574 /* BackgroundTransferCompletionRegistryTests.swift in Sources */,
 				8018DA8DD46F0FBF1C92298F /* BackgroundTransferLedgerTests.swift in Sources */,
 				7659611438EEE5EFBABDEE72 /* BackgroundTransferPromoterTests.swift in Sources */,
+				A96E3680D4113BDA67852F0A /* BackgroundTransferRestorationTests.swift in Sources */,
 				55A32617030A0372712E2E1A /* DeviceQualifierTests.swift in Sources */,
 				4417713B8641E69530BC3574 /* DomainContractTests.swift in Sources */,
 				748051C92D6922AEAFEC8907 /* ModelArchiveImporterHostMetadataTests.swift in Sources */,

@@ -1,21 +1,16 @@
 #if os(iOS)
 import Foundation
 
-final class BackgroundModelDownloadCoordinator: NSObject, @unchecked Sendable {
+final class BackgroundModelDownloadCoordinator: NSObject {
     static let sessionIdentifier = "com.prismml.BonsaiMobile.model-download"
     static let shared = BackgroundModelDownloadCoordinator.makeShared()
 
-    private let lock = NSLock()
     private let ledger: BackgroundTransferLedger?
     private let initializationError: Error?
-    private var continuations: [UUID: CheckedContinuation<Void, Error>] = [:]
-    private var tasks: [UUID: URLSessionDownloadTask] = [:]
-    private var backgroundEventsCompletion: (@Sendable () -> Void)?
-
-    private lazy var session: URLSession = {
-        let configuration = URLSessionModelFileTransport.productionConfiguration()
-        return URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
-    }()
+    private let state = BackgroundDownloadCoordinatorState()
+    private let completions = BackgroundTransferCompletionRegistry()
+    private let sessionOwner = BackgroundURLSessionOwner()
+    private let reconciliationGate = BackgroundReconciliationGate()
 
     private init(ledger: BackgroundTransferLedger?, error: Error?) {
         self.ledger = ledger
@@ -29,11 +24,12 @@ final class BackgroundModelDownloadCoordinator: NSObject, @unchecked Sendable {
         try await reconcileTasks(using: ledger)
 
         if let previous = await ledger.activeRecord(destination: destination) {
-            if previous.state == .running, let task = lock.withLock({ tasks[previous.id] }) {
+            if previous.state == .running, let task = state.task(id: previous.id) {
                 try await awaitCompletion(of: previous.id, task: task, startsTask: false)
                 return
             }
             try await ledger.remove(id: previous.id)
+            completions.remove(id: previous.id)
         }
 
         let existingBytes = Self.fileSize(at: destination)
@@ -50,10 +46,10 @@ final class BackgroundModelDownloadCoordinator: NSObject, @unchecked Sendable {
         if existingBytes > 0, existingBytes < file.sizeBytes {
             request.setValue("bytes=\(existingBytes)-", forHTTPHeaderField: "Range")
         }
-        let task = session.downloadTask(with: request)
+        let task = session().downloadTask(with: request)
         task.taskDescription = record.taskDescription
         try await ledger.bind(id: record.id, taskIdentifier: task.taskIdentifier)
-        lock.withLock { tasks[record.id] = task }
+        state.store(task: task, id: record.id)
         try await awaitCompletion(of: record.id, task: task, startsTask: true)
     }
 
@@ -63,7 +59,7 @@ final class BackgroundModelDownloadCoordinator: NSObject, @unchecked Sendable {
     }
 
     func setBackgroundEventsCompletion(_ completion: @escaping @Sendable () -> Void) {
-        lock.withLock { backgroundEventsCompletion = completion }
+        state.setBackgroundEventsCompletion(completion)
         restoreBackgroundTasks()
     }
 
@@ -72,11 +68,17 @@ final class BackgroundModelDownloadCoordinator: NSObject, @unchecked Sendable {
         task: URLSessionDownloadTask,
         startsTask: Bool
     ) async throws {
+        let completionRegistry = completions
         try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
-                let replaced = lock.withLock { continuations.updateValue(continuation, forKey: id) }
-                replaced?.resume(throwing: ModelLibraryError.operationInProgress)
-                if startsTask { task.resume() }
+                do {
+                    try completionRegistry.register(id: id) { result in
+                        continuation.resume(with: result)
+                    }
+                    if startsTask { task.resume() }
+                } catch {
+                    continuation.resume(throwing: error)
+                }
             }
         } onCancel: {
             task.cancel()
@@ -84,13 +86,25 @@ final class BackgroundModelDownloadCoordinator: NSObject, @unchecked Sendable {
     }
 
     private func reconcileTasks(using ledger: BackgroundTransferLedger) async throws {
+        await reconciliationGate.acquire()
+        do {
+            try await performReconciliation(using: ledger)
+            await reconciliationGate.release()
+        } catch {
+            await reconciliationGate.release()
+            throw error
+        }
+    }
+
+    private func performReconciliation(using ledger: BackgroundTransferLedger) async throws {
         let allTasks = await withCheckedContinuation { continuation in
-            session.getAllTasks { continuation.resume(returning: $0) }
+            session().getAllTasks { continuation.resume(returning: $0) }
         }
         let identities = allTasks.map {
             BackgroundTransferTaskIdentity(
                 taskIdentifier: $0.taskIdentifier,
-                taskDescription: $0.taskDescription
+                taskDescription: $0.taskDescription,
+                state: Self.transferState($0.state)
             )
         }
         let reconciliation = try await ledger.reconcile(tasks: identities)
@@ -98,11 +112,10 @@ final class BackgroundModelDownloadCoordinator: NSObject, @unchecked Sendable {
         for identifier in reconciliation.taskIdentifiersToCancel {
             byIdentifier[identifier]?.cancel()
         }
-        lock.withLock {
-            for attachment in reconciliation.reattached {
-                if let task = byIdentifier[attachment.taskIdentifier] as? URLSessionDownloadTask {
-                    tasks[attachment.transferID] = task
-                }
+        for attachment in reconciliation.reattached {
+            if let task = byIdentifier[attachment.taskIdentifier] as? URLSessionDownloadTask {
+                state.store(task: task, id: attachment.transferID)
+                if attachment.decision == .resume { task.resume() }
             }
         }
         for claim in reconciliation.claimedBodies {
@@ -163,11 +176,27 @@ final class BackgroundModelDownloadCoordinator: NSObject, @unchecked Sendable {
 
     private func resolve(id: UUID?, result: Result<Void, Error>) {
         guard let id else { return }
-        let continuation = lock.withLock { () -> CheckedContinuation<Void, Error>? in
-            tasks.removeValue(forKey: id)
-            return continuations.removeValue(forKey: id)
+        state.removeTask(id: id)
+        completions.resolve(id: id, result: result)
+    }
+
+    private func session() -> URLSession {
+        sessionOwner.session(delegate: self)
+    }
+
+    private static func transferState(_ state: URLSessionTask.State) -> BackgroundTransferTaskState {
+        switch state {
+        case .suspended:
+            return .suspended
+        case .running:
+            return .running
+        case .canceling:
+            return .canceling
+        case .completed:
+            return .completed
+        @unknown default:
+            return .canceling
         }
-        continuation?.resume(with: result)
     }
 
     private static func fileSize(at url: URL) -> Int {
@@ -254,11 +283,80 @@ extension BackgroundModelDownloadCoordinator: URLSessionDownloadDelegate {
     }
 
     func urlSessionDidFinishEvents(forBackgroundURLSession _: URLSession) {
-        let completion = lock.withLock { () -> (@Sendable () -> Void)? in
+        let completion = state.takeBackgroundEventsCompletion()
+        DispatchQueue.main.async { completion?() }
+    }
+}
+
+/// The only unchecked Sendable boundary for the URLSession object graph. Every
+/// access to mutable session ownership is serialized by `lock`.
+private final class BackgroundURLSessionOwner: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storedSession: URLSession?
+
+    func session(delegate: URLSessionDelegate) -> URLSession {
+        lock.withLock {
+            if let storedSession { return storedSession }
+            let created = URLSession(
+                configuration: URLSessionModelFileTransport.productionConfiguration(),
+                delegate: delegate,
+                delegateQueue: nil
+            )
+            storedSession = created
+            return created
+        }
+    }
+}
+
+/// URLSession tasks and UIKit lifecycle closures are protected by this lock;
+/// callers never receive access to the mutable dictionaries themselves.
+private final class BackgroundDownloadCoordinatorState: @unchecked Sendable {
+    private let lock = NSLock()
+    private var tasks: [UUID: URLSessionDownloadTask] = [:]
+    private var backgroundEventsCompletion: (@Sendable () -> Void)?
+
+    func task(id: UUID) -> URLSessionDownloadTask? {
+        lock.withLock { tasks[id] }
+    }
+
+    func store(task: URLSessionDownloadTask, id: UUID) {
+        lock.withLock { tasks[id] = task }
+    }
+
+    func removeTask(id: UUID) {
+        _ = lock.withLock { tasks.removeValue(forKey: id) }
+    }
+
+    func setBackgroundEventsCompletion(_ completion: @escaping @Sendable () -> Void) {
+        lock.withLock { backgroundEventsCompletion = completion }
+    }
+
+    func takeBackgroundEventsCompletion() -> (@Sendable () -> Void)? {
+        lock.withLock {
             defer { backgroundEventsCompletion = nil }
             return backgroundEventsCompletion
         }
-        DispatchQueue.main.async { completion?() }
+    }
+}
+
+private actor BackgroundReconciliationGate {
+    private var isAcquired = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func acquire() async {
+        guard isAcquired else {
+            isAcquired = true
+            return
+        }
+        await withCheckedContinuation { waiters.append($0) }
+    }
+
+    func release() {
+        guard !waiters.isEmpty else {
+            isAcquired = false
+            return
+        }
+        waiters.removeFirst().resume()
     }
 }
 #endif
