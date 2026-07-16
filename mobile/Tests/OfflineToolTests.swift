@@ -57,6 +57,22 @@ struct OfflineToolTests {
     #expect(!result.contains("vendor"))
   }
 
+  @Test func systemDeviceProviderExposesOnlyCoarseOSFamilyAndNumericVersion() {
+    let provider = SystemDeviceInfoProvider()
+    #if os(iOS)
+      #expect(provider.operatingSystem == "iOS")
+    #elseif os(macOS)
+      #expect(provider.operatingSystem == "macOS")
+    #endif
+    #expect(!provider.operatingSystem.localizedCaseInsensitiveContains("build"))
+    #expect(!provider.operatingSystem.contains("("))
+    #expect(!provider.operatingSystem.contains(")"))
+    #expect(
+      provider.operatingSystemVersion.wholeMatch(
+        of: /[0-9]+\.[0-9]+\.[0-9]+/
+      ) != nil)
+  }
+
   private func temporaryDirectory() -> URL {
     FileManager.default.temporaryDirectory.appending(path: "OfflineToolTests-\(UUID())")
   }

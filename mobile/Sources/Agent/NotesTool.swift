@@ -87,12 +87,12 @@ struct NotesTool: OfflineTool {
     case "read":
       return .object(["note": try await store.read(id: noteID(arguments)).map(Self.json) ?? .null])
     case "create":
-      return Self.json(
+      return try Self.json(
         try await store.create(
           title: arguments.requiredString("title"), body: arguments.requiredString("body")
         ))
     case "update":
-      return Self.json(
+      return try Self.json(
         try await store.update(
           id: noteID(arguments),
           expectedRevision: UInt64(try arguments.requiredInt("expectedRevision")),
@@ -100,7 +100,7 @@ struct NotesTool: OfflineTool {
           body: arguments.requiredString("body")
         ))
     case "delete":
-      return Self.json(
+      return try Self.json(
         try await store.delete(
           id: noteID(arguments),
           expectedRevision: UInt64(try arguments.requiredInt("expectedRevision"))
@@ -116,10 +116,13 @@ struct NotesTool: OfflineTool {
     return id
   }
 
-  private static func json(_ note: LocalNote) -> ToolJSON {
-    .object([
+  private static func json(_ note: LocalNote) throws -> ToolJSON {
+    guard let revision = Int(exactly: note.revision) else {
+      throw NotesStoreError.revisionOverflow(id: note.id, current: note.revision)
+    }
+    return .object([
       "id": .string(note.id.uuidString),
-      "revision": .int(Int(note.revision)),
+      "revision": .int(revision),
       "title": .string(note.title),
       "body": .string(note.body),
       "createdAt": .string(ISO8601DateFormatter().string(from: note.createdAt)),

@@ -50,6 +50,30 @@ struct GenerationRequest: Equatable, Sendable {
         self.reasoningEnabled = reasoningEnabled
         self.maxTokens = maxTokens
     }
+
+    func replacingTools(_ tools: [GenerationToolSpecification]) -> GenerationRequest {
+        GenerationRequest(
+            validatedPrompt: prompt,
+            messages: messages,
+            tools: tools,
+            reasoningEnabled: reasoningEnabled,
+            maxTokens: maxTokens
+        )
+    }
+
+    private init(
+        validatedPrompt: String,
+        messages: [ConversationMessage]?,
+        tools: [GenerationToolSpecification],
+        reasoningEnabled: Bool,
+        maxTokens: Int
+    ) {
+        prompt = validatedPrompt
+        self.messages = messages
+        self.tools = tools
+        self.reasoningEnabled = reasoningEnabled
+        self.maxTokens = maxTokens
+    }
 }
 
 protocol InferenceEngine: Sendable {

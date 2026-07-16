@@ -39,7 +39,6 @@ final class MLXInferenceIntegrationTests: XCTestCase {
               "You must use the calculator tool to compute (37 * 19) + 5. After the tool result, answer with the number only."
           )
         ],
-        tools: registry.specifications,
         reasoningEnabled: false,
         maxTokens: 128
       ))

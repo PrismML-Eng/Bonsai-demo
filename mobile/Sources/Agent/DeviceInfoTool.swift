@@ -17,7 +17,15 @@ struct SystemDeviceInfoProvider: DeviceInfoProviding {
       "mac"
     #endif
   }
-  var operatingSystem: String { ProcessInfo.processInfo.operatingSystemVersionString }
+  var operatingSystem: String {
+    #if os(iOS)
+      "iOS"
+    #elseif os(macOS)
+      "macOS"
+    #else
+      "Apple OS"
+    #endif
+  }
   var operatingSystemVersion: String {
     let version = ProcessInfo.processInfo.operatingSystemVersion
     return "\(version.majorVersion).\(version.minorVersion).\(version.patchVersion)"

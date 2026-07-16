@@ -20,6 +20,7 @@
 		2330FF738E5C5129A2F04C60 /* ReasoningRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 461F66A0869E5B61EAD4195D /* ReasoningRouter.swift */; };
 		234F0A83349E0E5B3FD021B8 /* ModelArchiveImporterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 664036C4891B230797661F95 /* ModelArchiveImporterTests.swift */; };
 		24C250F27F5F7EC29F652946 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = 056342B4C449BC4FB620893A /* ZIPFoundation */; };
+		25494F7DB1C3967B9A108C16 /* AgentLoopProtocolTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 935208CF02581A0AC42CFC41 /* AgentLoopProtocolTests.swift */; };
 		2822D9FC4EC3FF2D5BF5E2E9 /* BackgroundTransferLedgerStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2D09A513F78C6AABAB103C /* BackgroundTransferLedgerStorage.swift */; };
 		29B1EBBE2078B7E4935C406B /* ChatSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = D68DF4452DDE0A73225C13C6 /* ChatSession.swift */; };
 		2F536ED65F34A88DEF23ED07 /* Tokenizers in Frameworks */ = {isa = PBXBuildFile; productRef = 82A832B08BE4D6E49F59F560 /* Tokenizers */; };
@@ -167,6 +168,7 @@
 		8C8C74B046A52235C41D0614 /* ModelLibraryDeleteTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelLibraryDeleteTests.swift; sourceTree = "<group>"; };
 		8C93D2F771D42F593A736FAB /* DomainContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DomainContractTests.swift; sourceTree = "<group>"; };
 		923116C1A669C71329B4EC80 /* BackgroundTransferBodyStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundTransferBodyStore.swift; sourceTree = "<group>"; };
+		935208CF02581A0AC42CFC41 /* AgentLoopProtocolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentLoopProtocolTests.swift; sourceTree = "<group>"; };
 		952A2D74B43F98B0EE43E369 /* BonsaiMobile.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = BonsaiMobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		96788F4B0A9094EAF9120986 /* MLXInferenceEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MLXInferenceEngine.swift; sourceTree = "<group>"; };
 		9A50A852C61912BB4AB1097F /* ArchiveMetadataValidatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveMetadataValidatorTests.swift; sourceTree = "<group>"; };
@@ -277,6 +279,7 @@
 		4C49E64A053FDBE798D5740B /* Tests */ = {
 			isa = PBXGroup;
 			children = (
+				935208CF02581A0AC42CFC41 /* AgentLoopProtocolTests.swift */,
 				D2A627188F789010FCE43EB8 /* AgentLoopTests.swift */,
 				9A50A852C61912BB4AB1097F /* ArchiveMetadataValidatorTests.swift */,
 				E4E3FB0DD7EA8B00AC460394 /* AtomicJSONStoreTests.swift */,
@@ -644,6 +647,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				25494F7DB1C3967B9A108C16 /* AgentLoopProtocolTests.swift in Sources */,
 				5D24CB5ADBA69748B1B05528 /* AgentLoopTests.swift in Sources */,
 				569EFDB122F314FEEB7870E3 /* ArchiveMetadataValidatorTests.swift in Sources */,
 				3D15C243E96A5D1B529A81DD /* AtomicJSONStoreTests.swift in Sources */,

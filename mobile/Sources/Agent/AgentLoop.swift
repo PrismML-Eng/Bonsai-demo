@@ -52,6 +52,18 @@ enum AgentCompletion: Equatable, Sendable {
   case runtimeFailure(String)
 }
 
+private enum AgentStreamProtocolError: Error, CustomStringConvertible {
+  case missingCompletion
+  case duplicateCompletion
+
+  var description: String {
+    switch self {
+    case .missingCompletion: "missing_generation_completion"
+    case .duplicateCompletion: "duplicate_generation_completion"
+    }
+  }
+}
+
 enum AgentActivity: Equatable, Sendable {
   case generating
   case pendingApproval(ToolApprovalRequest)
@@ -90,7 +102,10 @@ actor AgentLoop {
 
   func run(_ request: GenerationRequest) async throws -> AgentRunResult {
     guard activeRun == nil else {
-      return finish(.runtimeFailure("agent_run_already_active"), answer: "", results: [])
+      let completion = AgentCompletion.runtimeFailure("agent_run_already_active")
+      return AgentRunResult(
+        answer: "", toolResults: [], activities: [.terminal(completion)], completion: completion
+      )
     }
     let runID = UUID()
     let task = Task { [weak self] in
@@ -98,7 +113,7 @@ actor AgentLoop {
         return AgentRunResult(
           answer: "", toolResults: [], activities: [.terminal(.cancelled)], completion: .cancelled)
       }
-      return await self.performRun(request)
+      return await self.performRun(request.replacingTools(self.registry.specifications))
     }
     activeRun = (runID, task)
     let result = await task.value
@@ -213,12 +228,15 @@ actor AgentLoop {
       switch event {
       case .answer(let text): answer += text
       case .toolRequest(let invocation): invocations.append(invocation)
-      case .completed(let reason): completion = reason
+      case .completed(let reason):
+        guard completion == nil else { throw AgentStreamProtocolError.duplicateCompletion }
+        completion = reason
       case .reasoning, .metrics: break
       }
     }
     try Task.checkCancellation()
-    return (invocations, completion ?? .stop)
+    guard let completion else { throw AgentStreamProtocolError.missingCompletion }
+    return (invocations, completion)
   }
 
   private func finish(

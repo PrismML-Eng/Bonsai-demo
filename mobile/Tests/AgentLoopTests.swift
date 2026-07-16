@@ -312,7 +312,7 @@ private actor ScriptedAgentEngine: AgentInferenceStreaming {
   func generate(_ request: GenerationRequest) async throws -> AsyncThrowingStream<
     GenerationEvent, any Error
   > {
-    Self.stream(initial)
+    return Self.stream(initial)
   }
   func continueAfterTools(_ exchange: AgentToolExchange) async throws -> AsyncThrowingStream<
     GenerationEvent, any Error
