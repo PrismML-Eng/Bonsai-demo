@@ -8,7 +8,8 @@ struct BonsaiMobileApp: App {
 
     var body: some Scene {
         WindowGroup {
-            Text("Bonsai")
+            RootView()
+                .frame(minWidth: 360, minHeight: 520)
         }
     }
 }

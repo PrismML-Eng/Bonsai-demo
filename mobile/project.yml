@@ -78,7 +78,8 @@ targets:
       - target: BonsaiMobile
   BonsaiMobileUITests:
     type: bundle.ui-testing
-    platform: iOS
+    supportedDestinations: [iOS, macOS]
+    platform: auto
     sources: [UITests]
     settings:
       base:
@@ -94,6 +95,13 @@ schemes:
         BonsaiMobileTests: [test]
     test:
       targets: [BonsaiMobileTests]
+  BonsaiMobileUITests:
+    build:
+      targets:
+        BonsaiMobile: all
+        BonsaiMobileUITests: [test]
+    test:
+      targets: [BonsaiMobileUITests]
   RuntimeProbe:
     build:
       targets:

@@ -124,7 +124,10 @@ actor AtomicJSONStore {
         // Descriptor-based protection avoids reopening an attacker-controlled path.
         // Generic iOS compilation validates this branch; physical-device protection
         // behavior remains part of the device verification lane.
-        guard fcntl(descriptor, F_SETPROTECTIONCLASS, PROTECTION_CLASS_A) == 0 else {
+        // Darwin's class-A ABI value is stable but the Swift overlay no longer
+        // exports the legacy PROTECTION_CLASS_A spelling in the iOS 26 SDK.
+        let completeProtectionClass: Int32 = 1
+        guard fcntl(descriptor, F_SETPROTECTIONCLASS, completeProtectionClass) == 0 else {
             throw POSIXError(.init(rawValue: errno)!)
         }
         #endif

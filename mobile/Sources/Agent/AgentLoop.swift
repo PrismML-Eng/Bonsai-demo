@@ -72,6 +72,15 @@ enum AgentActivity: Equatable, Sendable {
   case terminal(AgentCompletion)
 }
 
+enum AgentLiveEvent: Equatable, Sendable {
+  case reasoning(String)
+  case answer(String)
+  case metrics(GenerationMetrics)
+  case toolRequest(ToolInvocation)
+  case activity(AgentActivity)
+  case completed(AgentCompletion)
+}
+
 struct AgentRunResult: Equatable, Sendable {
   let answer: String
   let toolResults: [AgentToolResult]
@@ -87,6 +96,7 @@ actor AgentLoop {
   private var currentActivities: [AgentActivity] = []
   private var activeRun: (id: UUID, task: Task<AgentRunResult, Never>)?
   private var activeTool: (any OfflineTool)?
+  private var eventObservers: [UUID: AsyncStream<AgentLiveEvent>.Continuation] = [:]
 
   init(
     engine: any AgentInferenceStreaming,
@@ -99,6 +109,16 @@ actor AgentLoop {
   }
 
   func activities() -> [AgentActivity] { currentActivities }
+
+  func events() -> AsyncStream<AgentLiveEvent> {
+    let id = UUID()
+    return AsyncStream { continuation in
+      eventObservers[id] = continuation
+      continuation.onTermination = { [weak self] _ in
+        Task { await self?.removeEventObserver(id) }
+      }
+    }
+  }
 
   func run(_ request: GenerationRequest) async throws -> AgentRunResult {
     guard activeRun == nil else {
@@ -123,7 +143,8 @@ actor AgentLoop {
   }
 
   private func performRun(_ request: GenerationRequest) async -> AgentRunResult {
-    currentActivities = [.generating]
+    currentActivities = []
+    appendActivity(.generating)
     var answer = ""
     var results: [AgentToolResult] = []
     var seenIDs: Set<String> = []
@@ -157,12 +178,12 @@ actor AgentLoop {
             let result = try await execute(invocation)
             results.append(result)
             exchangeResults.append(result)
-            currentActivities.append(.result(result))
+            appendActivity(.result(result))
           }
           stream = try await engine.continueAfterTools(
             AgentToolExchange(invocations: batch.invocations, results: exchangeResults)
           )
-          currentActivities.append(.generating)
+          appendActivity(.generating)
         }
       }
     } catch is CancellationError {
@@ -188,7 +209,7 @@ actor AgentLoop {
         let request = ToolApprovalRequest(
           invocation: invocation, effect: try tool.effect(for: arguments)
         )
-        currentActivities.append(.pendingApproval(request))
+        appendActivity(.pendingApproval(request))
         guard try await approvals.requestAllowOnce(request) == .allowOnce else {
           return AgentToolResult(
             invocationID: invocation.id,
@@ -198,7 +219,7 @@ actor AgentLoop {
         }
       }
       try Task.checkCancellation()
-      currentActivities.append(.running(invocation))
+      appendActivity(.running(invocation))
             let value = try await tool.execute(arguments: arguments)
             try Task.checkCancellation()
             return AgentToolResult(
@@ -226,12 +247,17 @@ actor AgentLoop {
     for try await event in stream {
       try Task.checkCancellation()
       switch event {
-      case .answer(let text): answer += text
-      case .toolRequest(let invocation): invocations.append(invocation)
+      case .answer(let text):
+        answer += text
+        publish(.answer(text))
+      case .toolRequest(let invocation):
+        invocations.append(invocation)
+        publish(.toolRequest(invocation))
       case .completed(let reason):
         guard completion == nil else { throw AgentStreamProtocolError.duplicateCompletion }
         completion = reason
-      case .reasoning, .metrics: break
+      case .reasoning(let text): publish(.reasoning(text))
+      case .metrics(let metrics): publish(.metrics(metrics))
       }
     }
     try Task.checkCancellation()
@@ -244,7 +270,8 @@ actor AgentLoop {
     answer: String,
     results: [AgentToolResult]
   ) -> AgentRunResult {
-    currentActivities.append(.terminal(completion))
+    appendActivity(.terminal(completion))
+    publish(.completed(completion))
     return AgentRunResult(
       answer: answer,
       toolResults: results,
@@ -252,6 +279,17 @@ actor AgentLoop {
       completion: completion
     )
   }
+
+  private func appendActivity(_ activity: AgentActivity) {
+    currentActivities.append(activity)
+    publish(.activity(activity))
+  }
+
+  private func publish(_ event: AgentLiveEvent) {
+    eventObservers.values.forEach { $0.yield(event) }
+  }
+
+  private func removeEventObserver(_ id: UUID) { eventObservers.removeValue(forKey: id) }
 
   private static func errorJSON(_ error: any Error) -> String {
     let message: String
