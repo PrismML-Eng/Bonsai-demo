@@ -279,6 +279,12 @@ actor AgentLoopChatService: ChatSessionServing {
       generation = try GenerationRequest(prompt: request.prompt,
                                          reasoningBudget: request.effort.tokenBudget)
     }
+    do {
+      try Task.checkCancellation()
+    } catch {
+      if let sessionGate { await sessionGate.release() }
+      throw error
+    }
     let liveEvents = await loop.events()
     return AsyncThrowingStream { continuation in
       let task = Task { [loop] in
