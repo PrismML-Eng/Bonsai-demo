@@ -51,7 +51,8 @@ final class ConversationCoordinatorTests: XCTestCase {
     let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
     let coordinator = try ConversationCoordinator(root: root, store: ConversationStore(root: root))
     try await coordinator.bind(Self.installation(.oneBit27B, revisionDigit: "d"))
-    let before = try XCTUnwrap(await Self.snapshot(coordinator))
+    let beforeSnapshot = await Self.snapshot(coordinator)
+    let before = try XCTUnwrap(beforeSnapshot)
     let navigationRoot = root.appending(path: "ConversationNavigation")
     defer { try? Self.setWritable(true, directory: navigationRoot) }
     try Self.setWritable(false, directory: navigationRoot)
@@ -61,12 +62,16 @@ final class ConversationCoordinatorTests: XCTestCase {
       XCTFail("read-only navigation storage must reject creation")
     } catch {}
 
-    let afterFailure = try XCTUnwrap(await Self.snapshot(coordinator))
+    let failedSnapshot = await Self.snapshot(coordinator)
+    let afterFailure = try XCTUnwrap(failedSnapshot)
     XCTAssertEqual(afterFailure, before)
-    XCTAssertEqual(try await coordinator.activeSelection().conversationID, before.selectedID)
+    let selectionAfterFailure = try await coordinator.activeSelection().conversationID
+    XCTAssertEqual(selectionAfterFailure, before.selectedID)
     try Self.setWritable(true, directory: navigationRoot)
     try await coordinator.createConversation()
-    XCTAssertEqual(try XCTUnwrap(await Self.snapshot(coordinator)).conversations.count, 2)
+    let successfulValue = await Self.snapshot(coordinator)
+    let successfulSnapshot = try XCTUnwrap(successfulValue)
+    XCTAssertEqual(successfulSnapshot.conversations.count, 2)
   }
 
   func testFailedSelectDoesNotChangeHiddenActiveSelection() async throws {
@@ -86,11 +91,15 @@ final class ConversationCoordinatorTests: XCTestCase {
       XCTFail("read-only navigation storage must reject selection")
     } catch {}
 
-    XCTAssertEqual(try await coordinator.activeSelection().conversationID, originalID)
-    XCTAssertEqual(try XCTUnwrap(await Self.snapshot(coordinator)).selectedID, originalID)
+    let selectionAfterFailure = try await coordinator.activeSelection().conversationID
+    let valueAfterFailure = await Self.snapshot(coordinator)
+    let snapshotAfterFailure = try XCTUnwrap(valueAfterFailure)
+    XCTAssertEqual(selectionAfterFailure, originalID)
+    XCTAssertEqual(snapshotAfterFailure.selectedID, originalID)
     try Self.setWritable(true, directory: navigationRoot)
     try await coordinator.selectConversation(secondID)
-    XCTAssertEqual(try await coordinator.activeSelection().conversationID, secondID)
+    let selectionAfterRetry = try await coordinator.activeSelection().conversationID
+    XCTAssertEqual(selectionAfterRetry, secondID)
   }
 
   func testFailedRenameLeavesTitleEligibleForRetry() async throws {
@@ -106,12 +115,14 @@ final class ConversationCoordinatorTests: XCTestCase {
       XCTFail("read-only navigation storage must reject rename")
     } catch {}
 
-    XCTAssertEqual(try XCTUnwrap(await Self.snapshot(coordinator)).conversations.single?.title,
-                   "New chat")
+    let valueAfterFailure = await Self.snapshot(coordinator)
+    let snapshotAfterFailure = try XCTUnwrap(valueAfterFailure)
+    XCTAssertEqual(snapshotAfterFailure.conversations.single?.title, "New chat")
     try Self.setWritable(true, directory: navigationRoot)
     try await coordinator.renameSelected(using: "Durable title")
-    XCTAssertEqual(try XCTUnwrap(await Self.snapshot(coordinator)).conversations.single?.title,
-                   "Durable title")
+    let valueAfterRetry = await Self.snapshot(coordinator)
+    let snapshotAfterRetry = try XCTUnwrap(valueAfterRetry)
+    XCTAssertEqual(snapshotAfterRetry.conversations.single?.title, "Durable title")
   }
 
   func testFailedInitialBindDoesNotExposeUncommittedSelection() async throws {
