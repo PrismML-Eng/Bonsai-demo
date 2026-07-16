@@ -221,7 +221,11 @@ actor MLXInferenceEngine: InferenceEngine {
             state.finishCancellation(continuation: continuation)
             continuation.finish()
         } catch {
-            continuation.finish(throwing: error)
+            if state.hasTerminal {
+                continuation.finish()
+            } else {
+                continuation.finish(throwing: error)
+            }
         }
     }
 
@@ -277,7 +281,10 @@ private struct MLXGenerationState {
     private let started = ContinuousClock().now
     private var timeToFirstToken: Duration?
     private var router: ReasoningRouter
+    private var sawToolCall = false
     private var terminalEmitted = false
+
+    var hasTerminal: Bool { terminalEmitted }
 
     init(request: GenerationRequest, reasoningConfig: ReasoningConfig?) {
         router = request.reasoningEnabled
@@ -289,6 +296,7 @@ private struct MLXGenerationState {
         _ generation: MLXLMCommon.Generation,
         continuation: AsyncThrowingStream<GenerationEvent, any Error>.Continuation
     ) throws {
+        guard !terminalEmitted else { return }
         switch generation {
         case .chunk(let chunk):
             if !chunk.isEmpty { recordFirstToken() }
@@ -297,8 +305,7 @@ private struct MLXGenerationState {
             recordFirstToken()
             finalizeReasoning(continuation: continuation)
             continuation.yield(.toolRequest(try MLXGenerationMapper.toolInvocation(call)))
-            continuation.yield(.completed(.toolRequest))
-            terminalEmitted = true
+            sawToolCall = true
         case .info(let info):
             finalizeReasoning(continuation: continuation)
             continuation.yield(
@@ -310,7 +317,9 @@ private struct MLXGenerationState {
                 )
             )
             emitTerminal(
-                MLXGenerationMapper.completionReason(info.stopReason),
+                sawToolCall
+                    ? .toolRequest
+                    : MLXGenerationMapper.completionReason(info.stopReason),
                 continuation: continuation
             )
         }
@@ -320,7 +329,7 @@ private struct MLXGenerationState {
         continuation: AsyncThrowingStream<GenerationEvent, any Error>.Continuation
     ) {
         finalizeReasoning(continuation: continuation)
-        emitTerminal(.stop, continuation: continuation)
+        emitTerminal(sawToolCall ? .toolRequest : .stop, continuation: continuation)
     }
 
     mutating func finishCancellation(

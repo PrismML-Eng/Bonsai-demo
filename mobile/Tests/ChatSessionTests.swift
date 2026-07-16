@@ -125,7 +125,7 @@ struct ChatSessionTests {
     }
 
     @Test
-    func rejectsConcurrentSendAndLoad() async throws {
+    func rejectsConcurrentSend() async throws {
         let engine = RecordingInferenceEngine(events: [], suspendAfterEvents: true)
         let session = ChatSession(engine: engine)
         try await session.load(Self.installation(.oneBit27B))
@@ -134,9 +134,6 @@ struct ChatSessionTests {
 
         await #expect(throws: ChatSessionError.invalidTransition(from: .generating, action: .send)) {
             _ = try await session.send(try GenerationRequest(prompt: "second"))
-        }
-        await #expect(throws: ChatSessionError.invalidTransition(from: .generating, action: .load)) {
-            try await session.load(Self.installation(.ternary27B))
         }
         withExtendedLifetime(activeStream) {}
         await session.cancel()

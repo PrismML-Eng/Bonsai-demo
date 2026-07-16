@@ -30,13 +30,18 @@ struct ChatSessionSnapshot: Equatable, Sendable {
 }
 
 actor ChatSession {
+    private struct ActiveGeneration {
+        let id: UUID
+        let operation: UInt64
+        let task: Task<Void, Never>
+    }
+
     private let engine: any InferenceEngine
     private var state: ChatSessionState = .idle
     private var installation: ModelInstallation?
     private var completedTurns: [CompletedChatTurn] = []
-    private var activeGeneration: (id: UUID, task: Task<Void, Never>)?
-    private var activeLoadID: UUID?
-    private var cancellationRequested = false
+    private var activeGeneration: ActiveGeneration?
+    private var currentOperation: UInt64 = 0
 
     init(engine: any InferenceEngine) {
         self.engine = engine
@@ -51,37 +56,44 @@ actor ChatSession {
     }
 
     func load(_ installation: ModelInstallation) async throws {
+        let previousState = state
         switch state {
-        case .generating, .awaitingApproval:
-            throw ChatSessionError.invalidTransition(from: state, action: .load)
         case .loading:
             throw ChatSessionError.invalidTransition(from: state, action: .load)
         case .ready where self.installation == installation:
             return
-        case .failed:
-            await engine.cancel()
-            await engine.unload()
-            self.installation = nil
-        case .idle, .ready:
-            if self.installation != nil {
-                await engine.cancel()
-                await engine.unload()
-                self.installation = nil
-            }
+        case .generating where self.installation == installation:
+            throw ChatSessionError.invalidTransition(from: state, action: .load)
+        case .awaitingApproval where self.installation == installation:
+            throw ChatSessionError.invalidTransition(from: state, action: .load)
+        case .idle, .ready, .generating, .awaitingApproval, .failed:
+            break
         }
 
-        state = .loading
-        let loadID = UUID()
-        activeLoadID = loadID
+        let operation = reserve(.loading)
+        let generation = activeGeneration
+        generation?.task.cancel()
         do {
+            if self.installation != nil || previousState != .idle {
+                await engine.cancel()
+                try ensureCurrent(operation)
+                if let generation {
+                    await generation.task.value
+                    try ensureCurrent(operation)
+                    clearGeneration(generation.id)
+                }
+                await engine.unload()
+                try ensureCurrent(operation)
+                self.installation = nil
+            }
+
             try await engine.load(installation)
-            guard activeLoadID == loadID else { throw CancellationError() }
-            activeLoadID = nil
+            try ensureCurrent(operation)
             self.installation = installation
             state = .ready
         } catch {
-            if activeLoadID == loadID {
-                activeLoadID = nil
+            guard currentOperation == operation else { throw CancellationError() }
+            if self.installation == nil {
                 state = .failed
             }
             throw error
@@ -95,20 +107,28 @@ actor ChatSession {
             throw ChatSessionError.invalidTransition(from: state, action: .send)
         }
 
-        let source = try await engine.generate(request)
+        let operation = reserve(.generating)
+        let source: AsyncThrowingStream<GenerationEvent, any Error>
+        do {
+            source = try await engine.generate(request)
+            try ensureCurrent(operation)
+        } catch {
+            guard currentOperation == operation else { throw CancellationError() }
+            state = .ready
+            throw error
+        }
         let (stream, continuation) = AsyncThrowingStream<GenerationEvent, any Error>.makeStream()
         let id = UUID()
-        state = .generating
-        cancellationRequested = false
         let task = Task {
             await self.consume(
                 source,
                 request: request,
                 id: id,
+                operation: operation,
                 continuation: continuation
             )
         }
-        activeGeneration = (id, task)
+        activeGeneration = .init(id: id, operation: operation, task: task)
         continuation.onTermination = { [weak self] termination in
             guard case .cancelled = termination else { return }
             Task { await self?.consumerDropped(id: id) }
@@ -117,17 +137,33 @@ actor ChatSession {
     }
 
     func cancel() async {
-        guard let activeGeneration else { return }
-        cancellationRequested = true
-        activeGeneration.task.cancel()
+        guard state == .generating else { return }
+        let operation = reserve(.generating)
+        let generation = activeGeneration
+        generation?.task.cancel()
         await engine.cancel()
-        await activeGeneration.task.value
+        guard currentOperation == operation else { return }
+        if let generation {
+            await generation.task.value
+            guard currentOperation == operation else { return }
+            clearGeneration(generation.id)
+        }
+        state = installation == nil ? .idle : .ready
     }
 
     func unload() async {
-        activeLoadID = nil
-        await cancel()
+        let operation = reserve(.loading)
+        let generation = activeGeneration
+        generation?.task.cancel()
+        await engine.cancel()
+        guard currentOperation == operation else { return }
+        if let generation {
+            await generation.task.value
+            guard currentOperation == operation else { return }
+            clearGeneration(generation.id)
+        }
         await engine.unload()
+        guard currentOperation == operation else { return }
         installation = nil
         state = .idle
     }
@@ -136,6 +172,7 @@ actor ChatSession {
         _ source: AsyncThrowingStream<GenerationEvent, any Error>,
         request: GenerationRequest,
         id: UUID,
+        operation: UInt64,
         continuation: AsyncThrowingStream<GenerationEvent, any Error>.Continuation
     ) async {
         var assistant = ""
@@ -148,31 +185,46 @@ actor ChatSession {
                 if case .completed(let reason) = event { completion = reason }
                 continuation.yield(event)
             }
+            try Task.checkCancellation()
             if completion == nil {
-                completion = cancellationRequested ? .cancelled : .stop
+                completion = .stop
                 continuation.yield(.completed(completion!))
             }
             continuation.finish()
-            finishGeneration(id: id, request: request, assistant: assistant, completion: completion!)
+            finishGeneration(
+                id: id,
+                operation: operation,
+                request: request,
+                assistant: assistant,
+                completion: completion!
+            )
         } catch is CancellationError {
             continuation.yield(.completed(.cancelled))
             continuation.finish()
-            finishGeneration(id: id, request: request, assistant: assistant, completion: .cancelled)
+            finishGeneration(
+                id: id,
+                operation: operation,
+                request: request,
+                assistant: assistant,
+                completion: .cancelled
+            )
         } catch {
             continuation.finish(throwing: error)
-            failGeneration(id: id)
+            failGeneration(id: id, operation: operation)
         }
     }
 
     private func finishGeneration(
         id: UUID,
+        operation: UInt64,
         request: GenerationRequest,
         assistant: String,
         completion: CompletionReason
     ) {
-        guard activeGeneration?.id == id else { return }
+        guard currentOperation == operation,
+              activeGeneration?.id == id,
+              activeGeneration?.operation == operation else { return }
         activeGeneration = nil
-        cancellationRequested = false
         switch completion {
         case .stop, .length:
             completedTurns.append(.init(user: request.prompt, assistant: assistant))
@@ -184,18 +236,31 @@ actor ChatSession {
         }
     }
 
-    private func failGeneration(id: UUID) {
-        guard activeGeneration?.id == id else { return }
+    private func failGeneration(id: UUID, operation: UInt64) {
+        guard currentOperation == operation,
+              activeGeneration?.id == id,
+              activeGeneration?.operation == operation else { return }
         activeGeneration = nil
-        cancellationRequested = false
         state = .failed
     }
 
     private func consumerDropped(id: UUID) async {
         guard let activeGeneration, activeGeneration.id == id else { return }
-        cancellationRequested = true
-        activeGeneration.task.cancel()
-        await engine.cancel()
-        await activeGeneration.task.value
+        await cancel()
+    }
+
+    private func reserve(_ reservedState: ChatSessionState) -> UInt64 {
+        currentOperation &+= 1
+        state = reservedState
+        return currentOperation
+    }
+
+    private func ensureCurrent(_ operation: UInt64) throws {
+        guard currentOperation == operation else { throw CancellationError() }
+    }
+
+    private func clearGeneration(_ id: UUID) {
+        guard activeGeneration?.id == id else { return }
+        activeGeneration = nil
     }
 }
