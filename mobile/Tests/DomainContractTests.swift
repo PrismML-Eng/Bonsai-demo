@@ -21,6 +21,38 @@ struct DomainContractTests {
         #expect(catalog.schemaVersion == 1)
         #expect(catalog.models.map(\.id) == [.oneBit27B, .ternary27B])
         #expect(catalog.models.allSatisfy { !$0.manifest.files.isEmpty })
+        #expect(
+            catalog.models.allSatisfy { model in
+                model.manifest.files.allSatisfy { !$0.isOptional }
+            }
+        )
+    }
+
+    @Test
+    func requiredInstalledBytesExcludeOptionalFiles() {
+        let manifest = ModelManifest(
+            id: .oneBit27B,
+            repository: "example/model",
+            revision: String(repeating: "a", count: 40),
+            files: [
+                .init(
+                    path: "required.safetensors",
+                    sizeBytes: 10,
+                    sha256: String(repeating: "b", count: 64),
+                    role: .weight,
+                    isOptional: false
+                ),
+                .init(
+                    path: "optional.json",
+                    sizeBytes: 20,
+                    sha256: String(repeating: "c", count: 64),
+                    role: .configuration,
+                    isOptional: true
+                )
+            ]
+        )
+
+        #expect(manifest.requiredInstalledBytes == 10)
     }
 
     @Test

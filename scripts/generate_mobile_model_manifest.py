@@ -47,6 +47,10 @@ TOKENIZER_FILES = {
     "vocab.json",
     "vocab.txt",
 }
+CHAT_TEMPLATE_FILES = {
+    "chat_template.jinja",
+    "chat_template.json",
+}
 PROCESSOR_FILES = {
     "image_processor_config.json",
     "preprocessor_config.json",
@@ -165,20 +169,13 @@ def build_model_manifest(
                 repo_id, snapshot.revision, remote_file.path
             )
 
-    index_paths = [path for path in by_path if path.endswith(INDEX_SUFFIX)]
-    if len(index_paths) > 1:
-        raise ManifestError(f"{repo_id} has multiple safetensor indexes")
-    if index_paths:
-        referenced_weights = _referenced_weights(repo_id, contents[index_paths[0]])
-        for weight_path in referenced_weights:
-            if weight_path not in by_path:
-                raise ManifestError(f"referenced shard is missing: {weight_path}")
-        candidates = [
-            remote_file
-            for remote_file in candidates
-            if not remote_file.path.endswith(WEIGHT_SUFFIX)
-            or remote_file.path in referenced_weights
-        ]
+    required_weights = _required_weight_paths(repo_id, by_path, contents)
+    candidates = [
+        remote_file
+        for remote_file in candidates
+        if not remote_file.path.endswith(WEIGHT_SUFFIX)
+        or remote_file.path in required_weights
+    ]
 
     manifest_files = []
     for remote_file in candidates:
@@ -200,6 +197,7 @@ def build_model_manifest(
             digest = hashlib.sha256(content).hexdigest()
         manifest_files.append(
             {
+                "isOptional": False,
                 "path": remote_file.path,
                 "role": _role(remote_file.path),
                 "sha256": digest,
@@ -248,10 +246,36 @@ def _require_runtime_roles(repo_id: str, by_path: dict[str, RemoteFile]) -> None
         raise ManifestError(f"{repo_id} is missing config.json")
     if not TOKENIZER_FILES.intersection(by_path):
         raise ManifestError(f"{repo_id} is missing tokenizer files")
+    if not CHAT_TEMPLATE_FILES.intersection(by_path):
+        raise ManifestError(f"{repo_id} is missing a chat template")
     if not PROCESSOR_FILES.intersection(by_path):
         raise ManifestError(f"{repo_id} is missing processor configuration")
-    if not any(path.endswith(WEIGHT_SUFFIX) for path in by_path):
-        raise ManifestError(f"{repo_id} is missing model weights")
+
+
+def _required_weight_paths(
+    repo_id: str,
+    by_path: dict[str, RemoteFile],
+    contents: dict[str, bytes],
+) -> set[str]:
+    """Resolve the complete, deterministic runtime-weight closure."""
+    eligible_weights = {
+        path for path in by_path if path.endswith(WEIGHT_SUFFIX)
+    }
+    index_paths = sorted(path for path in by_path if path.endswith(INDEX_SUFFIX))
+    if len(index_paths) > 1:
+        raise ManifestError(f"{repo_id} has multiple safetensor indexes")
+    if not index_paths:
+        if not eligible_weights:
+            raise ManifestError(f"{repo_id} is missing model weights")
+        return eligible_weights
+
+    referenced_weights = _referenced_weights(repo_id, contents[index_paths[0]])
+    missing_weights = referenced_weights.difference(eligible_weights)
+    if missing_weights:
+        raise ManifestError(
+            f"referenced shard is missing: {sorted(missing_weights)[0]}"
+        )
+    return referenced_weights
 
 
 def _referenced_weights(repo_id: str, content: bytes) -> set[str]:

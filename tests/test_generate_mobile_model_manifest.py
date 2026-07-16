@@ -75,6 +75,7 @@ def test_safetensor_index_requires_every_referenced_shard():
         repo_id=repo_id,
         revision=REVISION_A,
         files=(
+            RemoteFile("chat_template.jinja", 14, None),
             RemoteFile("config.json", 2, None),
             RemoteFile("tokenizer.json", 2, None),
             RemoteFile("preprocessor_config.json", 2, None),
@@ -85,6 +86,7 @@ def test_safetensor_index_requires_every_referenced_shard():
     source = FakeSource(
         {repo_id: snapshot},
         {
+            (repo_id, REVISION_A, "chat_template.jinja"): b"{{ messages }}",
             (repo_id, REVISION_A, "config.json"): b"{}",
             (repo_id, REVISION_A, "tokenizer.json"): b"{}",
             (repo_id, REVISION_A, "preprocessor_config.json"): b"{}",
@@ -94,6 +96,52 @@ def test_safetensor_index_requires_every_referenced_shard():
 
     with pytest.raises(ManifestError, match="referenced shard.*model-00002"):
         build_model_manifest("oneBit27B", repo_id, source)
+
+
+def test_safetensor_index_includes_exactly_referenced_shards():
+    repo_id = "example/model"
+    index = json.dumps(
+        {"weight_map": {"layer.0": "model-00001-of-00002.safetensors"}}
+    ).encode()
+    source = minimal_source(
+        repo_id=repo_id,
+        weights=(
+            RemoteFile("model-00001-of-00002.safetensors", 20, SHA_A),
+            RemoteFile("model-00002-of-00002.safetensors", 30, SHA_B),
+        ),
+        extra_contents={"model.safetensors.index.json": index},
+    )
+
+    manifest = build_model_manifest("oneBit27B", repo_id, source)
+
+    weights = [
+        file["path"] for file in manifest["files"] if file["role"] == "weight"
+    ]
+    assert weights == ["model-00001-of-00002.safetensors"]
+
+
+def test_no_index_includes_every_eligible_weight_deterministically():
+    source = minimal_source(
+        weights=(
+            RemoteFile("z-model.safetensors", 30, SHA_B),
+            RemoteFile("a-model.safetensors", 20, SHA_A),
+            RemoteFile("drafter-model.safetensors", 40, "c" * 64),
+        )
+    )
+
+    manifest = build_model_manifest("oneBit27B", "example/model", source)
+
+    weights = [
+        file["path"] for file in manifest["files"] if file["role"] == "weight"
+    ]
+    assert weights == ["a-model.safetensors", "z-model.safetensors"]
+
+
+def test_no_index_rejects_an_empty_weight_set():
+    source = minimal_source(weights=())
+
+    with pytest.raises(ManifestError, match="missing model weights"):
+        build_model_manifest("oneBit27B", "example/model", source)
 
 
 @pytest.mark.parametrize(
@@ -145,6 +193,26 @@ def test_requires_config_tokenizer_processor_and_weight_files():
         build_model_manifest("oneBit27B", "example/model", source)
 
 
+def test_requires_repository_chat_template():
+    source = minimal_source()
+    snapshot = source.snapshots["example/model"]
+    source.snapshots["example/model"] = replace(
+        snapshot,
+        files=tuple(
+            file for file in snapshot.files if file.path != "chat_template.jinja"
+        ),
+    )
+
+    with pytest.raises(ManifestError, match="chat template"):
+        build_model_manifest("oneBit27B", "example/model", source)
+
+
+def test_manifest_entries_are_explicitly_non_optional():
+    manifest = build_model_manifest("oneBit27B", "example/model", minimal_source())
+
+    assert all(file["isOptional"] is False for file in manifest["files"])
+
+
 def test_catalog_order_and_rendering_are_deterministic():
     one_bit = minimal_source(repo_id="z/one-bit", revision="2" * 40)
     ternary = minimal_source(repo_id="a/ternary", revision="3" * 40)
@@ -173,16 +241,21 @@ def minimal_source(
     weight=RemoteFile("model.safetensors", 20, SHA_A),
     repo_id="example/model",
     revision=REVISION_A,
+    weights=None,
+    extra_contents=None,
 ):
     contents = {
+        "chat_template.jinja": b"{{ messages }}",
         "config.json": b"{}",
         "tokenizer.json": b"{}",
         "tokenizer_config.json": b"{}",
         "preprocessor_config.json": b"{}",
     }
+    contents.update(extra_contents or {})
+    selected_weights = (weight,) if weights is None else weights
     files = tuple(
         RemoteFile(path, len(content), None) for path, content in contents.items()
-    ) + (weight,)
+    ) + tuple(selected_weights)
     snapshot = RepositorySnapshot(repo_id=repo_id, revision=revision, files=files)
     keyed_contents = {
         (repo_id, revision, path): content for path, content in contents.items()

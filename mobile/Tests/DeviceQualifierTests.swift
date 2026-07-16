@@ -221,7 +221,8 @@ struct DeviceQualifierTests {
                         path: "model.safetensors",
                         sizeBytes: requiredInstalledBytes,
                         sha256: String(repeating: "b", count: 64),
-                        role: .weight
+                        role: .weight,
+                        isOptional: false
                     )
                 ]
             ),

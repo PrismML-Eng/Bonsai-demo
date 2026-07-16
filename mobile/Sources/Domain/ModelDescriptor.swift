@@ -30,6 +30,7 @@ struct ModelManifest: Codable, Equatable, Sendable {
         let sizeBytes: Int
         let sha256: String
         let role: ModelFileRole
+        let isOptional: Bool
     }
 
     let id: ModelID
@@ -38,7 +39,7 @@ struct ModelManifest: Codable, Equatable, Sendable {
     let files: [File]
 
     var requiredInstalledBytes: Int {
-        files.reduce(into: 0) { total, file in
+        files.lazy.filter { !$0.isOptional }.reduce(into: 0) { total, file in
             total += file.sizeBytes
         }
     }

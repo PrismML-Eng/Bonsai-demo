@@ -13,66 +13,77 @@
       "manifest": {
         "files": [
           {
+            "isOptional": false,
             "path": "chat_template.jinja",
             "role": "configuration",
             "sha256": "e84f32a23fdda27689f868aa4a1a5621f41133e51a48d7f3efcbea2839574259",
             "sizeBytes": 7764
           },
           {
+            "isOptional": false,
             "path": "config.json",
             "role": "configuration",
             "sha256": "cbda96bcc09d6c3333810093d20b394cd15393eee3cd5be22da1f87d1720eee7",
             "sizeBytes": 3790
           },
           {
+            "isOptional": false,
             "path": "merges.txt",
             "role": "tokenizer",
             "sha256": "a9d356d7bdf1ef4949e3e748e95b8e10ad9d4e2e838eddc38a0a7b6b94d1db8d",
             "sizeBytes": 3353259
           },
           {
+            "isOptional": false,
             "path": "model.safetensors",
             "role": "weight",
             "sha256": "7e464b0ae06d249026fb9e81d183cdc0de5b998ea1aa243f9b09a244835643a5",
             "sizeBytes": 5129115752
           },
           {
+            "isOptional": false,
             "path": "model.safetensors.index.json",
             "role": "configuration",
             "sha256": "90cf4963944951462c8b647fdf6a76b91e337148d0a8b2f26c9bfb68ea29b15e",
             "sizeBytes": 185580
           },
           {
+            "isOptional": false,
             "path": "preprocessor_config.json",
             "role": "processor",
             "sha256": "27225450ac9c6529872ee1924fcb0962ff5634834f817040f444118116f4e516",
             "sizeBytes": 390
           },
           {
+            "isOptional": false,
             "path": "processor_config.json",
             "role": "processor",
             "sha256": "18c83d74295314cbc86099e83ad945d300cca54270d3ecc9f4ff8fe8cb89d911",
             "sizeBytes": 44
           },
           {
+            "isOptional": false,
             "path": "tokenizer.json",
             "role": "tokenizer",
             "sha256": "87a7830d63fcf43bf241c3c5242e96e62dd3fdc29224ca26fed8ea333db72de4",
             "sizeBytes": 19989343
           },
           {
+            "isOptional": false,
             "path": "tokenizer_config.json",
             "role": "tokenizer",
             "sha256": "83febe739ecefd99f984f546dfdc10149cedf293b9ee0291b99894341188b613",
             "sizeBytes": 1098
           },
           {
+            "isOptional": false,
             "path": "video_preprocessor_config.json",
             "role": "processor",
             "sha256": "7768af27c1fafa9cc9011c1dc20067e03f8915e03b63504550e11d5066986d13",
             "sizeBytes": 385
           },
           {
+            "isOptional": false,
             "path": "vocab.json",
             "role": "tokenizer",
             "sha256": "ce99b4cb2983d118806ce0a8b777a35b093e2000a503ebde25853284c9dfa003",
@@ -99,66 +110,77 @@
       "manifest": {
         "files": [
           {
+            "isOptional": false,
             "path": "chat_template.jinja",
             "role": "configuration",
             "sha256": "e84f32a23fdda27689f868aa4a1a5621f41133e51a48d7f3efcbea2839574259",
             "sizeBytes": 7764
           },
           {
+            "isOptional": false,
             "path": "config.json",
             "role": "configuration",
             "sha256": "4204f24e0c84754a59c5fbbc9af2458916916bf9301dbf14be31ef6db41f0f82",
             "sizeBytes": 3790
           },
           {
+            "isOptional": false,
             "path": "merges.txt",
             "role": "tokenizer",
             "sha256": "a9d356d7bdf1ef4949e3e748e95b8e10ad9d4e2e838eddc38a0a7b6b94d1db8d",
             "sizeBytes": 3353259
           },
           {
+            "isOptional": false,
             "path": "model.safetensors",
             "role": "weight",
             "sha256": "8acd4597893ea7004e2d7336c3cf6e3157b8896592bbcf066db004021e45846b",
             "sizeBytes": 8490785104
           },
           {
+            "isOptional": false,
             "path": "model.safetensors.index.json",
             "role": "configuration",
             "sha256": "ea95a45cda323247258962e694606dea77881ffbc6565bba84bb9aa3d6031736",
             "sizeBytes": 185580
           },
           {
+            "isOptional": false,
             "path": "preprocessor_config.json",
             "role": "processor",
             "sha256": "27225450ac9c6529872ee1924fcb0962ff5634834f817040f444118116f4e516",
             "sizeBytes": 390
           },
           {
+            "isOptional": false,
             "path": "processor_config.json",
             "role": "processor",
             "sha256": "18c83d74295314cbc86099e83ad945d300cca54270d3ecc9f4ff8fe8cb89d911",
             "sizeBytes": 44
           },
           {
+            "isOptional": false,
             "path": "tokenizer.json",
             "role": "tokenizer",
             "sha256": "87a7830d63fcf43bf241c3c5242e96e62dd3fdc29224ca26fed8ea333db72de4",
             "sizeBytes": 19989343
           },
           {
+            "isOptional": false,
             "path": "tokenizer_config.json",
             "role": "tokenizer",
             "sha256": "83febe739ecefd99f984f546dfdc10149cedf293b9ee0291b99894341188b613",
             "sizeBytes": 1098
           },
           {
+            "isOptional": false,
             "path": "video_preprocessor_config.json",
             "role": "processor",
             "sha256": "7768af27c1fafa9cc9011c1dc20067e03f8915e03b63504550e11d5066986d13",
             "sizeBytes": 385
           },
           {
+            "isOptional": false,
             "path": "vocab.json",
             "role": "tokenizer",
             "sha256": "ce99b4cb2983d118806ce0a8b777a35b093e2000a503ebde25853284c9dfa003",
