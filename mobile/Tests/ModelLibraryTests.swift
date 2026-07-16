@@ -197,11 +197,15 @@ private final class SuspendingVerifier: ModelFileVerifying, @unchecked Sendable 
     }
 
     func waitUntilStarted() async {
-        await Task.detached { [started] in started.wait() }.value
+        await Task.detached { [started] in Self.blockingWait(started) }.value
     }
 
     func release() {
         released.signal()
+    }
+
+    private static func blockingWait(_ semaphore: DispatchSemaphore) {
+        semaphore.wait()
     }
 }
 
