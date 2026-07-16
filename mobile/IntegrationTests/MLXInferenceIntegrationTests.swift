@@ -59,7 +59,10 @@ final class MLXInferenceIntegrationTests: XCTestCase {
             )
         )
         XCTAssertTrue(events.text(for: .reasoning).isEmpty)
-        XCTAssertFalse(events.text(for: .answer).isEmpty)
+        let answer = events.text(for: .answer)
+        XCTAssertFalse(answer.isEmpty)
+        XCTAssertFalse(answer.contains("<think>"))
+        XCTAssertFalse(answer.contains("</think>"))
         XCTAssertEqual(events.terminalCount, 1)
         printMetrics(label: "reasoning-off", events: events)
     }
@@ -68,7 +71,6 @@ final class MLXInferenceIntegrationTests: XCTestCase {
         _ engine: MLXInferenceEngine,
         clock: ContinuousClock
     ) async throws -> Duration {
-        let cancellationStarted = clock.now
         let cancellationStream = try await engine.generate(
             try GenerationRequest(
                 prompt: "Write a detailed 100-section field guide to botany.",
@@ -76,13 +78,36 @@ final class MLXInferenceIntegrationTests: XCTestCase {
                 maxTokens: 4_096
             )
         )
-        let activeSnapshot = await engine.debugSnapshot()
-        XCTAssertTrue(activeSnapshot.hasActiveGeneration)
+        var iterator = cancellationStream.makeAsyncIterator()
+        var cancellationEvents: [GenerationEvent] = []
+        var sawDecodedPayload = false
+        while let event = try await iterator.next() {
+            cancellationEvents.append(event)
+            if event.isDecodedPayload {
+                sawDecodedPayload = true
+                break
+            }
+        }
+        XCTAssertTrue(sawDecodedPayload)
+
+        let cancellationStarted = clock.now
         await engine.cancel()
-        let cancellationEvents = try await collect(cancellationStream)
+        while let event = try await iterator.next() { cancellationEvents.append(event) }
         let cancellationDuration = cancellationStarted.duration(to: clock.now)
         XCTAssertEqual(cancellationEvents.terminalReasons, [.cancelled])
+        XCTAssertEqual(cancellationEvents.last?.terminalReason, .cancelled)
         XCTAssertLessThan(cancellationDuration, .seconds(30))
+        let snapshot = await engine.debugSnapshot()
+        XCTAssertEqual(
+            snapshot,
+            .init(
+                loadedModelID: .oneBit27B,
+                hasContainer: true,
+                hasSession: true,
+                hasActiveGeneration: false,
+                hasActiveLoad: false
+            )
+        )
         return cancellationDuration
     }
 
@@ -95,7 +120,8 @@ final class MLXInferenceIntegrationTests: XCTestCase {
                 loadedModelID: nil,
                 hasContainer: false,
                 hasSession: false,
-                hasActiveGeneration: false
+                hasActiveGeneration: false,
+                hasActiveLoad: false
             )
         )
     }
@@ -124,6 +150,7 @@ final class MLXInferenceIntegrationTests: XCTestCase {
             XCTAssertFalse(snapshot.hasContainer, "cycle \(cycle)")
             XCTAssertFalse(snapshot.hasSession, "cycle \(cycle)")
             XCTAssertFalse(snapshot.hasActiveGeneration, "cycle \(cycle)")
+            XCTAssertFalse(snapshot.hasActiveLoad, "cycle \(cycle)")
             cycleDurations.append(cycleStarted.duration(to: clock.now))
         }
         return cycleDurations
@@ -184,4 +211,17 @@ private extension Array where Element == GenerationEvent {
     }
 
     var terminalCount: Int { terminalReasons.count }
+}
+
+private extension GenerationEvent {
+    var isDecodedPayload: Bool {
+        switch self {
+        case .reasoning, .answer, .toolRequest: true
+        case .metrics, .completed: false
+        }
+    }
+
+    var terminalReason: CompletionReason? {
+        if case .completed(let reason) = self { reason } else { nil }
+    }
 }

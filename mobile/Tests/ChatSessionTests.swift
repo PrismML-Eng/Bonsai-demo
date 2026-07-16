@@ -99,6 +99,32 @@ struct ChatSessionTests {
     }
 
     @Test
+    func lateLoadCompletionCannotOverwriteCompletedUnload() async throws {
+        let engine = CancellationInsensitiveLoadingEngine()
+        let session = ChatSession(engine: engine)
+        let load = Task { () -> Bool in
+            do {
+                try await session.load(Self.installation(.oneBit27B))
+                return false
+            } catch is CancellationError {
+                return true
+            } catch {
+                return false
+            }
+        }
+        await engine.waitUntilLoading()
+
+        await session.unload()
+        #expect(await session.snapshot().state == .idle)
+        await engine.finishLoad()
+        #expect(await load.value)
+
+        let snapshot = await session.snapshot()
+        #expect(snapshot.state == .idle)
+        #expect(snapshot.modelID == nil)
+    }
+
+    @Test
     func rejectsConcurrentSendAndLoad() async throws {
         let engine = RecordingInferenceEngine(events: [], suspendAfterEvents: true)
         let session = ChatSession(engine: engine)
@@ -144,6 +170,36 @@ struct ChatSessionTests {
 }
 
 private enum TestFailure: Error, Equatable { case boom }
+
+private actor CancellationInsensitiveLoadingEngine: InferenceEngine {
+    private var loadContinuation: CheckedContinuation<Void, any Error>?
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func load(_ installation: ModelInstallation) async throws {
+        waiters.forEach { $0.resume() }
+        waiters.removeAll()
+        try await withCheckedThrowingContinuation { loadContinuation = $0 }
+    }
+
+    func generate(
+        _ request: GenerationRequest
+    ) async throws -> AsyncThrowingStream<GenerationEvent, any Error> {
+        AsyncThrowingStream { $0.finish() }
+    }
+
+    func cancel() async {}
+    func unload() async {}
+
+    func waitUntilLoading() async {
+        if loadContinuation != nil { return }
+        await withCheckedContinuation { waiters.append($0) }
+    }
+
+    func finishLoad() {
+        loadContinuation?.resume()
+        loadContinuation = nil
+    }
+}
 
 private actor RecordingInferenceEngine: InferenceEngine {
     enum Call: Equatable { case load(ModelID), generate, cancel, unload }

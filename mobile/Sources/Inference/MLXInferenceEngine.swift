@@ -1,9 +1,6 @@
 import CryptoKit
 import Foundation
-import MLXHuggingFace
 import MLXLMCommon
-import MLXVLM
-import Tokenizers
 
 enum MLXInferenceError: Error, Equatable, Sendable {
     case modelDirectoryMissing
@@ -82,14 +79,11 @@ enum LocalReasoningConfigResolver {
 }
 
 actor MLXInferenceEngine: InferenceEngine {
-    /// MLX's session is not Sendable. The engine enforces a single active task and
-    /// never touches the leased value until that task is cancelled and awaited.
-    private final class SessionLease: @unchecked Sendable {
-        let value: MLXLMCommon.ChatSession
-
-        init(_ value: MLXLMCommon.ChatSession) {
-            self.value = value
-        }
+    private struct ActiveLoad {
+        let id: UUID
+        let intent: UInt64
+        let installation: ModelInstallation
+        let task: Task<any MLXRuntimeResource, any Error>
     }
 
     struct DebugSnapshot: Equatable, Sendable {
@@ -97,47 +91,53 @@ actor MLXInferenceEngine: InferenceEngine {
         let hasContainer: Bool
         let hasSession: Bool
         let hasActiveGeneration: Bool
+        let hasActiveLoad: Bool
     }
 
+    private let loader: any MLXRuntimeLoading
     private var installation: ModelInstallation?
-    private var container: ModelContainer?
-    private var session: SessionLease?
-    private var reasoningConfig: ReasoningConfig?
+    private var runtime: (any MLXRuntimeResource)?
     private var activeGeneration: (id: UUID, task: Task<Void, Never>)?
+    private var activeLoad: ActiveLoad?
+    private var latestIntent: UInt64 = 0
+
+    init(loader: any MLXRuntimeLoading = DefaultMLXRuntimeLoader()) {
+        self.loader = loader
+    }
 
     func load(_ installation: ModelInstallation) async throws {
         if self.installation == installation { return }
-
-        await cancel()
-        releaseLoadedModel()
-
-        guard FileManager.default.fileExists(atPath: installation.directory.path) else {
-            throw MLXInferenceError.modelDirectoryMissing
+        if let activeLoad,
+           activeLoad.installation == installation,
+           !activeLoad.task.isCancelled {
+            let resource = try await activeLoad.task.value
+            try completeLoad(activeLoad, resource: resource)
+            return
         }
 
-        let loaded = try await VLMModelFactory.shared.loadContainer(
-            from: installation.directory,
-            using: #huggingFaceTokenizerLoader()
+        let intent = issueIntent()
+        await cancel()
+        try ensureCurrent(intent)
+        releaseLoadedModel()
+        await cancelActiveLoad()
+        try ensureCurrent(intent)
+
+        let id = UUID()
+        let task = Task { [loader] in try await loader.load(installation) }
+        let load = ActiveLoad(
+            id: id,
+            intent: intent,
+            installation: installation,
+            task: task
         )
-        let configuration = await loaded.configuration
-        container = loaded
-        let configData = try Data(
-            contentsOf: installation.directory.appending(path: "config.json")
-        )
-        reasoningConfig = LocalReasoningConfigResolver.resolve(
-            runtimeConfig: configuration.reasoningConfig,
-            configData: configData,
-            modelID: installation.directory.lastPathComponent
-        )
-        session = SessionLease(
-            MLXLMCommon.ChatSession(
-                loaded,
-                generateParameters: Self.parameters(
-                    maxTokens: GenerationRequest.defaultMaxTokens
-                )
-            )
-        )
-        self.installation = installation
+        activeLoad = load
+        do {
+            let resource = try await task.value
+            try completeLoad(load, resource: resource)
+        } catch {
+            if activeLoad?.id == id { activeLoad = nil }
+            throw error
+        }
     }
 
     func generate(
@@ -146,21 +146,20 @@ actor MLXInferenceEngine: InferenceEngine {
         guard activeGeneration == nil else {
             throw MLXInferenceError.generationAlreadyActive
         }
-        guard let session else { throw MLXInferenceError.modelNotLoaded }
-        if request.reasoningEnabled, reasoningConfig == nil {
+        guard let runtime else { throw MLXInferenceError.modelNotLoaded }
+        if request.reasoningEnabled, runtime.reasoningConfig == nil {
             throw MLXInferenceError.reasoningUnavailable
         }
 
-        session.value.generateParameters = Self.parameters(maxTokens: request.maxTokens)
-        session.value.additionalContext = ["enable_thinking": request.reasoningEnabled]
+        runtime.configure(request)
 
         let (stream, continuation) = AsyncThrowingStream<GenerationEvent, any Error>.makeStream()
         let generationID = UUID()
-        let config = reasoningConfig
+        let config = runtime.reasoningConfig
         let task = Task { [weak self] in
             await Self.runGeneration(
                 request: request,
-                session: session,
+                runtime: runtime,
                 reasoningConfig: config,
                 continuation: continuation
             )
@@ -181,29 +180,32 @@ actor MLXInferenceEngine: InferenceEngine {
     }
 
     func unload() async {
+        _ = issueIntent()
         await cancel()
+        await cancelActiveLoad()
         releaseLoadedModel()
     }
 
     func debugSnapshot() -> DebugSnapshot {
         DebugSnapshot(
             loadedModelID: installation?.modelID,
-            hasContainer: container != nil,
-            hasSession: session != nil,
-            hasActiveGeneration: activeGeneration != nil
+            hasContainer: runtime != nil,
+            hasSession: runtime != nil,
+            hasActiveGeneration: activeGeneration != nil,
+            hasActiveLoad: activeLoad != nil
         )
     }
 
     private nonisolated static func runGeneration(
         request: GenerationRequest,
-        session: SessionLease,
+        runtime: any MLXRuntimeResource,
         reasoningConfig: ReasoningConfig?,
         continuation: AsyncThrowingStream<GenerationEvent, any Error>.Continuation
     ) async {
         var state = MLXGenerationState(request: request, reasoningConfig: reasoningConfig)
 
         do {
-            for try await generation in session.value.streamDetails(to: request.prompt) {
+            for try await generation in runtime.streamDetails(to: request.prompt) {
                 try Task.checkCancellation()
                 try state.consume(generation, continuation: continuation)
                 // MLX may have several decoded events buffered. Explicitly yield the
@@ -235,14 +237,39 @@ actor MLXInferenceEngine: InferenceEngine {
     }
 
     private func releaseLoadedModel() {
-        session = nil
-        container = nil
-        reasoningConfig = nil
+        runtime = nil
         installation = nil
     }
 
-    private static func parameters(maxTokens: Int) -> GenerateParameters {
-        GenerateParameters(maxTokens: maxTokens, temperature: 0, seed: 0)
+    private func issueIntent() -> UInt64 {
+        latestIntent &+= 1
+        return latestIntent
+    }
+
+    private func ensureCurrent(_ intent: UInt64) throws {
+        guard latestIntent == intent else { throw CancellationError() }
+    }
+
+    private func cancelActiveLoad() async {
+        guard let activeLoad else { return }
+        activeLoad.task.cancel()
+        _ = await activeLoad.task.result
+        if self.activeLoad?.id == activeLoad.id { self.activeLoad = nil }
+    }
+
+    private func completeLoad(
+        _ load: ActiveLoad,
+        resource: any MLXRuntimeResource
+    ) throws {
+        if installation == load.installation { return }
+        guard latestIntent == load.intent,
+              activeLoad?.id == load.id,
+              !load.task.isCancelled else {
+            throw CancellationError()
+        }
+        activeLoad = nil
+        runtime = resource
+        installation = load.installation
     }
 }
 
@@ -255,7 +282,7 @@ private struct MLXGenerationState {
     init(request: GenerationRequest, reasoningConfig: ReasoningConfig?) {
         router = request.reasoningEnabled
             ? reasoningConfig.map { ReasoningRouter(config: $0, primed: true) } ?? .disabled
-            : .disabled
+            : .disabled(config: reasoningConfig)
     }
 
     mutating func consume(

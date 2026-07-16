@@ -41,13 +41,21 @@ struct ReasoningRouterTests {
     }
 
     @Test
-    func offModeRoutesAllTextAsAnswer() {
-        var router = ReasoningRouter.disabled
+    func offModeStripsDelimitersAtEveryBoundaryAndRoutesAllContentAsAnswer() {
+        let input = "before<think>plan</think>after"
 
-        #expect(router.consume("literal <think>text</think>") == [
-            .answer("literal <think>text</think>")
-        ])
-        #expect(router.finalize().isEmpty)
+        for boundary in 0...input.count {
+            var router = ReasoningRouter.disabled(start: "<think>", end: "</think>")
+            let index = input.index(input.startIndex, offsetBy: boundary)
+            let events = router.consume(String(input[..<index]))
+                + router.consume(String(input[index...]))
+                + router.finalize()
+
+            #expect(events.reasoningText.isEmpty)
+            #expect(events.answerText == "beforeplanafter")
+            #expect(!events.description.contains("<think>"))
+            #expect(!events.description.contains("</think>"))
+        }
     }
 }
 

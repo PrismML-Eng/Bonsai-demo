@@ -29,7 +29,9 @@
 		4417713B8641E69530BC3574 /* DomainContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C93D2F771D42F593A736FAB /* DomainContractTests.swift */; };
 		4447FE1914BEA93B4C77FBD6 /* BackgroundModelDownloadCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03640C2EC9090EF0A788975 /* BackgroundModelDownloadCoordinator.swift */; };
 		447E3736BCD9D6F872D82AE7 /* RuntimeProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE7E78660BF6A2E0B953F04E /* RuntimeProbe.swift */; };
+		4530875FD15A7BF8ABF78A95 /* MLXRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 384787FBE7D7E3EB67779536 /* MLXRuntime.swift */; };
 		4A2BEC05B9826BA84E7B7872 /* DeviceQualifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4651A7CF5BF341647B37C4AB /* DeviceQualifier.swift */; };
+		53CD639B818EAC6AA08240AC /* MLXInferenceLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B048FB3FF861E2BB6E7D2AE /* MLXInferenceLifecycleTests.swift */; };
 		54A28CC170CAF0D11F68C62F /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = 754CA324E2CD030AD1ADD3C8 /* ZIPFoundation */; };
 		55A32617030A0372712E2E1A /* DeviceQualifierTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B22E9B7C916E74BE90126ED /* DeviceQualifierTests.swift */; };
 		569EFDB122F314FEEB7870E3 /* ArchiveMetadataValidatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A50A852C61912BB4AB1097F /* ArchiveMetadataValidatorTests.swift */; };
@@ -92,6 +94,7 @@
 /* Begin PBXFileReference section */
 		07F78A25A3DEF229FBB2ECE9 /* MLXInferenceIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MLXInferenceIntegrationTests.swift; sourceTree = "<group>"; };
 		09D3F5EA04B40FF9FDFB01AA /* ModelLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelLibrary.swift; sourceTree = "<group>"; };
+		1B048FB3FF861E2BB6E7D2AE /* MLXInferenceLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MLXInferenceLifecycleTests.swift; sourceTree = "<group>"; };
 		1D67F10949D64049D3272FCD /* ModelArchiveImporterHostMetadataTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelArchiveImporterHostMetadataTests.swift; sourceTree = "<group>"; };
 		1DB687A6229173AAC88D4531 /* ChatSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatSessionTests.swift; sourceTree = "<group>"; };
 		1DC460FE46506A12403B3E91 /* InferenceEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InferenceEngine.swift; sourceTree = "<group>"; };
@@ -99,6 +102,7 @@
 		220E4995627C7B667E6CE3D8 /* BackgroundTransferCompletionRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundTransferCompletionRegistry.swift; sourceTree = "<group>"; };
 		2C8990C9A529F5D5F8320B31 /* BackgroundTransferRestorationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundTransferRestorationTests.swift; sourceTree = "<group>"; };
 		33C44325F2B36B9680594A62 /* ModelLibraryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelLibraryTests.swift; sourceTree = "<group>"; };
+		384787FBE7D7E3EB67779536 /* MLXRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MLXRuntime.swift; sourceTree = "<group>"; };
 		3EA39828481B42E66BC5B98A /* BackgroundTransferPromoterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundTransferPromoterTests.swift; sourceTree = "<group>"; };
 		3EE12FEE6B1549544599B272 /* manifest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = manifest.json; sourceTree = "<group>"; };
 		4565078E0DBE173835DEB134 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
@@ -226,6 +230,7 @@
 				5B22E9B7C916E74BE90126ED /* DeviceQualifierTests.swift */,
 				8C93D2F771D42F593A736FAB /* DomainContractTests.swift */,
 				EE1941D7998FF20C29537779 /* InferenceMappingTests.swift */,
+				1B048FB3FF861E2BB6E7D2AE /* MLXInferenceLifecycleTests.swift */,
 				1D67F10949D64049D3272FCD /* ModelArchiveImporterHostMetadataTests.swift */,
 				664036C4891B230797661F95 /* ModelArchiveImporterTests.swift */,
 				8C8C74B046A52235C41D0614 /* ModelLibraryDeleteTests.swift */,
@@ -289,6 +294,7 @@
 				D68DF4452DDE0A73225C13C6 /* ChatSession.swift */,
 				1DC460FE46506A12403B3E91 /* InferenceEngine.swift */,
 				96788F4B0A9094EAF9120986 /* MLXInferenceEngine.swift */,
+				384787FBE7D7E3EB67779536 /* MLXRuntime.swift */,
 				461F66A0869E5B61EAD4195D /* ReasoningRouter.swift */,
 				EE7E78660BF6A2E0B953F04E /* RuntimeProbe.swift */,
 			);
@@ -496,6 +502,7 @@
 				669B3CED8DEA3B501B907829 /* GenerationEvent.swift in Sources */,
 				1662C04FB9DC3A9E6A5D8725 /* InferenceEngine.swift in Sources */,
 				57D8A74B0207CB692D2F47E1 /* MLXInferenceEngine.swift in Sources */,
+				4530875FD15A7BF8ABF78A95 /* MLXRuntime.swift in Sources */,
 				AE77A7DF0C8FAAA14DBE3F6E /* ModelDescriptor.swift in Sources */,
 				70EA7C9605F2D83D663A98C4 /* ModelDownloadSessionHolder.swift in Sources */,
 				97132FE92A5B99FC6A9C5685 /* ModelFileTransport.swift in Sources */,
@@ -533,6 +540,7 @@
 				55A32617030A0372712E2E1A /* DeviceQualifierTests.swift in Sources */,
 				4417713B8641E69530BC3574 /* DomainContractTests.swift in Sources */,
 				3BCA82A98104EBF091E06AFB /* InferenceMappingTests.swift in Sources */,
+				53CD639B818EAC6AA08240AC /* MLXInferenceLifecycleTests.swift in Sources */,
 				748051C92D6922AEAFEC8907 /* ModelArchiveImporterHostMetadataTests.swift in Sources */,
 				234F0A83349E0E5B3FD021B8 /* ModelArchiveImporterTests.swift in Sources */,
 				F0C1C7D667B41546CA6127DB /* ModelLibraryDeleteTests.swift in Sources */,

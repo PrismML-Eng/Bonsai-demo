@@ -35,6 +35,7 @@ actor ChatSession {
     private var installation: ModelInstallation?
     private var completedTurns: [CompletedChatTurn] = []
     private var activeGeneration: (id: UUID, task: Task<Void, Never>)?
+    private var activeLoadID: UUID?
     private var cancellationRequested = false
 
     init(engine: any InferenceEngine) {
@@ -70,12 +71,19 @@ actor ChatSession {
         }
 
         state = .loading
+        let loadID = UUID()
+        activeLoadID = loadID
         do {
             try await engine.load(installation)
+            guard activeLoadID == loadID else { throw CancellationError() }
+            activeLoadID = nil
             self.installation = installation
             state = .ready
         } catch {
-            state = .failed
+            if activeLoadID == loadID {
+                activeLoadID = nil
+                state = .failed
+            }
             throw error
         }
     }
@@ -117,6 +125,7 @@ actor ChatSession {
     }
 
     func unload() async {
+        activeLoadID = nil
         await cancel()
         await engine.unload()
         installation = nil
