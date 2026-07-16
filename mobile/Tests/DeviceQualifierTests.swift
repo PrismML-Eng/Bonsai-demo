@@ -46,6 +46,29 @@ struct DeviceQualifierTests {
     }
 
     @Test
+    func unknownHardwareIdentifierDecodesAndRemainsUnverified() throws {
+        let unknown = try JSONDecoder().decode(
+            DeviceClass.self,
+            from: Data(#""iPhone99,9""#.utf8)
+        )
+        let facts = DeviceFacts(
+            platform: .iPhone,
+            deviceClass: unknown,
+            physicalMemoryBytes: 32 * Self.gibibyte,
+            freeStorageBytes: 100 * Self.gibibyte
+        )
+
+        let result = DeviceQualifier.qualify(
+            model: Self.descriptor(id: .oneBit27B),
+            facts: facts,
+            evidence: [:]
+        )
+
+        #expect(unknown.rawValue == "iPhone99,9")
+        #expect(result == .unverified(.deviceNotMeasured))
+    }
+
+    @Test
     func visionRequiresSeparateEvidence() {
         let model = Self.descriptor(id: .oneBit27B)
         let facts = Self.qualifiedFacts()
@@ -208,28 +231,34 @@ struct DeviceQualifierTests {
             .textGeneration, .vision, .toolCalling, .thinking
         ]
     ) -> ModelDescriptor {
-        ModelDescriptor(
-            id: id,
-            family: id == .oneBit27B ? .bonsai : .ternaryBonsai,
-            displayName: id == .oneBit27B ? "Bonsai 27B 1-bit" : "Ternary Bonsai 27B",
-            manifest: ModelManifest(
+        do {
+            let file = try ModelManifest.File.validated(
+                path: "model.safetensors",
+                sizeBytes: requiredInstalledBytes,
+                sha256: String(repeating: "b", count: 64),
+                role: .weight,
+                isOptional: false
+            )
+            let manifest = try ModelManifest.validated(
                 id: id,
                 repository: "example/model",
                 revision: String(repeating: "a", count: 40),
-                files: [
-                    .init(
-                        path: "model.safetensors",
-                        sizeBytes: requiredInstalledBytes,
-                        sha256: String(repeating: "b", count: 64),
-                        role: .weight,
-                        isOptional: false
-                    )
-                ]
-            ),
-            capabilities: capabilities,
-            minimumPhysicalMemoryBytes: minimumMemoryBytes,
-            storageSafetyMarginBytes: storageSafetyMarginBytes
-        )
+                files: [file]
+            )
+            return try ModelDescriptor.validated(
+                id: id,
+                family: id == .oneBit27B ? .bonsai : .ternaryBonsai,
+                displayName: id == .oneBit27B ? "Bonsai 27B 1-bit" : "Ternary Bonsai 27B",
+                manifest: manifest,
+                requirements: .init(
+                    capabilities: capabilities,
+                    minimumPhysicalMemoryBytes: minimumMemoryBytes,
+                    storageSafetyMarginBytes: storageSafetyMarginBytes
+                )
+            )
+        } catch {
+            preconditionFailure("Invalid test model fixture: \(error)")
+        }
     }
 
     private static func qualifiedFacts() -> DeviceFacts {

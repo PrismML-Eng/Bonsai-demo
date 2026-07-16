@@ -213,6 +213,19 @@ def test_manifest_entries_are_explicitly_non_optional():
     assert all(file["isOptional"] is False for file in manifest["files"])
 
 
+@pytest.mark.parametrize("duplicate_size", [2, 3])
+def test_rejects_duplicate_selected_hub_paths_before_collapse(duplicate_size):
+    source = minimal_source()
+    snapshot = source.snapshots["example/model"]
+    source.snapshots["example/model"] = replace(
+        snapshot,
+        files=snapshot.files + (RemoteFile("config.json", duplicate_size, None),),
+    )
+
+    with pytest.raises(ManifestError, match="duplicate runtime path.*config.json"):
+        build_model_manifest("oneBit27B", "example/model", source)
+
+
 def test_catalog_order_and_rendering_are_deterministic():
     one_bit = minimal_source(repo_id="z/one-bit", revision="2" * 40)
     ternary = minimal_source(repo_id="a/ternary", revision="3" * 40)
@@ -235,6 +248,32 @@ def test_catalog_order_and_rendering_are_deterministic():
         "ternary27B",
     ]
     assert first.endswith("\n")
+
+
+def test_atomic_writer_replaces_output_without_leaving_temporary_files(tmp_path):
+    output = tmp_path / "manifest.json"
+    output.write_text("old", encoding="utf-8")
+
+    manifest_module.write_text_atomically(output, "new\n")
+
+    assert output.read_text(encoding="utf-8") == "new\n"
+    assert list(tmp_path.iterdir()) == [output]
+
+
+def test_atomic_writer_cleans_up_when_replace_fails(tmp_path, monkeypatch):
+    output = tmp_path / "manifest.json"
+    output.write_text("old", encoding="utf-8")
+
+    def fail_replace(_source, _destination):
+        raise OSError("replace failed")
+
+    monkeypatch.setattr(manifest_module.os, "replace", fail_replace)
+
+    with pytest.raises(OSError, match="replace failed"):
+        manifest_module.write_text_atomically(output, "new\n")
+
+    assert output.read_text(encoding="utf-8") == "old"
+    assert list(tmp_path.iterdir()) == [output]
 
 
 def minimal_source(

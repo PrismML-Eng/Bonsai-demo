@@ -6,11 +6,27 @@ enum Platform: String, Codable, Sendable {
     case mac
 }
 
-enum DeviceClass: String, Codable, Hashable, Sendable {
-    case iPhone16e
-    case iPhone17ProMax
-    case iPadProM4
-    case macBookProM4
+struct DeviceClass: RawRepresentable, Codable, Hashable, Sendable {
+    let rawValue: String
+
+    init(rawValue: String) {
+        self.rawValue = rawValue
+    }
+
+    static let iPhone16e = Self(rawValue: "iPhone16e")
+    static let iPhone17ProMax = Self(rawValue: "iPhone17ProMax")
+    static let iPadProM4 = Self(rawValue: "iPadProM4")
+    static let macBookProM4 = Self(rawValue: "macBookProM4")
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        rawValue = try container.decode(String.self)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 struct DeviceFacts: Equatable, Sendable {

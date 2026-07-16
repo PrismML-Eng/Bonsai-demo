@@ -6,7 +6,9 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Optional, Protocol, Sequence
@@ -159,6 +161,7 @@ def build_model_manifest(
         raise ManifestError(f"{repo_id} did not return an immutable commit revision")
 
     candidates = select_runtime_files(snapshot.files)
+    _reject_duplicate_paths(repo_id, candidates)
     by_path = {remote_file.path: remote_file for remote_file in candidates}
     _require_runtime_roles(repo_id, by_path)
 
@@ -241,6 +244,30 @@ def render_catalog(catalog: dict) -> str:
     return json.dumps(catalog, indent=2, sort_keys=True) + "\n"
 
 
+def write_text_atomically(output: Path, content: str) -> None:
+    """Replace output with a fully flushed sibling temporary file."""
+    output.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path: Optional[Path] = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=output.parent,
+            prefix=f".{output.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as temporary_file:
+            temporary_path = Path(temporary_file.name)
+            temporary_file.write(content)
+            temporary_file.flush()
+            os.fsync(temporary_file.fileno())
+        os.replace(temporary_path, output)
+        temporary_path = None
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
+
+
 def _require_runtime_roles(repo_id: str, by_path: dict[str, RemoteFile]) -> None:
     if "config.json" not in by_path:
         raise ManifestError(f"{repo_id} is missing config.json")
@@ -250,6 +277,19 @@ def _require_runtime_roles(repo_id: str, by_path: dict[str, RemoteFile]) -> None
         raise ManifestError(f"{repo_id} is missing a chat template")
     if not PROCESSOR_FILES.intersection(by_path):
         raise ManifestError(f"{repo_id} is missing processor configuration")
+
+
+def _reject_duplicate_paths(repo_id: str, files: Iterable[RemoteFile]) -> None:
+    seen: set[str] = set()
+    duplicates: set[str] = set()
+    for remote_file in files:
+        if remote_file.path in seen:
+            duplicates.add(remote_file.path)
+        seen.add(remote_file.path)
+    if duplicates:
+        raise ManifestError(
+            f"{repo_id} has duplicate runtime path: {sorted(duplicates)[0]}"
+        )
 
 
 def _required_weight_paths(
@@ -308,8 +348,7 @@ def main() -> int:
     args = parser.parse_args()
 
     catalog = build_catalog(REPOSITORIES, HuggingFaceRepositorySource())
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(render_catalog(catalog), encoding="utf-8")
+    write_text_atomically(args.output, render_catalog(catalog))
     return 0
 
 
