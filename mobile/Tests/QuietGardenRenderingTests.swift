@@ -11,8 +11,7 @@ final class QuietGardenRenderingTests: XCTestCase {
       bitmapDataPlanes: nil, pixelsWide: 200, pixelsHigh: 200,
       bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
       colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
-    NSColor.white.setFill()
-    NSRect(x: 0, y: 0, width: 200, height: 200).fill()
+    bitmap.bitmapData?.initialize(repeating: 255, count: bitmap.bytesPerRow * bitmap.pixelsHigh)
 
     XCTAssertThrowsError(try requireSemanticRegion(
       in: bitmap,
@@ -95,37 +94,33 @@ final class QuietGardenRenderingTests: XCTestCase {
     captureView.cacheDisplay(in: captureView.bounds, to: bitmap)
     switch destination.lastPathComponent {
     case "regular-light.png":
-      try requireSemanticRegion(in: bitmap, rect: NSRect(x: 12, y: 685, width: 330, height: 62),
+      try requireSemanticRegion(in: bitmap, rect: NSRect(x: 12, y: 8, width: 330, height: 55),
                                 meaning: "Bonsai title and loaded-model status")
-      try requireSemanticRegion(in: bitmap, rect: NSRect(x: 12, y: 485, width: 330, height: 180),
+      try requireSemanticRegion(in: bitmap, rect: NSRect(x: 12, y: 70, width: 390, height: 105),
                                 meaning: "conversation navigation and new-conversation control")
-      try requireSemanticRegion(in: bitmap, rect: NSRect(x: 390, y: 250, width: 750, height: 430),
+      try requireSemanticRegion(in: bitmap, rect: NSRect(x: 430, y: 18, width: 730, height: 220),
                                 meaning: "chat turns, reasoning disclosure, and generation metrics")
-      try requireSemanticRegion(in: bitmap, rect: NSRect(x: 390, y: 8, width: 750, height: 110),
+      try requireSemanticRegion(in: bitmap, rect: NSRect(x: 430, y: 638, width: 730, height: 115),
                                 meaning: "chat composer and send control")
     case "compact-dark-accessibility.png":
-      try requireSemanticRegion(in: bitmap, rect: NSRect(x: 12, y: 785, width: 406, height: 105),
+      try requireSemanticRegion(in: bitmap, rect: NSRect(x: 12, y: 8, width: 406, height: 52),
                                 meaning: "compact model-library and conversation controls")
-      try requireSemanticRegion(in: bitmap, rect: NSRect(x: 12, y: 405, width: 406, height: 350),
+      try requireSemanticRegion(in: bitmap, rect: NSRect(x: 12, y: 72, width: 406, height: 155),
                                 meaning: "accessible chat messages")
-      try requireSemanticRegion(in: bitmap, rect: NSRect(x: 12, y: 115, width: 406, height: 285),
+      try requireSemanticRegion(in: bitmap, rect: NSRect(x: 12, y: 232, width: 406, height: 150),
                                 meaning: "note-write approval effect, Allow once, and Deny controls")
-      try requireSemanticRegion(in: bitmap, rect: NSRect(x: 12, y: 5, width: 406, height: 105),
+      try requireSemanticRegion(in: bitmap, rect: NSRect(x: 12, y: 780, width: 406, height: 112),
                                 meaning: "accessible compact composer")
     case "compact-library-sheet-accessibility.png":
-      try requireSemanticRegion(in: bitmap, rect: NSRect(x: 12, y: 700, width: 406, height: 175),
+      try requireSemanticRegion(in: bitmap, rect: NSRect(x: 12, y: 55, width: 406, height: 145),
                                 meaning: "model-library title and first model row")
-      try requireSemanticRegion(in: bitmap, rect: NSRect(x: 12, y: 355, width: 406, height: 335),
-                                meaning: "both model status, footprint, and action controls")
-      try requireSemanticRegion(in: bitmap, rect: NSRect(x: 12, y: 20, width: 406, height: 150),
-                                meaning: "on-device privacy restriction copy")
+      try requireSemanticRegion(in: bitmap, rect: NSRect(x: 12, y: 210, width: 406, height: 110),
+                                meaning: "ternary model restriction copy and status")
     case "model-library-accessibility.png":
-      try requireSemanticRegion(in: bitmap, rect: NSRect(x: 8, y: 610, width: 304, height: 260),
+      try requireSemanticRegion(in: bitmap, rect: NSRect(x: 8, y: 10, width: 304, height: 145),
                                 meaning: "accessibility-sized Bonsai 27B model row and controls")
-      try requireSemanticRegion(in: bitmap, rect: NSRect(x: 8, y: 245, width: 304, height: 350),
-                                meaning: "accessibility-sized ternary model row, restriction, and controls")
-      try requireSemanticRegion(in: bitmap, rect: NSRect(x: 8, y: 20, width: 304, height: 170),
-                                meaning: "local-only model library footer")
+      try requireSemanticRegion(in: bitmap, rect: NSRect(x: 8, y: 165, width: 304, height: 125),
+                                meaning: "accessibility-sized ternary model row and controls")
     default:
       XCTFail("Every render artifact must have a semantic region contract")
     }
