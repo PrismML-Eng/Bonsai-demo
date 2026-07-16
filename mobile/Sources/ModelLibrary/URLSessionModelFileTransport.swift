@@ -40,9 +40,9 @@ final class URLSessionModelFileTransport: ProgressReportingModelFileTransport, @
             try await BackgroundModelDownloadCoordinator.shared.download(
                 file,
                 from: source,
-                to: destination
+                to: destination,
+                progress: progress
             )
-            await progress(file.sizeBytes)
             return
         }
         #endif
@@ -83,7 +83,7 @@ final class URLSessionModelFileTransport: ProgressReportingModelFileTransport, @
         value?.lowercased().hasPrefix("bytes \(offset)-") == true
     }
 
-    fileprivate static func isLoopback(_ url: URL) -> Bool {
+    static func isLoopback(_ url: URL) -> Bool {
         guard url.scheme?.lowercased() == "http" else { return false }
         return ["127.0.0.1", "localhost", "::1"].contains(url.host ?? "")
     }

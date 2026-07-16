@@ -3,7 +3,7 @@ import Testing
 @testable import BonsaiMobile
 
 @Suite("Real background URLSession download progress")
-struct BackgroundModelDownloadProgressIntegrationTests {
+struct BackgroundDownloadProgressTests {
     @Test
     func rangeDownloadReportsExistingPlusReceivedBytesAndFinishesExactly() async throws {
         let fixture = try await BackgroundProgressLoopbackFixture.start()
@@ -16,7 +16,7 @@ struct BackgroundModelDownloadProgressIntegrationTests {
         )
         try fixture.payload.prefix(existingBytes).write(to: destination)
         let ledger = try BackgroundTransferLedger(fileURL: fixture.directory.appending(path: "ledger.json"))
-        let coordinator = BackgroundModelDownloadCoordinator.testing(
+        let coordinator = BackgroundModelDownloadCoordinator(
             ledger: ledger,
             configuration: .ephemeral,
             permitsLoopback: true
@@ -44,7 +44,7 @@ struct BackgroundModelDownloadProgressIntegrationTests {
         let fixture = try await BackgroundProgressLoopbackFixture.start()
         defer { fixture.stop() }
         let ledger = try BackgroundTransferLedger(fileURL: fixture.directory.appending(path: "ledger.json"))
-        let coordinator = BackgroundModelDownloadCoordinator.testing(
+        let coordinator = BackgroundModelDownloadCoordinator(
             ledger: ledger,
             configuration: .ephemeral,
             permitsLoopback: true
@@ -71,7 +71,7 @@ struct BackgroundModelDownloadProgressIntegrationTests {
         let fixture = try await BackgroundProgressLoopbackFixture.start()
         defer { fixture.stop() }
         let ledger = try BackgroundTransferLedger(fileURL: fixture.directory.appending(path: "ledger.json"))
-        let coordinator = BackgroundModelDownloadCoordinator.testing(
+        let coordinator = BackgroundModelDownloadCoordinator(
             ledger: ledger,
             configuration: .ephemeral,
             permitsLoopback: true

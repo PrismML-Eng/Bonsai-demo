@@ -58,6 +58,7 @@ struct BackgroundDownloadProgressBridgeTests {
             progress: { await recorder.append($0) }
         )
         bridge.report(id: id, taskBytesReceived: 20)
+        try await recorder.waitUntilFirstAppendStarts()
 
         bridge.detach(id: id)
         bridge.report(id: id, taskBytesReceived: 30)
@@ -74,6 +75,7 @@ private actor ProgressRecorder {
     private var activeAppends = 0
     private var firstAppendContinuation: CheckedContinuation<Void, Never>?
     private var firstAppendReleased = false
+    private var firstAppendStarted = false
     private let suspendsFirstAppend: Bool
 
     init(suspendsFirstAppend: Bool = false) {
@@ -84,6 +86,7 @@ private actor ProgressRecorder {
         activeAppends += 1
         maximumConcurrentAppends = max(maximumConcurrentAppends, activeAppends)
         if suspendsFirstAppend, values.isEmpty, !firstAppendReleased {
+            firstAppendStarted = true
             await withCheckedContinuation { firstAppendContinuation = $0 }
         }
         values.append(value)
@@ -94,5 +97,13 @@ private actor ProgressRecorder {
         firstAppendReleased = true
         firstAppendContinuation?.resume()
         firstAppendContinuation = nil
+    }
+
+    func waitUntilFirstAppendStarts() async throws {
+        for _ in 0 ..< 100 {
+            if firstAppendStarted { return }
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        throw CocoaError(.fileReadUnknown)
     }
 }
