@@ -56,12 +56,16 @@ actor ConversationCoordinator: ConversationCoordinating, ConversationNavigationS
 
   func bind(_ installation: ModelInstallation) async throws {
     try await ensureIndexLoaded()
-    self.installation = installation
     if selectedItem(for: installation) == nil {
-      _ = try await createConversation(title: "New chat")
-    } else {
-      publish()
+      let item = try makeConversation(title: "New chat", installation: installation)
+      var candidate = index
+      candidate.conversations.append(item)
+      candidate.selectedByModel[selectionKey(for: installation)] = item.id
+      try await persistIndex(candidate)
+      index = candidate
     }
+    self.installation = installation
+    publish()
   }
 
   func unbind() {
@@ -119,8 +123,10 @@ actor ConversationCoordinator: ConversationCoordinating, ConversationNavigationS
           }) else {
       throw ConversationCoordinatorError.conversationNotAvailable(id)
     }
-    index.selectedByModel[selectionKey(for: installation)] = id
-    try await persistIndex()
+    var candidate = index
+    candidate.selectedByModel[selectionKey(for: installation)] = id
+    try await persistIndex(candidate)
+    index = candidate
     publish()
   }
 
@@ -129,24 +135,34 @@ actor ConversationCoordinator: ConversationCoordinating, ConversationNavigationS
     guard let itemIndex = index.conversations.firstIndex(where: { $0.id == selection.conversationID }),
           index.conversations[itemIndex].title == "New chat" else { return }
     let normalized = firstPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
-    index.conversations[itemIndex].title = String(normalized.prefix(48))
-    try await persistIndex()
+    var candidate = index
+    candidate.conversations[itemIndex].title = String(normalized.prefix(48))
+    try await persistIndex(candidate)
+    index = candidate
     publish()
   }
 
   private func createConversation(title: String) async throws -> ConversationListItem {
     guard let installation else { throw ConversationCoordinatorError.noLoadedModel }
-    let id = try ConversationID("chat-\(UUID().uuidString.lowercased())")
-    let item = ConversationListItem(
-      id: id,
+    let item = try makeConversation(title: title, installation: installation)
+    var candidate = index
+    candidate.conversations.append(item)
+    candidate.selectedByModel[selectionKey(for: installation)] = item.id
+    try await persistIndex(candidate)
+    index = candidate
+    publish()
+    return item
+  }
+
+  private func makeConversation(
+    title: String,
+    installation: ModelInstallation
+  ) throws -> ConversationListItem {
+    try ConversationListItem(
+      id: ConversationID("chat-\(UUID().uuidString.lowercased())"),
       modelID: installation.modelID,
       modelRevision: installation.revision,
       title: title)
-    index.conversations.append(item)
-    index.selectedByModel[selectionKey(for: installation)] = id
-    try await persistIndex()
-    publish()
-    return item
   }
 
   private func selectedItem(for installation: ModelInstallation) -> ConversationListItem? {
@@ -182,8 +198,8 @@ actor ConversationCoordinator: ConversationCoordinating, ConversationNavigationS
     didLoadIndex = true
   }
 
-  private func persistIndex() async throws {
-    let data = try await indexStore.encoded(index)
+  private func persistIndex(_ candidate: PersistedIndex) async throws {
+    let data = try await indexStore.encoded(candidate)
     try await indexStore.write(data, identifier: "index")
   }
 

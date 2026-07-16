@@ -22,23 +22,52 @@ enum LiveUIServiceError: Error, LocalizedError {
 /// Serializes model replacement and chat generation so the runtime and conversation binding
 /// are never observed at different installations.
 actor ModelSessionGate {
-  private var isHeld = false
-  private var waiters: [CheckedContinuation<Void, Never>] = []
+  private struct Waiter {
+    let id: UUID
+    let continuation: CheckedContinuation<Void, any Error>
+  }
 
-  func acquire() async {
+  private var isHeld = false
+  private var waiters: [Waiter] = []
+
+  func acquire() async throws {
+    try Task.checkCancellation()
     if !isHeld {
       isHeld = true
       return
     }
-    await withCheckedContinuation { waiters.append($0) }
+    let id = UUID()
+    try await withTaskCancellationHandler {
+      try await withCheckedThrowingContinuation {
+        (continuation: CheckedContinuation<Void, any Error>) in
+        if Task.isCancelled {
+          continuation.resume(throwing: CancellationError())
+        } else {
+          waiters.append(.init(id: id, continuation: continuation))
+        }
+      }
+    } onCancel: {
+      Task { await self.cancelWaiter(id) }
+    }
+    do {
+      try Task.checkCancellation()
+    } catch {
+      release()
+      throw error
+    }
   }
 
   func release() {
     if waiters.isEmpty {
       isHeld = false
     } else {
-      waiters.removeFirst().resume()
+      waiters.removeFirst().continuation.resume()
     }
+  }
+
+  private func cancelWaiter(_ id: UUID) {
+    guard let index = waiters.firstIndex(where: { $0.id == id }) else { return }
+    waiters.remove(at: index).continuation.resume(throwing: CancellationError())
   }
 }
 
@@ -94,8 +123,9 @@ actor LiveModelLibraryService: ModelLibraryServing {
       guard let installation else {
         throw LiveUIServiceError.modelNotInstalled
       }
-      await sessionGate.acquire()
+      try await sessionGate.acquire()
       defer { Task { await sessionGate.release() } }
+      try Task.checkCancellation()
       let previous = loadedInstallation
       do {
         try await engine.load(installation)
@@ -106,15 +136,17 @@ actor LiveModelLibraryService: ModelLibraryServing {
       }
       loadedInstallation = installation
     case .unload:
-      await sessionGate.acquire()
+      try await sessionGate.acquire()
       defer { Task { await sessionGate.release() } }
+      try Task.checkCancellation()
       await engine.unload()
       await conversations.unbind()
       loadedInstallation = nil
     case .delete:
       if loadedInstallation?.modelID == modelID {
-        await sessionGate.acquire()
+        try await sessionGate.acquire()
         defer { Task { await sessionGate.release() } }
+        try Task.checkCancellation()
         await engine.unload()
         await conversations.unbind()
         loadedInstallation = nil
@@ -221,7 +253,15 @@ actor AgentLoopChatService: ChatSessionServing {
   // This function owns the lifecycle boundary for forwarding, persistence, and completion.
   // swiftlint:disable:next cyclomatic_complexity function_body_length
   func stream(_ request: ChatSendRequest) async throws -> AsyncThrowingStream<ChatSessionEvent, any Error> {
-    if let sessionGate { await sessionGate.acquire() }
+    if let sessionGate {
+      try await sessionGate.acquire()
+      do {
+        try Task.checkCancellation()
+      } catch {
+        await sessionGate.release()
+        throw error
+      }
+    }
     let userMessage = ConversationMessage(id: MessageID(UUID().uuidString), role: .user,
                                           content: request.prompt)
     let persistence: PersistentGeneration?
@@ -243,6 +283,12 @@ actor AgentLoopChatService: ChatSessionServing {
     return AsyncThrowingStream { continuation in
       let task = Task { [loop] in
         defer { if let sessionGate = self.sessionGate { Task { await sessionGate.release() } } }
+        do {
+          try Task.checkCancellation()
+        } catch {
+          continuation.finish(throwing: error)
+          return
+        }
         let assistantID = UUID()
         continuation.yield(.assistantStarted(id: assistantID))
         if let notice = persistence?.trimNotice, notice.removedTurnCount > 0 {
@@ -377,7 +423,7 @@ actor AgentLoopChatService: ChatSessionServing {
                                           reasoningText: result.reasoning.isEmpty ? nil : result.reasoning)
                                    ])
     try await conversations.save(updated)
-    try await conversations.renameSelected(using: userMessage.content)
+    try? await conversations.renameSelected(using: userMessage.content)
   }
 
   private static func presentation(_ activity: AgentActivity, index: Int) -> AgentActivityPresentation? {
