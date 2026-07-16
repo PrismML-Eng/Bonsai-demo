@@ -62,6 +62,21 @@ final class QuietGardenRenderingTests: XCTestCase {
     )
   }
 
+  func testActualVisionProductRendersAtAX5WithReduceMotion() throws {
+    let directory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+      .deletingLastPathComponent().deletingLastPathComponent()
+      .appending(path: ".superpowers/artifacts/task-08", directoryHint: .isDirectory)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    try render(
+      RootView(composition: .fixture(
+        .attachmentDraft, platform: .iPhone, reduceMotion: true))
+        .environment(\.colorScheme, .dark)
+        .environment(\.dynamicTypeSize, .accessibility5),
+      size: .init(width: 430, height: 1_050),
+      to: directory.appending(path: "vision-draft-ax5-reduce-motion.png")
+    )
+  }
+
   // Artifact-specific semantic contracts intentionally stay adjacent to capture.
   // swiftlint:disable:next function_body_length
   private func render<V: View>(
@@ -123,6 +138,11 @@ final class QuietGardenRenderingTests: XCTestCase {
                                 meaning: "accessibility-sized Bonsai 27B model row and controls")
       try requireSemanticRegion(in: bitmap, rect: NSRect(x: 8, y: 165, width: 304, height: 125),
                                 meaning: "accessibility-sized ternary model row and controls")
+    case "vision-draft-ax5-reduce-motion.png":
+      try requireSemanticRegion(in: bitmap, rect: NSRect(x: 12, y: 8, width: 406, height: 115),
+                                meaning: "AX5 navigation and private local model state")
+      try requireSemanticRegion(in: bitmap, rect: NSRect(x: 12, y: 705, width: 406, height: 330),
+                                meaning: "AX5 attachment, detail, picker, composer, and send controls")
     default:
       XCTFail("Every render artifact must have a semantic region contract")
     }

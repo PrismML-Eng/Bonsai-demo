@@ -1,4 +1,7 @@
 import Foundation
+import CoreGraphics
+import ImageIO
+import UniformTypeIdentifiers
 import XCTest
 
 @testable import BonsaiMobile
@@ -7,6 +10,88 @@ import XCTest
 // swiftlint:disable file_length
 // swiftlint:disable:next type_body_length
 final class MLXInferenceIntegrationTests: XCTestCase {
+  func testRealPublicOneBitFastVisionRequest() async throws {
+    let root = FileManager.default.temporaryDirectory.appending(
+      path: "RealVision-\(UUID())", directoryHint: .isDirectory)
+    defer { try? FileManager.default.removeItem(at: root) }
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    let source = root.appending(path: "green.png")
+    try Self.writeSolidGreenImage(to: source, width: 4_000, height: 3_000)
+    let processor = ImagePreprocessor()
+    let processed = try await processor.process(
+      managedURL: source, policy: .fast1024, managedRoot: root)
+    defer { try? processor.removeProcessed(processed, managedRoot: root) }
+    let engine = MLXInferenceEngine()
+    let clock = ContinuousClock()
+    let loadStarted = clock.now
+    try await engine.load(.init(modelID: .oneBit27B, directory: try Self.modelDirectory(),
+                                revision: "public-local-fixture"))
+    let loadDuration = loadStarted.duration(to: clock.now)
+    let attachment = try ImageAttachmentReference(
+      id: UUID(), managedRelativePath: "green.png",
+      pixelSize: .init(width: 4_000, height: 3_000), byteCount: 1,
+      contentType: "image/png", detailPolicy: .fast1024,
+      accessibleLabel: "Solid green image", lifecycle: .persisted)
+    let message = ConversationMessage(
+      id: MessageID("vision-user"), role: .user,
+      content: "Look at the attached image. Answer with its dominant color in one word.",
+      attachments: [attachment])
+    let events = try await Self.collect(try await engine.generate(
+      try GenerationRequest(
+        messages: [message], images: [
+          .init(messageID: message.id, attachmentID: attachment.id, buffer: processed.buffer)
+        ], reasoningEnabled: false, maxTokens: 32)
+    ))
+    let answer = events.text(for: .answer).trimmingCharacters(in: .whitespacesAndNewlines)
+    let metrics = try XCTUnwrap(events.compactMap(\.metrics).last)
+    XCTAssertFalse(answer.isEmpty)
+    XCTAssertTrue(answer.localizedCaseInsensitiveContains("green"), "answer=\(answer)")
+    XCTAssertEqual(events.terminalCount, 1)
+    XCTAssertEqual(processed.pixelSize, .init(width: 1_184, height: 864))
+    print("RealVision preprocess=\(processed.preprocessingDuration) load=\(loadDuration) "
+      + "target=\(processed.pixelSize.width)x\(processed.pixelSize.height) "
+      + "ttft=\(metrics.timeToFirstToken) tps=\(metrics.tokensPerSecond) answer=\(answer)")
+    await engine.unload()
+  }
+
+  func testRealImageAndNativeToolContinuationKeepsSessionAndInjectsImageOnce() async throws {
+    let root = FileManager.default.temporaryDirectory.appending(
+      path: "VisionTool-\(UUID())", directoryHint: .isDirectory)
+    defer { try? FileManager.default.removeItem(at: root) }
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    let source = root.appending(path: "green.png")
+    try Self.writeSolidGreenImage(to: source, width: 640, height: 480)
+    let processed = try await ImagePreprocessor().process(
+      managedURL: source, policy: .fast1024, managedRoot: root)
+    let attachment = try ImageAttachmentReference(
+      id: UUID(), managedRelativePath: "green.png",
+      pixelSize: .init(width: 640, height: 480), byteCount: 1,
+      contentType: "image/png", detailPolicy: .fast1024,
+      accessibleLabel: "Solid green image", lifecycle: .persisted)
+    let message = ConversationMessage(
+      id: MessageID("vision-tool-user"), role: .user,
+      content: "Inspect the image, then you must use calculator for 37 * 19 + 5. Answer with the color and number.",
+      attachments: [attachment])
+    let engine = MLXInferenceEngine()
+    try await engine.load(.init(modelID: .oneBit27B, directory: try Self.modelDirectory(),
+                                revision: "public-local-fixture"))
+    let registry = try ToolRegistry.live(notes: NotesStore(root: root.appending(path: "notes")))
+    let result = try await AgentLoop(engine: engine, registry: registry).run(
+      try GenerationRequest(
+        messages: [message], images: [
+          .init(messageID: message.id, attachmentID: attachment.id, buffer: processed.buffer)
+        ], reasoningEnabled: false, maxTokens: 192))
+    let snapshot = await engine.continuationDebugSnapshot()
+    XCTAssertEqual(result.toolResults.first?.contentJSON, "{\"result\":708}")
+    XCTAssertEqual(result.toolResults.count, 1)
+    XCTAssertFalse(result.answer.isEmpty)
+    XCTAssertEqual(snapshot.generationSessionIdentity, snapshot.continuationSessionIdentity)
+    XCTAssertEqual(snapshot.sessionIdentity, snapshot.continuationSessionIdentity)
+    XCTAssertEqual(snapshot.initialImageInjectionCount, 1)
+    XCTAssertEqual(snapshot.continuationCount, 1)
+    XCTAssertEqual(snapshot.fullHistoryReplayCount, 1)
+    await engine.unload()
+  }
   // One real-model lane intentionally keeps timing, result, and identity proof together.
   // swiftlint:disable:next function_body_length
   func testRealToolRoundTrip() async throws {
@@ -311,6 +396,19 @@ final class MLXInferenceIntegrationTests: XCTestCase {
       throw MLXInferenceError.modelDirectoryMissing
     }
     return directory
+  }
+
+  private static func writeSolidGreenImage(to url: URL, width: Int, height: Int) throws {
+    let context = try XCTUnwrap(CGContext(
+      data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+      space: CGColorSpaceCreateDeviceRGB(),
+      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+    context.setFillColor(CGColor(red: 0.05, green: 0.85, blue: 0.12, alpha: 1))
+    context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+    let destination = try XCTUnwrap(CGImageDestinationCreateWithURL(
+      url as CFURL, UTType.png.identifier as CFString, 1, nil))
+    CGImageDestinationAddImage(destination, try XCTUnwrap(context.makeImage()), nil)
+    XCTAssertTrue(CGImageDestinationFinalize(destination))
   }
 
   private static func contextConversation() throws -> Conversation {

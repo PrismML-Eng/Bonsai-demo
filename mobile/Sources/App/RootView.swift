@@ -28,6 +28,12 @@ enum UIFixture: String, CaseIterable, Sendable {
   case cancelledGeneration = "cancelled-generation"
   case contextTrimmed = "context-trimmed"
   case toolDenied = "tool-denied"
+  case attachmentDraft = "attachment-draft"
+  case fullDetailWarning = "full-detail-warning"
+  case permissionDenied = "permission-denied"
+  case preprocessingError = "preprocessing-error"
+  case visionStreaming = "vision-streaming"
+  case attachmentRecovery = "attachment-recovery"
 
   // Fixture coverage intentionally keeps every deterministic product state together.
   // swiftlint:disable:next cyclomatic_complexity function_body_length
@@ -85,7 +91,40 @@ enum UIFixture: String, CaseIterable, Sendable {
                    messages: baseMessages,
                    activities: [.init(id: "denied", kind: .denied, title: "Local notes denied",
                                       detail: "No changes were made.", actions: [])])
+    case .attachmentDraft:
+      return .init(library: .fixture(.ready), platform: .iPhone, modelReady: true,
+                   draftAttachment: Self.fixtureAttachment())
+    case .fullDetailWarning:
+      var attachment = Self.fixtureAttachment()
+      attachment.detailPolicy = .fullDetail
+      return .init(library: .fixture(.ready), platform: .iPhone, modelReady: true,
+                   draftAttachment: attachment, showsFullDetailWarning: true)
+    case .permissionDenied:
+      return .init(library: .fixture(.ready), platform: .iPhone, modelReady: true,
+                   attachmentError: "Camera access is denied. Open Settings to allow camera access.")
+    case .preprocessingError:
+      return .init(library: .fixture(.ready), platform: .mac, modelReady: true,
+                   draftAttachment: Self.fixtureAttachment(),
+                   attachmentError: "Could not prepare this image. Choose a smaller supported image.")
+    case .visionStreaming:
+      return .init(library: .fixture(.ready), platform: .mac, modelReady: true,
+                   messages: baseMessages,
+                   reasoning: .init(text: "Inspecting the private image…", status: "Thinking · Medium"),
+                   metrics: .init(promptTokenCount: 1_120, generatedTokenCount: 18,
+                                  timeToFirstToken: .milliseconds(384), tokensPerSecond: 12.4))
+    case .attachmentRecovery:
+      return .init(library: .fixture(.ready), platform: .iPhone, modelReady: true,
+                   draftAttachment: Self.fixtureAttachment(),
+                   attachmentError: "Generation stopped before the image was consumed. Your draft is intact.")
     }
+  }
+
+  private static func fixtureAttachment() -> ImageAttachment {
+    .init(id: UUID(uuidString: "7F34B8BC-B904-4D25-88AF-52404CC531F0")!,
+          originalFilename: "garden.jpg", managedRelativePath: "garden.jpg",
+          pixelSize: .init(width: 4_000, height: 3_000), byteCount: 2_400_000,
+          contentType: "image/jpeg", detailPolicy: .fast1024, lifecycle: .managedDraft,
+          accessibleLabel: "Garden photo")
   }
 
   static func from(arguments: [String]) -> UIFixture? {
@@ -109,6 +148,9 @@ struct UIFixtureState: Equatable, Sendable {
   var activities: [AgentActivityPresentation] = []
   var terminalStatus: String?
   var contextTrimNotice: String?
+  var draftAttachment: ImageAttachment?
+  var attachmentError: String?
+  var showsFullDetailWarning = false
 }
 
 struct RootView: View {
@@ -118,7 +160,11 @@ struct RootView: View {
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @Environment(\.horizontalSizeClass) private var horizontalSizeClass
   @State private var showsLibrary = false
+  @State private var showsSettings = false
   private let platform: Platform
+  private let reduceMotionOverride: Bool?
+  private let settingsService: (any SettingsServing)?
+  private let imageDetailSettings: PersistedImageDetailSettings
 
   init(composition: RootComposition = .process()) {
     _libraryViewModel = State(initialValue: composition.libraryViewModel)
@@ -126,6 +172,9 @@ struct RootView: View {
     _conversationViewModel = State(initialValue: composition.conversationViewModel)
     _showsLibrary = State(initialValue: composition.showsLibraryOnLaunch)
     platform = composition.platform
+    reduceMotionOverride = composition.reduceMotionOverride
+    settingsService = composition.settingsService
+    imageDetailSettings = composition.imageDetailSettings
   }
 
   var body: some View {
@@ -142,7 +191,8 @@ struct RootView: View {
           regularWorkspace
         }
       }
-      .animation(QuietGardenTheme.animation(reduceMotion: reduceMotion), value: horizontalSizeClass)
+      .animation(QuietGardenTheme.animation(
+        reduceMotion: reduceMotionOverride ?? reduceMotion), value: horizontalSizeClass)
     .tint(QuietGardenTheme.accent)
     .accessibilityIdentifier(UIAccessibility.root)
     .task {
@@ -163,6 +213,30 @@ struct RootView: View {
       NavigationStack { ModelLibraryView(viewModel: libraryViewModel) }
         .frame(minWidth: 320, minHeight: 600)
     }
+    .sheet(isPresented: $showsSettings) {
+      NavigationStack {
+        SettingsView(detailSettings: imageDetailSettings) { intent in
+          switch intent {
+          case .setDefaultImageDetail(let policy):
+            chatViewModel.defaultImageDetail = policy
+          case .clearConversationsNotesAndImages:
+            guard let settingsService else { return }
+            await chatViewModel.clearLocalData(using: settingsService)
+          }
+        }
+      }
+      .frame(minWidth: 320, minHeight: 520)
+    }
+    .alert("Clear data failed", isPresented: Binding(
+      get: { chatViewModel.clearDataError != nil },
+      set: { if !$0 { chatViewModel.dismissClearDataError() } }
+    )) {
+      Button("Retry clear data") {
+        guard let settingsService else { return }
+        Task { await chatViewModel.clearLocalData(using: settingsService) }
+      }
+      Button("Cancel", role: .cancel) { chatViewModel.dismissClearDataError() }
+    } message: { Text(chatViewModel.clearDataError ?? "") }
   }
 
   @ViewBuilder private var regularWorkspace: some View {
@@ -199,6 +273,10 @@ struct RootView: View {
         Label("Model Library", systemImage: "shippingbox")
       }
       .accessibilityHint("Manage local Bonsai models")
+      Button { showsSettings = true } label: {
+        Label("Settings", systemImage: "gearshape")
+      }
+      .accessibilityHint("Review local privacy, image detail, and clear-data controls")
       Spacer()
       Menu {
         Button("New conversation") {
@@ -239,6 +317,13 @@ struct RootView: View {
         Spacer()
       }
       .padding(16)
+      HStack {
+        Button("Settings", systemImage: "gearshape") { showsSettings = true }
+        Spacer()
+      }
+      .buttonStyle(.borderless)
+      .padding(.horizontal, 16)
+      .padding(.bottom, 8)
       List(selection: Binding(
         get: { conversationViewModel.selectedID },
         set: { id in
@@ -278,6 +363,9 @@ struct RootComposition {
   let conversationViewModel: ConversationNavigationViewModel
   let platform: Platform
   let showsLibraryOnLaunch: Bool
+  let reduceMotionOverride: Bool?
+  let settingsService: (any SettingsServing)?
+  let imageDetailSettings: PersistedImageDetailSettings
 
   static func process() -> RootComposition {
     if let fixture = UIFixture.from(arguments: ProcessInfo.processInfo.arguments) {
@@ -293,18 +381,21 @@ struct RootComposition {
   static func fixture(
     _ fixture: UIFixture,
     platform: Platform? = nil,
-    showsLibrary: Bool = false
+    showsLibrary: Bool = false,
+    reduceMotion: Bool? = nil
   ) -> RootComposition {
     fixtureComposition(
       fixture.makeState(),
       platform: platform,
-      showsLibrary: showsLibrary)
+      showsLibrary: showsLibrary,
+      reduceMotion: reduceMotion)
   }
 
   private static func fixtureComposition(
     _ state: UIFixtureState,
     platform: Platform? = nil,
-    showsLibrary: Bool = false
+    showsLibrary: Bool = false,
+    reduceMotion: Bool? = nil
   ) -> RootComposition {
     let resolvedPlatform = platform ?? state.platform
     let library = FixtureModelLibraryService(snapshot: state.library)
@@ -332,7 +423,10 @@ struct RootComposition {
     let navigation = FixtureConversationService(snapshot: navigationSnapshot)
     let libraryViewModel = ModelLibraryViewModel(service: library, platform: resolvedPlatform,
                                                  initial: state.library)
+    let imageDetailSettings = PersistedImageDetailSettings(
+      defaults: UserDefaults(suiteName: "fixture.\(UUID().uuidString)")!)
     let chatViewModel = ChatViewModel(service: chat, isModelReady: state.modelReady)
+    chatViewModel.defaultImageDetail = imageDetailSettings.value
     chatViewModel.applyFixture(state)
     return RootComposition(
       libraryViewModel: libraryViewModel,
@@ -340,7 +434,10 @@ struct RootComposition {
       conversationViewModel: ConversationNavigationViewModel(
         service: navigation, initial: navigationSnapshot),
       platform: resolvedPlatform,
-      showsLibraryOnLaunch: showsLibrary)
+      showsLibraryOnLaunch: showsLibrary,
+      reduceMotionOverride: reduceMotion,
+      settingsService: nil,
+      imageDetailSettings: imageDetailSettings)
   }
 
   private static func live() throws -> RootComposition {
@@ -357,18 +454,33 @@ struct RootComposition {
       conversations: coordinator,
       sessionGate: sessionGate)
     let notes = try NotesStore(root: support)
+    let attachmentRoot = support.appending(path: "Attachments", directoryHint: .isDirectory)
+    let attachmentStore = try ManagedAttachmentStore(root: attachmentRoot)
+    let attachmentService = LiveAttachmentService(store: attachmentStore)
+    let settingsService = LiveSettingsService(
+      conversations: coordinator, notes: notes, attachments: attachmentStore)
+    let imageDetailSettings = PersistedImageDetailSettings()
     let registry = try ToolRegistry.live(notes: notes)
     let approvalGate = InteractiveApprovalGate()
     let loop = AgentLoop(engine: engine, registry: registry, approvals: approvalGate)
     let chat = AgentLoopChatService(loop: loop, approvals: approvalGate, engine: engine,
-                                    conversations: coordinator, sessionGate: sessionGate)
+                                    conversations: coordinator, sessionGate: sessionGate,
+                                    attachmentStore: attachmentStore, attachmentRoot: attachmentRoot)
     let initial = ModelLibrarySnapshot.fixture(.empty)
     return RootComposition(
       libraryViewModel: ModelLibraryViewModel(service: library, platform: Self.platform, initial: initial),
-      chatViewModel: ChatViewModel(service: chat, isModelReady: false),
+      chatViewModel: {
+        let viewModel = ChatViewModel(
+          service: chat, isModelReady: false, attachments: attachmentService)
+        viewModel.defaultImageDetail = imageDetailSettings.value
+        return viewModel
+      }(),
       conversationViewModel: ConversationNavigationViewModel(service: coordinator),
       platform: Self.platform,
-      showsLibraryOnLaunch: false
+      showsLibraryOnLaunch: false,
+      reduceMotionOverride: nil,
+      settingsService: settingsService,
+      imageDetailSettings: imageDetailSettings
     )
   }
 

@@ -181,6 +181,17 @@ actor AtomicJSONStore {
         try directorySynchronizer.synchronize(directoryDescriptor: rootDescriptor)
     }
 
+    func delete(identifier: String) throws {
+        let name = try fileName(identifier: identifier)
+        guard try existingLeafKind(name) != nil else { return }
+        try rejectNonRegularExistingLeaf(name)
+        let result = name.withCString { unlinkat(rootDescriptor, $0, 0) }
+        guard result == 0 || errno == ENOENT else {
+            throw POSIXError(.init(rawValue: errno)!)
+        }
+        try directorySynchronizer.synchronize(directoryDescriptor: rootDescriptor)
+    }
+
     func encoded<T: Encodable & Sendable>(_ value: T) throws -> Data {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]

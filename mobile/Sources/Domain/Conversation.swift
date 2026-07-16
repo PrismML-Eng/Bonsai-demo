@@ -7,6 +7,8 @@ enum ConversationContractError: Error, Equatable, Sendable {
     case invalidSystemInstruction
     case invalidTurn(String)
     case duplicateMessageID(String)
+    case invalidAttachment(String)
+    case duplicateAttachment(String)
 }
 
 struct ConversationID: Codable, Hashable, Sendable {
@@ -62,17 +64,31 @@ struct ConversationMessage: Codable, Equatable, Sendable {
     let role: ConversationRole
     let content: String
     let transactionID: String?
+    let attachments: [ImageAttachmentReference]
 
     init(
         id: MessageID,
         role: ConversationRole,
         content: String,
-        transactionID: String? = nil
+        transactionID: String? = nil,
+        attachments: [ImageAttachmentReference] = []
     ) {
         self.id = id
         self.role = role
         self.content = content
         self.transactionID = transactionID
+        self.attachments = attachments
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(MessageID.self, forKey: .id)
+        role = try container.decode(ConversationRole.self, forKey: .role)
+        content = try container.decode(String.self, forKey: .content)
+        transactionID = try container.decodeIfPresent(String.self, forKey: .transactionID)
+        attachments = try container.decodeIfPresent(
+            [ImageAttachmentReference].self, forKey: .attachments
+        ) ?? []
     }
 }
 
@@ -142,6 +158,8 @@ struct Conversation: Codable, Equatable, Sendable {
         try validate()
     }
 
+    // The persisted aggregate contract validates schema, turns, tool pairs, and image ownership.
+    // swiftlint:disable:next cyclomatic_complexity
     private func validate() throws {
         guard schemaVersion == Self.schemaVersion else {
             throw ConversationContractError.unsupportedSchemaVersion(schemaVersion)
@@ -151,7 +169,8 @@ struct Conversation: Codable, Equatable, Sendable {
         }
         guard systemInstruction.role == .system,
               Self.isSafeMessageID(systemInstruction.id),
-              systemInstruction.transactionID == nil else {
+              systemInstruction.transactionID == nil,
+              systemInstruction.attachments.isEmpty else {
             if !Self.isSafeMessageID(systemInstruction.id) {
                 throw ConversationContractError.unsafeIdentifier(systemInstruction.id.rawValue)
             }
@@ -174,6 +193,22 @@ struct Conversation: Codable, Equatable, Sendable {
                 }
                 guard messageIDs.insert(message.id.rawValue).inserted else {
                     throw ConversationContractError.duplicateMessageID(message.id.rawValue)
+                }
+                guard message.role == .user || message.attachments.isEmpty else {
+                    throw ConversationContractError.invalidAttachment(message.id.rawValue)
+                }
+                if message.role == .user {
+                    var attachmentIDs: Set<UUID> = []
+                    var paths: Set<String> = []
+                    for attachment in message.attachments {
+                        guard attachment.lifecycle == .persisted else {
+                            throw ConversationContractError.invalidAttachment(message.id.rawValue)
+                        }
+                        guard attachmentIDs.insert(attachment.id).inserted,
+                              paths.insert(attachment.managedRelativePath).inserted else {
+                            throw ConversationContractError.duplicateAttachment(message.id.rawValue)
+                        }
+                    }
                 }
             }
         }

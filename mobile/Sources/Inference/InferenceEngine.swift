@@ -11,6 +11,12 @@ struct GenerationToolSpecification: Equatable, Sendable {
     let parametersJSON: String
 }
 
+struct GenerationImage: Equatable, Sendable {
+    let messageID: MessageID
+    let attachmentID: UUID
+    let buffer: ProcessedImageBuffer
+}
+
 struct GenerationRequest: Equatable, Sendable {
     static let defaultMaxTokens = 12_288
     static let maximumMaxTokens = 16_384
@@ -18,6 +24,7 @@ struct GenerationRequest: Equatable, Sendable {
     let prompt: String
     let messages: [ConversationMessage]?
     let tools: [GenerationToolSpecification]
+    let images: [GenerationImage]
     let reasoningBudget: Int
     var reasoningEnabled: Bool { reasoningBudget != 0 }
     let maxTokens: Int
@@ -38,6 +45,7 @@ struct GenerationRequest: Equatable, Sendable {
         self.prompt = prompt
         messages = nil
         tools = []
+        images = []
         self.reasoningBudget = resolvedBudget
         self.maxTokens = maxTokens
     }
@@ -45,6 +53,7 @@ struct GenerationRequest: Equatable, Sendable {
     init(
         messages: [ConversationMessage],
         tools: [GenerationToolSpecification] = [],
+        images: [GenerationImage] = [],
         reasoningEnabled: Bool = true,
         reasoningBudget: Int? = nil,
         maxTokens: Int = defaultMaxTokens
@@ -59,6 +68,7 @@ struct GenerationRequest: Equatable, Sendable {
         self.prompt = messages.last?.content ?? ""
         self.messages = messages
         self.tools = tools
+        self.images = images
         self.reasoningBudget = resolvedBudget
         self.maxTokens = maxTokens
     }
@@ -68,6 +78,18 @@ struct GenerationRequest: Equatable, Sendable {
             validatedPrompt: prompt,
             messages: messages,
             tools: tools,
+            images: images,
+            reasoningBudget: reasoningBudget,
+            maxTokens: maxTokens
+        )
+    }
+
+    func replacingImages(_ images: [GenerationImage]) -> GenerationRequest {
+        GenerationRequest(
+            validatedPrompt: prompt,
+            messages: messages,
+            tools: tools,
+            images: images,
             reasoningBudget: reasoningBudget,
             maxTokens: maxTokens
         )
@@ -77,12 +99,14 @@ struct GenerationRequest: Equatable, Sendable {
         validatedPrompt: String,
         messages: [ConversationMessage]?,
         tools: [GenerationToolSpecification],
+        images: [GenerationImage],
         reasoningBudget: Int,
         maxTokens: Int
     ) {
         prompt = validatedPrompt
         self.messages = messages
         self.tools = tools
+        self.images = images
         self.reasoningBudget = reasoningBudget
         self.maxTokens = maxTokens
     }

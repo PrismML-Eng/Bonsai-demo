@@ -37,6 +37,7 @@ targets:
         INFOPLIST_KEY_CFBundleDisplayName: Bonsai
         INFOPLIST_KEY_NSCameraUsageDescription: Add a photo to a private on-device conversation.
         INFOPLIST_KEY_NSPhotoLibraryUsageDescription: Add a photo to a private on-device conversation.
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity
     dependencies:
       - package: MLXSwiftLM
         product: MLXLLM

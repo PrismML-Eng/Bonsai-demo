@@ -71,4 +71,12 @@ enum UIAccessibility {
   static let activity = "agent.activity"
   static let approvalAllow = "approval.allowOnce"
   static let approvalDeny = "approval.deny"
+  static let photoPicker = "attachment.photos"
+  static let cameraPicker = "attachment.camera"
+  static let filePicker = "attachment.files"
+  static let attachmentPreview = "attachment.preview"
+  static let removeAttachment = "attachment.remove"
+  static let detailPolicy = "attachment.detail"
+  static let attachmentError = "attachment.error"
+  static let settings = "settings.localPrivacy"
 }

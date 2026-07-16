@@ -36,6 +36,24 @@ actor NotesStore {
     try await archive().notes.sorted { $0.updatedAt > $1.updatedAt }
   }
 
+  func clearAll() async throws {
+    let data = try Self.encode(Archive(notes: []))
+    try await storage.write(data, identifier: identifier)
+  }
+
+  func clearSnapshot() async throws -> Data? {
+    try await storage.read(identifier: identifier)
+  }
+
+  func restoreClearSnapshot(_ data: Data?) async throws {
+    if let data {
+      _ = try Self.decodeArchive(data)
+      try await storage.write(data, identifier: identifier)
+    } else {
+      try await storage.delete(identifier: identifier)
+    }
+  }
+
   func read(id: UUID) async throws -> LocalNote? {
     try await archive().notes.first { $0.id == id }
   }

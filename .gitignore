@@ -198,6 +198,7 @@ cython_debug/
 mobile/.build-dependencies/
 mobile/DerivedData/
 mobile/TestResults/
+mobile/**/xcuserdata/
 
 # Cursor
 #  Cursor is an AI-powered code editor. `.cursorignore` specifies files/directories to

@@ -54,7 +54,7 @@ struct ChatView: View {
               Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(QuietGardenTheme.danger)
               Text(viewModel.terminalStatus ?? "Generation failed")
               Spacer()
-              Button(recovery.label) { Task { await viewModel.retry() } }.buttonStyle(.bordered)
+              Button(recovery.label) { Task { await viewModel.performRecovery() } }.buttonStyle(.bordered)
             }
             .accessibilityElement(children: .contain)
           }

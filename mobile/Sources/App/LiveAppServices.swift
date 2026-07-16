@@ -9,12 +9,14 @@ enum LiveUIServiceError: Error, LocalizedError {
   case missingManifest(ModelID)
   case modelNotInstalled
   case importRequiresPicker
+  case emptyPersistedAnswer
 
   var errorDescription: String? {
     switch self {
     case .missingManifest: "The bundled model manifest is unavailable."
     case .modelNotInstalled: "Install and verify this model before loading it."
     case .importRequiresPicker: "Choose Import from a platform file picker."
+    case .emptyPersistedAnswer: "Generation ended before a complete answer could be persisted."
     }
   }
 }
@@ -222,11 +224,14 @@ actor InteractiveApprovalGate: ToolApprovalGate {
   private func removeObserver(_ id: UUID) { observers.removeValue(forKey: id) }
 }
 
+// Persistence, event forwarding, image lifetime, and session-gate release form one transaction.
+// swiftlint:disable:next type_body_length
 actor AgentLoopChatService: ChatSessionServing {
   private struct PersistentGeneration {
     let conversation: Conversation
     let trimNotice: ContextTrimNotice?
     let request: GenerationRequest?
+    let processedImages: [ProcessedImage]
   }
 
   private let loop: AgentLoop
@@ -234,6 +239,9 @@ actor AgentLoopChatService: ChatSessionServing {
   private let engine: MLXInferenceEngine?
   private let conversations: ConversationCoordinator?
   private let sessionGate: ModelSessionGate?
+  private let attachmentStore: ManagedAttachmentStore?
+  private let attachmentRoot: URL?
+  private let imagePreprocessor: ImagePreprocessor
 
   static func shouldPersist(_ completion: AgentCompletion) -> Bool {
     completion == .stop || completion == .length
@@ -241,12 +249,18 @@ actor AgentLoopChatService: ChatSessionServing {
 
   init(loop: AgentLoop, approvals: InteractiveApprovalGate,
        engine: MLXInferenceEngine? = nil, conversations: ConversationCoordinator? = nil,
-       sessionGate: ModelSessionGate? = nil) {
+       sessionGate: ModelSessionGate? = nil,
+       attachmentStore: ManagedAttachmentStore? = nil,
+       attachmentRoot: URL? = nil,
+       imagePreprocessor: ImagePreprocessor = .init()) {
     self.loop = loop
     self.approvals = approvals
     self.engine = engine
     self.conversations = conversations
     self.sessionGate = sessionGate
+    self.attachmentStore = attachmentStore
+    self.attachmentRoot = attachmentRoot
+    self.imagePreprocessor = imagePreprocessor
   }
 
   // This function owns the lifecycle boundary for forwarding, persistence, and completion.
@@ -261,8 +275,10 @@ actor AgentLoopChatService: ChatSessionServing {
         throw error
       }
     }
+    let persistedAttachment = try request.attachment?.persistedReference()
     let userMessage = ConversationMessage(id: MessageID(UUID().uuidString), role: .user,
-                                          content: request.prompt)
+                                          content: request.prompt,
+                                          attachments: persistedAttachment.map { [$0] } ?? [])
     let persistence: PersistentGeneration?
     do {
       persistence = try await persistentGeneration(userMessage: userMessage,
@@ -287,6 +303,7 @@ actor AgentLoopChatService: ChatSessionServing {
     let liveEvents = await loop.events()
     return AsyncThrowingStream { continuation in
       let task = Task { [loop] in
+        defer { self.cleanProcessed(persistence?.processedImages ?? []) }
         defer { if let sessionGate = self.sessionGate { Task { await sessionGate.release() } } }
         do {
           try Task.checkCancellation()
@@ -386,21 +403,59 @@ actor AgentLoopChatService: ChatSessionServing {
                                                content: "You are Bonsai, a private on-device assistant."),
                       completedTurns: [])
     guard let engine else {
-      return PersistentGeneration(conversation: conversation, trimNotice: nil, request: nil)
+      return PersistentGeneration(
+        conversation: conversation, trimNotice: nil, request: nil, processedImages: [])
     }
+    let imageTrim = try ImageRequestBudget.live.trim(
+      conversation, appending: [userMessage])
     let tools = await loop.toolSpecifications()
     let prepared = try await engine.preparedGeneration(
-      for: conversation, appending: [userMessage], reasoningBudget: effort.tokenBudget, tools: tools)
+      for: imageTrim.conversation, appending: [userMessage],
+      reasoningBudget: effort.tokenBudget, tools: tools)
+    let processed = try await processedImages(for: prepared.trim.keptMessages)
+    let combinedNotice = ContextTrimNotice(
+      removedTurnCount: imageTrim.removedTurnCount + prepared.trim.notice.removedTurnCount,
+      removedMessageCount: imageTrim.removedMessageCount + prepared.trim.notice.removedMessageCount)
     return PersistentGeneration(
       conversation: conversation,
-      trimNotice: prepared.trim.notice,
-      request: prepared.request)
+      trimNotice: combinedNotice,
+      request: prepared.request.replacingImages(processed.bindings),
+      processedImages: processed.images)
+  }
+
+  private func processedImages(
+    for messages: [ConversationMessage]
+  ) async throws -> (bindings: [GenerationImage], images: [ProcessedImage]) {
+    guard let attachmentStore else { return ([], []) }
+    var bindings: [GenerationImage] = []
+    var images: [ProcessedImage] = []
+    do {
+      for message in messages where message.role == .user {
+        for attachment in message.attachments {
+          let sourceData = try await attachmentStore.data(for: attachment)
+          let processed = try await imagePreprocessor.process(
+            data: sourceData, policy: attachment.detailPolicy)
+          images.append(processed)
+          bindings.append(.init(
+            messageID: message.id, attachmentID: attachment.id, buffer: processed.buffer))
+        }
+      }
+      return (bindings, images)
+    } catch {
+      cleanProcessed(images)
+      throw error
+    }
+  }
+
+  private nonisolated func cleanProcessed(_ images: [ProcessedImage]) {
+    guard let attachmentRoot else { return }
+    for image in images { try? imagePreprocessor.removeProcessed(image, managedRoot: attachmentRoot) }
   }
 
   private func persist(result: AgentRunResult, userMessage: ConversationMessage,
                        conversation: Conversation) async throws {
-    guard let conversations, !result.answer.isEmpty,
-          Self.shouldPersist(result.completion) else { return }
+    guard let conversations, Self.shouldPersist(result.completion) else { return }
+    guard !result.answer.isEmpty else { throw LiveUIServiceError.emptyPersistedAnswer }
     var messages = [userMessage]
     var knownInvocations: [String: ToolInvocation] = [:]
     for activity in result.activities {

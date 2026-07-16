@@ -142,6 +142,30 @@ actor ConversationCoordinator: ConversationCoordinating, ConversationNavigationS
     publish()
   }
 
+  func clearAllConversations() async throws {
+    try await ensureIndexLoaded()
+    let original = index
+    let snapshot = try await store.clearSnapshot(index.conversations.map(\.id))
+    var candidate = PersistedIndex()
+    if let installation {
+      let replacement = try makeConversation(title: "New chat", installation: installation)
+      candidate.conversations = [replacement]
+      candidate.selectedByModel[selectionKey(for: installation)] = replacement.id
+    }
+    do {
+      for item in index.conversations { try await store.delete(item.id) }
+      try await persistIndex(candidate)
+      index = candidate
+      publish()
+    } catch {
+      try await store.restoreClearSnapshot(snapshot)
+      try await persistIndex(original)
+      index = original
+      publish()
+      throw error
+    }
+  }
+
   private func createConversation(title: String) async throws -> ConversationListItem {
     guard let installation else { throw ConversationCoordinatorError.noLoadedModel }
     let item = try makeConversation(title: title, installation: installation)

@@ -9,6 +9,7 @@ enum MLXInferenceError: Error, Equatable, Sendable {
   case generationAlreadyActive
   case reasoningUnavailable
   case invalidToolArgumentsEncoding
+  case invalidImageBinding
   case tokenCountingUnavailable
   case conversationModelMismatch(expected: ModelID, attempted: ModelID)
 }

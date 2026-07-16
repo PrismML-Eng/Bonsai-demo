@@ -93,10 +93,115 @@ final class QuietGardenViewModelTests: XCTestCase {
     XCTAssertEqual(Set(UIFixture.allCases), [
       .emptyLibrary, .downloading, .unsupportedTernary, .readyChat,
       .streamingReasoning, .pendingNoteWrite, .toolFailure, .recoverableFailure,
-      .cancelledGeneration, .contextTrimmed, .toolDenied
+      .cancelledGeneration, .contextTrimmed, .toolDenied, .attachmentDraft,
+      .fullDetailWarning, .permissionDenied, .preprocessingError, .visionStreaming,
+      .attachmentRecovery
     ])
     XCTAssertEqual(UIFixture.readyChat.makeState(), UIFixture.readyChat.makeState())
     XCTAssertEqual(UIAccessibility.chatComposer, "chat.composer")
+  }
+
+  func testLargeFullDetailRequiresConfirmationBeforeServiceStarts() async {
+    let service = RecordingChatService(events: [.completed(.stop)])
+    let viewModel = ChatViewModel(service: service, isModelReady: true)
+    viewModel.applyFixture(UIFixture.fullDetailWarning.makeState())
+    viewModel.dismissFullDetailWarning()
+    viewModel.draft = "Read the small text"
+
+    await viewModel.send()
+
+    XCTAssertTrue(viewModel.showsFullDetailWarning)
+    let requestsBeforeConfirmation = await service.requestCount
+    XCTAssertEqual(requestsBeforeConfirmation, 0)
+    await viewModel.confirmFullDetailSend()
+    let requestsAfterConfirmation = await service.requestCount
+    XCTAssertEqual(requestsAfterConfirmation, 1)
+    XCTAssertNil(viewModel.draftAttachment)
+  }
+
+  func testGenerationFailurePreservesPromptAndManagedAttachmentDraft() async {
+    let service = RecordingChatService(events: [.completed(.runtimeFailure("Memory pressure"))])
+    let viewModel = ChatViewModel(service: service, isModelReady: true)
+    let attachment = UIFixture.attachmentRecovery.makeState().draftAttachment
+    viewModel.applyFixture(UIFixture.attachmentRecovery.makeState())
+    viewModel.draft = "Describe this"
+
+    await viewModel.send()
+
+    XCTAssertEqual(viewModel.draft, "Describe this")
+    XCTAssertEqual(viewModel.draftAttachment, attachment)
+    XCTAssertEqual(viewModel.recovery?.label, "Retry send")
+  }
+
+  func testTokenLimitClearsPersistedDraftAndMutationIsDisabledInFlight() async {
+    let service = SuspendingChatService()
+    let viewModel = ChatViewModel(service: service, isModelReady: true)
+    viewModel.applyFixture(UIFixture.attachmentDraft.makeState())
+    viewModel.draft = "Describe this"
+    let send = Task { await viewModel.send() }
+    await service.waitUntilStarted()
+    XCTAssertTrue(viewModel.isGenerating)
+    await viewModel.removeAttachment()
+    viewModel.setDetailPolicy(.fullDetail)
+    XCTAssertNotNil(viewModel.draftAttachment)
+    await service.finish(.length)
+    await send.value
+    XCTAssertNil(viewModel.draftAttachment)
+  }
+
+  func testReplacingDraftDeletesSupersededManagedCopy() async {
+    let first = UIFixture.attachmentDraft.makeState().draftAttachment!
+    let second = ImageAttachment(
+      id: UUID(), originalFilename: "second.jpg", managedRelativePath: "second.jpg",
+      pixelSize: .init(width: 640, height: 480), byteCount: 100,
+      contentType: "image/jpeg", detailPolicy: .fast1024, lifecycle: .managedDraft,
+      accessibleLabel: "Second image")
+    let attachments = AttachmentLifecycleService(imports: [first, second])
+    let viewModel = ChatViewModel(
+      service: RecordingChatService(events: []), isModelReady: true, attachments: attachments)
+
+    await viewModel.importAttachment(data: Data([1]), filename: "first.jpg")
+    await viewModel.importAttachment(data: Data([2]), filename: "second.jpg")
+
+    XCTAssertEqual(viewModel.draftAttachment?.id, second.id)
+    let deletedIDs = await attachments.deletedIDs
+    XCTAssertEqual(deletedIDs, [first.id])
+  }
+
+  func testClearDataSuccessResetsDraftUIAndFailureOffersNamedRetry() async {
+    let viewModel = ChatViewModel(
+      service: RecordingChatService(events: []), isModelReady: true)
+    viewModel.applyFixture(UIFixture.attachmentRecovery.makeState())
+    viewModel.draft = "private draft"
+
+    await viewModel.clearLocalData(using: StubSettingsService(shouldFail: true))
+    XCTAssertNotNil(viewModel.draftAttachment)
+    XCTAssertEqual(viewModel.recovery?.label, "Retry clear data")
+    XCTAssertNotNil(viewModel.clearDataError)
+
+    await viewModel.clearLocalData(using: StubSettingsService(shouldFail: false))
+    XCTAssertNil(viewModel.draftAttachment)
+    XCTAssertTrue(viewModel.draft.isEmpty)
+    XCTAssertTrue(viewModel.messages.isEmpty)
+    XCTAssertNil(viewModel.clearDataError)
+    XCTAssertNil(viewModel.recovery)
+  }
+
+  func testPersistentRetryClearActionRetriesClearAndNeverSendsChat() async {
+    let chat = RecordingChatService(events: [])
+    let settings = SequencedSettingsService(failuresBeforeSuccess: 1)
+    let viewModel = ChatViewModel(service: chat, isModelReady: true)
+    viewModel.draft = "must not send"
+    await viewModel.clearLocalData(using: settings)
+
+    XCTAssertEqual(viewModel.recovery?.intent, .retryClear)
+    await viewModel.performRecovery()
+
+    let settingsCallCount = await settings.callCount
+    let chatRequestCount = await chat.requestCount
+    XCTAssertEqual(settingsCallCount, 2)
+    XCTAssertEqual(chatRequestCount, 0)
+    XCTAssertNil(viewModel.recovery)
   }
 
   func testNavigationContractUsesPlatformAndHorizontalSizeClass() {
@@ -575,6 +680,26 @@ private actor ScriptedChatService: ChatSessionServing {
   func cancel() async {}
 }
 
+private actor RecordingChatService: ChatSessionServing {
+  let events: [ChatSessionEvent]
+  private(set) var requests: [ChatSendRequest] = []
+  var requestCount: Int { requests.count }
+
+  init(events: [ChatSessionEvent]) { self.events = events }
+
+  func stream(
+    _ request: ChatSendRequest
+  ) async throws -> AsyncThrowingStream<ChatSessionEvent, any Error> {
+    requests.append(request)
+    let pair = AsyncThrowingStream<ChatSessionEvent, any Error>.makeStream()
+    events.forEach { pair.continuation.yield($0) }
+    pair.continuation.finish()
+    return pair.stream
+  }
+
+  func cancel() async {}
+}
+
 private actor SuspendingChatService: ChatSessionServing {
   private var started = false
   private var cancelled = false
@@ -592,6 +717,53 @@ private actor SuspendingChatService: ChatSessionServing {
 
   func waitUntilStarted() async {
     while !started { await Task.yield() }
+  }
+
+  func finish(_ completion: AgentCompletion) {
+    continuation?.yield(.completed(completion))
+    continuation?.finish()
+  }
+}
+
+private actor AttachmentLifecycleService: AttachmentServing {
+  private var imports: [ImageAttachment]
+  private(set) var deletedIDs: [UUID] = []
+
+  init(imports: [ImageAttachment]) { self.imports = imports }
+
+  func importImage(
+    from source: URL, policy: ImageDetailPolicy, accessibleLabel: String
+  ) throws -> ImageAttachment { imports.removeFirst() }
+
+  func importImage(
+    data: Data, filename: String, policy: ImageDetailPolicy, accessibleLabel: String
+  ) throws -> ImageAttachment { imports.removeFirst() }
+
+  func delete(_ attachment: ImageAttachment) { deletedIDs.append(attachment.id) }
+}
+
+private actor StubSettingsService: SettingsServing {
+  enum Failure: Error { case requested }
+  let shouldFail: Bool
+  init(shouldFail: Bool) { self.shouldFail = shouldFail }
+  func clearConversationsNotesAndImages() throws {
+    if shouldFail { throw Failure.requested }
+  }
+}
+
+private actor SequencedSettingsService: SettingsServing {
+  enum Failure: Error { case requested }
+  private var failuresRemaining: Int
+  private(set) var callCount = 0
+
+  init(failuresBeforeSuccess: Int) { failuresRemaining = failuresBeforeSuccess }
+
+  func clearConversationsNotesAndImages() throws {
+    callCount += 1
+    if failuresRemaining > 0 {
+      failuresRemaining -= 1
+      throw Failure.requested
+    }
   }
 }
 // swiftlint:enable file_length type_body_length

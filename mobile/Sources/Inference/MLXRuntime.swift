@@ -1,9 +1,13 @@
 import Foundation
+import CoreImage
 import MLX
 import MLXHuggingFace
 import MLXLMCommon
 import MLXVLM
 import Tokenizers
+
+// Runtime adapters and their prompt composer remain colocated for auditability.
+// swiftlint:disable file_length
 
 private struct LocalReasoningBaseConfiguration: Decodable {
   let modelType: String
@@ -88,6 +92,7 @@ struct MLXContinuationDebugSnapshot: Equatable, Sendable {
   let continuationSessionIdentity: UUID?
   let continuationCount: Int
   let fullHistoryReplayCount: Int
+  let initialImageInjectionCount: Int
   let reasoningBudget: Int
   let sampledReasoningTokenCount: Int
   let forcedReasoningCloseTokenIndex: Int?
@@ -96,6 +101,7 @@ struct MLXContinuationDebugSnapshot: Equatable, Sendable {
   static let unavailable = MLXContinuationDebugSnapshot(
     runtimeIdentity: nil, sessionIdentity: nil, generationSessionIdentity: nil,
     continuationSessionIdentity: nil, continuationCount: 0, fullHistoryReplayCount: 0,
+    initialImageInjectionCount: 0,
     reasoningBudget: -1, sampledReasoningTokenCount: 0,
     forcedReasoningCloseTokenIndex: nil, didSampleForcedReasoningClose: false)
 }
@@ -146,6 +152,7 @@ private final class LiveMLXRuntimeResource: MLXRuntimeResource, @unchecked Senda
   private var continuationSessionIdentity: UUID?
   private var continuationCount = 0
   private var fullHistoryReplayCount = 0
+  private var initialImageInjectionCount = 0
   let reasoningConfig: ReasoningConfig?
   var hasSession: Bool { session != nil }
   var continuationDebugSnapshot: MLXContinuationDebugSnapshot {
@@ -157,6 +164,7 @@ private final class LiveMLXRuntimeResource: MLXRuntimeResource, @unchecked Senda
       continuationSessionIdentity: continuationSessionIdentity,
       continuationCount: continuationCount,
       fullHistoryReplayCount: fullHistoryReplayCount,
+      initialImageInjectionCount: initialImageInjectionCount,
       reasoningBudget: reasoning?.reasoningBudget ?? -1,
       sampledReasoningTokenCount: reasoning?.sampledReasoningTokenCount ?? 0,
       forcedReasoningCloseTokenIndex: reasoning?.forcedCloseTokenIndex,
@@ -193,7 +201,10 @@ private final class LiveMLXRuntimeResource: MLXRuntimeResource, @unchecked Senda
     sessionIdentity = UUID()
     generationSessionIdentity = sessionIdentity
     fullHistoryReplayCount += 1
-    return created.streamDetails(to: try MLXPromptComposer.chatMessages(messages))
+    initialImageInjectionCount += configuredRequest.images.count
+    return created.streamDetails(
+      to: try MLXPromptComposer.chatMessages(messages, images: configuredRequest.images)
+    )
   }
 
   func continueAfterTools(
@@ -251,9 +262,7 @@ private final class LiveMLXRuntimeResource: MLXRuntimeResource, @unchecked Senda
     return session
   }
 
-  private static let processing = UserInput.Processing(
-    resize: CGSize(width: 512, height: 512)
-  )
+  private static let processing = UserInput.Processing()
 
   private static func configure(_ session: MLXLMCommon.ChatSession, request: GenerationRequest) {
     session.generateParameters = parameters(maxTokens: request.maxTokens)
@@ -268,19 +277,40 @@ private final class LiveMLXRuntimeResource: MLXRuntimeResource, @unchecked Senda
 }
 
 enum MLXPromptComposer {
-  static func chatMessages(_ messages: [ConversationMessage]) throws -> [Chat.Message] {
-    try messages.map { message in
-      switch message.role {
-      case .system: .system(message.content)
-      case .user: .user(message.content)
-      case .assistant: .assistant(message.content)
+  static func chatMessages(
+    _ messages: [ConversationMessage],
+    images: [GenerationImage] = []
+  ) throws -> [Chat.Message] {
+    let knownMessageIDs = Set(messages.map(\.id))
+    let uniqueAttachmentIDs = Set(images.map(\.attachmentID))
+    let uniqueBuffers = Set(images.map(\.buffer.id))
+    guard uniqueAttachmentIDs.count == images.count, uniqueBuffers.count == images.count,
+          images.allSatisfy({ knownMessageIDs.contains($0.messageID) }),
+          images.allSatisfy({ binding in
+            messages.first(where: { $0.id == binding.messageID })?.attachments
+              .contains(where: { $0.id == binding.attachmentID }) == true
+          }) else {
+      throw MLXInferenceError.invalidImageBinding
+    }
+    let bindings = Dictionary(grouping: images, by: \.messageID)
+    return try messages.map { message -> Chat.Message in
+      let messageImages = bindings[message.id, default: []].map {
+        UserInput.Image.ciImage(CIImage(cgImage: $0.buffer.image))
+      }
+      guard message.role == .user || messageImages.isEmpty else {
+        throw MLXInferenceError.invalidImageBinding
+      }
+      return switch message.role {
+      case .system: Chat.Message.system(message.content)
+      case .user: Chat.Message.user(message.content, images: messageImages)
+      case .assistant: Chat.Message.assistant(message.content)
       case .toolCall:
-        try .assistant(
+        Chat.Message.assistant(
           "",
-          toolCalls: [toolCall(message)]
+          toolCalls: [try toolCall(message)]
         )
       case .toolResult:
-        .tool(message.content, id: message.transactionID)
+        Chat.Message.tool(message.content, id: message.transactionID)
       }
     }
   }

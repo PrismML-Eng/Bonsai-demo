@@ -1,5 +1,7 @@
 import Foundation
 import Observation
+// Presentation state and its deterministic event reducer remain colocated.
+// swiftlint:disable file_length
 
 enum ReasoningEffort: String, CaseIterable, Identifiable, Sendable {
   case off = "Off", low = "Low", medium = "Medium", high = "High", max = "Max"
@@ -28,11 +30,22 @@ struct ReasoningPresentation: Equatable, Sendable {
   var status = "Not used"
 }
 
-struct RecoveryPresentation: Equatable, Sendable { let label: String }
+enum RecoveryIntent: Equatable, Sendable { case retrySend, retryClear }
+struct RecoveryPresentation: Equatable, Sendable {
+  let label: String
+  let intent: RecoveryIntent
+}
 
 struct ChatSendRequest: Equatable, Sendable {
   let prompt: String
   let effort: ReasoningEffort
+  let attachment: ImageAttachment?
+
+  init(prompt: String, effort: ReasoningEffort, attachment: ImageAttachment? = nil) {
+    self.prompt = prompt
+    self.effort = effort
+    self.attachment = attachment
+  }
 }
 
 enum ActivityAction: Equatable, Sendable { case allowOnce(String), deny(String) }
@@ -82,9 +95,12 @@ extension ChatSessionServing {
   func history() async throws -> [ChatMessagePresentation] { [] }
 }
 
+// Presentation state intentionally remains one atomic main-actor transaction boundary.
+// swiftlint:disable type_body_length
 @MainActor @Observable
 final class ChatViewModel {
   private let service: any ChatSessionServing
+  private let attachments: (any AttachmentServing)?
   var draft = ""
   var effort: ReasoningEffort = .medium
   private(set) var messages: [ChatMessagePresentation] = []
@@ -96,30 +112,61 @@ final class ChatViewModel {
   private(set) var recovery: RecoveryPresentation?
   private(set) var terminalStatus: String?
   private(set) var contextTrimNotice: String?
+  private(set) var draftAttachment: ImageAttachment?
+  private(set) var attachmentError: String?
+  private(set) var clearDataError: String?
+  private(set) var showsFullDetailWarning = false
+  var defaultImageDetail: ImageDetailPolicy = .fast1024
   var isModelReady: Bool
   var loadedModelName: String?
   private var generationTask: Task<Void, Never>?
   private var generationID: UUID?
   private var activePrompt: String?
+  private var attachmentImportID: UUID?
+  private var didPersistCurrentRun = false
+  private var clearRetryService: (any SettingsServing)?
 
-  init(service: any ChatSessionServing, isModelReady: Bool) {
+  init(
+    service: any ChatSessionServing,
+    isModelReady: Bool,
+    attachments: (any AttachmentServing)? = nil
+  ) {
     self.service = service
+    self.attachments = attachments
     self.isModelReady = isModelReady
     loadedModelName = isModelReady ? "Bonsai 27B · 1-bit" : nil
   }
 
-  var canSend: Bool { isModelReady && !isGenerating && !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+  var canSend: Bool {
+    isModelReady && !isGenerating
+      && (!draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || draftAttachment != nil)
+  }
 
   func send() async {
     guard canSend else { return }
+    if needsFullDetailConfirmation {
+      showsFullDetailWarning = true
+      return
+    }
+    await performSend()
+  }
+
+  func confirmFullDetailSend() async {
+    showsFullDetailWarning = false
+    await performSend()
+  }
+
+  private func performSend() async {
+    guard canSend else { return }
     let prompt = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+    let attachment = draftAttachment
     activePrompt = prompt
     draft = ""
     messages.append(.init(id: UUID(), role: .user, text: prompt))
     resetRunState()
     isGenerating = true
     let service = self.service
-    let request = ChatSendRequest(prompt: prompt, effort: effort)
+    let request = ChatSendRequest(prompt: prompt, effort: effort, attachment: attachment)
     let runID = UUID()
     generationID = runID
     let task = Task { [weak self] in
@@ -142,7 +189,98 @@ final class ChatViewModel {
       generationID = nil
     }
     isGenerating = false
+    if failedPrompt == nil, didPersistCurrentRun { draftAttachment = nil }
     if terminalStatus == nil { terminalStatus = "Complete" }
+  }
+
+  func importAttachment(from source: URL, label: String = "Selected image") async {
+    guard !isGenerating else { return }
+    guard let attachments else {
+      attachmentError = "Image attachments are unavailable."
+      return
+    }
+    let importID = UUID()
+    attachmentImportID = importID
+    do {
+      let imported = try await attachments.importImage(
+        from: source, policy: defaultImageDetail, accessibleLabel: label)
+      await commitImportedAttachment(imported, importID: importID)
+    } catch { attachmentError = "Could not add image: \(error.localizedDescription)" }
+  }
+
+  func importAttachment(
+    data: Data, filename: String, label: String = "Selected image"
+  ) async {
+    guard !isGenerating else { return }
+    guard let attachments else {
+      attachmentError = "Image attachments are unavailable."
+      return
+    }
+    let importID = UUID()
+    attachmentImportID = importID
+    do {
+      let imported = try await attachments.importImage(
+        data: data, filename: filename, policy: defaultImageDetail, accessibleLabel: label)
+      await commitImportedAttachment(imported, importID: importID)
+    } catch { attachmentError = "Could not add image: \(error.localizedDescription)" }
+  }
+
+  func removeAttachment() async {
+    guard !isGenerating else { return }
+    attachmentImportID = nil
+    guard let attachment = draftAttachment else { return }
+    do { try await attachments?.delete(attachment) } catch {
+      attachmentError = "Could not remove image: \(error.localizedDescription)"
+      return
+    }
+    draftAttachment = nil
+  }
+
+  func setDetailPolicy(_ policy: ImageDetailPolicy) {
+    guard !isGenerating else { return }
+    guard var attachment = draftAttachment else {
+      defaultImageDetail = policy
+      return
+    }
+    attachment.detailPolicy = policy
+    draftAttachment = attachment
+  }
+
+  func dismissFullDetailWarning() { showsFullDetailWarning = false }
+  func presentAttachmentError(_ message: String) { attachmentError = message }
+  func dismissClearDataError() { clearDataError = nil }
+
+  func clearLocalData(using service: any SettingsServing) async {
+    attachmentImportID = nil
+    await stop()
+    do {
+      try await service.clearConversationsNotesAndImages()
+      attachmentImportID = nil
+      draftAttachment = nil
+      draft = ""
+      messages = []
+      reasoning = .init()
+      metrics = nil
+      activities = []
+      terminalStatus = nil
+      contextTrimNotice = nil
+      attachmentError = nil
+      clearDataError = nil
+      failedPrompt = nil
+      recovery = nil
+      clearRetryService = nil
+      await reloadHistory()
+    } catch {
+      clearDataError = "Could not clear local data: \(error.localizedDescription). Retry clear data."
+      clearRetryService = service
+      recovery = .init(label: "Retry clear data", intent: .retryClear)
+    }
+  }
+
+  private var needsFullDetailConfirmation: Bool {
+    guard let attachment = draftAttachment, attachment.detailPolicy == .fullDetail,
+          let pixels = attachment.pixelSize.pixelCount else { return false }
+    return pixels > 1_024 * 1_024
   }
 
   func start() async {
@@ -167,9 +305,21 @@ final class ChatViewModel {
     await send()
   }
 
+  func performRecovery() async {
+    switch recovery?.intent {
+    case .retrySend: await retry()
+    case .retryClear:
+      guard let clearRetryService else { return }
+      await clearLocalData(using: clearRetryService)
+    case nil: return
+    }
+  }
+
   func stop() async {
-    generationTask?.cancel()
+    let task = generationTask
+    task?.cancel()
     await service.cancel()
+    await task?.value
     markStopped()
     isGenerating = false
   }
@@ -183,6 +333,9 @@ final class ChatViewModel {
     activities = state.activities
     terminalStatus = state.terminalStatus
     contextTrimNotice = state.contextTrimNotice
+    draftAttachment = state.draftAttachment
+    attachmentError = state.attachmentError
+    showsFullDetailWarning = state.showsFullDetailWarning
   }
 
   private func resetRunState() {
@@ -193,6 +346,7 @@ final class ChatViewModel {
     recovery = nil
     terminalStatus = nil
     contextTrimNotice = nil
+    didPersistCurrentRun = false
   }
 
   // All stream event variants converge here so presentation updates stay atomic.
@@ -221,6 +375,7 @@ final class ChatViewModel {
         markFailure(Self.label(completion), prompt: activePrompt ?? "")
       default:
         terminalStatus = Self.label(completion)
+        didPersistCurrentRun = completion == .stop || completion == .length
       }
     case .failed(let message): markFailure(message, prompt: messages.last(where: { $0.role == .user })?.text ?? "")
     case .contextTrimmed(let notice):
@@ -233,7 +388,23 @@ final class ChatViewModel {
     failedPrompt = prompt
     draft = prompt
     terminalStatus = message
-    recovery = .init(label: "Retry send")
+    recovery = .init(label: "Retry send", intent: .retrySend)
+  }
+
+  private func commitImportedAttachment(_ imported: ImageAttachment, importID: UUID) async {
+    guard attachmentImportID == importID, !isGenerating else {
+      try? await attachments?.delete(imported)
+      return
+    }
+    let superseded = draftAttachment
+    draftAttachment = imported
+    attachmentError = nil
+    if let superseded, superseded.id != imported.id {
+      do { try await attachments?.delete(superseded) } catch {
+        attachmentError = "Image added, but the superseded private copy could not be deleted: "
+          + error.localizedDescription
+      }
+    }
   }
 
   private static func label(_ completion: AgentCompletion) -> String {
@@ -247,3 +418,5 @@ final class ChatViewModel {
     }
   }
 }
+// swiftlint:enable type_body_length
+// swiftlint:enable file_length

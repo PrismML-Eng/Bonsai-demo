@@ -63,6 +63,23 @@ actor ConversationStore {
         return conversation
     }
 
+    func delete(_ id: ConversationID) async throws {
+        if let operation = saveOperations[id] { _ = try? await operation.task.value }
+        try await storage.delete(identifier: id.rawValue)
+    }
+
+    func clearSnapshot(_ ids: [ConversationID]) async throws -> [ConversationID: Data] {
+        var result: [ConversationID: Data] = [:]
+        for id in ids {
+            if let data = try await storage.read(identifier: id.rawValue) { result[id] = data }
+        }
+        return result
+    }
+
+    func restoreClearSnapshot(_ snapshot: [ConversationID: Data]) async throws {
+        for (id, data) in snapshot { try await storage.write(data, identifier: id.rawValue) }
+    }
+
     private func decoded(_ id: ConversationID) async throws -> Conversation? {
         guard let data = try await storage.read(identifier: id.rawValue) else { return nil }
         do {
