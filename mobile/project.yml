@@ -32,12 +32,19 @@ targets:
         buildPhase: resources
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.prismml.BonsaiMobile
+        PRODUCT_BUNDLE_IDENTIFIER: com.mmizutani-prismml.BonsaiMobile
+        DEVELOPMENT_TEAM: 22K7BYQ5M2
+        MARKETING_VERSION: 1.0
+        CURRENT_PROJECT_VERSION: 1
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: Bonsai
         INFOPLIST_KEY_NSCameraUsageDescription: Add a photo to a private on-device conversation.
         INFOPLIST_KEY_NSPhotoLibraryUsageDescription: Add a photo to a private on-device conversation.
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity
+        INFOPLIST_KEY_BonsaiSourceCommit: "$(BONSAI_SOURCE_COMMIT)"
+    preBuildScripts:
+      - name: Validate source provenance
+        script: "$SRCROOT/scripts/validate_source_provenance.sh"
     dependencies:
       - package: MLXSwiftLM
         product: MLXLLM
@@ -121,3 +128,15 @@ schemes:
       targets: [BonsaiMobileIntegrationTests]
       environmentVariables:
         BONSAI_MODEL_DIR: "$(BONSAI_MODEL_DIR)"
+        BONSAI_MODEL_RELATIVE_PATH: "$(BONSAI_MODEL_RELATIVE_PATH)"
+        BONSAI_MODEL_REVISION: "$(BONSAI_MODEL_REVISION)"
+        BONSAI_EVIDENCE_MODEL: "$(BONSAI_EVIDENCE_MODEL)"
+        BONSAI_EVIDENCE_SCENARIOS: "$(BONSAI_EVIDENCE_SCENARIOS)"
+        BONSAI_EVIDENCE_RUN_ID: "$(BONSAI_EVIDENCE_RUN_ID)"
+        BONSAI_EVIDENCE_DESTINATION_HASH: "$(BONSAI_EVIDENCE_DESTINATION_HASH)"
+        BONSAI_NETWORK_CAPTURE_SHA256: "$(BONSAI_NETWORK_CAPTURE_SHA256)"
+        BONSAI_SOURCE_AUDIT_SHA256: "$(BONSAI_SOURCE_AUDIT_SHA256)"
+        BONSAI_AIRPLANE_MODE_ENABLED: "$(BONSAI_AIRPLANE_MODE_ENABLED)"
+        BONSAI_OBSERVED_OUTBOUND_REQUEST_COUNT: "$(BONSAI_OBSERVED_OUTBOUND_REQUEST_COUNT)"
+        BONSAI_NETWORK_INSPECTION_METHOD: "$(BONSAI_NETWORK_INSPECTION_METHOD)"
+        BONSAI_SOURCE_COMMIT: "$(BONSAI_SOURCE_COMMIT)"

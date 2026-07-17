@@ -69,8 +69,68 @@
       </CommandLineArguments>
       <EnvironmentVariables>
          <EnvironmentVariable
+            key = "BONSAI_AIRPLANE_MODE_ENABLED"
+            value = "$(BONSAI_AIRPLANE_MODE_ENABLED)"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "BONSAI_EVIDENCE_DESTINATION_HASH"
+            value = "$(BONSAI_EVIDENCE_DESTINATION_HASH)"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "BONSAI_EVIDENCE_MODEL"
+            value = "$(BONSAI_EVIDENCE_MODEL)"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "BONSAI_EVIDENCE_RUN_ID"
+            value = "$(BONSAI_EVIDENCE_RUN_ID)"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "BONSAI_EVIDENCE_SCENARIOS"
+            value = "$(BONSAI_EVIDENCE_SCENARIOS)"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
             key = "BONSAI_MODEL_DIR"
             value = "$(BONSAI_MODEL_DIR)"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "BONSAI_MODEL_RELATIVE_PATH"
+            value = "$(BONSAI_MODEL_RELATIVE_PATH)"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "BONSAI_MODEL_REVISION"
+            value = "$(BONSAI_MODEL_REVISION)"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "BONSAI_NETWORK_CAPTURE_SHA256"
+            value = "$(BONSAI_NETWORK_CAPTURE_SHA256)"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "BONSAI_NETWORK_INSPECTION_METHOD"
+            value = "$(BONSAI_NETWORK_INSPECTION_METHOD)"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "BONSAI_OBSERVED_OUTBOUND_REQUEST_COUNT"
+            value = "$(BONSAI_OBSERVED_OUTBOUND_REQUEST_COUNT)"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "BONSAI_SOURCE_AUDIT_SHA256"
+            value = "$(BONSAI_SOURCE_AUDIT_SHA256)"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "BONSAI_SOURCE_COMMIT"
+            value = "$(BONSAI_SOURCE_COMMIT)"
             isEnabled = "YES">
          </EnvironmentVariable>
       </EnvironmentVariables>
