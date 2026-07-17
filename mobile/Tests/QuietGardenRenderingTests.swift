@@ -121,7 +121,7 @@ final class QuietGardenRenderingTests: XCTestCase {
                                 meaning: "chat composer and send control")
     case "compact-dark-accessibility.png":
       try requireSemanticRegion(in: bitmap, rect: NSRect(x: 12, y: 8, width: 406, height: 52),
-                                meaning: "compact model-library and conversation controls")
+                                meaning: "compact inline navigation chrome")
       try requireSemanticRegion(in: bitmap, rect: NSRect(x: 12, y: 72, width: 406, height: 155),
                                 meaning: "accessible chat messages")
       try requireSemanticRegion(in: bitmap, rect: NSRect(x: 12, y: 232, width: 406, height: 150),
@@ -139,8 +139,10 @@ final class QuietGardenRenderingTests: XCTestCase {
       try requireSemanticRegion(in: bitmap, rect: NSRect(x: 8, y: 165, width: 304, height: 125),
                                 meaning: "accessibility-sized ternary model row and controls")
     case "vision-draft-ax5-reduce-motion.png":
-      try requireSemanticRegion(in: bitmap, rect: NSRect(x: 12, y: 8, width: 406, height: 115),
-                                meaning: "AX5 navigation and private local model state")
+      // Compact stack chrome lives in the navigation toolbar; NSHostingView captures may omit
+      // that bar, so the contract asserts in-content Quiet Garden regions instead.
+      try requireSemanticRegion(in: bitmap, rect: NSRect(x: 12, y: 40, width: 406, height: 280),
+                                meaning: "AX5 empty chat guidance")
       try requireSemanticRegion(in: bitmap, rect: NSRect(x: 12, y: 705, width: 406, height: 330),
                                 meaning: "AX5 attachment, detail, picker, composer, and send controls")
     default:

@@ -212,7 +212,7 @@
 		66EE46124D28DB7A53A91EB0 /* ConversationStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationStore.swift; sourceTree = "<group>"; };
 		6937CDF49B8D569B64415F16 /* CalculatorParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalculatorParser.swift; sourceTree = "<group>"; };
 		698A0393491D0397E5038144 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
-		6F0723A364A1AA5B5B6713D0 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		6F0723A364A1AA5B5B6713D0 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		7015387E423B64CB69C39C39 /* VisionAccessibilityUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionAccessibilityUITests.swift; sourceTree = "<group>"; };
 		711D5FD344CE0EDC98191D9B /* EffectiveCapabilityPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EffectiveCapabilityPolicyTests.swift; sourceTree = "<group>"; };
 		71D2725420539447C7CE7BD5 /* NotesStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesStore.swift; sourceTree = "<group>"; };
@@ -232,7 +232,7 @@
 		90A83398A9565FC0B838004C /* ImageAttachment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageAttachment.swift; sourceTree = "<group>"; };
 		923116C1A669C71329B4EC80 /* BackgroundTransferBodyStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundTransferBodyStore.swift; sourceTree = "<group>"; };
 		935208CF02581A0AC42CFC41 /* AgentLoopProtocolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentLoopProtocolTests.swift; sourceTree = "<group>"; };
-		952A2D74B43F98B0EE43E369 /* BonsaiMobile.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BonsaiMobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		952A2D74B43F98B0EE43E369 /* BonsaiMobile.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = BonsaiMobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		96788F4B0A9094EAF9120986 /* MLXInferenceEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MLXInferenceEngine.swift; sourceTree = "<group>"; };
 		9A50A852C61912BB4AB1097F /* ArchiveMetadataValidatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveMetadataValidatorTests.swift; sourceTree = "<group>"; };
 		9D3C00BBA931E17478172C8F /* ConversationCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationCoordinatorTests.swift; sourceTree = "<group>"; };
@@ -248,7 +248,7 @@
 		B1856A605399076F643EF79D /* ConversationStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationStoreTests.swift; sourceTree = "<group>"; };
 		B1DA096651094761EA6855D9 /* EffectiveCapabilityPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EffectiveCapabilityPolicy.swift; sourceTree = "<group>"; };
 		B712483BA9C8DF8116DC1D4D /* ToolContracts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolContracts.swift; sourceTree = "<group>"; };
-		B7E24895C180A2118B61CC6F /* .gitkeep */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitkeep; sourceTree = "<group>"; };
+		B7E24895C180A2118B61CC6F /* .gitkeep */ = {isa = PBXFileReference; path = .gitkeep; sourceTree = "<group>"; };
 		BB08CBD553F8AA7F7AC1EFA4 /* ToolRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolRegistry.swift; sourceTree = "<group>"; };
 		BB4E76C388E340BEAC8B6031 /* MLXGenerationMapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MLXGenerationMapper.swift; sourceTree = "<group>"; };
 		C0668D4C090309F3550836AE /* BonsaiMobileIntegrationTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = BonsaiMobileIntegrationTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -282,7 +282,7 @@
 		F8F1710CFCAF622A3721CD0D /* CalculatorParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalculatorParserTests.swift; sourceTree = "<group>"; };
 		F94951512FC7DFC224F0BE48 /* BackgroundTransferCompletionRegistryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundTransferCompletionRegistryTests.swift; sourceTree = "<group>"; };
 		F9C5239DAAB0A9F813B82EA7 /* ModelLibraryTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelLibraryTypes.swift; sourceTree = "<group>"; };
-		FB6844A1C9F2CD1F44BB7CEB /* .gitkeep */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitkeep; sourceTree = "<group>"; };
+		FB6844A1C9F2CD1F44BB7CEB /* .gitkeep */ = {isa = PBXFileReference; path = .gitkeep; sourceTree = "<group>"; };
 		FBBA6F970B4898D435D262A3 /* DeviceQualification.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceQualification.swift; sourceTree = "<group>"; };
 		FBFEF9BB93A7EB2B1C9ED744 /* ContextTrimmer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextTrimmer.swift; sourceTree = "<group>"; };
 		FD2D09A513F78C6AABAB103C /* BackgroundTransferLedgerStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundTransferLedgerStorage.swift; sourceTree = "<group>"; };
@@ -726,6 +726,9 @@
 					0CE7CF01ADEAE425F2B063F7 = {
 						TestTargetID = 4F1A4BC7D2BBD00131D935B9;
 					};
+					4F1A4BC7D2BBD00131D935B9 = {
+						DevelopmentTeam = 22K7BYQ5M2;
+					};
 				};
 			};
 			buildConfigurationList = 5EFFAFD3301739DCC714E2FC /* Build configuration list for PBXProject "BonsaiMobile" */;
@@ -1096,6 +1099,7 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Add a photo to a private on-device conversation.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Add a photo to a private on-device conversation.";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -1259,6 +1263,7 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Add a photo to a private on-device conversation.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Add a photo to a private on-device conversation.";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

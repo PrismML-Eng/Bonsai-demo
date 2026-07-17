@@ -9,16 +9,26 @@ struct ChatView: View {
       ComposerView(viewModel: viewModel)
     }
     .background(QuietGardenTheme.paper)
-    .navigationTitle("On-device chat")
-    .toolbar { ToolbarItem(placement: .primaryAction) { modelStatus } }
+    .navigationTitle("Bonsai")
+    .toolbar {
+      ToolbarItem(placement: modelStatusPlacement) { modelStatus }
+    }
     .task { await viewModel.start() }
   }
 
+  private var modelStatusPlacement: ToolbarItemPlacement {
+    #if os(iOS)
+    .topBarTrailing
+    #else
+    .status
+    #endif
+  }
+
   private var modelStatus: some View {
-    Label(viewModel.loadedModelName.map { "\($0) loaded" } ?? "No model loaded",
-          systemImage: viewModel.isModelReady ? "leaf.fill" : "leaf")
-      .font(.caption).foregroundStyle(viewModel.isModelReady ? QuietGardenTheme.success : .secondary)
-      .accessibilityLabel(viewModel.loadedModelName.map { "\($0) is loaded locally" } ?? "No model is loaded")
+    Image(systemName: viewModel.isModelReady ? "leaf.fill" : "leaf")
+      .foregroundStyle(viewModel.isModelReady ? QuietGardenTheme.success : .secondary)
+      .accessibilityLabel(
+        viewModel.loadedModelName.map { "\($0) is loaded locally" } ?? "No model is loaded")
   }
 
   private var emptyState: some View {

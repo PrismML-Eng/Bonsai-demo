@@ -45,11 +45,18 @@ struct ComposerView: View {
           .pickerStyle(.menu).fixedSize().frame(minHeight: QuietGardenTheme.minimumTarget)
           .accessibilityValue(viewModel.effort.rawValue)
         }
-        Spacer()
-        Label("Local only", systemImage: "lock.fill").font(.caption).foregroundStyle(.secondary)
+        Spacer(minLength: QuietGardenTheme.spacingS)
+        ViewThatFits(in: .horizontal) {
+          Label("Local only", systemImage: "lock.fill")
+            .font(.caption).foregroundStyle(.secondary).fixedSize()
+          Image(systemName: "lock.fill")
+            .font(.caption).foregroundStyle(.secondary)
+            .accessibilityLabel("Local only")
+        }
       }
     }
     .padding(.horizontal, QuietGardenTheme.spacingM)
+    .padding(.top, QuietGardenTheme.spacingS)
     .padding(.bottom, QuietGardenTheme.spacingS)
     .background(.bar)
     .fileImporter(isPresented: $showsFileImporter, allowedContentTypes: [.image]) { result in

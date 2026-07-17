@@ -243,6 +243,7 @@ struct DeviceEvidenceTests {
     promptTokensPerSecond: Double? = 122.4,
     generatedTokensPerSecond: Double? = 12.5,
     pressureTermination: Bool = false,
+    recordKind: DeviceEvidence.RecordKind = .supported,
     outcome: DeviceEvidence.Outcome = .completed,
     offlineProof: DeviceEvidence.OfflineProof? = .init(
       airplaneModeEnabled: true,
@@ -251,7 +252,6 @@ struct DeviceEvidenceTests {
       networkCaptureSHA256: String(repeating: "e", count: 64),
       sourceAuditSHA256: String(repeating: "f", count: 64)),
     capabilities: Set<ModelCapability> = [.textGeneration],
-    recordKind: DeviceEvidence.RecordKind = .supported,
     scenarioResults: [DeviceEvidence.ScenarioResult] = Self.requiredScenarioResults,
     unsupportedReason: DeviceEvidence.UnsupportedReason? = nil
   ) -> DeviceEvidence {

@@ -218,11 +218,11 @@ struct RootView: View {
     Group {
         if RootNavigationState.layout(platform: platform, compactWidth: horizontalSizeClass == .compact) == .stack {
           NavigationStack {
-            VStack(spacing: 0) {
-              compactHeader
-              Divider()
-              ChatView(viewModel: chatViewModel)
-            }
+            ChatView(viewModel: chatViewModel)
+              #if os(iOS)
+              .navigationBarTitleDisplayMode(.inline)
+              #endif
+              .toolbar { compactToolbar }
           }
         } else {
           regularWorkspace
@@ -313,31 +313,23 @@ struct RootView: View {
     #endif
   }
 
-  private var compactHeader: some View {
-    VStack(alignment: .leading, spacing: 8) {
-      HStack {
-        Text("Bonsai").font(.headline)
-        Spacer()
-        if let name = chatViewModel.loadedModelName {
-          Label(name, systemImage: "leaf.fill")
-            .font(.caption).foregroundStyle(.secondary)
-        } else {
-          Text("No model loaded").font(.caption).foregroundStyle(.secondary)
-        }
-      }
-      HStack {
+  @ToolbarContentBuilder private var compactToolbar: some ToolbarContent {
+    ToolbarItem(placement: compactLeadingPlacement) {
       Button { showsLibrary = true } label: {
-        Label("Model Library", systemImage: "shippingbox")
+        Image(systemName: "shippingbox")
       }
+      .accessibilityLabel("Model Library")
       .accessibilityHint("Manage local Bonsai models")
+    }
+    ToolbarItemGroup(placement: compactTrailingPlacement) {
       Button { showsSettings = true } label: {
-        Label("Settings", systemImage: "gearshape")
+        Image(systemName: "gearshape")
       }
       .disabled(chatViewModel.isPrivateDataClearInProgress)
+      .accessibilityLabel("Settings")
       .accessibilityHint(chatViewModel.isPrivateDataClearInProgress
         ? "Unavailable until clearing local data finishes"
         : "Review local privacy, image detail, and clear-data controls")
-      Spacer()
       Menu {
         Button("New conversation") {
           Task {
@@ -354,18 +346,30 @@ struct RootView: View {
           }
         }
       } label: {
-        Label("Conversations", systemImage: "bubble.left.and.bubble.right")
+        Image(systemName: "bubble.left.and.bubble.right")
       }
       .disabled(!chatViewModel.localDataIsCoherent)
+      .accessibilityLabel("Conversations")
       .accessibilityHint(chatViewModel.localDataIsCoherent
         ? "Create or switch private on-device conversations"
         : "Unavailable until clearing local data finishes")
-      }
     }
-    .buttonStyle(.borderless)
-    .padding(.horizontal, 16)
-    .padding(.vertical, 10)
-    .background(.bar)
+  }
+
+  private var compactLeadingPlacement: ToolbarItemPlacement {
+    #if os(iOS)
+    .topBarLeading
+    #else
+    .navigation
+    #endif
+  }
+
+  private var compactTrailingPlacement: ToolbarItemPlacement {
+    #if os(iOS)
+    .topBarTrailing
+    #else
+    .automatic
+    #endif
   }
 
   private var regularSidebar: some View {
