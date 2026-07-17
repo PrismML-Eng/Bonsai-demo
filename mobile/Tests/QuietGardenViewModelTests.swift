@@ -101,7 +101,25 @@ final class QuietGardenViewModelTests: XCTestCase {
     XCTAssertEqual(UIAccessibility.chatComposer, "chat.composer")
   }
 
-  func testLargeFullDetailRequiresConfirmationBeforeServiceStarts() async {
+  func testSendWithAttachmentRejectsBeforeServiceWhenModelLacksVision() async {
+    let service = RecordingChatService(events: [.completed(.stop)])
+    let viewModel = ChatViewModel(service: service, isModelReady: true)
+    viewModel.supportsVisionInput = false
+    viewModel.applyFixture(UIFixture.attachmentDraft.makeState())
+    viewModel.draft = "What is in this image?"
+
+    await viewModel.send()
+
+    let requestCount = await service.requestCount
+    XCTAssertEqual(requestCount, 0)
+    XCTAssertEqual(viewModel.draft, "What is in this image?")
+    XCTAssertNotNil(viewModel.draftAttachment)
+    XCTAssertEqual(
+      viewModel.attachmentError,
+      "This model does not support images. Remove the attachment or load a vision-capable model.")
+  }
+
+    func testLargeFullDetailRequiresConfirmationBeforeServiceStarts() async {
     let service = RecordingChatService(events: [.completed(.stop)])
     let viewModel = ChatViewModel(service: service, isModelReady: true)
     viewModel.applyFixture(UIFixture.fullDetailWarning.makeState())
@@ -185,6 +203,35 @@ final class QuietGardenViewModelTests: XCTestCase {
     XCTAssertTrue(viewModel.messages.isEmpty)
     XCTAssertNil(viewModel.clearDataError)
     XCTAssertNil(viewModel.recovery)
+  }
+
+  func testClearWaitsForCompletedImportOwnershipAndDeletesLosingCopyBeforeRollback() async {
+    let attachment = ImageAttachment(
+      id: UUID(), originalFilename: "race.jpg", managedRelativePath: "race.jpg",
+      pixelSize: .init(width: 32, height: 32), byteCount: 100,
+      contentType: "image/jpeg", detailPolicy: .fast1024, lifecycle: .managedDraft,
+      accessibleLabel: "Race")
+    let attachments = SuspendingAttachmentLifecycleService(attachment: attachment)
+    let settings = SequencedSettingsService(failuresBeforeSuccess: 1)
+    let viewModel = ChatViewModel(
+      service: RecordingChatService(events: []), isModelReady: true, attachments: attachments)
+    let importing = Task { await viewModel.importAttachment(data: Data([1]), filename: "race.jpg") }
+    await attachments.waitUntilWritten()
+    let clearing = Task { await viewModel.clearLocalData(using: settings) }
+    await Task.yield()
+    let callsBeforeOwnership = await settings.callCount
+    XCTAssertEqual(callsBeforeOwnership, 0)
+
+    await attachments.resumeReturn()
+    await importing.value
+    await clearing.value
+
+    let deleted = await attachments.deletedIDs
+    let callsAfterOwnership = await settings.callCount
+    XCTAssertEqual(deleted, [attachment.id])
+    XCTAssertNil(viewModel.draftAttachment)
+    XCTAssertEqual(callsAfterOwnership, 1)
+    XCTAssertNotNil(viewModel.clearDataError)
   }
 
   func testPersistentRetryClearActionRetriesClearAndNeverSendsChat() async {
@@ -539,11 +586,55 @@ final class QuietGardenViewModelTests: XCTestCase {
     return events
   }
 
-  private static func manifests() throws -> [ModelID: ModelManifest] {
+  func testImageSendFailsBeforeRuntimeWhenModelLacksVisionCapability() async throws {
+    let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    let engine = UIAgentEngine(events: [.answer("must not run"), .completed(.stop)])
+    let registry = try ToolRegistry.live(notes: NotesStore(root: root))
+    let coordinator = try ConversationCoordinator(root: root, store: ConversationStore(root: root))
+    let installation = ModelInstallation(
+      modelID: .oneBit27B,
+      directory: URL(fileURLWithPath: "/tmp/text-only-vision"),
+      revision: String(repeating: "d", count: 40))
+    try await coordinator.bind(installation)
+    let catalog = try Self.catalog()
+    let baseline = try XCTUnwrap(catalog.models.first(where: { $0.id == .oneBit27B }))
+    let textOnly = try ModelDescriptor.validated(
+      id: baseline.id,
+      family: baseline.family,
+      displayName: baseline.displayName,
+      manifest: baseline.manifest,
+      requirements: .init(
+        capabilities: baseline.capabilities.subtracting([.vision]),
+        minimumPhysicalMemoryBytes: baseline.minimumPhysicalMemoryBytes,
+        storageSafetyMarginBytes: baseline.storageSafetyMarginBytes))
+    let attachment = ImageAttachment(
+      id: UUID(), originalFilename: "photo.jpg", managedRelativePath: "photo.jpg",
+      pixelSize: .init(width: 64, height: 64), byteCount: 10, contentType: "image/jpeg",
+      detailPolicy: .fast1024, lifecycle: .managedDraft, accessibleLabel: "Photo")
+    let chat = AgentLoopChatService(
+      loop: AgentLoop(engine: engine, registry: registry), approvals: InteractiveApprovalGate(),
+      conversations: coordinator,
+      descriptors: [.oneBit27B: textOnly])
+
+    do {
+      _ = try await Self.collect(try await chat.stream(.init(
+        prompt: "Describe", effort: .off, attachment: attachment)))
+      XCTFail("expected vision rejection before generation")
+    } catch let error as LiveUIServiceError {
+      XCTAssertEqual(
+        error.errorDescription,
+        "\(textOnly.displayName) does not support images. Remove the attachment or load a vision-capable model.")
+    }
+  }
+
+    private static func catalog() throws -> ModelCatalog {
     let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
       .deletingLastPathComponent().appending(path: "Resources/Models/manifest.json")
-    let catalog = try JSONDecoder().decode(ModelCatalog.self, from: Data(contentsOf: url))
-    return Dictionary(uniqueKeysWithValues: catalog.models.map { ($0.id, $0.manifest) })
+    return try JSONDecoder().decode(ModelCatalog.self, from: Data(contentsOf: url))
+  }
+
+  private static func manifests() throws -> [ModelID: ModelManifest] {
+    try Dictionary(uniqueKeysWithValues: catalog().models.map { ($0.id, $0.manifest) })
   }
 
   func testPersistencePolicyCoversEveryTerminalClass() {
@@ -740,6 +831,28 @@ private actor AttachmentLifecycleService: AttachmentServing {
   ) throws -> ImageAttachment { imports.removeFirst() }
 
   func delete(_ attachment: ImageAttachment) { deletedIDs.append(attachment.id) }
+}
+
+private actor SuspendingAttachmentLifecycleService: AttachmentServing {
+  let attachment: ImageAttachment
+  private var written = false
+  private var continuation: CheckedContinuation<Void, Never>?
+  private(set) var deletedIDs: [UUID] = []
+  init(attachment: ImageAttachment) { self.attachment = attachment }
+  func importImage(
+    from source: URL, policy: ImageDetailPolicy, accessibleLabel: String
+  ) async throws -> ImageAttachment { await suspendAfterWrite() }
+  func importImage(
+    data: Data, filename: String, policy: ImageDetailPolicy, accessibleLabel: String
+  ) async throws -> ImageAttachment { await suspendAfterWrite() }
+  func delete(_ attachment: ImageAttachment) { deletedIDs.append(attachment.id) }
+  func waitUntilWritten() async { while !written { await Task.yield() } }
+  func resumeReturn() { continuation?.resume(); continuation = nil }
+  private func suspendAfterWrite() async -> ImageAttachment {
+    written = true
+    await withCheckedContinuation { continuation = $0 }
+    return attachment
+  }
 }
 
 private actor StubSettingsService: SettingsServing {

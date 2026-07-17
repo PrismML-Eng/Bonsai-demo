@@ -98,8 +98,10 @@ final class SettingsDataTests: XCTestCase {
       XCTFail("Expected clear failure")
     } catch {}
 
-    XCTAssertEqual(try await notes.read(id: note.id), note)
-    XCTAssertEqual(try await store.load(selection.conversationID, for: .oneBit27B), conversation)
+    let savedNote = try await notes.read(id: note.id)
+    XCTAssertEqual(savedNote, note)
+    let savedConversation = try await store.load(selection.conversationID, for: .oneBit27B)
+    XCTAssertEqual(savedConversation, conversation)
     XCTAssertTrue(FileManager.default.fileExists(atPath: attachmentLeaf.path))
     XCTAssertEqual(try Data(contentsOf: sentinel), Data("do not touch".utf8))
   }

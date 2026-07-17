@@ -39,7 +39,28 @@ final class VisionRequestTests: XCTestCase {
     XCTAssertTrue(content.hasSuffix("Inspect"))
   }
 
-  func testDuplicateImageBindingsAreRejectedBeforePromptComposition() throws {
+  func testVisionToolPrefaceIsOmittedWhenToolsAreEmpty() throws {
+    let attachment = try ImageAttachmentReference(
+      id: UUID(), managedRelativePath: "image.jpg", pixelSize: .init(width: 640, height: 480),
+      byteCount: 120, contentType: "image/jpeg", detailPolicy: .fast1024,
+      accessibleLabel: "Desk photo")
+    let user = ConversationMessage(
+      id: MessageID("user-1"), role: .user, content: "Inspect", attachments: [attachment])
+    let messages = try MLXPromptComposer.chatMessages(
+      [user],
+      images: [.init(messageID: user.id, attachmentID: attachment.id, buffer: try testImageBuffer())],
+      tools: [])
+    XCTAssertEqual(messages.first?.content, "Inspect")
+  }
+
+  func testVisionToolPrefaceIsOmittedWhenNoImagesArePresent() throws {
+    let user = ConversationMessage(id: MessageID("user-1"), role: .user, content: "Inspect")
+    let tools = [GenerationToolSpecification(name: "calculator", description: "calc", parametersJSON: "{}")]
+    let messages = try MLXPromptComposer.chatMessages([user], images: [], tools: tools)
+    XCTAssertEqual(messages.first?.content, "Inspect")
+  }
+
+    func testDuplicateImageBindingsAreRejectedBeforePromptComposition() throws {
     let attachment = try ImageAttachmentReference(
       id: UUID(), managedRelativePath: "image.jpg", pixelSize: .init(width: 640, height: 480),
       byteCount: 120, contentType: "image/jpeg", detailPolicy: .fast1024,

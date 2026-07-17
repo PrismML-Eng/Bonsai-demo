@@ -154,6 +154,7 @@ struct UIFixtureState: Equatable, Sendable {
 }
 
 struct RootView: View {
+  private static let modelDescriptors = ModelCatalogLoader.bundledDescriptors()
   @State private var libraryViewModel: ModelLibraryViewModel
   @State private var chatViewModel: ChatViewModel
   @State private var conversationViewModel: ConversationNavigationViewModel
@@ -206,6 +207,12 @@ struct RootView: View {
       case .oneBit27B: "Bonsai 27B · 1-bit"
       case .ternary27B: "Ternary Bonsai 27B"
       case nil: nil
+      }
+      if let modelID = libraryViewModel.loadedModelID,
+         let descriptor = Self.modelDescriptors[modelID] {
+        chatViewModel.supportsVisionInput = descriptor.supportsVisionInput
+      } else {
+        chatViewModel.supportsVisionInput = false
       }
       Task { await chatViewModel.reloadHistory() }
     }
@@ -485,6 +492,7 @@ struct RootComposition {
   }
 
   private static var platform: Platform {
+
     #if os(macOS)
     .mac
     #else

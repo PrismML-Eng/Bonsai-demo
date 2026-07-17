@@ -119,10 +119,15 @@ final class ChatViewModel {
   var defaultImageDetail: ImageDetailPolicy = .fast1024
   var isModelReady: Bool
   var loadedModelName: String?
+  var supportsVisionInput = true
   private var generationTask: Task<Void, Never>?
   private var generationID: UUID?
   private var activePrompt: String?
   private var attachmentImportID: UUID?
+  private var attachmentImportsInFlight = 0
+  private var attachmentImportsEnabled = true
+  private var attachmentImportWaiters: [CheckedContinuation<Void, Never>] = []
+  private var attachmentCleanupFailure: String?
   private var didPersistCurrentRun = false
   private var clearRetryService: (any SettingsServing)?
 
@@ -158,6 +163,10 @@ final class ChatViewModel {
 
   private func performSend() async {
     guard canSend else { return }
+    if draftAttachment != nil, !supportsVisionInput {
+      attachmentError = Self.visionUnsupportedMessage
+      return
+    }
     let prompt = draft.trimmingCharacters(in: .whitespacesAndNewlines)
     let attachment = draftAttachment
     activePrompt = prompt
@@ -179,7 +188,9 @@ final class ChatViewModel {
       } catch is CancellationError {
         self?.markStopped()
       } catch {
-        self?.markFailure(String(describing: error), prompt: prompt)
+        let message = (error as? LocalizedError)?.errorDescription
+          ?? String(describing: error)
+        self?.markFailure(message, prompt: prompt)
       }
     }
     generationTask = task
@@ -194,7 +205,8 @@ final class ChatViewModel {
   }
 
   func importAttachment(from source: URL, label: String = "Selected image") async {
-    guard !isGenerating else { return }
+    guard !isGenerating, beginAttachmentImport() else { return }
+    defer { endAttachmentImport() }
     guard let attachments else {
       attachmentError = "Image attachments are unavailable."
       return
@@ -204,14 +216,15 @@ final class ChatViewModel {
     do {
       let imported = try await attachments.importImage(
         from: source, policy: defaultImageDetail, accessibleLabel: label)
-      await commitImportedAttachment(imported, importID: importID)
+      try await commitImportedAttachment(imported, importID: importID)
     } catch { attachmentError = "Could not add image: \(error.localizedDescription)" }
   }
 
   func importAttachment(
     data: Data, filename: String, label: String = "Selected image"
   ) async {
-    guard !isGenerating else { return }
+    guard !isGenerating, beginAttachmentImport() else { return }
+    defer { endAttachmentImport() }
     guard let attachments else {
       attachmentError = "Image attachments are unavailable."
       return
@@ -221,7 +234,7 @@ final class ChatViewModel {
     do {
       let imported = try await attachments.importImage(
         data: data, filename: filename, policy: defaultImageDetail, accessibleLabel: label)
-      await commitImportedAttachment(imported, importID: importID)
+      try await commitImportedAttachment(imported, importID: importID)
     } catch { attachmentError = "Could not add image: \(error.localizedDescription)" }
   }
 
@@ -251,8 +264,15 @@ final class ChatViewModel {
   func dismissClearDataError() { clearDataError = nil }
 
   func clearLocalData(using service: any SettingsServing) async {
+    attachmentImportsEnabled = false
     attachmentImportID = nil
     await stop()
+    await waitForAttachmentImports()
+    if let failure = attachmentCleanupFailure {
+      clearDataError = "Could not clear local data: imported private-copy cleanup failed: " + failure
+      attachmentImportsEnabled = true
+      return
+    }
     do {
       try await service.clearConversationsNotesAndImages()
       attachmentImportID = nil
@@ -275,6 +295,7 @@ final class ChatViewModel {
       clearRetryService = service
       recovery = .init(label: "Retry clear data", intent: .retryClear)
     }
+    attachmentImportsEnabled = true
   }
 
   private var needsFullDetailConfirmation: Bool {
@@ -383,6 +404,9 @@ final class ChatViewModel {
     }
   }
 
+  private static let visionUnsupportedMessage =
+    "This model does not support images. Remove the attachment or load a vision-capable model."
+
   private func markStopped() { terminalStatus = "Stopped" }
   private func markFailure(_ message: String, prompt: String) {
     failedPrompt = prompt
@@ -391,9 +415,12 @@ final class ChatViewModel {
     recovery = .init(label: "Retry send", intent: .retrySend)
   }
 
-  private func commitImportedAttachment(_ imported: ImageAttachment, importID: UUID) async {
+  private func commitImportedAttachment(_ imported: ImageAttachment, importID: UUID) async throws {
     guard attachmentImportID == importID, !isGenerating else {
-      try? await attachments?.delete(imported)
+      do { try await attachments?.delete(imported) } catch {
+        attachmentCleanupFailure = error.localizedDescription
+        throw error
+      }
       return
     }
     let superseded = draftAttachment
@@ -405,6 +432,22 @@ final class ChatViewModel {
           + error.localizedDescription
       }
     }
+  }
+
+  private func beginAttachmentImport() -> Bool {
+    guard attachmentImportsEnabled else { return false }
+    attachmentImportsInFlight += 1
+    return true
+  }
+  private func endAttachmentImport() {
+    attachmentImportsInFlight -= 1
+    guard attachmentImportsInFlight == 0 else { return }
+    let waiters = attachmentImportWaiters; attachmentImportWaiters.removeAll()
+    waiters.forEach { $0.resume() }
+  }
+  private func waitForAttachmentImports() async {
+    guard attachmentImportsInFlight > 0 else { return }
+    await withCheckedContinuation { attachmentImportWaiters.append($0) }
   }
 
   private static func label(_ completion: AgentCompletion) -> String {

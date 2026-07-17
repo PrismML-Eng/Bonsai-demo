@@ -314,3 +314,16 @@ private func isValidRepository(_ repository: String) -> Bool {
     let components = repository.split(separator: "/", omittingEmptySubsequences: false)
     return components.count == 2 && components.allSatisfy { !$0.isEmpty }
 }
+
+extension ModelDescriptor {
+    var supportsVisionInput: Bool { capabilities.contains(.vision) }
+}
+
+enum ModelCatalogLoader {
+    static func bundledDescriptors(bundle: Bundle = .main) -> [ModelID: ModelDescriptor] {
+        guard let url = bundle.url(forResource: "manifest", withExtension: "json", subdirectory: "Models"),
+              let catalog = try? JSONDecoder().decode(ModelCatalog.self, from: Data(contentsOf: url))
+        else { return [:] }
+        return Dictionary(uniqueKeysWithValues: catalog.models.map { ($0.id, $0) })
+    }
+}

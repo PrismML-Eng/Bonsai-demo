@@ -10,6 +10,7 @@ enum LiveUIServiceError: Error, LocalizedError {
   case modelNotInstalled
   case importRequiresPicker
   case emptyPersistedAnswer
+  case visionUnsupportedByModel(displayName: String)
 
   var errorDescription: String? {
     switch self {
@@ -17,6 +18,8 @@ enum LiveUIServiceError: Error, LocalizedError {
     case .modelNotInstalled: "Install and verify this model before loading it."
     case .importRequiresPicker: "Choose Import from a platform file picker."
     case .emptyPersistedAnswer: "Generation ended before a complete answer could be persisted."
+    case .visionUnsupportedByModel(let name):
+      "\(name) does not support images. Remove the attachment or load a vision-capable model."
     }
   }
 }
@@ -242,6 +245,7 @@ actor AgentLoopChatService: ChatSessionServing {
   private let attachmentStore: ManagedAttachmentStore?
   private let attachmentRoot: URL?
   private let imagePreprocessor: ImagePreprocessor
+  private let descriptors: [ModelID: ModelDescriptor]
 
   static func shouldPersist(_ completion: AgentCompletion) -> Bool {
     completion == .stop || completion == .length
@@ -252,7 +256,8 @@ actor AgentLoopChatService: ChatSessionServing {
        sessionGate: ModelSessionGate? = nil,
        attachmentStore: ManagedAttachmentStore? = nil,
        attachmentRoot: URL? = nil,
-       imagePreprocessor: ImagePreprocessor = .init()) {
+       imagePreprocessor: ImagePreprocessor = .init(),
+       descriptors: [ModelID: ModelDescriptor] = ModelCatalogLoader.bundledDescriptors()) {
     self.loop = loop
     self.approvals = approvals
     self.engine = engine
@@ -261,6 +266,7 @@ actor AgentLoopChatService: ChatSessionServing {
     self.attachmentStore = attachmentStore
     self.attachmentRoot = attachmentRoot
     self.imagePreprocessor = imagePreprocessor
+    self.descriptors = descriptors
   }
 
   // This function owns the lifecycle boundary for forwarding, persistence, and completion.
@@ -402,6 +408,9 @@ actor AgentLoopChatService: ChatSessionServing {
                       systemInstruction: .init(id: MessageID("system"), role: .system,
                                                content: "You are Bonsai, a private on-device assistant."),
                       completedTurns: [])
+    if !userMessage.attachments.isEmpty {
+      try Self.requireVisionSupport(modelID: selection.installation.modelID, descriptors: descriptors)
+    }
     guard let engine else {
       return PersistentGeneration(
         conversation: conversation, trimNotice: nil, request: nil, processedImages: [])
@@ -421,6 +430,15 @@ actor AgentLoopChatService: ChatSessionServing {
       trimNotice: combinedNotice,
       request: prepared.request.replacingImages(processed.bindings),
       processedImages: processed.images)
+  }
+
+  private static func requireVisionSupport(
+    modelID: ModelID, descriptors: [ModelID: ModelDescriptor]
+  ) throws {
+    guard let descriptor = descriptors[modelID], descriptor.supportsVisionInput else {
+      let name = descriptors[modelID]?.displayName ?? modelID.rawValue
+      throw LiveUIServiceError.visionUnsupportedByModel(displayName: name)
+    }
   }
 
   private func processedImages(

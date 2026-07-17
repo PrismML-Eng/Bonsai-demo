@@ -279,6 +279,8 @@ private final class LiveMLXRuntimeResource: MLXRuntimeResource, @unchecked Senda
 }
 
 enum MLXPromptComposer {
+  /// mlx-vlm one-bit models often answer vision turns without emitting tool calls; this preface
+  /// anchors combined image+tool requests until template-level tool routing is reliable.
   private static let visionToolPreface =
     "If my request requires a tool, invoke the matching tool before your final answer.\n\n"
 

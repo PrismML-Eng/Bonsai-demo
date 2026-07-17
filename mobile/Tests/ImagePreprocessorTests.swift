@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 import CoreGraphics
 import Foundation
 import ImageIO
@@ -5,6 +6,8 @@ import UniformTypeIdentifiers
 import XCTest
 @testable import BonsaiMobile
 
+// Clear crash-boundary and image-memory tests share the same real image fixtures.
+// swiftlint:disable type_body_length
 final class ImagePreprocessorTests: XCTestCase {
   func testFastDetailUsesDeterministicPatchGridAndNeverUpscales() throws {
     let processor = ImagePreprocessor(tokenBudget: 1_024, patchSize: 32)
@@ -67,8 +70,9 @@ final class ImagePreprocessorTests: XCTestCase {
     let root = temporaryDirectory()
     defer { try? FileManager.default.removeItem(at: root) }
     try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-    let source = root.appending(path: "source.png")
-    try makeImage(width: 80, height: 60).write(to: source)
+    let source = root.appending(path: "source.jpg")
+    try makeJPEGWithLocationMetadata(width: 80, height: 60).write(to: source)
+    XCTAssertNotNil(locationMetadata(in: source))
     let store = try ManagedAttachmentStore(root: root.appending(path: "managed"))
 
     let attachment = try await store.importImage(
@@ -78,6 +82,10 @@ final class ImagePreprocessorTests: XCTestCase {
     XCTAssertFalse(attachment.managedRelativePath.contains("/"))
     let managedURL = try await store.url(for: attachment)
     XCTAssertTrue(FileManager.default.fileExists(atPath: managedURL.path))
+
+    let processed = try await ImagePreprocessor().process(
+      managedURL: managedURL, policy: .fast1024, managedRoot: root.appending(path: "managed"))
+    XCTAssertNil(locationMetadata(for: processed.buffer.image))
 
     let outside = ImageAttachment(
       id: UUID(), originalFilename: "escape.jpg", managedRelativePath: "../escape.jpg",
@@ -198,7 +206,152 @@ final class ImagePreprocessorTests: XCTestCase {
     XCTAssertFalse(FileManager.default.fileExists(atPath: root.appending(path: ".processed").path))
   }
 
+  func testPreparedClearJournalRollsBackOnRelaunch() async throws {
+    let root = temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: root) }
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    let source = root.appending(path: "source.png")
+    try makeImage(width: 32, height: 32).write(to: source)
+    let managed = root.appending(path: "managed")
+    let store = try ManagedAttachmentStore(root: managed)
+    let attachment = try await store.importImage(
+      from: source, detailPolicy: .fast1024, accessibleLabel: "private")
+    _ = try await store.prepareClear()
+
+    _ = try ManagedAttachmentStore(root: managed)
+
+    XCTAssertTrue(FileManager.default.fileExists(
+      atPath: managed.appending(path: attachment.managedRelativePath).path))
+    XCTAssertFalse(FileManager.default.fileExists(atPath: managed.appending(path: ".clear-journal").path))
+    XCTAssertFalse(try FileManager.default.contentsOfDirectory(atPath: managed.path)
+      .contains(where: { $0.hasPrefix(".clear-") }))
+  }
+
+  func testCommittedClearJournalFinishesPurgeOnRelaunch() throws {
+    let managed = temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: managed) }
+    try FileManager.default.createDirectory(at: managed, withIntermediateDirectories: true)
+    let staging = managed.appending(path: ".clear-crash")
+    try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: false)
+    try Data("private".utf8).write(to: staging.appending(path: "draft.jpg"))
+    try Data(
+      "{\"phase\":\"committed\",\"stagingName\":\".clear-crash\",\"leafNames\":[\"draft.jpg\"]}"
+        .utf8
+    ).write(to: managed.appending(path: ".clear-journal"))
+
+    _ = try ManagedAttachmentStore(root: managed)
+
+    XCTAssertTrue(try FileManager.default.contentsOfDirectory(atPath: managed.path).isEmpty)
+  }
+
+  func testInjectedCommitPurgeFailureRetainsJournalAndRelaunchRetries() async throws {
+    let root = temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: root) }
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    let source = root.appending(path: "source.png")
+    try makeImage(width: 16, height: 16).write(to: source)
+    let managed = root.appending(path: "managed")
+    let faults = AttachmentStoreFaultInjector([.purgeUnlink])
+    let store = try ManagedAttachmentStore(root: managed, faultInjector: faults)
+    _ = try await store.importImage(
+      from: source, detailPolicy: .fast1024, accessibleLabel: "private")
+    let transaction = try await store.prepareClear()
+
+    await XCTAssertThrowsErrorAsync { try await store.commitClear(transaction) }
+    XCTAssertTrue(FileManager.default.fileExists(atPath: managed.appending(path: ".clear-journal").path))
+
+    _ = try ManagedAttachmentStore(root: managed)
+    XCTAssertTrue(try FileManager.default.contentsOfDirectory(atPath: managed.path).isEmpty)
+  }
+
+  func testPhotosTransferCopiesToOwnedBoundedFileAndCleansIt() throws {
+    let root = temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: root) }
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    let provider = root.appending(path: "provider.png")
+    let expected = try makeImage(width: 16, height: 16)
+    try expected.write(to: provider)
+
+    let lease = try PickedPhotoFile.copyProviderFile(provider)
+    XCTAssertNotEqual(lease.url, provider)
+    XCTAssertEqual(try Data(contentsOf: lease.url), expected)
+    lease.remove()
+    XCTAssertFalse(FileManager.default.fileExists(atPath: lease.url.path))
+  }
+
+  func testPhotosTransferRejectsOversizedSparseProviderBeforeOwnedCopy() throws {
+    let root = temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: root) }
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    let provider = root.appending(path: "oversized.jpg")
+    FileManager.default.createFile(atPath: provider.path, contents: Data([0]))
+    let handle = try FileHandle(forWritingTo: provider)
+    try handle.truncate(atOffset: UInt64(ManagedAttachmentStore.maximumSourceBytes + 1))
+    try handle.close()
+
+    XCTAssertThrowsError(try PickedPhotoFile.copyProviderFile(provider)) {
+      XCTAssertEqual($0 as? AttachmentStoreError, .sourceTooLarge)
+    }
+  }
+
+#if os(iOS)
+  func testCameraEncodedPayloadRejectsOversizeBeforeCreatingOwnedFile() {
+    XCTAssertThrowsError(try CameraEncodedFile.persist(Data([1, 2]), maximumBytes: 1)) {
+      XCTAssertEqual($0 as? CameraCaptureError, .oversized)
+    }
+  }
+#endif
+
+  private func makeJPEGWithLocationMetadata(width: Int, height: Int) throws -> Data {
+    let image = try XCTUnwrap(makeCGImage(width: width, height: height))
+    let data = NSMutableData()
+    let destination = try XCTUnwrap(CGImageDestinationCreateWithData(
+      data, UTType.jpeg.identifier as CFString, 1, nil))
+    let metadata: [CFString: Any] = [
+      kCGImagePropertyGPSDictionary: [
+        kCGImagePropertyGPSLatitude: 37.3318,
+        kCGImagePropertyGPSLatitudeRef: "N",
+        kCGImagePropertyGPSLongitude: -122.0312,
+        kCGImagePropertyGPSLongitudeRef: "W"
+      ],
+      kCGImagePropertyExifDictionary: [
+        kCGImagePropertyExifUserComment: "fixture location"
+      ]
+    ]
+    CGImageDestinationAddImage(destination, image, metadata as CFDictionary)
+    XCTAssertTrue(CGImageDestinationFinalize(destination))
+    return data as Data
+  }
+
+  private func makeCGImage(width: Int, height: Int) -> CGImage? {
+    let context = CGContext(
+      data: nil, width: width, height: height, bitsPerComponent: 8,
+      bytesPerRow: width * 4, space: CGColorSpaceCreateDeviceRGB(),
+      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+    return context?.makeImage()
+  }
+
+  private func locationMetadata(in url: URL) -> [String: Any]? {
+    guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+          let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [String: Any]
+    else { return nil }
+    return properties[kCGImagePropertyGPSDictionary as String] as? [String: Any]
+  }
+
+  private func locationMetadata(for image: CGImage) -> [String: Any]? {
+    let data = NSMutableData()
+    guard let destination = CGImageDestinationCreateWithData(
+      data, UTType.jpeg.identifier as CFString, 1, nil) else { return nil }
+    CGImageDestinationAddImage(destination, image, nil)
+    guard CGImageDestinationFinalize(destination),
+          let source = CGImageSourceCreateWithData(data as CFData, nil),
+          let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [String: Any]
+    else { return nil }
+    return properties[kCGImagePropertyGPSDictionary as String] as? [String: Any]
+  }
+
   private func makeImage(width: Int, height: Int) throws -> Data {
+
     let space = CGColorSpaceCreateDeviceRGB()
     let context = try XCTUnwrap(CGContext(
       data: nil, width: width, height: height, bitsPerComponent: 8,
@@ -255,6 +408,7 @@ final class ImagePreprocessorTests: XCTestCase {
     FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
   }
 }
+// swiftlint:enable type_body_length
 
 private actor SuspendingPreprocessingHook: ImagePreprocessingHook {
   private var produced = false
