@@ -11,9 +11,16 @@ Note: this is a 27B row; the results table currently tracks 8B/4B/1.7B. Happy to
 ### Ternary-Bonsai-27B (Q2_0, g128)
 
 ```bash
-# inside nvidia/cuda:12.9.1-devel container, --gpus all
-llama-bench -m Ternary-Bonsai-27B-Q2_0.gguf -p 512 -n 128 -ngl 999 -t 4 --repetitions 10 -o json
+# Exact invocation. The container sees both GPUs (--gpus all) but every run is pinned to
+# exactly ONE card with CUDA_VISIBLE_DEVICES (GPU=0 or 1; both cards identical, reported
+# per card). $D = host dir holding the models and both engine builds.
+docker run --rm --gpus all -e CUDA_VISIBLE_DEVICES=$GPU -v "$D":/w nvidia/cuda:12.9.1-devel-ubuntu24.04 \
+  /w/llama.cpp-prism/build/bin/llama-bench -m /w/Ternary-Bonsai-27B-Q2_0.gguf \
+  -p 512 -n 128 -ngl 999 -t 4 -r 10 -o json
 ```
+
+The full solo / simultaneous / swapped matrix (and the mainline cross-check below) is one script:
+[`scripts/bench_phase3.sh`](https://github.com/Astezelex/bonsai-27b-16gb-bench/blob/main/scripts/bench_phase3.sh) in the results repo.
 
 | model | size | params | backend | ngl | test | t/s |
 | ------------------------------ | ---------: | ---------: | ---------- | --: | --------------: | -------------------: |
@@ -30,6 +37,49 @@ Second card (GPU1, same box, simultaneous run): pp512 1004.68 ± 0.11, tg128 44.
 - Solo vs simultaneous (one model per card) vs swapped cards: identical within noise at batch 1.
 - KV/context fit (NVML resident, single slot): 4k f16 = 7,627 MiB; 100k f16 = 13,867 MiB; **full 262k with q4_0 KV = 13,213 MiB**: fits the 16 GB card with ~3 GiB to spare.
 - Comparison vs Qwen3.6-27B-UD-IQ2_XXS (9.39 GB) on the same cards: ternary decodes +24% faster (44.4 vs 35.8 t/s, each on its best engine: mainline `12127de` runs the IQ2_XXS file ~4.5% faster than this fork does).
+
+## Exact invocations for the rows above
+
+**DSpark drafter** (target server; only the drafter flags change between the three configs;
+harness script + the 5 fixed prompts: [`scripts/phase3b_drafter.sh`](https://github.com/Astezelex/bonsai-27b-16gb-bench/blob/main/scripts/phase3b_drafter.sh),
+[`scripts/drafter_prompts.jsonl`](https://github.com/Astezelex/bonsai-27b-16gb-bench/blob/main/scripts/drafter_prompts.jsonl)):
+
+```bash
+# baseline (no drafter):
+docker run -d --gpus all -e CUDA_VISIBLE_DEVICES=0 -p 8090:8080 -v "$D":/w nvidia/cuda:12.9.1-devel-ubuntu24.04 \
+  /w/llama.cpp-prism/build/bin/llama-server -m /w/Ternary-Bonsai-27B-Q2_0.gguf \
+  -ngl 999 -c 4096 -np 1 --host 0.0.0.0 --port 8080
+# DSpark Q4_1 row: same command plus
+#   --spec-type draft-dspark -md /w/Ternary-Bonsai-27B-dspark-Q4_1.gguf --spec-draft-ngl 999 --spec-draft-n-max 4
+# bf16 drafter row: same plus the same flags with -md /w/Ternary-Bonsai-27B-dspark-bf16.gguf
+```
+
+Harness: each prompt via `/v1/chat/completions`, `max_tokens` 512, `top_p` 0.95, `top_k` 20,
+`cache_prompt: false`; temp 0 for the byte-equivalence check, temp 0.7 (2 reps) for speed;
+t/s taken from the server's native `timings.predicted_per_second`.
+
+**KV/context fit** (per config: start the server, wait for `/health`, read NVML resident VRAM
+on that card, tear down; script: [`scripts/phase3c_fit.sh`](https://github.com/Astezelex/bonsai-27b-16gb-bench/blob/main/scripts/phase3c_fit.sh)):
+
+```bash
+docker run -d --gpus all -e CUDA_VISIBLE_DEVICES=0 -p 8091:8080 -v "$D":/w nvidia/cuda:12.9.1-devel-ubuntu24.04 \
+  /w/llama.cpp-prism/build/bin/llama-server -m /w/Ternary-Bonsai-27B-Q2_0.gguf \
+  -ngl 999 --host 0.0.0.0 --port 8080 $CONFIG
+# 4k f16:    CONFIG='-c 4096   -np 1'
+# 100k f16:  CONFIG='-c 102400 -np 1'
+# 262k q4_0: CONFIG='-c 262144 -np 1 -ctk q4_0 -ctv q4_0'
+```
+
+**Comparison-engine runs** (same wrapper and flags as the headline bench, only the binary and
+model change):
+
+```bash
+# IQ2_XXS best-engine row: pinned mainline llama.cpp 12127de
+docker run --rm --gpus all -e CUDA_VISIBLE_DEVICES=0 -v "$D":/w nvidia/cuda:12.9.1-devel-ubuntu24.04 \
+  /w/llama.cpp-main/build/bin/llama-bench -m /w/Qwen3.6-27B-UD-IQ2_XXS.gguf \
+  -p 512 -n 128 -ngl 999 -t 4 -r 10 -o json
+# fork-runs-IQ2_XXS-slower datum (~4.5%): identical command with /w/llama.cpp-prism/build/bin/llama-bench
+```
 
 ## Notes
 
