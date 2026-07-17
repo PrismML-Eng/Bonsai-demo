@@ -389,7 +389,7 @@ final class RealModelScenarioTests: XCTestCase {
   private static func hardwareIdentifier() -> String {
     var system = utsname(); guard uname(&system) == 0 else { return "unknown" }
     return withUnsafeBytes(of: system.machine) { raw in
-      String(decoding: raw.prefix { $0 != 0 }, as: UTF8.self)
+      String(bytes: raw.prefix { $0 != 0 }, encoding: .utf8) ?? "unknown"
     }
   }
 
@@ -398,7 +398,7 @@ final class RealModelScenarioTests: XCTestCase {
     var bytes = [CChar](repeating: 0, count: size)
     guard sysctlbyname(name, &bytes, &size, nil, 0) == 0 else { return "" }
     let truncated = bytes.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }
-    return String(decoding: truncated, as: UTF8.self)
+    return String(bytes: truncated, encoding: .utf8) ?? ""
   }
 
   private static func appBuild() -> String {

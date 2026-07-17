@@ -255,7 +255,7 @@ private enum CurrentDeviceFacts {
     guard uname(&system) == 0 else { return "unknown-hardware" }
     return withUnsafeBytes(of: system.machine) { raw in
       let bytes = raw.prefix { $0 != 0 }
-      return String(decoding: bytes, as: UTF8.self)
+      return String(bytes: bytes, encoding: .utf8) ?? "unknown-hardware"
     }
   }
 
@@ -265,7 +265,7 @@ private enum CurrentDeviceFacts {
     var bytes = [CChar](repeating: 0, count: size)
     guard sysctlbyname(name, &bytes, &size, nil, 0) == 0 else { return "" }
     let truncated = bytes.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }
-    return String(decoding: truncated, as: UTF8.self)
+    return String(bytes: truncated, encoding: .utf8) ?? ""
   }
 
   private static func appBuild() -> String {
