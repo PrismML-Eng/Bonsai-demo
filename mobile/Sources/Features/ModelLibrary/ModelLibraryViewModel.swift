@@ -16,6 +16,11 @@ struct ModelActionFailurePresentation: Equatable, Sendable {
   let recovery: ModelActionPresentation
 }
 
+struct LoadedModelQualification: Equatable, Sendable {
+  let modelID: ModelID
+  let capabilities: Set<ModelCapability>
+}
+
 struct ModelRowPresentation: Identifiable, Equatable, Sendable {
   let id: ModelID
   let name: String
@@ -34,6 +39,8 @@ protocol ModelLibraryServing: Sendable {
   func perform(_ intent: ModelLibraryIntent, for modelID: ModelID) async throws
   func importModel(_ modelID: ModelID, from source: URL) async throws
   func currentLoadedModelID() async -> ModelID?
+  func currentLoadedCapabilities() async -> Set<ModelCapability>
+  func currentLoadedQualification() async -> LoadedModelQualification?
 }
 
 extension ModelLibraryServing {
@@ -41,6 +48,11 @@ extension ModelLibraryServing {
     throw LiveUIServiceError.importRequiresPicker
   }
   func currentLoadedModelID() async -> ModelID? { nil }
+  func currentLoadedCapabilities() async -> Set<ModelCapability> { [] }
+  func currentLoadedQualification() async -> LoadedModelQualification? {
+    guard let modelID = await currentLoadedModelID() else { return nil }
+    return .init(modelID: modelID, capabilities: await currentLoadedCapabilities())
+  }
 }
 
 @MainActor @Observable
@@ -50,7 +62,9 @@ final class ModelLibraryViewModel {
   private(set) var rows: [ModelRowPresentation]
   private(set) var errorMessage: String?
   private(set) var actionFailure: ModelActionFailurePresentation?
-  private(set) var loadedModelID: ModelID?
+  private(set) var loadedQualification: LoadedModelQualification?
+  var loadedModelID: ModelID? { loadedQualification?.modelID }
+  var loadedCapabilities: Set<ModelCapability> { loadedQualification?.capabilities ?? [] }
   private(set) var inFlightModelIDs: Set<ModelID> = []
   private(set) var inFlightIntents: [ModelID: ModelLibraryIntent] = [:]
   var pendingImportModelID: ModelID?
@@ -92,7 +106,9 @@ final class ModelLibraryViewModel {
     let replacesPublishedModel = action.intent == .load
       || action.intent == .unload
       || (action.intent == .delete && loadedModelID == modelID)
-    if replacesPublishedModel { loadedModelID = nil }
+    if replacesPublishedModel {
+      loadedQualification = nil
+    }
     refreshRows()
     defer {
       inFlightModelIDs.remove(modelID)
@@ -102,16 +118,22 @@ final class ModelLibraryViewModel {
     do {
       try await service.perform(action.intent, for: modelID)
       switch action.intent {
-      case .load: loadedModelID = modelID
-      case .unload: loadedModelID = nil
-      case .delete: if loadedModelID == modelID { loadedModelID = nil }
+      case .load:
+        loadedQualification = await service.currentLoadedQualification()
+          ?? .init(modelID: modelID, capabilities: [])
+      case .unload:
+        loadedQualification = nil
+      case .delete:
+        if loadedModelID == modelID {
+          loadedQualification = nil
+        }
       default: break
       }
       actionFailure = nil
       errorMessage = nil
     } catch {
       if replacesPublishedModel {
-        loadedModelID = await service.currentLoadedModelID()
+        loadedQualification = await service.currentLoadedQualification()
       }
       actionFailure = Self.failure(for: action.intent, modelID: modelID, error: error)
       errorMessage = nil

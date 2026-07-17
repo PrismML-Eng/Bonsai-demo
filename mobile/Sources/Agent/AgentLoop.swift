@@ -122,7 +122,7 @@ actor AgentLoop {
     }
   }
 
-  func run(_ request: GenerationRequest) async throws -> AgentRunResult {
+  func run(_ request: GenerationRequest, toolsEnabled: Bool = true) async throws -> AgentRunResult {
     guard activeRun == nil else {
       let completion = AgentCompletion.runtimeFailure("agent_run_already_active")
       return AgentRunResult(
@@ -135,7 +135,9 @@ actor AgentLoop {
         return AgentRunResult(
           answer: "", reasoning: "", toolResults: [], activities: [.terminal(.cancelled)], completion: .cancelled)
       }
-      return await self.performRun(request.replacingTools(self.registry.specifications))
+      let admitted = toolsEnabled ? request.replacingTools(self.registry.specifications)
+        : request.replacingTools([])
+      return await self.performRun(admitted, toolsEnabled: toolsEnabled)
     }
     activeRun = (runID, task)
     let result = await task.value
@@ -144,7 +146,9 @@ actor AgentLoop {
     return result
   }
 
-  private func performRun(_ request: GenerationRequest) async -> AgentRunResult {
+  // Protocol states intentionally remain one exhaustive streaming transaction.
+  // swiftlint:disable:next cyclomatic_complexity function_body_length
+  private func performRun(_ request: GenerationRequest, toolsEnabled: Bool) async -> AgentRunResult {
     currentActivities = []
     appendActivity(.generating)
     var answer = ""
@@ -164,6 +168,10 @@ actor AgentLoop {
         case .cancelled:
           return finish(.cancelled, answer: answer, reasoning: reasoning, results: results)
         case .toolRequest:
+          guard toolsEnabled else {
+            return finish(.runtimeFailure("tool_capability_not_qualified"), answer: answer,
+                          reasoning: reasoning, results: results)
+          }
           guard toolTurns < Self.maximumToolTurns else {
             return finish(
               .toolTurnLimit(Self.maximumToolTurns), answer: answer, reasoning: reasoning, results: results

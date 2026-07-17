@@ -153,6 +153,41 @@ struct UIFixtureState: Equatable, Sendable {
   var showsFullDetailWarning = false
 }
 
+@MainActor enum CoherentConversationActions {
+  static func create(
+    navigation: ConversationNavigationViewModel,
+    chat: ChatViewModel
+  ) async {
+    await chat.withConversationAdmission { lease in
+      await chat.stop()
+      guard await chat.isConversationAdmissionCurrent(lease) else { return }
+      let result = await navigation.createResult()
+      await chat.publishIfConversationAdmissionCurrent(lease) {
+        navigation.publish(result)
+      }
+      guard await chat.isConversationAdmissionCurrent(lease) else { return }
+      await chat.reloadHistory(admittedBy: lease)
+    }
+  }
+
+  static func select(
+    _ id: ConversationID,
+    navigation: ConversationNavigationViewModel,
+    chat: ChatViewModel
+  ) async {
+    await chat.withConversationAdmission { lease in
+      await chat.stop()
+      guard await chat.isConversationAdmissionCurrent(lease) else { return }
+      let result = await navigation.selectResult(id)
+      await chat.publishIfConversationAdmissionCurrent(lease) {
+        navigation.publish(result)
+      }
+      guard await chat.isConversationAdmissionCurrent(lease) else { return }
+      await chat.reloadHistory(admittedBy: lease)
+    }
+  }
+}
+
 struct RootView: View {
   private static let modelDescriptors = ModelCatalogLoader.bundledDescriptors()
   @State private var libraryViewModel: ModelLibraryViewModel
@@ -162,6 +197,7 @@ struct RootView: View {
   @Environment(\.horizontalSizeClass) private var horizontalSizeClass
   @State private var showsLibrary = false
   @State private var showsSettings = false
+  @State private var didStartRecoveredServices = false
   private let platform: Platform
   private let reduceMotionOverride: Bool?
   private let settingsService: (any SettingsServing)?
@@ -197,23 +233,25 @@ struct RootView: View {
     .tint(QuietGardenTheme.accent)
     .accessibilityIdentifier(UIAccessibility.root)
     .task {
-      libraryViewModel.start()
-      conversationViewModel.start()
-      await chatViewModel.start()
+      if let settingsService {
+        _ = await chatViewModel.recoverPendingLocalDataClear(using: settingsService)
+      } else {
+        startRecoveredServicesIfNeeded()
+      }
+      if chatViewModel.localDataIsCoherent { startRecoveredServicesIfNeeded() }
     }
-    .onChange(of: libraryViewModel.loadedModelID) {
-      chatViewModel.isModelReady = libraryViewModel.loadedModelID != nil
-      chatViewModel.loadedModelName = switch libraryViewModel.loadedModelID {
+    .onChange(of: chatViewModel.localDataIsCoherent) {
+      if chatViewModel.localDataIsCoherent { startRecoveredServicesIfNeeded() }
+    }
+    .onChange(of: libraryViewModel.loadedQualification) {
+      let qualification = libraryViewModel.loadedQualification
+      chatViewModel.isModelReady = qualification != nil
+      chatViewModel.loadedModelName = switch qualification?.modelID {
       case .oneBit27B: "Bonsai 27B · 1-bit"
       case .ternary27B: "Ternary Bonsai 27B"
       case nil: nil
       }
-      if let modelID = libraryViewModel.loadedModelID,
-         let descriptor = Self.modelDescriptors[modelID] {
-        chatViewModel.supportsVisionInput = descriptor.supportsVisionInput
-      } else {
-        chatViewModel.supportsVisionInput = false
-      }
+      Task { await chatViewModel.setEffectiveCapabilities(qualification?.capabilities ?? []) }
       Task { await chatViewModel.reloadHistory() }
     }
     .sheet(isPresented: $showsLibrary) {
@@ -222,12 +260,15 @@ struct RootView: View {
     }
     .sheet(isPresented: $showsSettings) {
       NavigationStack {
-        SettingsView(detailSettings: imageDetailSettings) { intent in
+        SettingsView(
+          detailSettings: imageDetailSettings,
+          isClearInProgress: chatViewModel.isPrivateDataClearInProgress
+        ) { intent in
           switch intent {
           case .setDefaultImageDetail(let policy):
             chatViewModel.defaultImageDetail = policy
           case .clearConversationsNotesAndImages:
-            guard let settingsService else { return }
+            guard let settingsService, !chatViewModel.isPrivateDataClearInProgress else { return }
             await chatViewModel.clearLocalData(using: settingsService)
           }
         }
@@ -242,8 +283,17 @@ struct RootView: View {
         guard let settingsService else { return }
         Task { await chatViewModel.clearLocalData(using: settingsService) }
       }
+      .disabled(chatViewModel.isPrivateDataClearInProgress)
       Button("Cancel", role: .cancel) { chatViewModel.dismissClearDataError() }
     } message: { Text(chatViewModel.clearDataError ?? "") }
+  }
+
+  private func startRecoveredServicesIfNeeded() {
+    guard !didStartRecoveredServices else { return }
+    didStartRecoveredServices = true
+    libraryViewModel.start()
+    conversationViewModel.start()
+    Task { await chatViewModel.start() }
   }
 
   @ViewBuilder private var regularWorkspace: some View {
@@ -283,28 +333,33 @@ struct RootView: View {
       Button { showsSettings = true } label: {
         Label("Settings", systemImage: "gearshape")
       }
-      .accessibilityHint("Review local privacy, image detail, and clear-data controls")
+      .disabled(chatViewModel.isPrivateDataClearInProgress)
+      .accessibilityHint(chatViewModel.isPrivateDataClearInProgress
+        ? "Unavailable until clearing local data finishes"
+        : "Review local privacy, image detail, and clear-data controls")
       Spacer()
       Menu {
         Button("New conversation") {
           Task {
-            await chatViewModel.stop()
-            await conversationViewModel.create()
-            await chatViewModel.reloadHistory()
+            await CoherentConversationActions.create(
+              navigation: conversationViewModel, chat: chatViewModel)
           }
         }
         ForEach(conversationViewModel.conversations) { item in
           Button(item.title) {
             Task {
-              await chatViewModel.stop()
-              await conversationViewModel.select(item.id)
-              await chatViewModel.reloadHistory()
+              await CoherentConversationActions.select(
+                item.id, navigation: conversationViewModel, chat: chatViewModel)
             }
           }
         }
       } label: {
         Label("Conversations", systemImage: "bubble.left.and.bubble.right")
       }
+      .disabled(!chatViewModel.localDataIsCoherent)
+      .accessibilityHint(chatViewModel.localDataIsCoherent
+        ? "Create or switch private on-device conversations"
+        : "Unavailable until clearing local data finishes")
       }
     }
     .buttonStyle(.borderless)
@@ -326,6 +381,10 @@ struct RootView: View {
       .padding(16)
       HStack {
         Button("Settings", systemImage: "gearshape") { showsSettings = true }
+          .disabled(chatViewModel.isPrivateDataClearInProgress)
+          .accessibilityHint(chatViewModel.isPrivateDataClearInProgress
+            ? "Unavailable until clearing local data finishes"
+            : "Review local privacy, image detail, and clear-data controls")
         Spacer()
       }
       .buttonStyle(.borderless)
@@ -336,9 +395,8 @@ struct RootView: View {
         set: { id in
           guard let id else { return }
           Task {
-            await chatViewModel.stop()
-            await conversationViewModel.select(id)
-            await chatViewModel.reloadHistory()
+            await CoherentConversationActions.select(
+              id, navigation: conversationViewModel, chat: chatViewModel)
           }
         }
       )) {
@@ -348,13 +406,16 @@ struct RootView: View {
           }
           Button("New conversation", systemImage: "square.and.pencil") {
             Task {
-              await chatViewModel.stop()
-              await conversationViewModel.create()
-              await chatViewModel.reloadHistory()
+              await CoherentConversationActions.create(
+                navigation: conversationViewModel, chat: chatViewModel)
             }
           }
         }
       }
+      .disabled(!chatViewModel.localDataIsCoherent)
+      .accessibilityHint(chatViewModel.localDataIsCoherent
+        ? "Create or switch private on-device conversations"
+        : "Unavailable until clearing local data finishes")
       .frame(minHeight: 150, idealHeight: 220)
       Divider()
       ModelLibraryView(viewModel: libraryViewModel)
@@ -464,8 +525,8 @@ struct RootComposition {
     let attachmentRoot = support.appending(path: "Attachments", directoryHint: .isDirectory)
     let attachmentStore = try ManagedAttachmentStore(root: attachmentRoot)
     let attachmentService = LiveAttachmentService(store: attachmentStore)
-    let settingsService = LiveSettingsService(
-      conversations: coordinator, notes: notes, attachments: attachmentStore)
+    let settingsService = try LiveSettingsService(
+      root: support, conversations: coordinator, notes: notes, attachments: attachmentStore)
     let imageDetailSettings = PersistedImageDetailSettings()
     let registry = try ToolRegistry.live(notes: notes)
     let approvalGate = InteractiveApprovalGate()
@@ -478,7 +539,8 @@ struct RootComposition {
       libraryViewModel: ModelLibraryViewModel(service: library, platform: Self.platform, initial: initial),
       chatViewModel: {
         let viewModel = ChatViewModel(
-          service: chat, isModelReady: false, attachments: attachmentService)
+          service: chat, isModelReady: false, attachments: attachmentService,
+          requiresClearRecovery: true)
         viewModel.defaultImageDetail = imageDetailSettings.value
         return viewModel
       }(),

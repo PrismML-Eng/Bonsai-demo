@@ -38,11 +38,13 @@ struct ComposerView: View {
         VStack(alignment: .leading, spacing: QuietGardenTheme.spacingS) { composerContent }
       }
       HStack {
-        Picker("Reasoning effort", selection: $viewModel.effort) {
-          ForEach(ReasoningEffort.allCases) { effort in Text(effort.rawValue).tag(effort) }
+        if viewModel.supportsReasoning {
+          Picker("Reasoning effort", selection: $viewModel.effort) {
+            ForEach(ReasoningEffort.allCases) { effort in Text(effort.rawValue).tag(effort) }
+          }
+          .pickerStyle(.menu).fixedSize().frame(minHeight: QuietGardenTheme.minimumTarget)
+          .accessibilityValue(viewModel.effort.rawValue)
         }
-        .pickerStyle(.menu).fixedSize().frame(minHeight: QuietGardenTheme.minimumTarget)
-        .accessibilityValue(viewModel.effort.rawValue)
         Spacer()
         Label("Local only", systemImage: "lock.fill").font(.caption).foregroundStyle(.secondary)
       }
@@ -71,7 +73,11 @@ struct ComposerView: View {
           await viewModel.importAttachment(from: url, label: "Camera photo")
           showsCamera = false
         },
-        onCancel: { showsCamera = false })
+        onCancel: { showsCamera = false },
+        onFailure: { message in
+          viewModel.presentAttachmentError("\(message) Retry.")
+          showsCamera = false
+        })
         .ignoresSafeArea()
       })
     #endif
@@ -102,7 +108,7 @@ struct ComposerView: View {
 
   private var attachmentControls: some View {
     HStack(spacing: QuietGardenTheme.spacingXS) {
-      ImagePicker(isDisabled: viewModel.isGenerating, onPicked: { url in
+      ImagePicker(isDisabled: !viewModel.allowsPrivateDataWrites, onPicked: { url in
         await viewModel.importAttachment(from: url)
         composerFocused = true
       }, onFailure: { message in
@@ -114,7 +120,7 @@ struct ComposerView: View {
           .frame(minWidth: QuietGardenTheme.minimumTarget,
                  minHeight: QuietGardenTheme.minimumTarget)
       }
-      .buttonStyle(.plain).disabled(viewModel.isGenerating)
+      .buttonStyle(.plain).disabled(!viewModel.allowsPrivateDataWrites)
       .accessibilityLabel("Choose image file")
       .accessibilityHint("Copies a selected image into private app storage")
       .accessibilityIdentifier(UIAccessibility.filePicker)
@@ -133,7 +139,7 @@ struct ComposerView: View {
           .frame(minWidth: QuietGardenTheme.minimumTarget,
                  minHeight: QuietGardenTheme.minimumTarget)
       }
-      .buttonStyle(.plain).disabled(viewModel.isGenerating || !CameraPicker.isAvailable)
+      .buttonStyle(.plain).disabled(!viewModel.allowsPrivateDataWrites || !CameraPicker.isAvailable)
       .accessibilityLabel("Take photo")
       .accessibilityHint(CameraPicker.isAvailable
         ? "Requests camera access only when activated"

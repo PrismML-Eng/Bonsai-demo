@@ -81,14 +81,18 @@ actor LiveModelLibraryService: ModelLibraryServing {
   private let conversations: ConversationCoordinator
   private let manifests: [ModelID: ModelManifest]
   private let sessionGate: ModelSessionGate
+  private let root: URL
+  private let descriptors: [ModelID: ModelDescriptor]
   private let installationProvider: (@Sendable (ModelID) async -> ModelInstallation?)?
   private var loadedInstallation: ModelInstallation?
+  private var effectiveCapabilities: Set<ModelCapability> = []
 
   init(root: URL, engine: MLXInferenceEngine, conversations: ConversationCoordinator,
        sessionGate: ModelSessionGate = ModelSessionGate(),
        manifests injectedManifests: [ModelID: ModelManifest]? = nil,
        installationProvider: (@Sendable (ModelID) async -> ModelInstallation?)? = nil) throws {
     library = try ModelLibrary(root: root)
+    self.root = root
     self.engine = engine
     self.conversations = conversations
     self.sessionGate = sessionGate
@@ -99,10 +103,16 @@ actor LiveModelLibraryService: ModelLibraryServing {
        let catalog = try? JSONDecoder().decode(ModelCatalog.self, from: Data(contentsOf: url)) {
       manifests = Dictionary(uniqueKeysWithValues: catalog.models.map { ($0.id, $0.manifest) })
     } else { manifests = [:] }
+    descriptors = ModelCatalogLoader.bundledDescriptors()
   }
 
   func snapshots() async -> AsyncStream<ModelLibrarySnapshot> { await library.snapshots() }
   func currentLoadedModelID() async -> ModelID? { loadedInstallation?.modelID }
+  func currentLoadedCapabilities() async -> Set<ModelCapability> { effectiveCapabilities }
+  func currentLoadedQualification() async -> LoadedModelQualification? {
+    guard let modelID = loadedInstallation?.modelID else { return nil }
+    return .init(modelID: modelID, capabilities: effectiveCapabilities)
+  }
 
   // swiftlint:disable:next cyclomatic_complexity function_body_length
   func perform(_ intent: ModelLibraryIntent, for modelID: ModelID) async throws {
@@ -116,6 +126,10 @@ actor LiveModelLibraryService: ModelLibraryServing {
     case .importModel:
       throw LiveUIServiceError.importRequiresPicker
     case .load:
+      let currentQualification = await qualification(for: modelID)
+      guard case .qualified(let capabilities) = currentQualification else {
+        throw ModelLibraryError.unqualified
+      }
       let installation: ModelInstallation?
       if let installationProvider {
         installation = await installationProvider(modelID)
@@ -139,6 +153,7 @@ actor LiveModelLibraryService: ModelLibraryServing {
         throw error
       }
       loadedInstallation = installation
+      effectiveCapabilities = capabilities
     case .unload:
       try await sessionGate.acquire()
       defer { Task { await sessionGate.release() } }
@@ -146,6 +161,7 @@ actor LiveModelLibraryService: ModelLibraryServing {
       await engine.unload()
       await conversations.unbind()
       loadedInstallation = nil
+      effectiveCapabilities = []
     case .delete:
       if loadedInstallation?.modelID == modelID {
         try await sessionGate.acquire()
@@ -154,6 +170,7 @@ actor LiveModelLibraryService: ModelLibraryServing {
         await engine.unload()
         await conversations.unbind()
         loadedInstallation = nil
+        effectiveCapabilities = []
       }
       try await library.delete(modelID)
     }
@@ -164,16 +181,19 @@ actor LiveModelLibraryService: ModelLibraryServing {
       await engine.unload()
       await conversations.unbind()
       loadedInstallation = nil
+      effectiveCapabilities = []
       return
     }
     do {
       try await engine.load(installation)
       try await conversations.bind(installation)
       loadedInstallation = installation
+      effectiveCapabilities = await qualification(for: installation.modelID).qualifiedCapabilities
     } catch {
       await engine.unload()
       await conversations.unbind()
       loadedInstallation = nil
+      effectiveCapabilities = []
     }
   }
 
@@ -183,13 +203,93 @@ actor LiveModelLibraryService: ModelLibraryServing {
   }
 
   private func qualification(for modelID: ModelID) async -> DeviceQualification {
-    #if os(iOS)
-    let idiom = await MainActor.run { UIDevice.current.userInterfaceIdiom }
-    if modelID == .ternary27B, idiom == .phone {
-      return .unsupported(.ternaryProhibitedOnIPhone)
+    guard let descriptor = descriptors[modelID] else { return .unverified(.deviceNotMeasured) }
+    let facts = await CurrentDeviceFacts.read(modelRoot: root)
+    let evidence = (try? ReleaseSupportManifestLoader.bundled(
+      expectedRevisions: descriptors.mapValues { $0.manifest.revision }, currentFacts: facts)) ?? [:]
+    return DeviceQualifier.qualify(
+      model: descriptor,
+      facts: facts,
+      evidence: evidence)
+  }
+}
+
+private extension DeviceQualification {
+  var qualifiedCapabilities: Set<ModelCapability> {
+    if case .qualified(let capabilities) = self { return capabilities }
+    return []
+  }
+}
+
+private enum CurrentDeviceFacts {
+  static func read(modelRoot: URL) async -> DeviceFacts {
+    let hardwareIdentifier = hardwareIdentifier()
+    let capacity = try? modelRoot.resourceValues(
+      forKeys: [.volumeAvailableCapacityForImportantUsageKey])
+      .volumeAvailableCapacityForImportantUsage
+    return DeviceFacts(
+      platform: await platform(),
+      deviceClass: .evidenceClass(hardwareIdentifier: hardwareIdentifier),
+      physicalMemoryBytes: Int(clamping: ProcessInfo.processInfo.physicalMemory),
+      freeStorageBytes: Int(clamping: max(0, capacity ?? 0)),
+      osBuild: systemString("kern.osversion"),
+      appBuild: appBuild(),
+      appCommit: Bundle.main.object(forInfoDictionaryKey: "BonsaiSourceCommit") as? String ?? "",
+      runtimeFingerprint: BonsaiRuntimeFingerprint.current,
+      thermalState: thermalState(),
+      isSimulator: isSimulator)
+  }
+
+  private static func platform() async -> Platform {
+    #if os(macOS)
+    return .mac
+    #else
+    return await MainActor.run {
+      UIDevice.current.userInterfaceIdiom == .pad ? .iPad : .iPhone
     }
     #endif
-    return .qualified([.textGeneration, .thinking, .toolCalling, .vision])
+  }
+
+  private static func hardwareIdentifier() -> String {
+    var system = utsname()
+    guard uname(&system) == 0 else { return "unknown-hardware" }
+    return withUnsafeBytes(of: system.machine) { raw in
+      let bytes = raw.prefix { $0 != 0 }
+      return String(decoding: bytes, as: UTF8.self)
+    }
+  }
+
+  private static func systemString(_ name: String) -> String {
+    var size = 0
+    guard sysctlbyname(name, nil, &size, nil, 0) == 0, size > 1 else { return "" }
+    var bytes = [CChar](repeating: 0, count: size)
+    guard sysctlbyname(name, &bytes, &size, nil, 0) == 0 else { return "" }
+    let truncated = bytes.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }
+    return String(decoding: truncated, as: UTF8.self)
+  }
+
+  private static func appBuild() -> String {
+    let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+    let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""
+    return "\(version)-\(build)"
+  }
+
+  private static func thermalState() -> ResourceThermalState {
+    switch ProcessInfo.processInfo.thermalState {
+    case .nominal: .nominal
+    case .fair: .fair
+    case .serious: .serious
+    case .critical: .critical
+    @unknown default: .critical
+    }
+  }
+
+  private static var isSimulator: Bool {
+    #if targetEnvironment(simulator)
+    true
+    #else
+    false
+    #endif
   }
 }
 actor InteractiveApprovalGate: ToolApprovalGate {
@@ -246,6 +346,7 @@ actor AgentLoopChatService: ChatSessionServing {
   private let attachmentRoot: URL?
   private let imagePreprocessor: ImagePreprocessor
   private let descriptors: [ModelID: ModelDescriptor]
+  private var effectiveCapabilities: Set<ModelCapability> = []
 
   static func shouldPersist(_ completion: AgentCompletion) -> Bool {
     completion == .stop || completion == .length
@@ -267,6 +368,10 @@ actor AgentLoopChatService: ChatSessionServing {
     self.attachmentRoot = attachmentRoot
     self.imagePreprocessor = imagePreprocessor
     self.descriptors = descriptors
+  }
+
+  func setEffectiveCapabilities(_ capabilities: Set<ModelCapability>) async {
+    effectiveCapabilities = capabilities
   }
 
   // This function owns the lifecycle boundary for forwarding, persistence, and completion.
@@ -348,7 +453,7 @@ actor AgentLoopChatService: ChatSessionServing {
         }
         defer { forwardingTask.cancel() }
         do {
-          let result = try await loop.run(generation)
+          let result = try await loop.run(generation, toolsEnabled: !generation.tools.isEmpty)
           await forwardingTask.value
           if let conversation = persistence?.conversation {
             try await self.persist(result: result, userMessage: userMessage,
@@ -409,6 +514,10 @@ actor AgentLoopChatService: ChatSessionServing {
                                                content: "You are Bonsai, a private on-device assistant."),
                       completedTurns: [])
     if !userMessage.attachments.isEmpty {
+      guard effectiveCapabilities.contains(.vision) else {
+        throw LiveUIServiceError.visionUnsupportedByModel(
+          displayName: selection.installation.modelID.rawValue)
+      }
       try Self.requireVisionSupport(modelID: selection.installation.modelID, descriptors: descriptors)
     }
     guard let engine else {
@@ -417,10 +526,11 @@ actor AgentLoopChatService: ChatSessionServing {
     }
     let imageTrim = try ImageRequestBudget.live.trim(
       conversation, appending: [userMessage])
-    let tools = await loop.toolSpecifications()
+    let policy = EffectiveCapabilityPolicy(effectiveCapabilities)
+    let tools = policy.allowsTools ? await loop.toolSpecifications() : []
     let prepared = try await engine.preparedGeneration(
       for: imageTrim.conversation, appending: [userMessage],
-      reasoningBudget: effort.tokenBudget, tools: tools)
+      reasoningBudget: policy.reasoningBudget(requested: effort), tools: tools)
     let processed = try await processedImages(for: prepared.trim.keptMessages)
     let combinedNotice = ContextTrimNotice(
       removedTurnCount: imageTrim.removedTurnCount + prepared.trim.notice.removedTurnCount,

@@ -88,11 +88,59 @@ protocol ChatSessionServing: Sendable {
   func cancel() async
   func respond(to action: ActivityAction) async
   func history() async throws -> [ChatMessagePresentation]
+  func setEffectiveCapabilities(_ capabilities: Set<ModelCapability>) async
 }
 
 extension ChatSessionServing {
   func respond(to action: ActivityAction) async {}
   func history() async throws -> [ChatMessagePresentation] { [] }
+  func setEffectiveCapabilities(_ capabilities: Set<ModelCapability>) async {}
+}
+
+struct PrivateDataAdmissionLease: Hashable, Sendable {
+  fileprivate let id: UUID
+  fileprivate let generation: UInt64
+}
+
+@MainActor final class PrivateDataAdmissionBarrier {
+  private var isOpen: Bool
+  private var generation: UInt64 = 0
+  private var active: Set<UUID> = []
+  private var drainWaiters: [CheckedContinuation<Void, Never>] = []
+
+  init(isOpen: Bool) { self.isOpen = isOpen }
+
+  func acquire() -> PrivateDataAdmissionLease? {
+    guard isOpen else { return nil }
+    let id = UUID()
+    active.insert(id)
+    return .init(id: id, generation: generation)
+  }
+
+  func isCurrent(_ lease: PrivateDataAdmissionLease) -> Bool {
+    isOpen && lease.generation == generation && active.contains(lease.id)
+  }
+
+  func release(_ lease: PrivateDataAdmissionLease) {
+    active.remove(lease.id)
+    guard active.isEmpty else { return }
+    let waiters = drainWaiters
+    drainWaiters.removeAll()
+    waiters.forEach { $0.resume() }
+  }
+
+  func closeAndDrain() async {
+    isOpen = false
+    generation &+= 1
+    guard !active.isEmpty else { return }
+    await withCheckedContinuation { drainWaiters.append($0) }
+  }
+
+  func reopen() {
+    precondition(active.isEmpty, "Private-data admission cannot reopen before drain completes")
+    generation &+= 1
+    isOpen = true
+  }
 }
 
 // Presentation state intentionally remains one atomic main-actor transaction boundary.
@@ -115,11 +163,15 @@ final class ChatViewModel {
   private(set) var draftAttachment: ImageAttachment?
   private(set) var attachmentError: String?
   private(set) var clearDataError: String?
+  private(set) var localDataIsCoherent: Bool
+  private(set) var isPrivateDataClearInProgress = false
   private(set) var showsFullDetailWarning = false
   var defaultImageDetail: ImageDetailPolicy = .fast1024
   var isModelReady: Bool
   var loadedModelName: String?
   var supportsVisionInput = true
+  private(set) var supportsReasoning = true
+  private(set) var supportsTools = true
   private var generationTask: Task<Void, Never>?
   private var generationID: UUID?
   private var activePrompt: String?
@@ -130,22 +182,42 @@ final class ChatViewModel {
   private var attachmentCleanupFailure: String?
   private var didPersistCurrentRun = false
   private var clearRetryService: (any SettingsServing)?
+  private let privateDataAdmission: PrivateDataAdmissionBarrier
+  private var privateDataClearOwned = false
+  private var privateDataClearWaiters: [CheckedContinuation<Void, Never>] = []
 
   init(
     service: any ChatSessionServing,
     isModelReady: Bool,
-    attachments: (any AttachmentServing)? = nil
+    attachments: (any AttachmentServing)? = nil,
+    requiresClearRecovery: Bool = false
   ) {
     self.service = service
     self.attachments = attachments
     self.isModelReady = isModelReady
+    localDataIsCoherent = !requiresClearRecovery
+    isPrivateDataClearInProgress = requiresClearRecovery
+    privateDataAdmission = PrivateDataAdmissionBarrier(isOpen: !requiresClearRecovery)
     loadedModelName = isModelReady ? "Bonsai 27B · 1-bit" : nil
   }
 
   var canSend: Bool {
-    isModelReady && !isGenerating
+    localDataIsCoherent && isModelReady && !isGenerating
       && (!draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || draftAttachment != nil)
   }
+
+  var allowsPrivateDataWrites: Bool { localDataIsCoherent && !isGenerating }
+
+  func setEffectiveCapabilities(_ capabilities: Set<ModelCapability>) async {
+    let policy = EffectiveCapabilityPolicy(capabilities)
+    supportsVisionInput = policy.allowsVision
+    supportsReasoning = policy.allowsThinking
+    supportsTools = policy.allowsTools
+    if !supportsReasoning { effort = .off }
+    await service.setEffectiveCapabilities(capabilities)
+  }
+
+  var queuedPrivateDataClearCount: Int { privateDataClearWaiters.count }
 
   func send() async {
     guard canSend else { return }
@@ -263,16 +335,39 @@ final class ChatViewModel {
   func presentAttachmentError(_ message: String) { attachmentError = message }
   func dismissClearDataError() { clearDataError = nil }
 
+  func recoverPendingLocalDataClear(using service: any SettingsServing) async -> Bool {
+    await acquirePrivateDataClearOwnership()
+    localDataIsCoherent = false
+    attachmentImportsEnabled = false
+    await privateDataAdmission.closeAndDrain()
+    let succeeded: Bool
+    do {
+      try await service.recoverPendingClear()
+      clearDataError = nil
+      clearRetryService = nil
+      recovery = nil
+      succeeded = true
+    } catch {
+      clearDataError = "Could not finish clearing local data: \(error.localizedDescription). Retry clear data."
+      clearRetryService = service
+      recovery = .init(label: "Retry clear data", intent: .retryClear)
+      succeeded = false
+    }
+    _ = finishPrivateDataClearOwnership(reopen: succeeded)
+    return succeeded
+  }
+
   func clearLocalData(using service: any SettingsServing) async {
+    await acquirePrivateDataClearOwnership()
+    localDataIsCoherent = false
     attachmentImportsEnabled = false
     attachmentImportID = nil
+    // Lock order: close/drain conversation-history leases, then stop generation,
+    // then drain attachment imports, and only then write the durable clear intent.
+    await privateDataAdmission.closeAndDrain()
     await stop()
     await waitForAttachmentImports()
-    if let failure = attachmentCleanupFailure {
-      clearDataError = "Could not clear local data: imported private-copy cleanup failed: " + failure
-      attachmentImportsEnabled = true
-      return
-    }
+    let succeeded: Bool
     do {
       try await service.clearConversationsNotesAndImages()
       attachmentImportID = nil
@@ -289,13 +384,44 @@ final class ChatViewModel {
       failedPrompt = nil
       recovery = nil
       clearRetryService = nil
-      await reloadHistory()
+      attachmentCleanupFailure = nil
+      succeeded = true
     } catch {
       clearDataError = "Could not clear local data: \(error.localizedDescription). Retry clear data."
       clearRetryService = service
       recovery = .init(label: "Retry clear data", intent: .retryClear)
+      succeeded = false
     }
-    attachmentImportsEnabled = true
+    let reopened = finishPrivateDataClearOwnership(reopen: succeeded)
+    if reopened { await reloadHistory() }
+  }
+
+  private func acquirePrivateDataClearOwnership() async {
+    if !privateDataClearOwned {
+      privateDataClearOwned = true
+      isPrivateDataClearInProgress = true
+      return
+    }
+    await withCheckedContinuation { privateDataClearWaiters.append($0) }
+  }
+
+  private func finishPrivateDataClearOwnership(reopen: Bool) -> Bool {
+    if handOffPrivateDataClearOwnership() { return false }
+    if reopen {
+      privateDataAdmission.reopen()
+      localDataIsCoherent = true
+      attachmentImportsEnabled = true
+    }
+    privateDataClearOwned = false
+    isPrivateDataClearInProgress = false
+    return reopen
+  }
+
+  private func handOffPrivateDataClearOwnership() -> Bool {
+    guard !privateDataClearWaiters.isEmpty else { return false }
+    let next = privateDataClearWaiters.removeFirst()
+    next.resume()
+    return true
   }
 
   private var needsFullDetailConfirmation: Bool {
@@ -305,19 +431,74 @@ final class ChatViewModel {
   }
 
   func start() async {
-    guard messages.isEmpty else { return }
-    if let history = try? await service.history() { messages = history }
+    guard localDataIsCoherent, messages.isEmpty else { return }
+    await loadHistory(cancelFirst: false)
   }
 
   func reloadHistory() async {
-    generationTask?.cancel()
-    await service.cancel()
-    messages = (try? await service.history()) ?? []
+    guard localDataIsCoherent else { return }
+    await loadHistory(cancelFirst: true)
+  }
+
+  func withConversationAdmission(
+    _ operation: @MainActor (PrivateDataAdmissionLease) async -> Void
+  ) async {
+    guard localDataIsCoherent,
+          let lease = privateDataAdmission.acquire() else { return }
+    await operation(lease)
+    privateDataAdmission.release(lease)
+  }
+
+  func isConversationAdmissionCurrent(_ lease: PrivateDataAdmissionLease) async -> Bool {
+    privateDataAdmission.isCurrent(lease)
+  }
+
+  func publishIfConversationAdmissionCurrent(
+    _ lease: PrivateDataAdmissionLease,
+    _ publication: @MainActor () -> Void
+  ) async {
+    guard localDataIsCoherent,
+          privateDataAdmission.isCurrent(lease),
+          localDataIsCoherent else { return }
+    publication()
+  }
+
+  func reloadHistory(admittedBy lease: PrivateDataAdmissionLease) async {
+    await loadHistory(cancelFirst: true, admittedBy: lease)
+  }
+
+  private func loadHistory(
+    cancelFirst: Bool,
+    admittedBy existingLease: PrivateDataAdmissionLease? = nil
+  ) async {
+    let acquiredLease: PrivateDataAdmissionLease?
+    if let existingLease {
+      acquiredLease = existingLease
+    } else {
+      acquiredLease = privateDataAdmission.acquire()
+    }
+    guard let lease = acquiredLease else { return }
+    let ownsLease = existingLease == nil
+    if cancelFirst {
+      generationTask?.cancel()
+      await service.cancel()
+    }
+    guard privateDataAdmission.isCurrent(lease), localDataIsCoherent else {
+      if ownsLease { privateDataAdmission.release(lease) }
+      return
+    }
+    let history = (try? await service.history()) ?? []
+    guard privateDataAdmission.isCurrent(lease), localDataIsCoherent else {
+      if ownsLease { privateDataAdmission.release(lease) }
+      return
+    }
+    messages = history
     reasoning = .init()
     metrics = nil
     activities = []
     terminalStatus = nil
     contextTrimNotice = nil
+    if ownsLease { privateDataAdmission.release(lease) }
   }
 
   func retry() async {
@@ -435,7 +616,7 @@ final class ChatViewModel {
   }
 
   private func beginAttachmentImport() -> Bool {
-    guard attachmentImportsEnabled else { return false }
+    guard localDataIsCoherent, attachmentImportsEnabled else { return false }
     attachmentImportsInFlight += 1
     return true
   }

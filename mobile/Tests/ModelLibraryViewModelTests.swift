@@ -154,6 +154,70 @@ final class ModelLibraryViewModelTests: XCTestCase {
     XCTAssertEqual(viewModel.loadedModelID, .oneBit27B)
     XCTAssertTrue(try XCTUnwrap(viewModel.rows.first { $0.id == .oneBit27B }).isLoaded)
   }
+
+  func testLoadedIdentityAndCapabilitiesPublishAsOneSnapshot() async throws {
+    let snapshot = ModelLibrarySnapshot.fixture(.ready)
+    let service = QualifiedLibraryService(snapshot: snapshot)
+    let viewModel = ModelLibraryViewModel(service: service, platform: .mac, initial: snapshot)
+    let load = try XCTUnwrap(viewModel.rows.first { $0.id == .oneBit27B }?.primaryAction)
+
+    await viewModel.perform(load, modelID: .oneBit27B)
+
+    XCTAssertEqual(
+      viewModel.loadedQualification,
+      LoadedModelQualification(modelID: .oneBit27B, capabilities: [.textGeneration, .toolCalling]))
+    XCTAssertEqual(viewModel.loadedModelID, .oneBit27B)
+    XCTAssertEqual(viewModel.loadedCapabilities, [.textGeneration, .toolCalling])
+  }
+
+  func testSuspendedQualificationNeverPublishesIdentityWithoutCapabilities() async throws {
+    let snapshot = ModelLibrarySnapshot.fixture(.ready)
+    let service = SuspendedQualificationLibraryService(snapshot: snapshot)
+    let viewModel = ModelLibraryViewModel(service: service, platform: .mac, initial: snapshot)
+    let load = try XCTUnwrap(viewModel.rows.first { $0.id == .oneBit27B }?.primaryAction)
+
+    let operation = Task { await viewModel.perform(load, modelID: .oneBit27B) }
+    await service.waitUntilQualificationRequested()
+    XCTAssertNil(viewModel.loadedQualification)
+    XCTAssertNil(viewModel.loadedModelID)
+    XCTAssertTrue(viewModel.loadedCapabilities.isEmpty)
+
+    await service.finishQualification()
+    await operation.value
+    XCTAssertEqual(viewModel.loadedModelID, .oneBit27B)
+    XCTAssertEqual(viewModel.loadedCapabilities, [.textGeneration, .thinking])
+  }
+}
+
+private actor QualifiedLibraryService: ModelLibraryServing {
+  let snapshot: ModelLibrarySnapshot
+  init(snapshot: ModelLibrarySnapshot) { self.snapshot = snapshot }
+  func snapshots() async -> AsyncStream<ModelLibrarySnapshot> {
+    AsyncStream { continuation in continuation.yield(snapshot); continuation.finish() }
+  }
+  func perform(_ intent: ModelLibraryIntent, for modelID: ModelID) async throws {}
+  func currentLoadedQualification() async -> LoadedModelQualification? {
+    .init(modelID: .oneBit27B, capabilities: [.textGeneration, .toolCalling])
+  }
+}
+
+private actor SuspendedQualificationLibraryService: ModelLibraryServing {
+  let snapshot: ModelLibrarySnapshot
+  private var requested = false
+  private var continuation: CheckedContinuation<Void, Never>?
+
+  init(snapshot: ModelLibrarySnapshot) { self.snapshot = snapshot }
+  func snapshots() async -> AsyncStream<ModelLibrarySnapshot> {
+    AsyncStream { continuation in continuation.yield(snapshot); continuation.finish() }
+  }
+  func perform(_ intent: ModelLibraryIntent, for modelID: ModelID) async throws {}
+  func currentLoadedQualification() async -> LoadedModelQualification? {
+    requested = true
+    await withCheckedContinuation { continuation = $0 }
+    return .init(modelID: .oneBit27B, capabilities: [.textGeneration, .thinking])
+  }
+  func waitUntilQualificationRequested() async { while !requested { await Task.yield() } }
+  func finishQualification() { continuation?.resume(); continuation = nil }
 }
 
 private actor RecordingLibraryService: ModelLibraryServing {
