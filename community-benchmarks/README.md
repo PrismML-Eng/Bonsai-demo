@@ -8,6 +8,7 @@ The 27B models come in two families: Bonsai (1-bit, `Q1_0`) and Ternary-Bonsai (
 
 | Family | Hardware | Backend | PP512 (t/s) | TG128 (t/s) | DSpark TG (t/s) | Details |
 |--------|----------|---------|------------:|------------:|----------------:|---------|
+| Ternary | NVIDIA RTX A5000 24 GB | llama.cpp CUDA | 1,036 | 48.2 | | [link](ternary-bonsai/cuda-rtxa5000-ubuntu.md) |
 | Ternary | NVIDIA RTX 5060 Ti 16 GB | llama.cpp CUDA | 1,029 | 44.4 | ~79 (1.78x) | [link](ternary-bonsai/cuda-rtx5060ti-linux.md) |
 | Bonsai (1-bit) | NVIDIA DGX Spark (GB10) | llama.cpp CUDA | 1,003 | 44.1 | no gain on this HW | [link](bonsai/cuda-gb10-27b-linux.md) |
 | Ternary | Apple M5 Pro 64 GB | MLX 2-bit | 466 | 29.5 | 34-49 (community dspark-mlx) | [link](ternary-bonsai/mlx-m5-pro-macos.md) |
