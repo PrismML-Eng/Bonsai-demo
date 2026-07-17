@@ -18,6 +18,10 @@ struct DeviceClass: RawRepresentable, Codable, Hashable, Sendable {
     static let iPadProM4 = Self(rawValue: "iPadProM4")
     static let macBookProM4 = Self(rawValue: "macBookProM4")
 
+    static func evidenceClass(hardwareIdentifier: String) -> Self {
+        Self(rawValue: hardwareIdentifier)
+    }
+
     init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         rawValue = try container.decode(String.self)
@@ -34,6 +38,36 @@ struct DeviceFacts: Equatable, Sendable {
     let deviceClass: DeviceClass
     let physicalMemoryBytes: Int
     let freeStorageBytes: Int
+    let osBuild: String
+    let appBuild: String
+    let appCommit: String
+    let runtimeFingerprint: String
+    let thermalState: ResourceThermalState
+    let isSimulator: Bool
+
+    init(
+        platform: Platform,
+        deviceClass: DeviceClass,
+        physicalMemoryBytes: Int,
+        freeStorageBytes: Int,
+        osBuild: String = "",
+        appBuild: String = "",
+        appCommit: String = "",
+        runtimeFingerprint: String = "",
+        thermalState: ResourceThermalState = .nominal,
+        isSimulator: Bool = false
+    ) {
+        self.platform = platform
+        self.deviceClass = deviceClass
+        self.physicalMemoryBytes = physicalMemoryBytes
+        self.freeStorageBytes = freeStorageBytes
+        self.osBuild = osBuild
+        self.appBuild = appBuild
+        self.appCommit = appCommit
+        self.runtimeFingerprint = runtimeFingerprint
+        self.thermalState = thermalState
+        self.isSimulator = isSimulator
+    }
 }
 
 enum QualificationReason: Equatable, Sendable {
@@ -41,6 +75,9 @@ enum QualificationReason: Equatable, Sendable {
     case deviceNotMeasured
     case insufficientMemory
     case insufficientStorage
+    case incompatibleRuntime
+    case simulatorNotSupported
+    case criticalThermalState
 }
 
 enum DeviceQualification: Equatable, Sendable {

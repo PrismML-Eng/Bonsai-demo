@@ -12,6 +12,12 @@ enum DeviceQualifier {
             return .unsupported(.ternaryProhibitedOnIPhone)
         }
 
+        guard !facts.isSimulator else { return .unverified(.simulatorNotSupported) }
+        guard facts.runtimeFingerprint.isEmpty
+            || facts.runtimeFingerprint == BonsaiRuntimeFingerprint.current else {
+            return .unverified(.incompatibleRuntime)
+        }
+
         guard
             let measuredCapabilities = evidence[model.id]?[facts.deviceClass],
             measuredCapabilities.contains(.textGeneration)
@@ -37,6 +43,34 @@ enum DeviceQualifier {
             return .unsupported(.insufficientStorage)
         }
 
+        guard facts.thermalState != .critical else {
+            return .unsupported(.criticalThermalState)
+        }
+
         return .qualified(model.capabilities.intersection(measuredCapabilities))
+    }
+
+    static func qualify(
+        model: ModelDescriptor,
+        facts: DeviceFacts,
+        manifest: ReleaseSupportManifest,
+        artifactLoader: (String) throws -> Data
+    ) -> DeviceQualification {
+        guard manifest.evidence
+            .filter({ $0.modelID == model.id })
+            .allSatisfy({
+                $0.modelRevision == model.manifest.revision
+                    && (facts.osBuild.isEmpty || $0.osBuild == facts.osBuild)
+                    && (facts.appBuild.isEmpty || $0.appBuild == facts.appBuild)
+                    && (facts.appCommit.isEmpty || $0.appCommit == facts.appCommit)
+                    && (facts.runtimeFingerprint.isEmpty
+                        || $0.runtimeFingerprint == facts.runtimeFingerprint)
+            }) else {
+            return .unverified(.deviceNotMeasured)
+        }
+        guard let evidence = try? manifest.qualificationEvidence(artifactLoader: artifactLoader) else {
+            return .unverified(.deviceNotMeasured)
+        }
+        return qualify(model: model, facts: facts, evidence: evidence)
     }
 }
