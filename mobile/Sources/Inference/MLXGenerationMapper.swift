@@ -20,7 +20,9 @@ enum MLXGenerationMapper {
             promptTokenCount: info.promptTokenCount,
             generatedTokenCount: info.generationTokenCount,
             timeToFirstToken: timeToFirstToken,
-            tokensPerSecond: info.tokensPerSecond.isFinite ? info.tokensPerSecond : 0
+            tokensPerSecond: info.tokensPerSecond.isFinite ? info.tokensPerSecond : 0,
+            promptTokensPerSecond: info.promptTokensPerSecond.isFinite
+              ? info.promptTokensPerSecond : 0
         )
     }
 

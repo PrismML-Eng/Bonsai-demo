@@ -5,6 +5,21 @@ struct GenerationMetrics: Equatable, Sendable {
     let generatedTokenCount: Int
     let timeToFirstToken: Duration
     let tokensPerSecond: Double
+    let promptTokensPerSecond: Double
+
+    init(
+        promptTokenCount: Int,
+        generatedTokenCount: Int,
+        timeToFirstToken: Duration,
+        tokensPerSecond: Double,
+        promptTokensPerSecond: Double = 0
+    ) {
+        self.promptTokenCount = promptTokenCount
+        self.generatedTokenCount = generatedTokenCount
+        self.timeToFirstToken = timeToFirstToken
+        self.tokensPerSecond = tokensPerSecond
+        self.promptTokensPerSecond = promptTokensPerSecond
+    }
 }
 
 enum CompletionReason: String, Equatable, Sendable {
