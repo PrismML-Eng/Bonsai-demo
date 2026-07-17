@@ -6,36 +6,29 @@ enum SettingsIntent: Equatable, Sendable {
 }
 
 protocol SettingsServing: Sendable {
+  func recoverPendingClear() async throws
   func clearConversationsNotesAndImages() async throws
 }
 
 actor LiveSettingsService: SettingsServing {
-  let conversations: ConversationCoordinator
-  let notes: NotesStore
-  let attachments: ManagedAttachmentStore
+  private let clearCoordinator: ApplicationDataClearCoordinator
 
   init(
+    root: URL,
     conversations: ConversationCoordinator,
     notes: NotesStore,
     attachments: ManagedAttachmentStore
-  ) {
-    self.conversations = conversations
-    self.notes = notes
-    self.attachments = attachments
+  ) throws {
+    clearCoordinator = try ApplicationDataClearCoordinator(
+      root: root, conversations: conversations, notes: notes, attachments: attachments)
+  }
+
+  func recoverPendingClear() async throws {
+    try await clearCoordinator.recoverIfNeeded()
   }
 
   func clearConversationsNotesAndImages() async throws {
-    let noteSnapshot = try await notes.clearSnapshot()
-    let attachmentTransaction = try await attachments.prepareClear()
-    do {
-      try await notes.clearAll()
-      try await conversations.clearAllConversations()
-    } catch {
-      try? await notes.restoreClearSnapshot(noteSnapshot)
-      try? await attachments.rollbackClear(attachmentTransaction)
-      throw error
-    }
-    try await attachments.commitClear(attachmentTransaction)
+    try await clearCoordinator.clearAll()
   }
 }
 
@@ -57,14 +50,17 @@ struct SettingsView: View {
   @Environment(\.dismiss) private var dismiss
   @State private var detailPolicy: ImageDetailPolicy
   let detailSettings: PersistedImageDetailSettings
+  let isClearInProgress: Bool
   let onIntent: @MainActor (SettingsIntent) async -> Void
   @State private var confirmsClear = false
 
   init(
     detailSettings: PersistedImageDetailSettings,
+    isClearInProgress: Bool = false,
     onIntent: @escaping @MainActor (SettingsIntent) async -> Void
   ) {
     self.detailSettings = detailSettings
+    self.isClearInProgress = isClearInProgress
     self.onIntent = onIntent
     _detailPolicy = State(initialValue: detailSettings.value)
   }
@@ -111,6 +107,12 @@ struct SettingsView: View {
         Button("Clear conversations, notes, and images", role: .destructive) {
           confirmsClear = true
         }
+        .disabled(isClearInProgress)
+        if isClearInProgress {
+          Label("Finishing private-data clear…", systemImage: "hourglass")
+            .foregroundStyle(.secondary)
+            .accessibilityHint("Clear controls remain unavailable until recovery finishes")
+        }
       }
     }
     .formStyle(.grouped)
@@ -123,6 +125,7 @@ struct SettingsView: View {
       Button("Clear conversations, notes, and images", role: .destructive) {
         Task { await onIntent(.clearConversationsNotesAndImages) }
       }
+      .disabled(isClearInProgress)
       Button("Cancel", role: .cancel) {}
     } message: {
       Text("Downloaded models are kept. This cannot be undone.")

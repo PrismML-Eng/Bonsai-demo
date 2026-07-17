@@ -251,6 +251,245 @@ final class QuietGardenViewModelTests: XCTestCase {
     XCTAssertNil(viewModel.recovery)
   }
 
+  func testFailedRuntimeClearRejectsSendAndImportUntilTypedRetrySucceeds() async {
+    let chat = RecordingChatService(events: [.completed(.stop)])
+    let attachment = ImageAttachment(
+      id: UUID(), originalFilename: "private.jpg", managedRelativePath: "private.jpg",
+      pixelSize: .init(width: 16, height: 16), byteCount: 10,
+      contentType: "image/jpeg", detailPolicy: .fast1024, lifecycle: .managedDraft,
+      accessibleLabel: "Private")
+    let attachments = AttachmentLifecycleService(imports: [attachment])
+    let settings = SequencedSettingsService(failuresBeforeSuccess: 1)
+    let viewModel = ChatViewModel(
+      service: chat, isModelReady: true, attachments: attachments)
+    viewModel.draft = "must remain gated"
+
+    await viewModel.clearLocalData(using: settings)
+    await viewModel.send()
+    await viewModel.importAttachment(data: Data([1]), filename: "blocked.jpg")
+
+    let blockedChatRequests = await chat.requestCount
+    let blockedImports = await attachments.importCount
+    XCTAssertFalse(viewModel.localDataIsCoherent)
+    XCTAssertFalse(viewModel.canSend)
+    XCTAssertEqual(blockedChatRequests, 0)
+    XCTAssertEqual(blockedImports, 0)
+
+    await viewModel.performRecovery()
+    viewModel.draft = "allowed after recovery"
+    await viewModel.send()
+    await viewModel.importAttachment(data: Data([1]), filename: "allowed.jpg")
+
+    let allowedChatRequests = await chat.requestCount
+    let allowedImports = await attachments.importCount
+    XCTAssertTrue(viewModel.localDataIsCoherent)
+    XCTAssertEqual(allowedChatRequests, 1)
+    XCTAssertEqual(allowedImports, 1)
+  }
+
+  func testFailedRuntimeClearBlocksConversationActionsAndHistoryUntilRetry() async throws {
+    let chatService = RecordingChatService(events: [])
+    let chatViewModel = ChatViewModel(service: chatService, isModelReady: true)
+    let conversationID = try ConversationID("coherence-conversation")
+    let navigationService = RecordingConversationNavigationService()
+    let navigationViewModel = ConversationNavigationViewModel(service: navigationService)
+    let settings = SequencedSettingsService(failuresBeforeSuccess: 1)
+
+    await chatViewModel.clearLocalData(using: settings)
+    await CoherentConversationActions.create(
+      navigation: navigationViewModel, chat: chatViewModel)
+    await CoherentConversationActions.select(
+      conversationID, navigation: navigationViewModel, chat: chatViewModel)
+    await chatViewModel.reloadHistory()
+
+    let blockedNavigation = await navigationService.callCounts
+    let blockedHistory = await chatService.historyCount
+    XCTAssertEqual(blockedNavigation.create, 0)
+    XCTAssertEqual(blockedNavigation.select, 0)
+    XCTAssertEqual(blockedHistory, 0)
+
+    await chatViewModel.performRecovery()
+    let historyAfterRetry = await chatService.historyCount
+    await CoherentConversationActions.create(
+      navigation: navigationViewModel, chat: chatViewModel)
+    await CoherentConversationActions.select(
+      conversationID, navigation: navigationViewModel, chat: chatViewModel)
+
+    let allowedNavigation = await navigationService.callCounts
+    let allowedHistory = await chatService.historyCount
+    XCTAssertEqual(allowedNavigation.create, 1)
+    XCTAssertEqual(allowedNavigation.select, 1)
+    XCTAssertEqual(allowedHistory, historyAfterRetry + 2)
+  }
+
+  func testClearClosesAndDrainsEverySuspendingConversationBoundaryBeforeStoreMutation() async throws {
+    for boundary in ConversationBoundarySuspension.allCases {
+      let chatService = BoundarySuspendingChatService(boundary: boundary)
+      let chatViewModel = ChatViewModel(service: chatService, isModelReady: true)
+      chatViewModel.applyFixture(UIFixture.readyChat.makeState())
+      let originalMessages = chatViewModel.messages
+      let navigationService = BoundarySuspendingNavigationService(boundary: boundary)
+      let navigationViewModel = ConversationNavigationViewModel(service: navigationService)
+      let settings = SequencedSettingsService(failuresBeforeSuccess: 1)
+      let conversationID = try ConversationID("boundary-\(boundary.rawValue)")
+
+      let admitted = Task { @MainActor in
+        switch boundary {
+        case .create:
+          await CoherentConversationActions.create(
+            navigation: navigationViewModel, chat: chatViewModel)
+        case .select:
+          await CoherentConversationActions.select(
+            conversationID, navigation: navigationViewModel, chat: chatViewModel)
+        case .cancel, .history:
+          await chatViewModel.reloadHistory()
+        }
+      }
+      await waitUntilBoundaryStarts(
+        boundary, chat: chatService, navigation: navigationService)
+
+      let clearing = Task { @MainActor in
+        await chatViewModel.clearLocalData(using: settings)
+      }
+      while chatViewModel.localDataIsCoherent { await Task.yield() }
+      let callsWhileSuspended = await settings.callCount
+      XCTAssertEqual(callsWhileSuspended, 0, "\(boundary)")
+
+      await resumeBoundary(boundary, chat: chatService, navigation: navigationService)
+      await admitted.value
+      await clearing.value
+
+      let failedClearCalls = await settings.callCount; let staleHistoryReads = await chatService.historyCount
+      let completedNavigationWrites = await navigationService.writeCount
+      XCTAssertEqual(failedClearCalls, 1, "\(boundary)")
+      XCTAssertEqual(chatViewModel.messages, originalMessages, "\(boundary)")
+      XCTAssertNil(navigationViewModel.errorMessage, "\(boundary)")
+      XCTAssertEqual(
+        completedNavigationWrites,
+        boundary == .create || boundary == .select ? 1 : 0,
+        "\(boundary)")
+      XCTAssertLessThanOrEqual(staleHistoryReads, boundary == .history ? 1 : 0, "\(boundary)")
+      XCTAssertFalse(chatViewModel.localDataIsCoherent, "\(boundary)")
+
+      await chatViewModel.performRecovery()
+      XCTAssertTrue(chatViewModel.localDataIsCoherent, "\(boundary)")
+      await CoherentConversationActions.create(
+        navigation: navigationViewModel, chat: chatViewModel)
+      let reopenedCreates = await navigationService.createCount
+      XCTAssertEqual(reopenedCreates, boundary == .create ? 2 : 1, "\(boundary)")
+    }
+  }
+
+  func testRecoveryAndManualClearAreFIFOOwnersWithoutPrematureAdmission() async {
+    for recoverySucceeds in [false, true] {
+      for manualClearSucceeds in [false, true] {
+        let settings = OverlappingSettingsService(
+          recoverySucceeds: recoverySucceeds,
+          firstClearSucceeds: manualClearSucceeds)
+        let chatService = RecordingChatService(events: [])
+        let viewModel = ChatViewModel(
+          service: chatService, isModelReady: true, requiresClearRecovery: true)
+
+        let recovery = Task { @MainActor in
+          await viewModel.recoverPendingLocalDataClear(using: settings)
+        }
+        await settings.waitUntilRecoveryStarts()
+        let manualClear = Task { @MainActor in
+          await viewModel.clearLocalData(using: settings)
+        }
+        await waitUntilManualClearIsQueued(viewModel: viewModel, settings: settings)
+
+        let queuedClearCalls = await settings.clearCallCount
+        XCTAssertEqual(viewModel.queuedPrivateDataClearCount, 1)
+        XCTAssertEqual(queuedClearCalls, 0)
+        XCTAssertTrue(viewModel.isPrivateDataClearInProgress)
+        XCTAssertFalse(viewModel.localDataIsCoherent)
+
+        await settings.resumeRecovery()
+        await settings.waitUntilFirstClearStarts()
+        await viewModel.reloadHistory()
+        let historyWhileOwned = await chatService.historyCount
+        XCTAssertEqual(historyWhileOwned, 0)
+        XCTAssertFalse(viewModel.localDataIsCoherent)
+
+        await settings.resumeFirstClear()
+        let recoveryResult = await recovery.value
+        await manualClear.value
+
+        let callOrder = await settings.callOrder
+        let maximumConcurrentMutations = await settings.maximumConcurrentMutations
+        let hasPendingIntent = await settings.hasPendingIntent
+        XCTAssertEqual(recoveryResult, recoverySucceeds)
+        XCTAssertEqual(callOrder, ["recover", "clear"])
+        XCTAssertEqual(maximumConcurrentMutations, 1)
+        XCTAssertEqual(viewModel.localDataIsCoherent, manualClearSucceeds)
+        XCTAssertEqual(hasPendingIntent, !manualClearSucceeds)
+        XCTAssertFalse(viewModel.isPrivateDataClearInProgress)
+
+        if !manualClearSucceeds {
+          XCTAssertEqual(viewModel.recovery?.intent, .retryClear)
+          await viewModel.performRecovery()
+          let pendingAfterRetry = await settings.hasPendingIntent
+          XCTAssertTrue(viewModel.localDataIsCoherent)
+          XCTAssertFalse(pendingAfterRetry)
+        }
+      }
+    }
+  }
+
+  private func waitUntilManualClearIsQueued(
+    viewModel: ChatViewModel,
+    settings: OverlappingSettingsService
+  ) async {
+    while viewModel.queuedPrivateDataClearCount == 0 {
+      let overlappingSettingsCall = await settings.clearCallCount
+      if overlappingSettingsCall > 0 { return }
+      await Task.yield()
+    }
+  }
+
+  private func waitUntilBoundaryStarts(
+    _ boundary: ConversationBoundarySuspension,
+    chat: BoundarySuspendingChatService,
+    navigation: BoundarySuspendingNavigationService
+  ) async {
+    switch boundary {
+    case .create, .select: await navigation.waitUntilStarted()
+    case .cancel, .history: await chat.waitUntilStarted()
+    }
+  }
+
+  private func resumeBoundary(
+    _ boundary: ConversationBoundarySuspension,
+    chat: BoundarySuspendingChatService,
+    navigation: BoundarySuspendingNavigationService
+  ) async {
+    switch boundary {
+    case .create, .select: await navigation.resume()
+    case .cancel, .history: await chat.resume()
+    }
+  }
+
+  func testFailedStartupClearRecoveryRemainsGatedUntilTypedRetrySucceeds() async {
+    let settings = RecoveryFailOnceSettingsService()
+    let viewModel = ChatViewModel(
+      service: RecordingChatService(events: []), isModelReady: true)
+
+    let recovered = await viewModel.recoverPendingLocalDataClear(using: settings)
+
+    XCTAssertFalse(recovered)
+    XCTAssertFalse(viewModel.localDataIsCoherent)
+    XCTAssertEqual(viewModel.recovery?.intent, .retryClear)
+
+    await viewModel.performRecovery()
+
+    let calls = await settings.callCounts
+    XCTAssertEqual(calls.recover, 1)
+    XCTAssertEqual(calls.clear, 1)
+    XCTAssertTrue(viewModel.localDataIsCoherent)
+    XCTAssertNil(viewModel.recovery)
+  }
+
   func testNavigationContractUsesPlatformAndHorizontalSizeClass() {
     XCTAssertEqual(RootNavigationState.layout(platform: .iPhone, compactWidth: false), .stack)
     XCTAssertEqual(RootNavigationState.layout(platform: .iPad, compactWidth: true), .stack)
@@ -774,6 +1013,7 @@ private actor ScriptedChatService: ChatSessionServing {
 private actor RecordingChatService: ChatSessionServing {
   let events: [ChatSessionEvent]
   private(set) var requests: [ChatSendRequest] = []
+  private(set) var historyCount = 0
   var requestCount: Int { requests.count }
 
   init(events: [ChatSessionEvent]) { self.events = events }
@@ -789,6 +1029,7 @@ private actor RecordingChatService: ChatSessionServing {
   }
 
   func cancel() async {}
+  func history() -> [ChatMessagePresentation] { historyCount += 1; return [] }
 }
 
 private actor SuspendingChatService: ChatSessionServing {
@@ -819,16 +1060,17 @@ private actor SuspendingChatService: ChatSessionServing {
 private actor AttachmentLifecycleService: AttachmentServing {
   private var imports: [ImageAttachment]
   private(set) var deletedIDs: [UUID] = []
+  private(set) var importCount = 0
 
   init(imports: [ImageAttachment]) { self.imports = imports }
 
   func importImage(
     from source: URL, policy: ImageDetailPolicy, accessibleLabel: String
-  ) throws -> ImageAttachment { imports.removeFirst() }
+  ) throws -> ImageAttachment { importCount += 1; return imports.removeFirst() }
 
   func importImage(
     data: Data, filename: String, policy: ImageDetailPolicy, accessibleLabel: String
-  ) throws -> ImageAttachment { imports.removeFirst() }
+  ) throws -> ImageAttachment { importCount += 1; return imports.removeFirst() }
 
   func delete(_ attachment: ImageAttachment) { deletedIDs.append(attachment.id) }
 }
@@ -859,6 +1101,7 @@ private actor StubSettingsService: SettingsServing {
   enum Failure: Error { case requested }
   let shouldFail: Bool
   init(shouldFail: Bool) { self.shouldFail = shouldFail }
+  func recoverPendingClear() {}
   func clearConversationsNotesAndImages() throws {
     if shouldFail { throw Failure.requested }
   }
@@ -871,6 +1114,7 @@ private actor SequencedSettingsService: SettingsServing {
 
   init(failuresBeforeSuccess: Int) { failuresRemaining = failuresBeforeSuccess }
 
+  func recoverPendingClear() {}
   func clearConversationsNotesAndImages() throws {
     callCount += 1
     if failuresRemaining > 0 {
@@ -878,5 +1122,190 @@ private actor SequencedSettingsService: SettingsServing {
       throw Failure.requested
     }
   }
+}
+
+private actor RecoveryFailOnceSettingsService: SettingsServing {
+  enum Failure: Error { case requested }
+  private var recoverCalls = 0
+  private var clearCalls = 0
+
+  var callCounts: (recover: Int, clear: Int) { (recoverCalls, clearCalls) }
+
+  func recoverPendingClear() throws {
+    recoverCalls += 1
+    throw Failure.requested
+  }
+
+  func clearConversationsNotesAndImages() {
+    clearCalls += 1
+  }
+}
+
+private actor RecordingConversationNavigationService: ConversationNavigationServing {
+  private var createCalls = 0
+  private var selectCalls = 0
+  var callCounts: (create: Int, select: Int) { (createCalls, selectCalls) }
+
+  func snapshots() -> AsyncStream<ConversationNavigationSnapshot> {
+    AsyncStream { continuation in
+      continuation.yield(.init(installation: nil, conversations: [], selectedID: nil))
+      continuation.finish()
+    }
+  }
+
+  func createConversation() { createCalls += 1 }
+  func selectConversation(_ id: ConversationID) { selectCalls += 1 }
+}
+
+private enum ConversationBoundarySuspension: String, CaseIterable, Sendable {
+  case create, select, cancel, history
+}
+
+private actor BoundarySuspendingChatService: ChatSessionServing {
+  let boundary: ConversationBoundarySuspension
+  private var didSuspend = false
+  private var started = false
+  private var continuation: CheckedContinuation<Void, Never>?
+  private(set) var historyCount = 0
+
+  init(boundary: ConversationBoundarySuspension) { self.boundary = boundary }
+
+  func stream(
+    _ request: ChatSendRequest
+  ) -> AsyncThrowingStream<ChatSessionEvent, any Error> {
+    let pair = AsyncThrowingStream<ChatSessionEvent, any Error>.makeStream()
+    pair.continuation.finish()
+    return pair.stream
+  }
+
+  func cancel() async {
+    if boundary == .cancel, !didSuspend { await suspendOnce() }
+  }
+
+  func history() async -> [ChatMessagePresentation] {
+    historyCount += 1
+    if boundary == .history, !didSuspend { await suspendOnce() }
+    guard historyCount == 1 else { return [] }
+    return [.init(id: UUID(), role: .assistant, text: "stale pre-clear history")]
+  }
+
+  func waitUntilStarted() async {
+    while !started { await Task.yield() }
+  }
+
+  func resume() { continuation?.resume(); continuation = nil }
+
+  private func suspendOnce() async {
+    didSuspend = true
+    started = true
+    await withCheckedContinuation { continuation = $0 }
+  }
+}
+
+private actor BoundarySuspendingNavigationService: ConversationNavigationServing {
+  enum Failure: Error { case afterWrite }
+  let boundary: ConversationBoundarySuspension
+  private var didSuspend = false
+  private var started = false
+  private var continuation: CheckedContinuation<Void, Never>?
+  private(set) var createCount = 0
+  private(set) var selectCount = 0
+  private(set) var writeCount = 0
+
+  init(boundary: ConversationBoundarySuspension) { self.boundary = boundary }
+
+  func snapshots() -> AsyncStream<ConversationNavigationSnapshot> {
+    AsyncStream { continuation in continuation.finish() }
+  }
+
+  func createConversation() async throws {
+    createCount += 1
+    let failsAfterWrite = boundary == .create && !didSuspend
+    if failsAfterWrite { await suspendOnce() }
+    writeCount += 1
+    if failsAfterWrite { throw Failure.afterWrite }
+  }
+
+  func selectConversation(_ id: ConversationID) async throws {
+    selectCount += 1
+    let failsAfterWrite = boundary == .select && !didSuspend
+    if failsAfterWrite { await suspendOnce() }
+    writeCount += 1
+    if failsAfterWrite { throw Failure.afterWrite }
+  }
+
+  func waitUntilStarted() async {
+    while !started { await Task.yield() }
+  }
+
+  func resume() { continuation?.resume(); continuation = nil }
+
+  private func suspendOnce() async {
+    didSuspend = true
+    started = true
+    await withCheckedContinuation { continuation = $0 }
+  }
+}
+
+private actor OverlappingSettingsService: SettingsServing {
+  enum Failure: Error { case requested }
+  let recoverySucceeds: Bool
+  let firstClearSucceeds: Bool
+  private(set) var callOrder: [String] = []
+  private(set) var clearCallCount = 0
+  private(set) var maximumConcurrentMutations = 0
+  private(set) var hasPendingIntent = true
+  private var concurrentMutations = 0
+  private var recoveryStarted = false
+  private var firstClearStarted = false
+  private var recoveryContinuation: CheckedContinuation<Void, Never>?
+  private var clearContinuation: CheckedContinuation<Void, Never>?
+
+  init(recoverySucceeds: Bool, firstClearSucceeds: Bool) {
+    self.recoverySucceeds = recoverySucceeds
+    self.firstClearSucceeds = firstClearSucceeds
+  }
+
+  func recoverPendingClear() async throws {
+    beginMutation("recover")
+    recoveryStarted = true
+    await withCheckedContinuation { recoveryContinuation = $0 }
+    defer { endMutation() }
+    guard recoverySucceeds else { throw Failure.requested }
+    hasPendingIntent = false
+  }
+
+  func clearConversationsNotesAndImages() async throws {
+    clearCallCount += 1
+    beginMutation("clear")
+    hasPendingIntent = true
+    let succeeds = clearCallCount == 1 ? firstClearSucceeds : true
+    if clearCallCount == 1 {
+      firstClearStarted = true
+      await withCheckedContinuation { clearContinuation = $0 }
+    }
+    defer { endMutation() }
+    guard succeeds else { throw Failure.requested }
+    hasPendingIntent = false
+  }
+
+  func waitUntilRecoveryStarts() async {
+    while !recoveryStarted { await Task.yield() }
+  }
+
+  func waitUntilFirstClearStarts() async {
+    while !firstClearStarted { await Task.yield() }
+  }
+
+  func resumeRecovery() { recoveryContinuation?.resume(); recoveryContinuation = nil }
+  func resumeFirstClear() { clearContinuation?.resume(); clearContinuation = nil }
+
+  private func beginMutation(_ name: String) {
+    callOrder.append(name)
+    concurrentMutations += 1
+    maximumConcurrentMutations = max(maximumConcurrentMutations, concurrentMutations)
+  }
+
+  private func endMutation() { concurrentMutations -= 1 }
 }
 // swiftlint:enable file_length type_body_length

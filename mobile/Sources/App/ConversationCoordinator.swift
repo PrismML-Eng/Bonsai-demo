@@ -239,6 +239,10 @@ actor ConversationCoordinator: ConversationCoordinating, ConversationNavigationS
 
 @MainActor @Observable
 final class ConversationNavigationViewModel {
+  enum ActionResult: Sendable {
+    case success
+    case failure(String)
+  }
   private let service: any ConversationNavigationServing
   private(set) var conversations: [ConversationListItem]
   private(set) var selectedID: ConversationID?
@@ -267,20 +271,37 @@ final class ConversationNavigationViewModel {
   }
 
   func create() async {
+    publish(await createResult())
+  }
+
+  func createResult() async -> ActionResult {
     do {
       try await service.createConversation()
-      errorMessage = nil
+      return .success
     } catch {
-      errorMessage = error.localizedDescription
+      return .failure(error.localizedDescription)
     }
   }
 
   func select(_ id: ConversationID) async {
+    publish(await selectResult(id))
+  }
+
+  func selectResult(_ id: ConversationID) async -> ActionResult {
     do {
       try await service.selectConversation(id)
-      errorMessage = nil
+      return .success
     } catch {
-      errorMessage = error.localizedDescription
+      return .failure(error.localizedDescription)
+    }
+  }
+
+  func publish(_ result: ActionResult) {
+    switch result {
+    case .success:
+      errorMessage = nil
+    case .failure(let message):
+      errorMessage = message
     }
   }
 }
