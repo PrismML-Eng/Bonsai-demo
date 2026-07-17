@@ -4,19 +4,31 @@ Benchmark results submitted by the community running [Ternary-Bonsai](https://hu
 
 ## Results
 
-Coming soon...
+### Ternary-Bonsai-27B
+
+| Hardware | Backend | PP512 (t/s) | TG128 (t/s) | DSpark TG (t/s) | Details |
+|----------|---------|------------:|------------:|----------------:|---------|
+| NVIDIA RTX 5060 Ti 16 GB | llama.cpp CUDA | 1,029 | 44.4 | ~79 (1.78x) | [link](cuda-rtx5060ti-linux.md) |
+| Apple M5 Pro 64 GB | MLX 2-bit | 466 | 29.5 | 34-49 (community dspark-mlx) | [link](mlx-m5-pro-macos.md) |
+| Apple M5 Pro 64 GB | llama.cpp Metal | 130 | 26.5 | | [link](mlx-m5-pro-macos.md) |
+
+### 8B and smaller
+
+No submissions yet; be the first!
 
 | Hardware | Backend | 8B PP512 (t/s) | 8B TG128 (t/s) | Details |
-|----------|---------|----------------|----------------|---------|
+|----------|---------|---------------:|---------------:|---------|
 | | | | | |
 
 ## Available Formats
 
 - **GGUF** (`Q2_0`):
+  - [prism-ml/Ternary-Bonsai-27B-gguf](https://huggingface.co/prism-ml/Ternary-Bonsai-27B-gguf)
   - [prism-ml/Ternary-Bonsai-8B-gguf](https://huggingface.co/prism-ml/Ternary-Bonsai-8B-gguf)
   - [prism-ml/Ternary-Bonsai-4B-gguf](https://huggingface.co/prism-ml/Ternary-Bonsai-4B-gguf)
   - [prism-ml/Ternary-Bonsai-1.7B-gguf](https://huggingface.co/prism-ml/Ternary-Bonsai-1.7B-gguf)
 - **MLX (2-bit)**:
+  - [prism-ml/Ternary-Bonsai-27B-mlx-2bit](https://huggingface.co/prism-ml/Ternary-Bonsai-27B-mlx-2bit)
   - [prism-ml/Ternary-Bonsai-8B-mlx-2bit](https://huggingface.co/prism-ml/Ternary-Bonsai-8B-mlx-2bit)
   - [prism-ml/Ternary-Bonsai-4B-mlx-2bit](https://huggingface.co/prism-ml/Ternary-Bonsai-4B-mlx-2bit)
   - [prism-ml/Ternary-Bonsai-1.7B-mlx-2bit](https://huggingface.co/prism-ml/Ternary-Bonsai-1.7B-mlx-2bit)

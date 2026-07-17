@@ -25,13 +25,24 @@
 ## MLX Results (2-bit)
 
 Ternary-Bonsai ships as MLX 2-bit out of the box:
+- [Ternary-Bonsai-27B-mlx-2bit](https://huggingface.co/prism-ml/Ternary-Bonsai-27B-mlx-2bit)
 - [Ternary-Bonsai-8B-mlx-2bit](https://huggingface.co/prism-ml/Ternary-Bonsai-8B-mlx-2bit)
 - [Ternary-Bonsai-4B-mlx-2bit](https://huggingface.co/prism-ml/Ternary-Bonsai-4B-mlx-2bit)
 - [Ternary-Bonsai-1.7B-mlx-2bit](https://huggingface.co/prism-ml/Ternary-Bonsai-1.7B-mlx-2bit)
 
+### Ternary-Bonsai-27B (the one we most want numbers for!)
+
+```bash
+.venv/bin/python -m mlx_lm.benchmark --model models/Ternary-Bonsai-27B-mlx-2bit -p 512 -g 128
+```
+
+(paste MLX benchmark output here, or remove this section if you skipped the 27B)
+
 ### Ternary-Bonsai-8B
 
-<!-- TODO: Add MLX benchmark commands once script is finalized -->
+```bash
+.venv/bin/python -m mlx_lm.benchmark --model models/Ternary-Bonsai-8B-mlx-2bit -p 512 -g 128
+```
 
 (paste MLX benchmark output here — raw output, no code block)
 

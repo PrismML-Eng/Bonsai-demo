@@ -30,6 +30,15 @@ Run `./setup.sh` first, then find your `llama-bench` binary:
 find bin/ llama.cpp/ -name "llama-bench" -type f 2>/dev/null
 ```
 
+### Ternary-Bonsai-27B (the one we most want numbers for!)
+
+```bash
+BENCH=bin/mac/llama-bench
+$BENCH -m models/ternary-gguf/27B/Ternary-Bonsai-27B-Q2_0.gguf -ngl 99 -fa 1
+```
+
+(paste llama-bench output here, or remove this section if you skipped the 27B)
+
 ### Ternary-Bonsai-8B
 
 ```bash

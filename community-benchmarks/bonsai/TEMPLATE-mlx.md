@@ -24,9 +24,19 @@
 
 ## MLX Results
 
+### Bonsai-27B (the one we most want numbers for!)
+
+```bash
+.venv/bin/python -m mlx_lm.benchmark --model models/Bonsai-27B-mlx -p 512 -g 128
+```
+
+(paste MLX benchmark output here, or remove this section if you skipped the 27B)
+
 ### Bonsai-8B
 
-<!-- TODO: Add MLX benchmark commands once script is finalized -->
+```bash
+.venv/bin/python -m mlx_lm.benchmark --model models/Bonsai-8B-mlx -p 512 -g 128
+```
 
 (paste MLX benchmark output here — raw output, no code block)
 
