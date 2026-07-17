@@ -1,5 +1,23 @@
 # Bonsai Demo
 
+## Native Bonsai Mobile (SwiftUI)
+
+`mobile/` is a universal SwiftUI demo using the pinned Prism MLX Swift runtime for local 1-bit Bonsai-27B and Ternary-Bonsai-27B inference. It does not use LiteRT-LM or embed multi-gigabyte weights in the app bundle. Models come from their public Hugging Face repositories or user import, are checked against the pinned multi-file manifest, and live under Application Support.
+
+```bash
+brew bundle --file mobile/Brewfile
+xcodegen generate --spec mobile/project.yml
+mobile/scripts/build_mobile.sh CODE_SIGNING_ALLOWED=NO build
+```
+
+`build_mobile.sh` is the canonical Release packaging lane. It derives the exact source commit and
+passes it as `BONSAI_SOURCE_COMMIT`; the Release pre-build gate fails closed when that 40-character
+commit is absent or malformed. Device evidence uses the same build setting and must match it exactly.
+
+The 1-bit installation is approximately 4.8 GB plus at least 1 GiB installation margin and has an 8 GiB physical-memory floor. Ternary is approximately 7.9 GB plus margin, has a 16 GiB floor, and is prohibited on iPhone. These are admission floors, not support or performance promises. Release loading additionally requires exact physical-device evidence; the current bundled policy has no supported rows, including iPhone 16e and Ternary hardware.
+
+See [mobile device support](docs/mobile/DEVICE-SUPPORT.md) for the evidence policy and [mobile privacy](docs/mobile/PRIVACY.md) for acquisition networking, local data, deletion, diagnostics, and offline-proof requirements.
+
 <p align="center">
   <img src="./assets/bonsai-logo.svg" width="280" alt="Bonsai">
 </p>
