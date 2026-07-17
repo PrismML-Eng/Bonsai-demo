@@ -203,7 +203,9 @@ private final class LiveMLXRuntimeResource: MLXRuntimeResource, @unchecked Senda
     fullHistoryReplayCount += 1
     initialImageInjectionCount += configuredRequest.images.count
     return created.streamDetails(
-      to: try MLXPromptComposer.chatMessages(messages, images: configuredRequest.images)
+      to: try MLXPromptComposer.chatMessages(
+        messages, images: configuredRequest.images, tools: configuredRequest.tools
+      )
     )
   }
 
@@ -277,9 +279,13 @@ private final class LiveMLXRuntimeResource: MLXRuntimeResource, @unchecked Senda
 }
 
 enum MLXPromptComposer {
+  private static let visionToolPreface =
+    "If my request requires a tool, invoke the matching tool before your final answer.\n\n"
+
   static func chatMessages(
     _ messages: [ConversationMessage],
-    images: [GenerationImage] = []
+    images: [GenerationImage] = [],
+    tools: [GenerationToolSpecification] = []
   ) throws -> [Chat.Message] {
     let knownMessageIDs = Set(messages.map(\.id))
     let uniqueAttachmentIDs = Set(images.map(\.attachmentID))
@@ -302,7 +308,12 @@ enum MLXPromptComposer {
       }
       return switch message.role {
       case .system: Chat.Message.system(message.content)
-      case .user: Chat.Message.user(message.content, images: messageImages)
+      case .user:
+        Chat.Message.user(
+          messageImages.isEmpty || tools.isEmpty
+            ? message.content
+            : visionToolPreface + message.content,
+          images: messageImages)
       case .assistant: Chat.Message.assistant(message.content)
       case .toolCall:
         Chat.Message.assistant(

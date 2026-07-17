@@ -21,6 +21,24 @@ final class VisionRequestTests: XCTestCase {
     let messages = try MLXPromptComposer.chatMessages(request.messages ?? [], images: request.images)
     XCTAssertEqual(messages.first?.images.count, 1)
   }
+
+  func testVisionToolPrefaceAnchorsToolUseBeforeImageTurn() throws {
+    let attachment = try ImageAttachmentReference(
+      id: UUID(), managedRelativePath: "image.jpg", pixelSize: .init(width: 640, height: 480),
+      byteCount: 120, contentType: "image/jpeg", detailPolicy: .fast1024,
+      accessibleLabel: "Desk photo")
+    let user = ConversationMessage(
+      id: MessageID("user-1"), role: .user, content: "Inspect", attachments: [attachment])
+    let tools = [GenerationToolSpecification(name: "calculator", description: "calc", parametersJSON: "{}")]
+    let messages = try MLXPromptComposer.chatMessages(
+      [user],
+      images: [.init(messageID: user.id, attachmentID: attachment.id, buffer: try testImageBuffer())],
+      tools: tools)
+    let content = try XCTUnwrap(messages.first?.content)
+    XCTAssertTrue(content.hasPrefix("If my request requires a tool"))
+    XCTAssertTrue(content.hasSuffix("Inspect"))
+  }
+
   func testDuplicateImageBindingsAreRejectedBeforePromptComposition() throws {
     let attachment = try ImageAttachmentReference(
       id: UUID(), managedRelativePath: "image.jpg", pixelSize: .init(width: 640, height: 480),
