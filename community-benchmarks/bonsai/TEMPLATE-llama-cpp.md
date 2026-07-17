@@ -33,6 +33,7 @@ find bin/ llama.cpp/ -name "llama-bench" -type f 2>/dev/null
 ### Bonsai-27B (the one we most want numbers for!)
 
 ```bash
+# GPU (Metal / CUDA / Vulkan / ROCm) — adjust BENCH path (bin/mac, bin/cuda, bin/rocm, bin/vulkan, bin/cpu):
 BENCH=bin/mac/llama-bench
 $BENCH -m models/gguf/27B/Bonsai-27B-Q1_0.gguf -ngl 99 -fa 1
 ```

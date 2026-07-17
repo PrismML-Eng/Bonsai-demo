@@ -4,7 +4,7 @@ Benchmark results submitted by the community, organized by model. **We are espec
 
 ## Bonsai-27B
 
-The 27B models come in two families: Bonsai (1-bit, `Q1_0`) and Ternary-Bonsai (`Q2_0`). Optional column: decode speed with the bundled DSpark drafter (`BONSAI_SPECULATIVE=1`, speculative decoding).
+The 27B models come in two families: Bonsai (1-bit, `Q1_0`) and Ternary-Bonsai (`Q2_0`). Optional column: decode speed with the paired DSpark drafter, where the submitter measured it (llama-server via `BONSAI_SPECULATIVE=1 ./scripts/start_llama_server.sh`; on MLX via community harnesses such as dspark-mlx). Plain `llama-bench` does not exercise the drafter.
 
 | Family | Hardware | Backend | PP512 (t/s) | TG128 (t/s) | DSpark TG (t/s) | Details |
 |--------|----------|---------|------------:|------------:|----------------:|---------|
