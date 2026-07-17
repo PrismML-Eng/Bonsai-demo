@@ -111,9 +111,31 @@ enum AttachmentStoreError: Error, Equatable, Sendable {
   case copyFailed
   case invalidReference
   case clearInProgress
+  case clearJournalCorrupt
+  case clearRollbackFailed
+  case clearPurgeFailed
+}
+
+enum AttachmentStoreFailurePoint: Hashable, Sendable { case purgeUnlink }
+final class AttachmentStoreFaultInjector: @unchecked Sendable {
+  private let lock = NSLock()
+  private var points: Set<AttachmentStoreFailurePoint>
+  init(_ points: Set<AttachmentStoreFailurePoint> = []) { self.points = points }
+  func consume(_ point: AttachmentStoreFailurePoint) -> Bool {
+    lock.lock(); defer { lock.unlock() }
+    return points.remove(point) != nil
+  }
 }
 
 actor ManagedAttachmentStore {
+  private static let clearJournalName = ".clear-journal"
+  private static let clearJournalTemporaryName = ".clear-journal.tmp"
+  private enum ClearPhase: String, Codable { case prepared, committed }
+  private struct ClearJournal: Codable {
+    let phase: ClearPhase
+    let stagingName: String
+    let leafNames: [String]
+  }
   struct ClearTransaction: Sendable {
     fileprivate let stagingName: String
     fileprivate let leafNames: [String]
@@ -123,10 +145,12 @@ actor ManagedAttachmentStore {
 
   private let root: URL
   private let rootDescriptor: Int32
+  private let faultInjector: AttachmentStoreFaultInjector
   private var activeClear: ClearTransaction?
 
-  init(root: URL) throws {
+  init(root: URL, faultInjector: AttachmentStoreFaultInjector = .init()) throws {
     self.root = root.standardizedFileURL
+    self.faultInjector = faultInjector
     var status = stat()
     if lstat(self.root.path, &status) == 0 {
       guard status.st_mode & S_IFMT == S_IFDIR else { throw AttachmentStoreError.unsafePath }
@@ -140,6 +164,10 @@ actor ManagedAttachmentStore {
     guard fstat(descriptor, &status) == 0, status.st_mode & S_IFMT == S_IFDIR else {
       Darwin.close(descriptor)
       throw AttachmentStoreError.unsafePath
+    }
+    do { try Self.recoverClearIfNeeded(rootDescriptor: descriptor) } catch {
+      Darwin.close(descriptor)
+      throw error
     }
     rootDescriptor = descriptor
   }
@@ -264,7 +292,7 @@ actor ManagedAttachmentStore {
     try rejectNonRegularLeaf(name)
     let result = name.withCString { unlinkat(rootDescriptor, $0, 0) }
     guard result == 0 || errno == ENOENT else { throw AttachmentStoreError.copyFailed }
-    _ = fsync(rootDescriptor)
+    guard fsync(rootDescriptor) == 0 else { throw AttachmentStoreError.copyFailed }
   }
 
   func clearAll() throws {
@@ -272,18 +300,25 @@ actor ManagedAttachmentStore {
     try commitClear(transaction)
   }
 
+  // The forward and compensating syscalls intentionally form one auditable transaction.
+  // swiftlint:disable:next cyclomatic_complexity function_body_length
   func prepareClear() throws -> ClearTransaction {
     guard activeClear == nil else { throw AttachmentStoreError.clearInProgress }
     let names = try managedLeafNames()
     let stagingName = ".clear-\(UUID().uuidString.lowercased())"
+    try writeClearJournal(.init(phase: .prepared, stagingName: stagingName, leafNames: names))
     guard stagingName.withCString({ mkdirat(rootDescriptor, $0, mode_t(0o700)) }) == 0 else {
+      try removeClearJournal(failure: .clearRollbackFailed)
       throw AttachmentStoreError.copyFailed
     }
     let staging = stagingName.withCString {
       openat(rootDescriptor, $0, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
     }
     guard staging >= 0 else {
-      stagingName.withCString { _ = unlinkat(rootDescriptor, $0, AT_REMOVEDIR) }
+      guard stagingName.withCString({ unlinkat(rootDescriptor, $0, AT_REMOVEDIR) }) == 0 else {
+        throw AttachmentStoreError.clearRollbackFailed
+      }
+      try removeClearJournal(failure: .clearRollbackFailed)
       throw AttachmentStoreError.copyFailed
     }
     defer { Darwin.close(staging) }
@@ -304,14 +339,21 @@ actor ManagedAttachmentStore {
       activeClear = transaction
       return transaction
     } catch {
+      var rollbackFailed = false
       for name in moved.reversed() {
-        name.withCString { sourceName in
+        let result = name.withCString { sourceName in
           name.withCString { destinationName in
-            _ = renameat(staging, sourceName, rootDescriptor, destinationName)
+            renameat(staging, sourceName, rootDescriptor, destinationName)
           }
         }
+        if result != 0 { rollbackFailed = true }
       }
-      stagingName.withCString { _ = unlinkat(rootDescriptor, $0, AT_REMOVEDIR) }
+      if stagingName.withCString({ unlinkat(rootDescriptor, $0, AT_REMOVEDIR) }) != 0 {
+        rollbackFailed = true
+      }
+      if fsync(rootDescriptor) != 0 { rollbackFailed = true }
+      guard !rollbackFailed else { throw AttachmentStoreError.clearRollbackFailed }
+      try removeClearJournal(failure: .clearRollbackFailed)
       throw error
     }
   }
@@ -323,7 +365,12 @@ actor ManagedAttachmentStore {
     let staging = transaction.stagingName.withCString {
       openat(rootDescriptor, $0, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
     }
-    guard staging >= 0 else { return }
+    if staging < 0 {
+      guard errno == ENOENT else { throw AttachmentStoreError.clearRollbackFailed }
+      try removeClearJournal(failure: .clearRollbackFailed)
+      activeClear = nil
+      return
+    }
     defer { Darwin.close(staging) }
     for name in transaction.leafNames {
       let result = name.withCString { sourceName in
@@ -331,12 +378,15 @@ actor ManagedAttachmentStore {
           renameat(staging, sourceName, rootDescriptor, destinationName)
         }
       }
-      guard result == 0 || errno == ENOENT else { throw AttachmentStoreError.copyFailed }
+      guard result == 0 || errno == ENOENT else {
+        throw AttachmentStoreError.clearRollbackFailed
+      }
     }
     guard transaction.stagingName.withCString({
       unlinkat(rootDescriptor, $0, AT_REMOVEDIR)
-    }) == 0 else { throw AttachmentStoreError.copyFailed }
-    _ = fsync(rootDescriptor)
+    }) == 0 else { throw AttachmentStoreError.clearRollbackFailed }
+    guard fsync(rootDescriptor) == 0 else { throw AttachmentStoreError.clearRollbackFailed }
+    try removeClearJournal(failure: .clearRollbackFailed)
     activeClear = nil
   }
 
@@ -344,15 +394,24 @@ actor ManagedAttachmentStore {
     guard activeClear?.stagingName == transaction.stagingName else {
       throw AttachmentStoreError.clearInProgress
     }
-    defer { activeClear = nil }
+    try writeClearJournal(.init(
+      phase: .committed, stagingName: transaction.stagingName,
+      leafNames: transaction.leafNames))
     let staging = transaction.stagingName.withCString {
       openat(rootDescriptor, $0, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
     }
-    guard staging >= 0 else { return }
+    if staging < 0 {
+      guard errno == ENOENT else { throw AttachmentStoreError.clearPurgeFailed }
+      try removeClearJournal(failure: .clearPurgeFailed)
+      activeClear = nil
+      return
+    }
     defer { Darwin.close(staging) }
-    for name in transaction.leafNames { name.withCString { _ = unlinkat(staging, $0, 0) } }
-    transaction.stagingName.withCString { _ = unlinkat(rootDescriptor, $0, AT_REMOVEDIR) }
-    _ = fsync(rootDescriptor)
+    try Self.purgeStaging(
+      rootDescriptor: rootDescriptor, stagingDescriptor: staging,
+      stagingName: transaction.stagingName, faultInjector: faultInjector)
+    try removeClearJournal(failure: .clearPurgeFailed)
+    activeClear = nil
   }
 
   private func managedLeafNames() throws -> [String] {
@@ -367,7 +426,9 @@ actor ManagedAttachmentStore {
       var status = stat()
       let result = name.withCString { fstatat(rootDescriptor, $0, &status, AT_SYMLINK_NOFOLLOW) }
       guard result == 0 else { throw AttachmentStoreError.copyFailed }
-      if status.st_mode & S_IFMT == S_IFREG {
+      if name == Self.clearJournalName || name == Self.clearJournalTemporaryName {
+        continue
+      } else if status.st_mode & S_IFMT == S_IFREG {
         names.append(name)
       } else if name == ".processed", status.st_mode & S_IFMT == S_IFDIR {
         try clearLegacyProcessedDirectory()
@@ -474,6 +535,179 @@ actor ManagedAttachmentStore {
     guard ".processed".withCString({ unlinkat(rootDescriptor, $0, AT_REMOVEDIR) }) == 0 else {
       throw AttachmentStoreError.copyFailed
     }
+  }
+
+  private func writeClearJournal(_ journal: ClearJournal) throws {
+    let data = try JSONEncoder().encode(journal)
+    let staleResult = Self.clearJournalTemporaryName.withCString {
+      unlinkat(rootDescriptor, $0, 0)
+    }
+    guard staleResult == 0 || errno == ENOENT else {
+      throw AttachmentStoreError.clearPurgeFailed
+    }
+    let descriptor = Self.clearJournalTemporaryName.withCString {
+      openat(rootDescriptor, $0, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC,
+             mode_t(0o600))
+    }
+    guard descriptor >= 0 else { throw AttachmentStoreError.clearPurgeFailed }
+    var descriptorOpen = true
+    do {
+      try Self.writeAll(data, descriptor: descriptor)
+      guard fsync(descriptor) == 0 else { throw AttachmentStoreError.clearPurgeFailed }
+      let closeResult = Darwin.close(descriptor)
+      descriptorOpen = false
+      guard closeResult == 0 else { throw AttachmentStoreError.clearPurgeFailed }
+      let result = Self.clearJournalTemporaryName.withCString { temporary in
+        Self.clearJournalName.withCString { journalName in
+          renameat(rootDescriptor, temporary, rootDescriptor, journalName)
+        }
+      }
+      guard result == 0, fsync(rootDescriptor) == 0 else {
+        throw AttachmentStoreError.clearPurgeFailed
+      }
+    } catch {
+      if descriptorOpen { _ = Darwin.close(descriptor) }
+      let cleanup = Self.clearJournalTemporaryName.withCString { unlinkat(rootDescriptor, $0, 0) }
+      guard cleanup == 0 || errno == ENOENT else { throw AttachmentStoreError.clearPurgeFailed }
+      throw error
+    }
+  }
+
+  private func removeClearJournal(failure: AttachmentStoreError) throws {
+    try Self.removeJournal(rootDescriptor: rootDescriptor, failure: failure)
+  }
+
+  // Both durable phases are recovered at the same descriptor-confined boundary.
+  // swiftlint:disable:next cyclomatic_complexity function_body_length
+  private static func recoverClearIfNeeded(rootDescriptor: Int32) throws {
+    let descriptor = clearJournalName.withCString {
+      openat(rootDescriptor, $0, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+    }
+    if descriptor < 0 {
+      guard errno == ENOENT else { throw AttachmentStoreError.clearJournalCorrupt }
+      guard try !containsClearStaging(rootDescriptor: rootDescriptor) else {
+        throw AttachmentStoreError.clearJournalCorrupt
+      }
+      return
+    }
+    defer { Darwin.close(descriptor) }
+    var status = stat()
+    guard fstat(descriptor, &status) == 0, status.st_mode & S_IFMT == S_IFREG,
+          status.st_size > 0, status.st_size <= 64 * 1_024 else {
+      throw AttachmentStoreError.clearJournalCorrupt
+    }
+    let journal: ClearJournal
+    do { journal = try JSONDecoder().decode(ClearJournal.self, from: readAll(descriptor)) } catch {
+      throw AttachmentStoreError.clearJournalCorrupt
+    }
+    guard journal.stagingName.hasPrefix(".clear-"),
+          journal.stagingName == URL(fileURLWithPath: journal.stagingName).lastPathComponent else {
+      throw AttachmentStoreError.clearJournalCorrupt
+    }
+    let staging = journal.stagingName.withCString {
+      openat(rootDescriptor, $0, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+    }
+    if staging >= 0 {
+      defer { Darwin.close(staging) }
+      switch journal.phase {
+      case .prepared:
+        for name in try regularLeafNames(descriptor: staging) {
+          let result = name.withCString { source in
+            name.withCString { destination in
+              renameat(staging, source, rootDescriptor, destination)
+            }
+          }
+          guard result == 0 else { throw AttachmentStoreError.clearRollbackFailed }
+        }
+        guard fsync(staging) == 0,
+              journal.stagingName.withCString({
+                unlinkat(rootDescriptor, $0, AT_REMOVEDIR)
+              }) == 0,
+              fsync(rootDescriptor) == 0 else {
+          throw AttachmentStoreError.clearRollbackFailed
+        }
+      case .committed:
+        try purgeStaging(
+          rootDescriptor: rootDescriptor, stagingDescriptor: staging,
+          stagingName: journal.stagingName)
+      }
+    } else if errno != ENOENT {
+      throw journal.phase == .prepared
+        ? AttachmentStoreError.clearRollbackFailed : AttachmentStoreError.clearPurgeFailed
+    }
+    try removeJournal(
+      rootDescriptor: rootDescriptor,
+      failure: journal.phase == .prepared ? .clearRollbackFailed : .clearPurgeFailed)
+  }
+
+  private static func purgeStaging(
+    rootDescriptor: Int32, stagingDescriptor: Int32, stagingName: String,
+    faultInjector: AttachmentStoreFaultInjector? = nil
+  ) throws {
+    for name in try regularLeafNames(descriptor: stagingDescriptor) {
+      if faultInjector?.consume(.purgeUnlink) == true {
+        throw AttachmentStoreError.clearPurgeFailed
+      }
+      guard name.withCString({ unlinkat(stagingDescriptor, $0, 0) }) == 0 else {
+        throw AttachmentStoreError.clearPurgeFailed
+      }
+    }
+    guard fsync(stagingDescriptor) == 0,
+          stagingName.withCString({ unlinkat(rootDescriptor, $0, AT_REMOVEDIR) }) == 0,
+          fsync(rootDescriptor) == 0 else { throw AttachmentStoreError.clearPurgeFailed }
+  }
+
+  private static func removeJournal(
+    rootDescriptor: Int32, failure: AttachmentStoreError
+  ) throws {
+    let result = clearJournalName.withCString { unlinkat(rootDescriptor, $0, 0) }
+    guard result == 0 || errno == ENOENT, fsync(rootDescriptor) == 0 else { throw failure }
+  }
+
+  private static func regularLeafNames(descriptor: Int32) throws -> [String] {
+    guard let directory = fdopendir(dup(descriptor)) else {
+      throw AttachmentStoreError.clearJournalCorrupt
+    }
+    defer { closedir(directory) }
+    var names: [String] = []
+    while let entry = readdir(directory) {
+      let name = withUnsafePointer(to: entry.pointee.d_name) {
+        $0.withMemoryRebound(to: CChar.self, capacity: Int(MAXNAMLEN) + 1) {
+          String(cString: $0)
+        }
+      }
+      guard name != ".", name != ".." else { continue }
+      var status = stat()
+      guard name.withCString({
+        fstatat(descriptor, $0, &status, AT_SYMLINK_NOFOLLOW)
+      }) == 0, status.st_mode & S_IFMT == S_IFREG else {
+        throw AttachmentStoreError.clearJournalCorrupt
+      }
+      names.append(name)
+    }
+    return names
+  }
+
+  private static func containsClearStaging(rootDescriptor: Int32) throws -> Bool {
+    guard let directory = fdopendir(dup(rootDescriptor)) else {
+      throw AttachmentStoreError.clearJournalCorrupt
+    }
+    defer { closedir(directory) }
+    while let entry = readdir(directory) {
+      let name = withUnsafePointer(to: entry.pointee.d_name) {
+        $0.withMemoryRebound(to: CChar.self, capacity: Int(MAXNAMLEN) + 1) {
+          String(cString: $0)
+        }
+      }
+      guard name.hasPrefix(".clear-"),
+            name != clearJournalName, name != clearJournalTemporaryName else { continue }
+      var status = stat()
+      guard name.withCString({
+        fstatat(rootDescriptor, $0, &status, AT_SYMLINK_NOFOLLOW)
+      }) == 0 else { throw AttachmentStoreError.clearJournalCorrupt }
+      if status.st_mode & S_IFMT == S_IFDIR { return true }
+    }
+    return false
   }
 
   private static func readAll(_ descriptor: Int32) throws -> Data {

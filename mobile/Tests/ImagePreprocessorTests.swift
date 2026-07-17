@@ -275,8 +275,71 @@ final class ImagePreprocessorTests: XCTestCase {
     let lease = try PickedPhotoFile.copyProviderFile(provider)
     XCTAssertNotEqual(lease.url, provider)
     XCTAssertEqual(try Data(contentsOf: lease.url), expected)
-    lease.remove()
+    try OwnedImageFileCleanupRegistry.shared.removeOrRetain(lease)
     XCTAssertFalse(FileManager.default.fileExists(atPath: lease.url.path))
+  }
+
+  func testOwnedLeaseRegistryRetainsFailedDeleteAndExplicitRetryRemovesFile() throws {
+    let root = temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: root) }
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    let privateCopy = root.appending(path: "private-copy.jpg")
+    try Data("private".utf8).write(to: privateCopy)
+    let remover = DeleteFailsOnceImageFileRemover()
+    let lease = OwnedImageFileLease(url: privateCopy, remover: remover)
+
+    XCTAssertThrowsError(try OwnedImageFileCleanupRegistry.shared.removeOrRetain(lease)) {
+      XCTAssertNotNil($0 as? OwnedImageFileLeaseError)
+    }
+    XCTAssertTrue(lease.ownsFile)
+    XCTAssertTrue(FileManager.default.fileExists(atPath: privateCopy.path))
+
+    let retryFailures = OwnedImageFileCleanupRegistry.shared.retryRetained()
+
+    XCTAssertTrue(retryFailures.isEmpty)
+    XCTAssertFalse(lease.ownsFile)
+    XCTAssertFalse(FileManager.default.fileExists(atPath: privateCopy.path))
+    XCTAssertEqual(remover.attemptCount, 2)
+  }
+
+  @MainActor
+  func testCameraCaptureIsSingleFlightAndDismissalInvalidatesDelayedDelivery() async throws {
+    let root = temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: root) }
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    let privateCopy = root.appending(path: "delayed-camera.jpg")
+    try Data("private".utf8).write(to: privateCopy)
+    let lease = OwnedImageFileLease(url: privateCopy)
+    let session = RecordingCameraSessionRunner()
+    let persister = SuspendingCameraImagePersister(lease: lease)
+    var picked: [URL] = []
+    var failures = 0
+    let lifecycle = CameraCaptureLifecycle(
+      session: session,
+      persister: persister,
+      onPicked: { picked.append($0) },
+      onFailure: { _ in failures += 1 })
+
+    lifecycle.start()
+    XCTAssertTrue(lifecycle.beginCapture())
+    XCTAssertFalse(lifecycle.beginCapture())
+    lifecycle.completeCapture(data: Data([1]))
+    await persister.waitUntilStarted()
+    var mainActorAdvanced = false
+    Task { @MainActor in mainActorAdvanced = true }
+    await Task.yield()
+    XCTAssertTrue(mainActorAdvanced)
+
+    lifecycle.stop()
+    await persister.resume()
+    await lifecycle.waitUntilIdle()
+
+    XCTAssertEqual(session.startCount, 1)
+    XCTAssertEqual(session.stopCount, 1)
+    XCTAssertTrue(picked.isEmpty)
+    XCTAssertEqual(failures, 0)
+    XCTAssertFalse(FileManager.default.fileExists(atPath: privateCopy.path))
+    XCTAssertFalse(lifecycle.isCaptureInFlight)
   }
 
   func testPhotosTransferRejectsOversizedSparseProviderBeforeOwnedCopy() throws {
@@ -442,4 +505,47 @@ private extension XCTestCase {
       }
     }
   }
+}
+
+private final class DeleteFailsOnceImageFileRemover: OwnedImageFileRemoving, @unchecked Sendable {
+  private let lock = NSLock()
+  private(set) var attemptCount = 0
+
+  func remove(_ url: URL) throws {
+    lock.lock()
+    attemptCount += 1
+    let shouldFail = attemptCount == 1
+    lock.unlock()
+    if shouldFail { throw POSIXError(.EIO) }
+    try FileManager.default.removeItem(at: url)
+  }
+}
+
+private final class RecordingCameraSessionRunner: CameraSessionRunning, @unchecked Sendable {
+  private let lock = NSLock()
+  private(set) var startCount = 0
+  private(set) var stopCount = 0
+
+  func start() { lock.lock(); startCount += 1; lock.unlock() }
+  func stop() { lock.lock(); stopCount += 1; lock.unlock() }
+}
+
+private actor SuspendingCameraImagePersister: CameraImagePersisting {
+  let lease: OwnedImageFileLease
+  private var started = false
+  private var continuation: CheckedContinuation<Void, Never>?
+
+  init(lease: OwnedImageFileLease) { self.lease = lease }
+
+  func persist(_ data: Data) async throws -> OwnedImageFileLease {
+    started = true
+    await withCheckedContinuation { continuation = $0 }
+    return lease
+  }
+
+  func waitUntilStarted() async {
+    while !started { await Task.yield() }
+  }
+
+  func resume() { continuation?.resume(); continuation = nil }
 }
