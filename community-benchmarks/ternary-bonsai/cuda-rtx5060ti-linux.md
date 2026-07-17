@@ -1,4 +1,4 @@
-# RTX 5060 Ti 16 GB — CUDA (Ternary-Bonsai-27B)
+# RTX 5060 Ti 16 GB, CUDA (Ternary-Bonsai-27B)
 
 ## Summary
 
@@ -26,14 +26,14 @@ Second card (GPU1, same box, simultaneous run): pp512 1004.68 ± 0.11, tg128 44.
 
 ## Configuration
 
-- **DSpark drafter** (`--spec-type draft-dspark`, Q4_1 drafter, `--spec-draft-n-max 4` — the server refuses to start without it): **1.78x average single-stream speedup** (79.1 t/s mean over 512-token generations, range 72-87 by prompt). The Q4_1 drafter beat the bf16 drafter (67.8 t/s) and their outputs are byte-identical at temp 0 (5/5 prompts), confirming the precision-affects-speed-only claim.
+- **DSpark drafter** (`--spec-type draft-dspark`, Q4_1 drafter, `--spec-draft-n-max 4`: the server refuses to start without it): **1.78x average single-stream speedup** (79.1 t/s mean over 512-token generations, range 72-87 by prompt). The Q4_1 drafter beat the bf16 drafter (67.8 t/s) and their outputs are byte-identical at temp 0 (5/5 prompts), confirming the precision-affects-speed-only claim.
 - Solo vs simultaneous (one model per card) vs swapped cards: identical within noise at batch 1.
-- KV/context fit (NVML resident, single slot): 4k f16 = 7,627 MiB; 100k f16 = 13,867 MiB; **full 262k with q4_0 KV = 13,213 MiB** — fits the 16 GB card with ~3 GiB to spare.
-- Comparison vs Qwen3.6-27B-UD-IQ2_XXS (9.39 GB) on the same cards: ternary decodes +24% faster (44.4 vs 35.8 t/s, each on its best engine — mainline `12127de` runs the IQ2_XXS file ~4.5% faster than this fork does).
+- KV/context fit (NVML resident, single slot): 4k f16 = 7,627 MiB; 100k f16 = 13,867 MiB; **full 262k with q4_0 KV = 13,213 MiB**: fits the 16 GB card with ~3 GiB to spare.
+- Comparison vs Qwen3.6-27B-UD-IQ2_XXS (9.39 GB) on the same cards: ternary decodes +24% faster (44.4 vs 35.8 t/s, each on its best engine: mainline `12127de` runs the IQ2_XXS file ~4.5% faster than this fork does).
 
 ## Notes
 
-- Built in a CUDA devel container; a GPU-less configure caches `CUDA_DRIVER=NOTFOUND` in CMakeCache and later builds keep failing — wipe the cache and configure with the GPU attached.
+- Built in a CUDA devel container; a GPU-less configure caches `CUDA_DRIVER=NOTFOUND` in CMakeCache and later builds keep failing: wipe the cache and configure with the GPU attached.
 - Host is deliberately old (2013): decode is GPU-bandwidth-bound and does not care; prefill and cold load reflect the host.
 - Full quality anchors (AIME26 / MMLU-Redux / LiveCodeBench with cap-rates and budgets), energy per solved problem, raw eval JSONs, telemetry, and the raw llama-bench JSONs for every row here: https://github.com/Astezelex/bonsai-27b-16gb-bench
 
