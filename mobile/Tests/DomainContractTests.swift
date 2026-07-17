@@ -6,13 +6,7 @@ import Testing
 struct DomainContractTests {
     @Test
     func bundledCatalogDecodesBothPinnedPublicModels() throws {
-        let url = try #require(
-            Bundle.main.url(
-                forResource: "manifest",
-                withExtension: "json"
-            )
-        )
-
+        let url = try #require(ModelCatalogLoader.bundledCatalogURL())
         let catalog = try JSONDecoder().decode(
             ModelCatalog.self,
             from: Data(contentsOf: url)
@@ -26,6 +20,8 @@ struct DomainContractTests {
                 model.manifest.files.allSatisfy { !$0.isOptional }
             }
         )
+        #expect(!ModelCatalogLoader.bundledDescriptors().isEmpty)
+        #expect(ModelCatalogLoader.bundledManifests()[.oneBit27B] != nil)
     }
 
     @Test

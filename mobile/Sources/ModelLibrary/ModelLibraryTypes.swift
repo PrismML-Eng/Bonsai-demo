@@ -26,7 +26,7 @@ struct ModelLibrarySnapshot: Equatable, Sendable {
     let states: [ModelID: ModelLibraryState]
 }
 
-enum ModelLibraryError: Error, Equatable, Sendable {
+enum ModelLibraryError: Error, Equatable, Sendable, LocalizedError {
     case unqualified
     case invalidSourceURL
     case invalidFileType(String)
@@ -38,6 +38,33 @@ enum ModelLibraryError: Error, Equatable, Sendable {
     case archiveTooLarge
     case operationInProgress(ModelID)
     case unsafeManagedPath(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .unqualified:
+            "This model is not admitted on the current device. Unsupported hardware stays blocked. Release builds also block load without a validated support row; Debug builds may load an unverified physical-device install for measurement."
+        case .invalidSourceURL:
+            "The model download URL is invalid."
+        case .invalidFileType(let path):
+            "A model file is the wrong type: \(path)."
+        case .sizeMismatch(let path):
+            "A model file has the wrong size: \(path)."
+        case .hashMismatch(let path):
+            "A model file failed integrity verification: \(path)."
+        case .unsafeImport(let path):
+            "The import was rejected as unsafe: \(path)."
+        case .missingFile(let path):
+            "A required model file is missing: \(path)."
+        case .duplicatePath(let path):
+            "The model archive contains a duplicate path: \(path)."
+        case .archiveTooLarge:
+            "The model archive exceeds the allowed size."
+        case .operationInProgress(let id):
+            "Another \(id.rawValue) library operation is already running."
+        case .unsafeManagedPath(let path):
+            "A managed model path is unsafe: \(path)."
+        }
+    }
 }
 
 protocol ModelLibraryFileSystem: Sendable {

@@ -320,10 +320,24 @@ extension ModelDescriptor {
 }
 
 enum ModelCatalogLoader {
+    static func bundledCatalogURL(bundle: Bundle = .main) -> URL? {
+        bundle.url(forResource: "manifest", withExtension: "json", subdirectory: "Models")
+            ?? bundle.url(forResource: "manifest", withExtension: "json")
+    }
+
+    static func bundledCatalog(bundle: Bundle = .main) throws -> ModelCatalog {
+        guard let url = bundledCatalogURL(bundle: bundle) else {
+            throw CocoaError(.fileNoSuchFile)
+        }
+        return try JSONDecoder().decode(ModelCatalog.self, from: Data(contentsOf: url))
+    }
+
     static func bundledDescriptors(bundle: Bundle = .main) -> [ModelID: ModelDescriptor] {
-        guard let url = bundle.url(forResource: "manifest", withExtension: "json", subdirectory: "Models"),
-              let catalog = try? JSONDecoder().decode(ModelCatalog.self, from: Data(contentsOf: url))
-        else { return [:] }
+        guard let catalog = try? bundledCatalog(bundle: bundle) else { return [:] }
         return Dictionary(uniqueKeysWithValues: catalog.models.map { ($0.id, $0) })
+    }
+
+    static func bundledManifests(bundle: Bundle = .main) -> [ModelID: ModelManifest] {
+        Dictionary(uniqueKeysWithValues: bundledDescriptors(bundle: bundle).map { ($0.key, $0.value.manifest) })
     }
 }

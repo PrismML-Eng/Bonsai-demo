@@ -84,6 +84,34 @@ enum DeviceQualification: Equatable, Sendable {
     case qualified(Set<ModelCapability>)
     case unverified(QualificationReason)
     case unsupported(QualificationReason)
+
+    /// Download/import may proceed without release evidence so physical lanes can be measured.
+    /// Unsupported hardware and resource floors still block acquisition.
+    var allowsAcquisition: Bool {
+        switch self {
+        case .qualified, .unverified: true
+        case .unsupported: false
+        }
+    }
+
+    /// Loading into the inference runtime requires a validated support-policy match in Release.
+    /// Debug builds may load `.deviceNotMeasured` installs so physical development and evidence
+    /// capture can proceed before a support row exists. Simulator and incompatible-runtime
+    /// unverified states stay blocked even in Debug.
+    var allowsLoad: Bool {
+        switch self {
+        case .qualified:
+            return true
+        case .unverified(let reason):
+            #if DEBUG
+            return reason == .deviceNotMeasured
+            #else
+            return false
+            #endif
+        case .unsupported:
+            return false
+        }
+    }
 }
 
 typealias QualificationEvidence = [ModelID: [DeviceClass: Set<ModelCapability>]]

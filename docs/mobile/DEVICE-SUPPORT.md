@@ -1,6 +1,6 @@
 # Bonsai Mobile device support
 
-Support is evidence-gated per exact hardware identifier, model revision, runtime revision, and capability. A memory or storage estimate never promotes a device. The bundled support manifest currently contains no evidence references, so all otherwise eligible combinations remain unverified and model allocation stays blocked.
+Support is evidence-gated per exact hardware identifier, model revision, runtime revision, and capability. A memory or storage estimate never promotes a device. The bundled support manifest currently contains no evidence references, so all otherwise eligible combinations remain unverified: download/import can still proceed for measurement on non-unsupported hardware. **Release** builds keep loading blocked until a validated support row exists. **Debug** builds may load an unverified physical-device install (`.deviceNotMeasured` only) so development and evidence capture can proceed; that never counts as a supported release claim.
 
 ## Current release matrix
 

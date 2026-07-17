@@ -86,7 +86,7 @@ actor ModelLibrary {
     }
 
     func install(_ manifest: ModelManifest, qualification: DeviceQualification) async throws {
-        guard case .qualified = qualification else { throw ModelLibraryError.unqualified }
+        guard qualification.allowsAcquisition else { throw ModelLibraryError.unqualified }
         let operation = try beginOperation(for: manifest.id)
         defer { endOperation(operation, for: manifest.id) }
         try await performInstall(manifest)
@@ -173,7 +173,7 @@ actor ModelLibrary {
         from source: URL,
         qualification: DeviceQualification
     ) async throws {
-        guard case .qualified = qualification else { throw ModelLibraryError.unqualified }
+        guard qualification.allowsAcquisition else { throw ModelLibraryError.unqualified }
         let operation = try beginOperation(for: manifest.id)
         defer { endOperation(operation, for: manifest.id) }
         let staging = stagingURL(for: manifest.id)

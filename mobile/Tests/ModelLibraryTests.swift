@@ -107,7 +107,24 @@ struct ModelLibraryTests {
     }
 
     @Test
-    func unqualifiedInstallDoesNotAllocateOrDownload() async throws {
+    func unverifiedInstallMayDownloadForMeasurement() async throws {
+        let root = try temporaryDirectory()
+        let expected = Data("payload".utf8)
+        let manifest = try fixtureManifest(expected: expected)
+        let transport = RecordingTransport(files: ["model.safetensors": expected])
+        let library = try ModelLibrary(root: root, transport: transport)
+
+        try await library.install(manifest, qualification: .unverified(.deviceNotMeasured))
+
+        #expect(await transport.callCount == 1)
+        guard case .ready = await library.state(for: .oneBit27B) else {
+            Issue.record("Unverified acquisition must still produce a ready installation")
+            return
+        }
+    }
+
+    @Test
+    func unsupportedInstallDoesNotAllocateOrDownload() async throws {
         let root = try temporaryDirectory()
         let transport = RecordingTransport(files: [:])
         let library = try ModelLibrary(root: root, transport: transport)
@@ -115,7 +132,7 @@ struct ModelLibraryTests {
         await #expect(throws: ModelLibraryError.unqualified) {
             try await library.install(
                 try fixtureManifest(expected: Data("x".utf8)),
-                qualification: .unverified(.deviceNotMeasured)
+                qualification: .unsupported(.ternaryProhibitedOnIPhone)
             )
         }
 

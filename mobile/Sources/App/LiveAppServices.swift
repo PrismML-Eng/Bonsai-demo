@@ -99,10 +99,9 @@ actor LiveModelLibraryService: ModelLibraryServing {
     self.installationProvider = installationProvider
     if let injectedManifests {
       manifests = injectedManifests
-    } else if let url = Bundle.main.url(forResource: "manifest", withExtension: "json", subdirectory: "Models"),
-       let catalog = try? JSONDecoder().decode(ModelCatalog.self, from: Data(contentsOf: url)) {
-      manifests = Dictionary(uniqueKeysWithValues: catalog.models.map { ($0.id, $0.manifest) })
-    } else { manifests = [:] }
+    } else {
+      manifests = ModelCatalogLoader.bundledManifests()
+    }
     descriptors = ModelCatalogLoader.bundledDescriptors()
   }
 
@@ -126,10 +125,7 @@ actor LiveModelLibraryService: ModelLibraryServing {
     case .importModel:
       throw LiveUIServiceError.importRequiresPicker
     case .load:
-      let currentQualification = await qualification(for: modelID)
-      guard case .qualified(let capabilities) = currentQualification else {
-        throw ModelLibraryError.unqualified
-      }
+      let capabilities = try await admittedCapabilities(for: modelID)
       let installation: ModelInstallation?
       if let installationProvider {
         installation = await installationProvider(modelID)
@@ -188,7 +184,7 @@ actor LiveModelLibraryService: ModelLibraryServing {
       try await engine.load(installation)
       try await conversations.bind(installation)
       loadedInstallation = installation
-      effectiveCapabilities = await qualification(for: installation.modelID).qualifiedCapabilities
+      effectiveCapabilities = (try? await admittedCapabilities(for: installation.modelID)) ?? []
     } catch {
       await engine.unload()
       await conversations.unbind()
@@ -202,6 +198,24 @@ actor LiveModelLibraryService: ModelLibraryServing {
     try await library.importModel(manifest, from: source, qualification: await qualification(for: modelID))
   }
 
+  private func admittedCapabilities(for modelID: ModelID) async throws -> Set<ModelCapability> {
+    let currentQualification = await qualification(for: modelID)
+    guard currentQualification.allowsLoad else {
+      throw ModelLibraryError.unqualified
+    }
+    switch currentQualification {
+    case .qualified(let admitted):
+      return admitted
+    case .unverified:
+      guard let descriptor = descriptors[modelID] else {
+        throw LiveUIServiceError.missingManifest(modelID)
+      }
+      return descriptor.capabilities
+    case .unsupported:
+      throw ModelLibraryError.unqualified
+    }
+  }
+
   private func qualification(for modelID: ModelID) async -> DeviceQualification {
     guard let descriptor = descriptors[modelID] else { return .unverified(.deviceNotMeasured) }
     let facts = await CurrentDeviceFacts.read(modelRoot: root)
@@ -211,13 +225,6 @@ actor LiveModelLibraryService: ModelLibraryServing {
       model: descriptor,
       facts: facts,
       evidence: evidence)
-  }
-}
-
-private extension DeviceQualification {
-  var qualifiedCapabilities: Set<ModelCapability> {
-    if case .qualified(let capabilities) = self { return capabilities }
-    return []
   }
 }
 

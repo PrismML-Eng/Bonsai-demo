@@ -28,6 +28,29 @@ struct DeviceQualifierTests {
     }
 
     @Test
+    func unverifiedDevicesMayAcquireAndDebugMayLoad() {
+        let unverified = DeviceQualification.unverified(.deviceNotMeasured)
+        #expect(unverified.allowsAcquisition)
+        #if DEBUG
+        #expect(unverified.allowsLoad)
+        #else
+        #expect(!unverified.allowsLoad)
+        #endif
+
+        let simulator = DeviceQualification.unverified(.simulatorNotSupported)
+        #expect(simulator.allowsAcquisition)
+        #expect(!simulator.allowsLoad)
+
+        let unsupported = DeviceQualification.unsupported(.ternaryProhibitedOnIPhone)
+        #expect(!unsupported.allowsAcquisition)
+        #expect(!unsupported.allowsLoad)
+
+        let qualified = DeviceQualification.qualified([.textGeneration])
+        #expect(qualified.allowsAcquisition)
+        #expect(qualified.allowsLoad)
+    }
+
+    @Test
     func oneBitNeedsEvidenceForTheExactDeviceClass() {
         let model = Self.descriptor(id: .oneBit27B)
         let facts = DeviceFacts(

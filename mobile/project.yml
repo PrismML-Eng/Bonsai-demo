@@ -28,7 +28,13 @@ targets:
       Release: Config/Base.xcconfig
     sources:
       - path: Sources
-      - path: Resources
+      - path: Resources/PrivacyInfo.xcprivacy
+        buildPhase: resources
+      - path: Resources/Models
+        type: folder
+        buildPhase: resources
+      - path: Resources/Evidence
+        type: folder
         buildPhase: resources
     settings:
       base:
