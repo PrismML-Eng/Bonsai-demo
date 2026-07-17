@@ -16,6 +16,8 @@ machine.
 
 Command: `bin/mac/llama-bench -m models/ternary-gguf/27B/Ternary-Bonsai-27B-Q2_0.gguf -fa 1 -r 5`
 
+| model                          |       size |     params | backend    | threads | fa |            test |                  t/s |
+| ------------------------------ | ---------: | ---------: | ---------- | ------: | -: | --------------: | -------------------: |
 | qwen35 27B Q2_0                |   6.66 GiB |    26.90 B | MTL,BLAS   |       6 |   1 |           pp512 |        130.47 ± 1.32 |
 | qwen35 27B Q2_0                |   6.66 GiB |    26.90 B | MTL,BLAS   |       6 |   1 |           tg128 |         26.53 ± 0.06 |
 
@@ -27,12 +29,32 @@ vs the published table.
 
 ## MLX Results (2-bit)
 
+Setup — the MLX speculative harnesses live in the linked repo:
+
+```bash
+git clone https://github.com/iggerask/dspark-mlx && cd dspark-mlx
+pip install -e .   # pulls mlx 0.32.0, mlx-lm 0.31.3
+
+# One-time: convert prism-ml's BF16 drafter GGUF -> MLX safetensors.
+# The drafter is quantized to 4-bit at load (quantize_drafter=True, the
+# default in every harness below); there is no separate quantize step.
+hf download prism-ml/Ternary-Bonsai-27B-gguf Ternary-Bonsai-27B-dspark-bf16.gguf --local-dir /tmp/dspark
+dspark-convert --gguf /tmp/dspark/Ternary-Bonsai-27B-dspark-bf16.gguf \
+    --output weights/dspark_Ternary-Bonsai-27B.safetensors
+```
+
 ### Ternary-Bonsai-27B, plain mlx-lm
 
 llama-bench-style protocol (fresh cache per rep, r=5, no chat template;
 harness: benchmarks/benchmark_release_protocol.py in the dspark-mlx repo).
 tg128 (raw) decodes predetermined tokens like llama-bench's tg test;
 tg128 (greedy) is argmax-chained generation.
+
+```bash
+python benchmarks/benchmark_release_protocol.py \
+    --model prism-ml/Ternary-Bonsai-27B-mlx-2bit \
+    --weights weights/dspark_Ternary-Bonsai-27B.safetensors --reps 5
+```
 
 pp512        :   465.97 ± 10.21 t/s
 tg128 (raw)  :    29.53 ± 0.41 t/s
@@ -47,12 +69,25 @@ output token-identical to plain greedy decoding — verified per run).
 
 128-token generation, chat-templated prompt ("Write a short story about a
 lighthouse keeper who discovers something unusual in the fog."), 3 reps,
-format accept/t-s:
+EOS honored (chat template applied by default), format accept/t-s:
+
+```bash
+for i in 1 2 3; do
+  dspark-generate -n 128 \
+    -p "Write a short story about a lighthouse keeper who discovers something unusual in the fog."
+done
+```
 
 eos-honored: reps = ['63%/41.9t/s', '63%/42.1t/s', '63%/42.1t/s']
 
-Four-workload suite, 250-token generations, best of 2
-(benchmarks/benchmark_dspark.py):
+Four-workload suite, 250-token generations, best of 2:
+
+```bash
+python benchmarks/benchmark_dspark.py \
+    --model prism-ml/Ternary-Bonsai-27B-mlx-2bit \
+    --weights weights/dspark_Ternary-Bonsai-27B.safetensors \
+    --max-tokens 250 --runs 2
+```
 
 code         base  30.0 t/s | dspark  44.2 t/s (1.48x) | accept 67% | tok/step 3.69 | identical=True
 qa           base  30.1 t/s | dspark  33.6 t/s (1.12x) | accept 46% | tok/step 2.85 | identical=True
