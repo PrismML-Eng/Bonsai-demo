@@ -16,6 +16,7 @@ The 27B models come in two families: Bonsai (1-bit, `Q1_0`) and Ternary-Bonsai (
 | Bonsai (1-bit) | NVIDIA L40S 48 GB | llama.cpp CUDA | 2,945 | 100.1 | ~107 (1.42x, code) | [link](bonsai/cuda-l40s-27b-linux.md) |
 | Ternary | Apple M5 Pro 64 GB | MLX 2-bit | 466 | 29.5 | 34-49 (community dspark-mlx) | [link](ternary-bonsai/mlx-m5-pro-macos.md) |
 | Ternary | Apple M5 Pro 64 GB | llama.cpp Metal | 130 | 26.5 | | [link](ternary-bonsai/mlx-m5-pro-macos.md) |
+| Ternary | Apple M3 Pro 18 GB | llama.cpp Metal | 78.6 | 12.6 | | [link](ternary-bonsai/metal-m3-pro-macos.md) |
 
 ## 8B and smaller
 
@@ -27,7 +28,7 @@ The 27B models come in two families: Bonsai (1-bit, `Q1_0`) and Ternary-Bonsai (
 | Bonsai (1-bit) | AMD Strix Halo 128 GB | llama.cpp ROCm HIP | 1,325 | 96 | [link](bonsai/rocm-hip-strix-halo-128gb-archlinux.md) |
 | Bonsai (1-bit) | NVIDIA GeForce RTX 3080 10 GB | llama.cpp CUDA | 4,770 | 197 | [link](bonsai/cuda-rtx3080-linux.md) |
 | Bonsai (1-bit) | NVIDIA RTX A2000 Laptop (4 GB) | llama.cpp CUDA | 1,387 | 63 | [link](bonsai/cuda-rtxa2000-debian.md) |
-| Ternary | *no submissions yet* | | | | |
+| Ternary | Apple M3 Pro 18 GB | llama.cpp Metal | 288 | 51.3 | [link](ternary-bonsai/metal-m3-pro-macos.md) |
 
 ## Model Families
 
