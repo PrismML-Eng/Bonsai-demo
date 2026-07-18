@@ -8,6 +8,7 @@ Benchmark results submitted by the community running [Ternary-Bonsai](https://hu
 
 | Hardware | Backend | PP512 (t/s) | TG128 (t/s) | DSpark TG (t/s) | Details |
 |----------|---------|------------:|------------:|----------------:|---------|
+| NVIDIA L40S 48 GB | llama.cpp CUDA | 2,881 | 70.1 | ~87-103 (1.6-1.8x) | [link](cuda-l40s-linux.md) |
 | NVIDIA RTX A5000 24 GB | llama.cpp CUDA | 1,036 | 48.2 | | [link](cuda-rtxa5000-ubuntu.md) |
 | NVIDIA L40S 48 GB | llama.cpp CUDA | 2,881 | 70.1 | ~103 (1.76x, code) | [link](cuda-l40s-linux.md) |
 | NVIDIA RTX 5060 Ti 16 GB | llama.cpp CUDA | 1,029 | 44.4 | ~79 (1.78x) | [link](cuda-rtx5060ti-linux.md) |
