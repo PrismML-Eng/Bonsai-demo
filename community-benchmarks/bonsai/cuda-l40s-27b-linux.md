@@ -22,7 +22,7 @@ build: 62061f910 (9591) (branch `prism`)
 
 ## Speculative decoding (DSpark)
 
-Enable with `BONSAI_SPECULATIVE=1 ./scripts/start_llama_server.sh` (adds the paired `Bonsai-27B-dspark-Q4_1.gguf`, `--spec-type draft-dspark --spec-draft-n-max 4`).
+Enable with `BONSAI_FAMILY=bonsai BONSAI_SPECULATIVE=1 ./scripts/start_llama_server.sh` (adds the paired `Bonsai-27B-dspark-Q4_1.gguf`, `--spec-type draft-dspark --spec-draft-n-max 4`).
 
 Measured end-to-end over a 12-prompt code/math/reasoning/chat mix (greedy, `k=4`), target alone vs target + drafter:
 
