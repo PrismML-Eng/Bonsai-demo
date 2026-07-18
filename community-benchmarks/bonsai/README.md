@@ -9,6 +9,7 @@ Benchmark results submitted by the community running [Bonsai](https://huggingfac
 | Hardware | Backend | PP512 (t/s) | TG128 (t/s) | Details |
 |----------|---------|------------:|------------:|---------|
 | NVIDIA DGX Spark (GB10) | llama.cpp CUDA | 1,003 | 44.1 | [link](cuda-gb10-27b-linux.md) |
+| NVIDIA L40S 48 GB | llama.cpp CUDA | 2,945 | 100.1 | [link](cuda-l40s-27b-linux.md) |
 
 ### 8B and smaller
 
