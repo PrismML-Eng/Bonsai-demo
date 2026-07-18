@@ -538,3 +538,26 @@ Detected GPU VRAM: 8.0 GB (< 16 GB) -- limiting CUDA build to -j 2
 ```
 
 **Manual override:** If you still encounter OOM errors, reduce parallelism further by editing the build invocation in the relevant script, or close other GPU-heavy applications before building.
+
+### Metal fails to initialize on Apple M5 (macOS 26.2–26.4)
+
+**Symptom:** On M5 Macs, `run_llama.sh` / `start_llama_server.sh` fail with Metal errors and produce no output, e.g.:
+
+```
+ggml_metal_library_init_from_source: error compiling source
+ggml_metal_device_init: - the tensor API is not supported in this environment - disabling
+ggml_metal_synchronize: error: command buffer 0 failed with status 5
+```
+
+Pre-M5 Apple Silicon (M1–M4) is not affected — those devices load the embedded, precompiled Metal library and never compile shaders at runtime.
+
+**Cause:** On M5 (and A19) devices, ggml compiles its Metal library from source at runtime to enable the tensor API (Neural Accelerators). Some macOS 26 point releases ship stricter MetalPerformancePrimitives headers whose `static_assert` (bfloat/half type mismatch) breaks that runtime compile. This is an ecosystem-wide issue also seen in [ollama](https://github.com/ollama/ollama/issues/15594) and [whisper.cpp](https://github.com/ggml-org/whisper.cpp/issues/3722); see [#93](https://github.com/PrismML-Eng/Bonsai-demo/issues/93).
+
+**Workaround:** Disable the tensor API so the M5 uses the embedded library like pre-M5 devices — full Metal speed is kept, only the Neural Accelerator prefill boost is lost:
+
+```bash
+GGML_METAL_TENSOR_DISABLE=1 ./scripts/run_llama.sh -p "Hello"
+GGML_METAL_TENSOR_DISABLE=1 ./scripts/start_llama_server.sh
+```
+
+This is much faster than falling back to CPU (`BONSAI_NGL=0`). If out-of-memory errors persist afterwards on lower-memory machines, additionally pin a smaller context, e.g. `-c 16384` (extra args pass through to llama.cpp and override the auto-fit default).

@@ -167,6 +167,9 @@ Full guide with entry examples: **TOOLS.md** (repo root). The essentials:
   conversation, image tokens included, on every turn), so follow-ups are much
   slower than llama.cpp (which caches the KV prefix). Steer multi-turn users to
   the llama.cpp backend; the image encoder itself is cached, it's the LM prefill.
+- **M5 Macs on macOS 26.2–26.4:** if Metal init fails with `error compiling source` /
+  command-buffer status 5, set `GGML_METAL_TENSOR_DISABLE=1` (README Appendix — FAQ has
+  details). Keep `-ngl` on GPU; don't reach for `BONSAI_NGL=0`.
 - Linux CUDA / Windows / CPU-only: not tested yet — extend these notes after testing.
 
 ## Quick verification commands
