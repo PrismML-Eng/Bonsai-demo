@@ -2,7 +2,7 @@
 
 ## Summary
 
-NVIDIA L40S (46 GB), AMD EPYC 9354, CUDA 12.8 on Linux. Bonsai-27B (1-bit, `Q1_0`), all layers on GPU (`-ngl 99 -fa 1`): **~100 t/s tg128, ~2,945 t/s pp512**. With the paired DSpark drafter, end-to-end decode rises to **~99 t/s (1.38x)** on a code/reasoning/chat mix — a smaller multiplier than ternary because the 1-bit target is already fast, so there is less latency to recover.
+NVIDIA L40S (48 GB), AMD EPYC 9354, CUDA 12.8 on Linux. Bonsai-27B (1-bit, `Q1_0`), all layers on GPU (`-ngl 99 -fa 1`): **~100 t/s tg128, ~2,945 t/s pp512**. With the paired DSpark drafter, end-to-end decode rises to **~99 t/s (1.38x)** on a mixed workload and **~107 t/s (1.42x)** on coding tasks — a smaller multiplier than ternary because the 1-bit target is already fast, so there is less latency to recover.
 
 ## llama-bench Results
 
@@ -26,12 +26,12 @@ Enable with `BONSAI_SPECULATIVE=1 ./scripts/start_llama_server.sh` (adds the pai
 
 Measured end-to-end over a 12-prompt code/math/reasoning/chat mix (greedy, `k=4`), target alone vs target + drafter:
 
-| | decode t/s | accept | speedup |
-| --- | ---: | ---: | ---: |
-| no drafter | 72.2 | — | 1.00x |
-| + DSpark | 99.3 | 0.73 | **1.38x** |
+| workload | no drafter | + DSpark | accept | speedup |
+| --- | ---: | ---: | ---: | ---: |
+| 12-prompt mix (code/math/reasoning/chat) | 72.2 | 99.3 | 0.73 | **1.38x** |
+| code-only (8 prompts) | 75.4 | 106.9 | 0.72 | **1.42x** |
 
-Output is identical to non-speculative at temperature 0. End-to-end (prompt processing included), so below the pure-decode `tg128` above. Acceptance is high (0.73), but the fast 1-bit target leaves less absolute latency to recover than the ternary model, so the multiplier is lower.
+Output is identical to non-speculative at temperature 0. End-to-end (prompt processing included), so below the pure-decode `tg128` above. The fast 1-bit target leaves less absolute latency to recover than the ternary model, so the multiplier is lower.
 
 ## Configuration
 
@@ -46,5 +46,5 @@ All layers offloaded, flash attention on, single sequence. Pre-built `bin/cuda/`
 
 ```
 CPU: AMD EPYC 9354 (12 vCPU exposed), 70 GiB RAM
-GPU: NVIDIA L40S, 46 GB, driver 580.126.09, CUDA 12.8
+GPU: NVIDIA L40S, 48 GB, driver 580.126.09, CUDA 12.8
 ```
