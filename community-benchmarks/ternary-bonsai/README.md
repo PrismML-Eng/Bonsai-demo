@@ -12,6 +12,7 @@ Benchmark results submitted by the community running [Ternary-Bonsai](https://hu
 | NVIDIA RTX A5000 24 GB | llama.cpp CUDA | 1,036 | 48.2 | | [link](cuda-rtxa5000-ubuntu.md) |
 | NVIDIA L40S 48 GB | llama.cpp CUDA | 2,881 | 70.1 | ~103 (1.76x, code) | [link](cuda-l40s-linux.md) |
 | NVIDIA RTX 5060 Ti 16 GB | llama.cpp CUDA | 1,029 | 44.4 | ~79 (1.78x) | [link](cuda-rtx5060ti-linux.md) |
+| NVIDIA RTX 4070 Ti SUPER 16 GB | llama.cpp CUDA | 1,717 | 69.6 | | [link](cuda-rtx4070tisuper-windows.md) |
 | Apple M5 Pro 64 GB | MLX 2-bit | 466 | 29.5 | 34-49 (community dspark-mlx) | [link](mlx-m5-pro-macos.md) |
 | Apple M5 Pro 64 GB | llama.cpp Metal | 130 | 26.5 | | [link](mlx-m5-pro-macos.md) |
 | Apple M3 Pro 18 GB | llama.cpp Metal | 78.6 | 12.6 | | [link](metal-m3-pro-macos.md) |
@@ -21,6 +22,7 @@ Benchmark results submitted by the community running [Ternary-Bonsai](https://hu
 | Hardware | Backend | 8B PP512 (t/s) | 8B TG128 (t/s) | Details |
 |----------|---------|---------------:|---------------:|---------|
 | Apple M3 Pro 18 GB | llama.cpp Metal | 288 | 51.3 | [link](metal-m3-pro-macos.md) |
+| NVIDIA RTX 4070 Ti SUPER 16 GB | llama.cpp CUDA | 6,675 | 215.7 | [link](cuda-rtx4070tisuper-windows.md) |
 
 ## Available Formats
 
