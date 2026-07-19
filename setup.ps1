@@ -7,8 +7,8 @@ $PythonVersion = "3.11"
 $VenvDir = Join-Path $PSScriptRoot ".venv"
 $VenvPy  = Join-Path $VenvDir "Scripts\python.exe"
 
-$ReleaseTag = "prism-b9591-62061f9"
-$WinAssetTag = "prism-b1-62061f9"                    # Windows builds use shortened tag
+$ReleaseTag = "prism-b9596-9fcaed7"
+$WinAssetTag = "prism-b1-9fcaed7"                    # Windows builds use shortened tag
 $BaseUrl = "https://github.com/PrismML-Eng/llama.cpp/releases/download/$ReleaseTag"
 
 $BonsaiModel  = if ($env:BONSAI_MODEL)  { $env:BONSAI_MODEL }  else { "27B" }
