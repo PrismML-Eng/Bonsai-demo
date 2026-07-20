@@ -99,15 +99,22 @@ if ($BonsaiModel -eq "27B") {
     )
 }
 
+$CtxDefault = if ($env:BONSAI_CTX) { $env:BONSAI_CTX } else {
+    $MemGB = [math]::Floor((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB)
+    if ($MemGB -le 11) { "8192" } elseif ($MemGB -le 23) { "16384" } elseif ($MemGB -le 35) { "32768" } elseif ($MemGB -le 71) { "65536" } elseif ($BonsaiModel -eq "27B") { "131072" } else { "65536" }
+}
+
 Write-Host "[OK] Model:  $($Model.FullName)" -ForegroundColor Green
 Write-Host "[OK] Binary: $Bin" -ForegroundColor Green
-Write-Host "[OK] Using -ngl $Ngl, -c 0 (auto-fit to available memory)" -ForegroundColor Green
+Write-Host "[OK] Using -ngl $Ngl, -c $CtxDefault (override with BONSAI_CTX, 0 = auto-fit)" -ForegroundColor Green
 
-$RunArgs = $CommonArgs + @("-c", "0") + $args
+$RunArgs = $CommonArgs + @("-c", $CtxDefault) + $args
 & $Bin @RunArgs
 $ExitCode = $LASTEXITCODE
 
-if ($ExitCode -ne 0 -and $ExitCode -notin @(130, -1073741510) -and -not $HasContextArg) {
+# The 8192 retry exists only for builds that reject auto-fit (-c 0); any other
+# failure must surface as-is instead of rerunning the prompt.
+if ($ExitCode -ne 0 -and $CtxDefault -eq "0" -and $ExitCode -notin @(130, -1073741510) -and -not $HasContextArg) {
     Write-Host "[WARN] Auto-fit not supported, falling back to -c 8192" -ForegroundColor Yellow
     $FallbackArgs = $CommonArgs + @("-c", "8192") + $args
     & $Bin @FallbackArgs

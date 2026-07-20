@@ -319,6 +319,8 @@ Two experimental, off-by-default features for the llama.cpp chat server:
 
 The 27B models support up to **262,144 tokens** of context. The FP16 KV cache costs 64 KiB per token (~6.3 GiB at 100K), so **100K context fits on many consumer devices even without KV-cache quantization**. The model's hybrid attention keeps the cache small for its size.
 
+The launch scripts pick a **default context sized to your machine's RAM**, from 8K on small machines up to 131K for the 27B on machines with more than 71 GB (roughly 0.5 to 8 GiB of KV cache), so memory use stays predictable. Override with the `BONSAI_CTX` environment variable: any number up to 262144, or `0` for llama.cpp's auto-fit, which fills available memory and is only recommended on machines with plenty of headroom.
+
 With the optional [4-bit KV cache](KV-CACHE.md) (`BONSAI_KV4=1`) the cache drops to roughly 18 KiB per token, about **1.8 GiB at 100K**, shaving ~4.5 GiB off the 100K figures below (for example, Ternary-Bonsai-27B on llama.cpp goes from ~13.7 to ~9.2 GiB).
 
 *Peak memory for the 27B (weights + activations + FP16 KV cache + ~1.2 GiB overhead; text-only, add ~0.9 GiB for the vision projector):*
@@ -335,7 +337,7 @@ With the optional [4-bit KV cache](KV-CACHE.md) (`BONSAI_KV4=1`) the cache drops
 
 (The MLX packs are ~400 MiB larger than GGUF because MLX stores both scales and biases, GGUF only scales.)
 
-By default the scripts pass `-c 0`, which lets llama.cpp's `--fit` automatically size the KV cache to your available memory (no pre-allocation waste). If your build doesn't support `-c 0`, the scripts fall back to a safe value based on system RAM. Override with: `./scripts/run_llama.sh -c 8192 -p "Your prompt"`
+Extra arguments pass straight through to llama.cpp, so `./scripts/run_llama.sh -c 8192 -p "Your prompt"` also works for a one-off context override. With `BONSAI_CTX=0` (auto-fit), builds that do not support `-c 0` fall back to a safe RAM-based value automatically.
 
 The older text-only sizes are smaller across the board; the 8B supports up to 65,536 tokens of context:
 
@@ -526,6 +528,23 @@ Items marked with ← are created at setup time and excluded from git.
 ---
 
 ## Appendix — FAQ
+
+### The model allocates huge memory or the machine freezes at startup
+
+Older revisions defaulted to llama.cpp's context auto-fit (`-c 0`), which sizes the KV cache up to the working-set limit and could exhaust memory on constrained machines. The scripts now default to a RAM-tiered context instead. If you still hit memory pressure, pin a smaller context:
+
+```bash
+BONSAI_CTX=8192 ./scripts/start_llama_server.sh
+```
+
+### M5 Mac on macOS 26.2/26.3: Metal compile errors, then out-of-memory
+
+On M5 devices with certain macOS 26 point releases, the Metal tensor-API probe fails to compile at runtime (`ggml_metal_library_init_from_source: error compiling source`) and can leave the GPU in a bad state. This is an ecosystem-wide issue in the OS Metal headers, hitting every ggml-based project. Workaround, keeps full Metal speed and just skips the tensor-API path:
+
+```bash
+GGML_METAL_TENSOR_DISABLE=1 ./scripts/run_llama.sh -p "Hello"
+```
+
 
 ### CUDA source build runs out of memory or freezes
 

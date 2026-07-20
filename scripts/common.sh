@@ -109,16 +109,40 @@ warn()  { printf "${_CLR_YELLOW}[WARN]${_CLR_RESET} %s\n" "$*"; }
 err()   { printf "${_CLR_RED}[ERR]${_CLR_RESET}  %s\n" "$*" >&2; }
 step()  { printf "${_CLR_CYAN}==>    %s${_CLR_RESET}\n" "$*"; }
 
-# ── Smart context size for llama.cpp ──
-# Default: -c 0 lets llama.cpp's --fit auto-size KV cache to available memory.
-# Fallback: if -c 0 is not supported, pick a safe value from system RAM.
-# Max context: 65536.
-# Memory = ~1.1 GB weights + ~140 bytes/token KV cache + activations.
-#   8 GB  → -c  8192  (~2.5 GB total, leaves ~5 GB for OS)
-#  16 GB  → -c 32768  (~5.9 GB total, leaves ~10 GB for OS)
-#  24 GB+ → -c 65536  (~10.5 GB total, leaves ~13+ GB for OS)
-
-CTX_SIZE_DEFAULT=0
+# ── Default context: a predictable RAM-tiered cap instead of unbounded auto-fit.
+# Bare -c 0 (auto-fit) sizes the KV cache up to the working-set limit, which
+# has frozen memory-constrained machines outright. Per-token FP16 KV cost
+# differs by model: ~64 KiB on the 27B (hybrid attention) but ~140 KiB on the
+# full-attention 8B, so a tier costs up to ~2.2x more KV on the older sizes.
+# Every tier stays comfortably inside its RAM band for every size (worst case:
+# 8B at 65536 is ~10.5 GB total on a 36 GB+ machine), and the 131072 top tier
+# is 27B-only. Override with BONSAI_CTX (up to 262144, or 0 for auto-fit).
+bonsai_ctx_default() {
+    if [ -n "${BONSAI_CTX:-}" ]; then
+        echo "$BONSAI_CTX"
+        return
+    fi
+    if [ "$(uname -s)" = "Darwin" ]; then
+        _mem_gb=$(( $(sysctl -n hw.memsize) / 1073741824 ))
+    else
+        _mem_kb=$(awk '/MemTotal/ {print $2}' /proc/meminfo 2>/dev/null)
+        _mem_gb=$(( ${_mem_kb:-0} / 1048576 ))
+    fi
+    if [ "$_mem_gb" -le 11 ] 2>/dev/null; then
+        echo 8192
+    elif [ "$_mem_gb" -le 23 ] 2>/dev/null; then
+        echo 16384
+    elif [ "$_mem_gb" -le 35 ] 2>/dev/null; then
+        echo 32768
+    elif [ "$_mem_gb" -le 71 ] 2>/dev/null; then
+        echo 65536
+    elif [ "$BONSAI_MODEL" = "27B" ]; then
+        echo 131072
+    else
+        echo 65536  # older sizes are documented up to 65536
+    fi
+}
+CTX_SIZE_DEFAULT=$(bonsai_ctx_default)
 
 # GPU layer offload: 99 = offload all layers to GPU, 0 = CPU only.
 # Override with BONSAI_NGL env var if needed.
@@ -193,6 +217,8 @@ bonsai_should_skip_mlx() {
     esac
 }
 
+# Legacy fallback, used only when auto-fit (BONSAI_CTX=0) was requested and
+# the build rejects -c 0: pick a safe context from system RAM.
 get_context_size_fallback() {
     if [ "$(uname -s)" = "Darwin" ]; then
         _mem_gb=$(( $(sysctl -n hw.memsize) / 1073741824 ))

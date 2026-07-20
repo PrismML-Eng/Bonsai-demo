@@ -41,7 +41,7 @@ NGL=$(bonsai_llama_ngl)
 
 info "Model:  $MODEL"
 info "Binary: $BIN"
-info "Using -ngl $NGL, -c 0 (auto-fit; override GPU offload with BONSAI_NGL, 0 = CPU-only)"
+info "Using -ngl $NGL (override with BONSAI_NGL, 0 = CPU-only), -c $CTX_SIZE_DEFAULT (override with BONSAI_CTX)"
 
 # 27B: reference-demo sampling, thinking stays enabled (model default).
 # Older sizes keep the exact flag set they were tested with.
@@ -50,6 +50,10 @@ if [ "$BONSAI_MODEL" = "27B" ]; then
         --temp 0.7 --top-p 0.95 --top-k 20 --min-p 0 \
         "$@" \
     || {
+        _st=$?
+        # This retry exists only for builds that reject auto-fit (-c 0); any
+        # other failure must surface as-is instead of rerunning the prompt.
+        [ "$CTX_SIZE_DEFAULT" = "0" ] || exit "$_st"
         CTX_SIZE=$(get_context_size_fallback)
         warn "Auto-fit not supported, falling back to -c $CTX_SIZE"
         "$BIN" -m "$MODEL" -ngl "$NGL" -fa on -c "$CTX_SIZE" --log-disable \
@@ -65,6 +69,10 @@ fi
     --chat-template-kwargs '{"enable_thinking": false}' \
     "$@" \
 || {
+    _st=$?
+    # This retry exists only for builds that reject auto-fit (-c 0); any
+    # other failure must surface as-is instead of rerunning the prompt.
+    [ "$CTX_SIZE_DEFAULT" = "0" ] || exit "$_st"
     CTX_SIZE=$(get_context_size_fallback)
     warn "Auto-fit not supported, falling back to -c $CTX_SIZE"
     "$BIN" -m "$MODEL" -ngl "$NGL" -fa on -c "$CTX_SIZE" --log-disable \
