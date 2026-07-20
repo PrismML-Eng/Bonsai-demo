@@ -288,7 +288,7 @@ For Windows PowerShell:
 .\scripts\start_llama_server.ps1
 ```
 
-The scripts auto-detect your GPU (Metal, CUDA, ROCm, Vulkan) and offload all layers. If the detection picks a GPU you do not want, for example Vulkan on a machine whose only GPU is a weak integrated one, set `BONSAI_NGL=0` for CPU-only inference (any layer count works, e.g. `BONSAI_NGL=20` for partial offload).
+The scripts auto-detect your GPU (Metal, CUDA, ROCm, Vulkan) and offload all layers. If the detection picks a GPU you do not want, for example Vulkan on a machine whose only GPU is a weak integrated one, set `BONSAI_NGL=0` for CPU-only inference, or any layer count for partial offload (PowerShell: `$env:BONSAI_NGL = "0"`).
 
 #### Thinking
 

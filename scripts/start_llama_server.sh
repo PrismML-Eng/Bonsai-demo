@@ -72,7 +72,11 @@ echo "  Press Ctrl+C to stop."
 echo ""
 
 NGL=$(bonsai_llama_ngl)
-echo "  GPU:     -ngl $NGL (auto-detected; override with BONSAI_NGL, 0 = CPU-only)"
+if [ -n "${BONSAI_NGL:-}" ]; then
+    echo "  GPU:     -ngl $NGL (set via BONSAI_NGL)"
+else
+    echo "  GPU:     -ngl $NGL (auto-detected; override with BONSAI_NGL, 0 = CPU-only)"
+fi
 echo ""
 
 # 27B: --jinja enables native OpenAI-style tool calling; --mmproj enables
