@@ -111,9 +111,12 @@ step()  { printf "${_CLR_CYAN}==>    %s${_CLR_RESET}\n" "$*"; }
 
 # ── Default context: a predictable RAM-tiered cap instead of unbounded auto-fit.
 # Bare -c 0 (auto-fit) sizes the KV cache up to the working-set limit, which
-# has frozen memory-constrained machines outright. FP16 KV on the 27B costs
-# 64 KiB/token, so the tiers cost roughly 0.5 / 1 / 2 / 4 / 8 GiB of KV.
-# Override with BONSAI_CTX (a number up to 262144, or 0 to restore auto-fit).
+# has frozen memory-constrained machines outright. Per-token FP16 KV cost
+# differs by model: ~64 KiB on the 27B (hybrid attention) but ~140 KiB on the
+# full-attention 8B, so a tier costs up to ~2.2x more KV on the older sizes.
+# Every tier stays comfortably inside its RAM band for every size (worst case:
+# 8B at 65536 is ~10.5 GB total on a 36 GB+ machine), and the 131072 top tier
+# is 27B-only. Override with BONSAI_CTX (up to 262144, or 0 for auto-fit).
 bonsai_ctx_default() {
     if [ -n "${BONSAI_CTX:-}" ]; then
         echo "$BONSAI_CTX"
