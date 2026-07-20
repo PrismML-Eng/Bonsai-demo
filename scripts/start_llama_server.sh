@@ -72,6 +72,8 @@ echo "  Press Ctrl+C to stop."
 echo ""
 
 NGL=$(bonsai_llama_ngl)
+echo "  GPU:     -ngl $NGL (auto-detected; override with BONSAI_NGL, 0 = CPU-only)"
+echo ""
 
 # 27B: --jinja enables native OpenAI-style tool calling; --mmproj enables
 # image input; sampling matches the 27B reference demo (temp 0.7, top-p 0.95).

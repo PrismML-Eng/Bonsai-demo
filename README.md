@@ -288,6 +288,8 @@ For Windows PowerShell:
 .\scripts\start_llama_server.ps1
 ```
 
+The scripts auto-detect your GPU (Metal, CUDA, ROCm, Vulkan) and offload all layers. If the detection picks a GPU you do not want, for example Vulkan on a machine whose only GPU is a weak integrated one, set `BONSAI_NGL=0` for CPU-only inference (any layer count works, e.g. `BONSAI_NGL=20` for partial offload).
+
 #### Thinking
 
 The 27B is a thinking model and serves with thinking **enabled**. To adjust it per conversation in the chat UI (no restart): click the lightbulb in the message box and pick a **Reasoning effort**: Off, Low (512 tokens), Medium (2,048), High (8,192), or Max (unlimited). The pick persists per browser and is sent with every request.
