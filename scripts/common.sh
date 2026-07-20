@@ -118,7 +118,35 @@ step()  { printf "${_CLR_CYAN}==>    %s${_CLR_RESET}\n" "$*"; }
 #  16 GB  → -c 32768  (~5.9 GB total, leaves ~10 GB for OS)
 #  24 GB+ → -c 65536  (~10.5 GB total, leaves ~13+ GB for OS)
 
-CTX_SIZE_DEFAULT=0
+# Default context: a predictable RAM-tiered cap instead of unbounded auto-fit.
+# Bare -c 0 (auto-fit) sizes the KV cache up to the working-set limit, which
+# has frozen memory-constrained machines outright. FP16 KV on the 27B costs
+# 64 KiB/token, so the tiers cost roughly 0.5 / 1 / 2 / 4 / 8 GiB of KV.
+# Override with BONSAI_CTX (a number up to 262144, or 0 to restore auto-fit).
+bonsai_ctx_default() {
+    if [ -n "${BONSAI_CTX:-}" ]; then
+        echo "$BONSAI_CTX"
+        return
+    fi
+    if [ "$(uname -s)" = "Darwin" ]; then
+        _mem_gb=$(( $(sysctl -n hw.memsize) / 1073741824 ))
+    else
+        _mem_kb=$(awk '/MemTotal/ {print $2}' /proc/meminfo 2>/dev/null)
+        _mem_gb=$(( ${_mem_kb:-0} / 1048576 ))
+    fi
+    if [ "$_mem_gb" -le 11 ] 2>/dev/null; then
+        echo 8192
+    elif [ "$_mem_gb" -le 23 ] 2>/dev/null; then
+        echo 16384
+    elif [ "$_mem_gb" -le 35 ] 2>/dev/null; then
+        echo 32768
+    elif [ "$_mem_gb" -le 71 ] 2>/dev/null; then
+        echo 65536
+    else
+        echo 131072
+    fi
+}
+CTX_SIZE_DEFAULT=$(bonsai_ctx_default)
 
 # GPU layer offload: 99 = offload all layers to GPU, 0 = CPU only.
 # Override with BONSAI_NGL env var if needed.

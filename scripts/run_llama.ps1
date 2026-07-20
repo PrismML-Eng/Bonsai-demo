@@ -103,7 +103,11 @@ Write-Host "[OK] Model:  $($Model.FullName)" -ForegroundColor Green
 Write-Host "[OK] Binary: $Bin" -ForegroundColor Green
 Write-Host "[OK] Using -ngl $Ngl, -c 0 (auto-fit to available memory)" -ForegroundColor Green
 
-$RunArgs = $CommonArgs + @("-c", "0") + $args
+$CtxDefault = if ($env:BONSAI_CTX) { $env:BONSAI_CTX } else {
+    $MemGB = [math]::Floor((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB)
+    if ($MemGB -le 11) { "8192" } elseif ($MemGB -le 23) { "16384" } elseif ($MemGB -le 35) { "32768" } elseif ($MemGB -le 71) { "65536" } else { "131072" }
+}
+$RunArgs = $CommonArgs + @("-c", $CtxDefault) + $args
 & $Bin @RunArgs
 $ExitCode = $LASTEXITCODE
 

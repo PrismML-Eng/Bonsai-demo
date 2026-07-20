@@ -74,6 +74,13 @@ $Bin = Join-Path $DemoDir $BinRel
 $BinDir = Split-Path $Bin -Parent
 $env:Path = "$BinDir;$env:Path"
 
+# Default context: RAM-tiered cap (predictable memory use; bare -c 0 auto-fit
+# can exhaust memory on constrained machines). BONSAI_CTX overrides; 0 = auto-fit.
+$CtxDefault = if ($env:BONSAI_CTX) { $env:BONSAI_CTX } else {
+    $MemGB = [math]::Floor((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB)
+    if ($MemGB -le 11) { "8192" } elseif ($MemGB -le 23) { "16384" } elseif ($MemGB -le 35) { "32768" } elseif ($MemGB -le 71) { "65536" } else { "131072" }
+}
+
 $Ngl = if ($env:BONSAI_NGL) {
     $env:BONSAI_NGL
 } elseif ($BinRel -like "bin\cpu\*") {
@@ -86,7 +93,7 @@ Write-Host ""
 Write-Host "=== llama.cpp server (GGUF) ==="
 Write-Host "  Model:   $($Model.Name)"
 Write-Host "  Binary:  $Bin"
-Write-Host "  Context: auto-fit (-c 0)"
+Write-Host "  Context: -c $CtxDefault (sized to this machine RAM; override with BONSAI_CTX, 0 = auto-fit)"
 $NglNote = if ($env:BONSAI_NGL) { "set via BONSAI_NGL" } else { "auto-detected; override with BONSAI_NGL, 0 = CPU-only" }
 Write-Host "  GPU:     -ngl $Ngl ($NglNote)"
 Write-Host ""
@@ -102,7 +109,7 @@ $ServerArgs = @(
     "--host", $HostAddress,
     "--port", "$Port",
     "-ngl", $Ngl, "-fa", "on",
-    "-c", "0",
+    "-c", $CtxDefault,
     "--temp", "0.5",
     "--top-p", "0.85",
     "--top-k", "20",
@@ -121,7 +128,7 @@ if ($BonsaiModel -eq "27B") {
     # its dspark drafter for ~1.8-2x decode on code/reasoning. Disables
     # prompt-cache reuse and forces a single slot, so it is off by default and
     # lives on this standalone server, not the agentic Open WebUI path.
-    $Ctx = "0"
+    $Ctx = $CtxDefault
     $SpecArgs = @()
     if ($env:BONSAI_SPECULATIVE -eq "1") {
         $Drafter = Get-ChildItem -Path $ModelDir -Filter *dspark-Q4_1*.gguf -File -ErrorAction SilentlyContinue | Select-Object -First 1

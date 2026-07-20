@@ -41,7 +41,7 @@ NGL=$(bonsai_llama_ngl)
 
 info "Model:  $MODEL"
 info "Binary: $BIN"
-info "Using -ngl $NGL, -c 0 (auto-fit; override GPU offload with BONSAI_NGL, 0 = CPU-only)"
+info "Using -ngl $NGL (override with BONSAI_NGL, 0 = CPU-only), -c $CTX_SIZE_DEFAULT (override with BONSAI_CTX)"
 
 # 27B: reference-demo sampling, thinking stays enabled (model default).
 # Older sizes keep the exact flag set they were tested with.
