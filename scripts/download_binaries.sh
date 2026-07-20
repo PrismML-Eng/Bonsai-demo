@@ -42,7 +42,7 @@ case "$OS" in
         if command -v nvcc >/dev/null 2>&1; then
             _cuda_ver=$(nvcc --version 2>/dev/null | sed -n 's/.*release \([0-9]*\.[0-9]*\).*/\1/p')
         elif command -v nvidia-smi >/dev/null 2>&1; then
-            _cuda_ver=$(nvidia-smi 2>/dev/null | sed -n 's/.*CUDA Version:[[:space:]]*\([0-9]*\.[0-9]*\).*/\1/p')
+            _cuda_ver=$(nvidia-smi 2>/dev/null | sed -n 's/.*CUDA[ A-Z]*Version:[[:space:]]*\([0-9]*\.[0-9]*\).*/\1/p')
         fi
 
         if [ -n "$_cuda_ver" ]; then
