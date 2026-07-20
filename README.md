@@ -151,6 +151,8 @@ Both variables are optional. **If you set neither, the default is `Ternary-Bonsa
 | `BONSAI_FAMILY` | `ternary` | `ternary`, `bonsai`, `all`         | Model family. `ternary` = Ternary-Bonsai; `bonsai` = 1-bit Bonsai. `all` expands to both families (setup/download only). |
 | `BONSAI_MODEL`  | `27B`    | `27B`, `8B`, `4B`, `1.7B`, `all`   | Model size. `all` expands to all four sizes (setup/download only). |
 | `BONSAI_TOKEN`  | —        | HF read-only token                 | Only needed for the 27B models while their repos are private (removed at launch). |
+| `BONSAI_SKIP_GGUF` | unset  | `1`                                 | Skip the GGUF download entirely (macOS MLX-only setups, saves disk space). `run_llama.sh` / `start_llama_server.sh` then auto-fall back to the MLX backend (see "Running the Model" below). |
+| `BONSAI_SKIP_MLX`  | unset  | `1`                                 | Skip the MLX download (macOS only; MLX is skipped automatically on Intel Macs and non-macOS). |
 
 `all` is only valid for `setup.sh` / `setup.ps1` / `download_models.sh` — the run/server scripts need a concrete family/size.
 
@@ -163,6 +165,7 @@ BONSAI_FAMILY=bonsai ./setup.sh                             # Bonsai-27B (1-bit)
 BONSAI_FAMILY=bonsai BONSAI_MODEL=4B ./setup.sh             # Bonsai-4B
 BONSAI_MODEL=all ./setup.sh                                 # All 4 Ternary-Bonsai sizes
 BONSAI_FAMILY=all BONSAI_MODEL=all ./setup.sh               # Full matrix (8 downloads)
+BONSAI_FAMILY=bonsai BONSAI_SKIP_GGUF=1 ./setup.sh          # Bonsai-27B, MLX only (macOS, saves disk space)
 ```
 
 ## Upstream Status for Binary
@@ -239,6 +242,13 @@ All run scripts respect `BONSAI_MODEL` (default `27B`). Set it to run a differen
 # Run a different model size
 BONSAI_MODEL=4B ./scripts/run_llama.sh -p "Write a haiku about bonsai trees"
 ```
+
+On macOS, if no GGUF model is downloaded (e.g. you set `BONSAI_SKIP_GGUF=1`) but an
+MLX model is present, `run_llama.sh` / `start_llama_server.sh` automatically fall back
+to the MLX backend (`run_mlx.sh` / `start_mlx_server.sh`) instead of failing. A warning
+is printed when this happens — llama.cpp-only flags (`-ngl`, `-c`, `-fa`, `--jinja`,
+...) don't apply to MLX and may be ignored or rejected, and the server fallback listens
+on port **8081**, not 8080.
 
 ### llama.cpp (Windows PowerShell)
 
