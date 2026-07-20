@@ -78,7 +78,7 @@ $env:Path = "$BinDir;$env:Path"
 # can exhaust memory on constrained machines). BONSAI_CTX overrides; 0 = auto-fit.
 $CtxDefault = if ($env:BONSAI_CTX) { $env:BONSAI_CTX } else {
     $MemGB = [math]::Floor((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB)
-    if ($MemGB -le 11) { "8192" } elseif ($MemGB -le 23) { "16384" } elseif ($MemGB -le 35) { "32768" } elseif ($MemGB -le 71) { "65536" } else { "131072" }
+    if ($MemGB -le 11) { "8192" } elseif ($MemGB -le 23) { "16384" } elseif ($MemGB -le 35) { "32768" } elseif ($MemGB -le 71) { "65536" } elseif ($BonsaiModel -eq "27B") { "131072" } else { "65536" }
 }
 
 $Ngl = if ($env:BONSAI_NGL) {
@@ -93,7 +93,6 @@ Write-Host ""
 Write-Host "=== llama.cpp server (GGUF) ==="
 Write-Host "  Model:   $($Model.Name)"
 Write-Host "  Binary:  $Bin"
-Write-Host "  Context: -c $CtxDefault (sized to this machine RAM; override with BONSAI_CTX, 0 = auto-fit)"
 $NglNote = if ($env:BONSAI_NGL) { "set via BONSAI_NGL" } else { "auto-detected; override with BONSAI_NGL, 0 = CPU-only" }
 Write-Host "  GPU:     -ngl $Ngl ($NglNote)"
 Write-Host ""
@@ -136,7 +135,8 @@ if ($BonsaiModel -eq "27B") {
             $Nmax = if ($env:BONSAI_SPEC_NMAX) { $env:BONSAI_SPEC_NMAX } else { "4" }
             $SpecArgs = @("-md", $Drafter.FullName, "--spec-type", "draft-dspark", "--spec-draft-n-max", $Nmax, "-ngld", "999", "-np", "1")
             # dspark re-prefills every request; give the model room to think.
-            $Ctx = "16384"
+            # An explicit BONSAI_CTX still wins.
+            if (-not $env:BONSAI_CTX) { $Ctx = "16384" }
             Write-Host "  Speculative: $($Drafter.Name) (draft-dspark, n-max $Nmax)" -ForegroundColor Green
         } else {
             Write-Host "[WARN] BONSAI_SPECULATIVE=1 but no *dspark-Q4_1*.gguf drafter in $ModelDir - running without speculation." -ForegroundColor Yellow
@@ -173,5 +173,7 @@ if ($BonsaiModel -eq "27B") {
     if (Test-Path $WebuiConfig) { $ServerArgs += @("--webui-config-file", $WebuiConfig) }
 }
 
+$EffCtx = if ($BonsaiModel -eq "27B") { $Ctx } else { $CtxDefault }
+Write-Host "  Context: -c $EffCtx (override with BONSAI_CTX, 0 = auto-fit)"
 & $Bin @ServerArgs @args
 exit $LASTEXITCODE
