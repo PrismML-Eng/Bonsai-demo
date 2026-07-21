@@ -88,15 +88,38 @@ bonsai_mlx_present() {
     [ -f "$MLX_MODEL_DIR/config.json" ]
 }
 
-# Check GGUF model is downloaded — prompts to download if missing
+# True if the MLX model is present AND this machine can actually run it.
+# MLX is Apple Silicon only, so an Intel Mac that happens to have MLX weights
+# (copied over, or downloaded with BONSAI_SKIP_MLX=0) must not be pointed at
+# the MLX scripts.
+bonsai_mlx_usable() {
+    [ "$(uname -s)" = "Darwin" ] || return 1
+    [ "$(uname -m)" = "arm64" ] || return 1
+    bonsai_mlx_present
+}
+
+# Check GGUF model is downloaded — prompts to download if missing.
+# Optional $1: the MLX script this caller has an equivalent of (e.g.
+# "run_mlx.sh"). When the GGUF is missing but a usable MLX model is already
+# downloaded, the error also points at that script, so an MLX-only setup
+# (BONSAI_SKIP_GGUF=1) gets told what to run instead of only being told to
+# download several GB it may not want.
 assert_gguf_downloaded() {
     _assert_concrete_model
-    if ! bonsai_gguf_present; then
-        err "GGUF model not found for ${BONSAI_DISPLAY} (expected in ${GGUF_MODEL_DIR}/)."
+    bonsai_gguf_present && return 0
+
+    err "GGUF model not found for ${BONSAI_DISPLAY} (expected in ${GGUF_MODEL_DIR}/)."
+    if [ -n "${1:-}" ] && bonsai_mlx_usable; then
+        echo "  An MLX model for ${BONSAI_DISPLAY} is already downloaded. Either:"
+        echo "    - run the MLX backend directly:"
+        echo "        BONSAI_FAMILY=${BONSAI_FAMILY} BONSAI_MODEL=${BONSAI_MODEL} ./scripts/$1"
+        echo "    - or download the GGUF weights for the llama.cpp backend:"
+        echo "        BONSAI_FAMILY=${BONSAI_FAMILY} BONSAI_MODEL=${BONSAI_MODEL} ./scripts/download_models.sh"
+    else
         echo "  Download it with:"
         echo "    BONSAI_FAMILY=${BONSAI_FAMILY} BONSAI_MODEL=${BONSAI_MODEL} ./scripts/download_models.sh"
-        exit 1
     fi
+    exit 1
 }
 
 # Check MLX model is downloaded — prompts to download if missing
@@ -107,26 +130,6 @@ assert_mlx_downloaded() {
         echo "  Download it with:"
         echo "    BONSAI_FAMILY=${BONSAI_FAMILY} BONSAI_MODEL=${BONSAI_MODEL} ./scripts/download_models.sh"
         exit 1
-    fi
-}
-
-# If the GGUF model is missing but the MLX model is present (Apple Silicon),
-# exec the MLX equivalent of the calling script instead of failing outright --
-# lets run_llama.sh / start_llama_server.sh "just work" on a BONSAI_SKIP_GGUF=1
-# / MLX-only setup. $1 is the MLX script to exec (relative to SCRIPT_DIR, which
-# the caller must have already set); the remaining args are forwarded as-is.
-# Returns normally (no exec) when GGUF is present, or when there's no MLX
-# fallback either -- the caller's own assert_gguf_downloaded then reports the
-# real error.
-bonsai_maybe_dispatch_to_mlx() {
-    _assert_concrete_model
-    _mlx_script="$1"
-    shift
-    bonsai_gguf_present && return 0
-    if [ "$(uname -s)" = "Darwin" ] && bonsai_mlx_present; then
-        warn "No GGUF model found for ${BONSAI_DISPLAY}; falling back to the MLX backend (scripts/${_mlx_script})."
-        echo "  llama.cpp-only flags (-ngl, -c, -fa, --jinja, ...) do not apply to MLX and may be ignored or rejected."
-        exec "$SCRIPT_DIR/$_mlx_script" "$@"
     fi
 }
 

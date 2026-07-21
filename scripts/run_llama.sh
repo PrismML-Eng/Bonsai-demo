@@ -8,8 +8,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 assert_valid_model
 DEMO_DIR="$(resolve_demo_dir)"
 cd "$DEMO_DIR"
-bonsai_maybe_dispatch_to_mlx run_mlx.sh "$@"
-assert_gguf_downloaded
+assert_gguf_downloaded run_mlx.sh
 
 # ── Find model: select exactly the demo quant for the family ──
 MODEL=""
