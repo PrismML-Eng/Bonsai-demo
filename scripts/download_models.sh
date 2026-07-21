@@ -9,9 +9,14 @@
 #   BONSAI_MODEL=all ./scripts/download_models.sh                        # All sizes of the selected family
 #   BONSAI_FAMILY=all ./scripts/download_models.sh                       # Both families, 27B size
 #   BONSAI_FAMILY=all BONSAI_MODEL=all ./scripts/download_models.sh      # Full matrix (8 downloads)
+#   BONSAI_SKIP_GGUF=1 ./scripts/download_models.sh                      # MLX only (macOS) — saves disk space
 #
 # Set BONSAI_TOKEN (a read-only HF token) if you need to pull a repo that is
 # still private; public repos download anonymously with no token.
+#
+# Set BONSAI_SKIP_GGUF=1 to skip the GGUF download entirely (llama.cpp backend
+# won't be usable afterwards — only makes sense if you only run the MLX
+# backend on Apple Silicon). Set BONSAI_SKIP_MLX=1 for the inverse.
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -120,33 +125,37 @@ download_one() {
     # (not just any *.gguf) so a leftover F16 or other quant from an earlier
     # download doesn't get picked up at runtime. For 27B the fast-path also
     # requires the mmproj and drafter so a re-run backfills vision + speculative.
-    _gguf_present=false
-    if [ -d "$_gguf_dir" ] && ls "$_gguf_dir"/$_gguf_pattern >/dev/null 2>&1; then
-        if { [ -z "$_mmproj_pattern" ] || ls "$_gguf_dir"/$_mmproj_pattern >/dev/null 2>&1; } \
-            && { [ -z "$_drafter_pattern" ] || ls "$_gguf_dir"/$_drafter_pattern >/dev/null 2>&1; }; then
-            _gguf_present=true
-        fi
-    fi
-    if [ "$_gguf_present" = true ]; then
-        info "GGUF ${_display} (${_gguf_pattern}) already present in ${_gguf_dir}/"
+    if bonsai_should_skip_gguf; then
+        info "Skipping GGUF ${_display} (BONSAI_SKIP_GGUF=1)."
     else
-        step "Downloading GGUF ${_display} (${_dl_patterns}) from ${_gguf_repo} ..."
-        mkdir -p "$_gguf_dir"
-        if ! hf_download "$_gguf_repo" "$_gguf_dir" "$_dl_patterns"; then
-            err "Failed to download GGUF ${_display} from ${_gguf_repo}."
-            exit 1
+        _gguf_present=false
+        if [ -d "$_gguf_dir" ] && ls "$_gguf_dir"/$_gguf_pattern >/dev/null 2>&1; then
+            if { [ -z "$_mmproj_pattern" ] || ls "$_gguf_dir"/$_mmproj_pattern >/dev/null 2>&1; } \
+                && { [ -z "$_drafter_pattern" ] || ls "$_gguf_dir"/$_drafter_pattern >/dev/null 2>&1; }; then
+                _gguf_present=true
+            fi
         fi
-        if ! ls "$_gguf_dir"/$_gguf_pattern >/dev/null 2>&1; then
-            err "Download reported success but no file matching ${_gguf_pattern} was written to ${_gguf_dir}/."
-            exit 1
+        if [ "$_gguf_present" = true ]; then
+            info "GGUF ${_display} (${_gguf_pattern}) already present in ${_gguf_dir}/"
+        else
+            step "Downloading GGUF ${_display} (${_dl_patterns}) from ${_gguf_repo} ..."
+            mkdir -p "$_gguf_dir"
+            if ! hf_download "$_gguf_repo" "$_gguf_dir" "$_dl_patterns"; then
+                err "Failed to download GGUF ${_display} from ${_gguf_repo}."
+                exit 1
+            fi
+            if ! ls "$_gguf_dir"/$_gguf_pattern >/dev/null 2>&1; then
+                err "Download reported success but no file matching ${_gguf_pattern} was written to ${_gguf_dir}/."
+                exit 1
+            fi
+            if [ -n "$_mmproj_pattern" ] && ! ls "$_gguf_dir"/$_mmproj_pattern >/dev/null 2>&1; then
+                warn "No ${_mmproj_pattern} file in ${_gguf_repo} — image input will be disabled for ${_display}."
+            fi
+            if [ -n "$_drafter_pattern" ] && ! ls "$_gguf_dir"/$_drafter_pattern >/dev/null 2>&1; then
+                warn "No ${_drafter_pattern} file in ${_gguf_repo}; speculative decoding (BONSAI_SPECULATIVE=1) will be unavailable for ${_display}."
+            fi
+            info "GGUF ${_display} downloaded to ${_gguf_dir}/"
         fi
-        if [ -n "$_mmproj_pattern" ] && ! ls "$_gguf_dir"/$_mmproj_pattern >/dev/null 2>&1; then
-            warn "No ${_mmproj_pattern} file in ${_gguf_repo} — image input will be disabled for ${_display}."
-        fi
-        if [ -n "$_drafter_pattern" ] && ! ls "$_gguf_dir"/$_drafter_pattern >/dev/null 2>&1; then
-            warn "No ${_drafter_pattern} file in ${_gguf_repo}; speculative decoding (BONSAI_SPECULATIVE=1) will be unavailable for ${_display}."
-        fi
-        info "GGUF ${_display} downloaded to ${_gguf_dir}/"
     fi
 
     # MLX (macOS Apple Silicon only; skipped on Intel or when BONSAI_SKIP_MLX=1)

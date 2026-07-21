@@ -71,21 +71,61 @@ _assert_concrete_model() {
     fi
 }
 
-# Check GGUF model is downloaded — prompts to download if missing
+# True if the concrete GGUF file for the current family/size is present
+# (matching GGUF_QUANT_PATTERN, excluding the mmproj/dspark/kv-bias extras --
+# same filter run_llama.sh / start_llama_server.sh use to pick MODEL).
+bonsai_gguf_present() {
+    for _m in $GGUF_MODEL_DIR/$GGUF_QUANT_PATTERN; do
+        [ -f "$_m" ] || continue
+        case "$_m" in *mmproj*|*dspark*|*kv-bias*) continue ;; esac
+        return 0
+    done
+    return 1
+}
+
+# True if the MLX model for the current family/size is present.
+bonsai_mlx_present() {
+    [ -f "$MLX_MODEL_DIR/config.json" ]
+}
+
+# True if the MLX model is present AND this machine can actually run it.
+# MLX is Apple Silicon only, so an Intel Mac that happens to have MLX weights
+# (copied over, or downloaded with BONSAI_SKIP_MLX=0) must not be pointed at
+# the MLX scripts.
+bonsai_mlx_usable() {
+    [ "$(uname -s)" = "Darwin" ] || return 1
+    [ "$(uname -m)" = "arm64" ] || return 1
+    bonsai_mlx_present
+}
+
+# Check GGUF model is downloaded — prompts to download if missing.
+# Optional $1: the MLX script this caller has an equivalent of (e.g.
+# "run_mlx.sh"). When the GGUF is missing but a usable MLX model is already
+# downloaded, the error also points at that script, so an MLX-only setup
+# (BONSAI_SKIP_GGUF=1) gets told what to run instead of only being told to
+# download several GB it may not want.
 assert_gguf_downloaded() {
     _assert_concrete_model
-    if ! ls "$GGUF_MODEL_DIR"/*.gguf >/dev/null 2>&1; then
-        err "GGUF model not found for ${BONSAI_DISPLAY} (expected in ${GGUF_MODEL_DIR}/)."
+    bonsai_gguf_present && return 0
+
+    err "GGUF model not found for ${BONSAI_DISPLAY} (expected in ${GGUF_MODEL_DIR}/)."
+    if [ -n "${1:-}" ] && bonsai_mlx_usable; then
+        echo "  An MLX model for ${BONSAI_DISPLAY} is already downloaded. Either:"
+        echo "    - run the MLX backend directly:"
+        echo "        BONSAI_FAMILY=${BONSAI_FAMILY} BONSAI_MODEL=${BONSAI_MODEL} ./scripts/$1"
+        echo "    - or download the GGUF weights for the llama.cpp backend:"
+        echo "        BONSAI_FAMILY=${BONSAI_FAMILY} BONSAI_MODEL=${BONSAI_MODEL} ./scripts/download_models.sh"
+    else
         echo "  Download it with:"
         echo "    BONSAI_FAMILY=${BONSAI_FAMILY} BONSAI_MODEL=${BONSAI_MODEL} ./scripts/download_models.sh"
-        exit 1
     fi
+    exit 1
 }
 
 # Check MLX model is downloaded — prompts to download if missing
 assert_mlx_downloaded() {
     _assert_concrete_model
-    if [ ! -f "$MLX_MODEL_DIR/config.json" ]; then
+    if ! bonsai_mlx_present; then
         err "MLX model not found for ${BONSAI_DISPLAY} (expected in ${MLX_MODEL_DIR}/)."
         echo "  Download it with:"
         echo "    BONSAI_FAMILY=${BONSAI_FAMILY} BONSAI_MODEL=${BONSAI_MODEL} ./scripts/download_models.sh"
@@ -214,6 +254,16 @@ bonsai_should_skip_mlx() {
         *)
             [ "$(uname -s)" = "Darwin" ] && [ "$(uname -m)" = "x86_64" ] && return 0
             return 1 ;;
+    esac
+}
+
+# GGUF is downloaded by default (needed for the llama.cpp backend); skip it
+# with BONSAI_SKIP_GGUF=1 when you only intend to run the MLX backend and
+# want to save disk space / download time.
+bonsai_should_skip_gguf() {
+    case "${BONSAI_SKIP_GGUF:-}" in
+        1|true|yes) return 0 ;;
+        *) return 1 ;;
     esac
 }
 
