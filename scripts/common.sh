@@ -98,12 +98,17 @@ bonsai_mlx_usable() {
     bonsai_mlx_present
 }
 
-# Check GGUF model is downloaded — prompts to download if missing.
-# Optional $1: the MLX script this caller has an equivalent of (e.g.
-# "run_mlx.sh"). When the GGUF is missing but a usable MLX model is already
-# downloaded, the error also points at that script, so an MLX-only setup
-# (BONSAI_SKIP_GGUF=1) gets told what to run instead of only being told to
-# download several GB it may not want.
+# Check the GGUF model is downloaded; error out with a download hint if not.
+#
+# The two optional args let the error also offer the MLX backend when the GGUF
+# is missing but a usable MLX model is already on disk (the BONSAI_SKIP_GGUF=1
+# case) — so the user is told what they *can* run now, not just to download
+# several GB of GGUF they may not want:
+#   $1  MLX-equivalent script to suggest, e.g. "run_mlx.sh"
+#   $2  env prefix, for callers where the MLX path is the *same* script driven
+#       by an env var instead of a separate one, e.g. "BONSAI_BACKEND=mlx"
+# Callers with no MLX equivalent (e.g. make_kv_bias.sh) pass nothing and get the
+# plain "download the GGUF" message.
 assert_gguf_downloaded() {
     _assert_concrete_model
     bonsai_gguf_present && return 0
@@ -112,7 +117,7 @@ assert_gguf_downloaded() {
     if [ -n "${1:-}" ] && bonsai_mlx_usable; then
         echo "  An MLX model for ${BONSAI_DISPLAY} is already downloaded. Either:"
         echo "    - run the MLX backend directly:"
-        echo "        BONSAI_FAMILY=${BONSAI_FAMILY} BONSAI_MODEL=${BONSAI_MODEL} ./scripts/$1"
+        echo "        BONSAI_FAMILY=${BONSAI_FAMILY} BONSAI_MODEL=${BONSAI_MODEL} ${2:+$2 }./scripts/$1"
         echo "    - or download the GGUF weights for the llama.cpp backend:"
         echo "        BONSAI_FAMILY=${BONSAI_FAMILY} BONSAI_MODEL=${BONSAI_MODEL} ./scripts/download_models.sh"
     else

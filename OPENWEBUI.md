@@ -18,6 +18,8 @@ Prefer the MLX backend on a Mac? Same thing with:
 BONSAI_BACKEND=mlx ./scripts/start_openwebui.sh
 ```
 
+On an MLX-only setup (you ran `BONSAI_SKIP_GGUF=1`), the default llama.cpp backend has no GGUF to load, so a plain `./scripts/start_openwebui.sh` stops with an error pointing you at this `BONSAI_BACKEND=mlx` command.
+
 It always runs exactly one backend (two resident 27Bs is too heavy for most machines). Note the MLX backend is noticeably slower per token and takes longer to first response on a fresh chat. It also has no cross-request prompt cache, so each follow-up re-processes the whole conversation (including image tokens), so multi-turn chats are slower than on llama.cpp, which caches the prefix. For interactive multi-turn use, prefer the default llama.cpp backend.
 
 ## What to try

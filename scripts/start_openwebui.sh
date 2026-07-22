@@ -49,7 +49,9 @@ esac
 if [ "$BONSAI_BACKEND" = "mlx" ]; then
     assert_mlx_downloaded
 else
-    assert_gguf_downloaded
+    # Default llama backend. If the GGUF is missing but MLX is usable, the hint
+    # is to re-run with BONSAI_BACKEND=mlx (same script), not to fetch the GGUF.
+    assert_gguf_downloaded start_openwebui.sh BONSAI_BACKEND=mlx
 fi
 
 DEMO_DIR="$(resolve_demo_dir)"
