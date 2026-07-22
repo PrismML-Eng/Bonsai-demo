@@ -175,4 +175,4 @@ Write-Host "Done! CUDA $CudaVersion Windows binaries are in: $Dest" -ForegroundC
 Write-Host ""
 Write-Host "Run:" -ForegroundColor Cyan
 Write-Host "  `$model = (Get-ChildItem models\gguf\*.gguf | Select-Object -First 1).FullName"
-Write-Host "  $Dest\llama-cli.exe -m `$model -ngl 99 -c 0 -p 'Hello'"
+Write-Host "  $Dest\llama-cli.exe -m `$model -ngl 99 -c 4096 -p 'Hello'"

@@ -74,9 +74,10 @@ $Bin = Join-Path $DemoDir $BinRel
 $BinDir = Split-Path $Bin -Parent
 $env:Path = "$BinDir;$env:Path"
 
-# Default context: RAM-tiered cap (predictable memory use; bare -c 0 auto-fit
-# can exhaust memory on constrained machines). BONSAI_CTX overrides; 0 = auto-fit.
-$CtxDefault = if ($env:BONSAI_CTX) { $env:BONSAI_CTX } else {
+# Default context: RAM-tiered cap. BONSAI_CTX=0 or unset both mean "auto" ->
+# this tiered default (never -c 0, which uses the model's full training context
+# and OOMs constrained machines). Pass an explicit number to override.
+$CtxDefault = if ($env:BONSAI_CTX -and $env:BONSAI_CTX -ne "0") { $env:BONSAI_CTX } else {
     $MemGB = [math]::Floor((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB)
     if ($MemGB -le 11) { "8192" } elseif ($MemGB -le 23) { "16384" } elseif ($MemGB -le 35) { "32768" } elseif ($MemGB -le 71) { "65536" } elseif ($BonsaiModel -eq "27B") { "131072" } else { "65536" }
 }
@@ -135,8 +136,9 @@ if ($BonsaiModel -eq "27B") {
             $Nmax = if ($env:BONSAI_SPEC_NMAX) { $env:BONSAI_SPEC_NMAX } else { "4" }
             $SpecArgs = @("-md", $Drafter.FullName, "--spec-type", "draft-dspark", "--spec-draft-n-max", $Nmax, "-ngld", "999", "-np", "1")
             # dspark re-prefills every request; give the model room to think.
-            # An explicit BONSAI_CTX still wins.
-            if (-not $env:BONSAI_CTX) { $Ctx = "16384" }
+            # An explicit non-zero BONSAI_CTX still wins; unset or 0 (auto) gets
+            # this dspark-friendly floor.
+            if (-not $env:BONSAI_CTX -or $env:BONSAI_CTX -eq "0") { $Ctx = "16384" }
             Write-Host "  Speculative: $($Drafter.Name) (draft-dspark, n-max $Nmax)" -ForegroundColor Green
         } else {
             Write-Host "[WARN] BONSAI_SPECULATIVE=1 but no *dspark-Q4_1*.gguf drafter in $ModelDir - running without speculation." -ForegroundColor Yellow
@@ -174,6 +176,6 @@ if ($BonsaiModel -eq "27B") {
 }
 
 $EffCtx = if ($BonsaiModel -eq "27B") { $Ctx } else { $CtxDefault }
-Write-Host "  Context: -c $EffCtx (override with BONSAI_CTX, 0 = auto-fit)"
+Write-Host "  Context: -c $EffCtx (override with BONSAI_CTX, 0 = auto)"
 & $Bin @ServerArgs @args
 exit $LASTEXITCODE

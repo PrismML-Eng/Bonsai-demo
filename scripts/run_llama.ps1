@@ -63,15 +63,6 @@ $Ngl = if ($env:BONSAI_NGL) {
     "99"
 }
 
-$ContextFlags = @("-c", "--ctx-size")
-$HasContextArg = $false
-for ($i = 0; $i -lt $args.Count; $i++) {
-    if ($args[$i] -in $ContextFlags) {
-        $HasContextArg = $true
-        break
-    }
-}
-
 # 27B: reference-demo sampling, thinking stays enabled (model default).
 # Older sizes keep the exact flag set they were tested with.
 if ($BonsaiModel -eq "27B") {
@@ -99,26 +90,17 @@ if ($BonsaiModel -eq "27B") {
     )
 }
 
-$CtxDefault = if ($env:BONSAI_CTX) { $env:BONSAI_CTX } else {
+# BONSAI_CTX=0 or unset both mean "auto" -> RAM-tiered default (never -c 0,
+# which would use the model's full training context and OOM constrained boxes).
+$CtxDefault = if ($env:BONSAI_CTX -and $env:BONSAI_CTX -ne "0") { $env:BONSAI_CTX } else {
     $MemGB = [math]::Floor((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB)
     if ($MemGB -le 11) { "8192" } elseif ($MemGB -le 23) { "16384" } elseif ($MemGB -le 35) { "32768" } elseif ($MemGB -le 71) { "65536" } elseif ($BonsaiModel -eq "27B") { "131072" } else { "65536" }
 }
 
 Write-Host "[OK] Model:  $($Model.FullName)" -ForegroundColor Green
 Write-Host "[OK] Binary: $Bin" -ForegroundColor Green
-Write-Host "[OK] Using -ngl $Ngl, -c $CtxDefault (override with BONSAI_CTX, 0 = auto-fit)" -ForegroundColor Green
+Write-Host "[OK] Using -ngl $Ngl, -c $CtxDefault (override with BONSAI_CTX, 0 = auto)" -ForegroundColor Green
 
 $RunArgs = $CommonArgs + @("-c", $CtxDefault) + $args
 & $Bin @RunArgs
-$ExitCode = $LASTEXITCODE
-
-# The 8192 retry exists only for builds that reject auto-fit (-c 0); any other
-# failure must surface as-is instead of rerunning the prompt.
-if ($ExitCode -ne 0 -and $CtxDefault -eq "0" -and $ExitCode -notin @(130, -1073741510) -and -not $HasContextArg) {
-    Write-Host "[WARN] Auto-fit not supported, falling back to -c 8192" -ForegroundColor Yellow
-    $FallbackArgs = $CommonArgs + @("-c", "8192") + $args
-    & $Bin @FallbackArgs
-    exit $LASTEXITCODE
-}
-
-exit $ExitCode
+exit $LASTEXITCODE

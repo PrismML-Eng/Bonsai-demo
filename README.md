@@ -327,7 +327,7 @@ Two experimental, off-by-default features for the llama.cpp chat server:
 
 The 27B models support up to **262,144 tokens** of context. The FP16 KV cache costs 64 KiB per token (~6.3 GiB at 100K), so **100K context fits on many consumer devices even without KV-cache quantization**. The model's hybrid attention keeps the cache small for its size.
 
-The launch scripts pick a **default context sized to your machine's RAM**, from 8K on small machines up to 131K for the 27B on machines with more than 71 GB (roughly 0.5 to 8 GiB of KV cache), so memory use stays predictable. Override with the `BONSAI_CTX` environment variable: any number up to 262144, or `0` for llama.cpp's auto-fit, which fills available memory and is only recommended on machines with plenty of headroom.
+The launch scripts pick a **default context sized to your machine's RAM**, from 8K on small machines up to 131K for the 27B on machines with more than 71 GB (roughly 0.5 to 8 GiB of KV cache), so memory use stays predictable. Override with the `BONSAI_CTX` environment variable: pass any number up to 262144, or `0` (the same as leaving it unset) for the automatic RAM-tiered size. To force the model's full training context, pass the explicit number (e.g. `BONSAI_CTX=262144`) — only recommended on machines with plenty of headroom, since the scripts will not silently do this for you.
 
 With the optional [4-bit KV cache](KV-CACHE.md) (`BONSAI_KV4=1`) the cache drops to roughly 18 KiB per token, about **1.8 GiB at 100K**, shaving ~4.5 GiB off the 100K figures below (for example, Ternary-Bonsai-27B on llama.cpp goes from ~13.7 to ~9.2 GiB).
 
@@ -345,7 +345,7 @@ With the optional [4-bit KV cache](KV-CACHE.md) (`BONSAI_KV4=1`) the cache drops
 
 (The MLX packs are ~400 MiB larger than GGUF because MLX stores both scales and biases, GGUF only scales.)
 
-Extra arguments pass straight through to llama.cpp, so `./scripts/run_llama.sh -c 8192 -p "Your prompt"` also works for a one-off context override. With `BONSAI_CTX=0` (auto-fit), builds that do not support `-c 0` fall back to a safe RAM-based value automatically.
+Extra arguments pass straight through to llama.cpp, so `./scripts/run_llama.sh -c 8192 -p "Your prompt"` also works for a one-off context override.
 
 The older text-only sizes are smaller across the board; the 8B supports up to 65,536 tokens of context:
 
@@ -539,7 +539,7 @@ Items marked with ← are created at setup time and excluded from git.
 
 ### The model allocates huge memory or the machine freezes at startup
 
-Older revisions defaulted to llama.cpp's context auto-fit (`-c 0`), which sizes the KV cache up to the working-set limit and could exhaust memory on constrained machines. The scripts now default to a RAM-tiered context instead. If you still hit memory pressure, pin a smaller context:
+Older revisions defaulted to llama.cpp's `-c 0`, which uses the model's full training context (262K on the 27B) regardless of available memory and could exhaust it on constrained machines. The scripts now always use a RAM-tiered context instead; `BONSAI_CTX=0` maps to that same safe default rather than `-c 0`. If you still hit memory pressure, pin a smaller context:
 
 ```bash
 BONSAI_CTX=8192 ./scripts/start_llama_server.sh
@@ -589,4 +589,4 @@ GGML_METAL_TENSOR_DISABLE=1 ./scripts/run_llama.sh -p "Hello"
 GGML_METAL_TENSOR_DISABLE=1 ./scripts/start_llama_server.sh
 ```
 
-This is much faster than falling back to CPU (`BONSAI_NGL=0`). If out-of-memory errors persist afterwards on lower-memory machines, additionally pin a smaller context, e.g. `-c 16384` (extra args pass through to llama.cpp and override the auto-fit default).
+This is much faster than falling back to CPU (`BONSAI_NGL=0`). If out-of-memory errors persist afterwards on lower-memory machines, additionally pin a smaller context, e.g. `-c 16384` (extra args pass through to llama.cpp and override the default).

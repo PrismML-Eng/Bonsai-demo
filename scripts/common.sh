@@ -149,16 +149,21 @@ warn()  { printf "${_CLR_YELLOW}[WARN]${_CLR_RESET} %s\n" "$*"; }
 err()   { printf "${_CLR_RED}[ERR]${_CLR_RESET}  %s\n" "$*" >&2; }
 step()  { printf "${_CLR_CYAN}==>    %s${_CLR_RESET}\n" "$*"; }
 
-# ── Default context: a predictable RAM-tiered cap instead of unbounded auto-fit.
-# Bare -c 0 (auto-fit) sizes the KV cache up to the working-set limit, which
-# has frozen memory-constrained machines outright. Per-token FP16 KV cost
-# differs by model: ~64 KiB on the 27B (hybrid attention) but ~140 KiB on the
-# full-attention 8B, so a tier costs up to ~2.2x more KV on the older sizes.
-# Every tier stays comfortably inside its RAM band for every size (worst case:
-# 8B at 65536 is ~10.5 GB total on a 36 GB+ machine), and the 131072 top tier
-# is 27B-only. Override with BONSAI_CTX (up to 262144, or 0 for auto-fit).
+# ── Default context: a predictable RAM-tiered cap.
+# We deliberately do NOT use llama.cpp's -c 0: that means "use the model's full
+# training context" (262144 on the 27B) and is memory-unaware, so with -ngl it
+# picks the maximum and OOMs constrained machines. Instead we size the cap to
+# system RAM. Per-token FP16 KV cost differs by model: ~64 KiB on the 27B
+# (hybrid attention) but ~140 KiB on the full-attention 8B, so a tier costs up
+# to ~2.2x more KV on the older sizes. Every tier stays comfortably inside its
+# RAM band for every size (worst case: 8B at 65536 is ~10.5 GB total on a
+# 36 GB+ machine), and the 131072 top tier is 27B-only.
+# Override with BONSAI_CTX=N (up to 262144). BONSAI_CTX=0 or unset both mean
+# "auto" and resolve to the RAM-tiered default below; to force the full training
+# context pass the explicit number (e.g. BONSAI_CTX=262144).
 bonsai_ctx_default() {
-    if [ -n "${BONSAI_CTX:-}" ]; then
+    # Treat 0 the same as unset ("auto"): never emit -c 0 downstream.
+    if [ -n "${BONSAI_CTX:-}" ] && [ "$BONSAI_CTX" != "0" ]; then
         echo "$BONSAI_CTX"
         return
     fi
@@ -265,25 +270,6 @@ bonsai_should_skip_gguf() {
         1|true|yes) return 0 ;;
         *) return 1 ;;
     esac
-}
-
-# Legacy fallback, used only when auto-fit (BONSAI_CTX=0) was requested and
-# the build rejects -c 0: pick a safe context from system RAM.
-get_context_size_fallback() {
-    if [ "$(uname -s)" = "Darwin" ]; then
-        _mem_gb=$(( $(sysctl -n hw.memsize) / 1073741824 ))
-    else
-        _mem_kb=$(awk '/MemTotal/ {print $2}' /proc/meminfo 2>/dev/null)
-        _mem_gb=$(( ${_mem_kb:-0} / 1048576 ))
-    fi
-
-    if [ "$_mem_gb" -le 8 ] 2>/dev/null; then
-        echo 8192
-    elif [ "$_mem_gb" -le 18 ] 2>/dev/null; then
-        echo 32768
-    else
-        echo 65536
-    fi
 }
 
 # ── Resolve DEMO_DIR (parent of scripts/) ──

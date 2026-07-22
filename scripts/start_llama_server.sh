@@ -107,8 +107,9 @@ if [ "$BONSAI_MODEL" = "27B" ]; then
             _spec_flags="--spec-type draft-dspark --spec-draft-n-max $_nmax -ngld 999 -np 1"
             # dspark re-prefills every request; give the model room to think
             # (it drafts 1.5-2k tokens; a small context truncates answers).
-            # An explicit BONSAI_CTX still wins.
-            [ -z "${BONSAI_CTX:-}" ] && _ctx=16384
+            # An explicit non-zero BONSAI_CTX still wins; unset or 0 (auto) gets
+            # this dspark-friendly floor.
+            case "${BONSAI_CTX:-0}" in 0|"") _ctx=16384 ;; esac
             echo "  Speculative: $(basename "$MD") (draft-dspark, n-max $_nmax)"
         else
             warn "BONSAI_SPECULATIVE=1 but no *dspark-Q4_1*.gguf drafter in ${GGUF_MODEL_DIR}/; running without speculation."
@@ -138,7 +139,7 @@ if [ "$BONSAI_MODEL" = "27B" ]; then
         fi
     fi
 
-    echo "  Context: -c $_ctx (override with BONSAI_CTX, 0 = auto-fit)"
+    echo "  Context: -c $_ctx (override with BONSAI_CTX, 0 = auto)"
     # shellcheck disable=SC2086
     exec "$BIN" -m "$MODEL" --host "$HOST" --port "$PORT" -ngl "$NGL" -fa on -c "$_ctx" \
         --temp 0.7 --top-p 0.95 --top-k 20 --min-p 0 \
@@ -151,7 +152,7 @@ if [ "$BONSAI_MODEL" = "27B" ]; then
         "$@"
 fi
 
-echo "  Context: -c $CTX_SIZE_DEFAULT (override with BONSAI_CTX, 0 = auto-fit)"
+echo "  Context: -c $CTX_SIZE_DEFAULT (override with BONSAI_CTX, 0 = auto)"
 exec "$BIN" -m "$MODEL" --host "$HOST" --port "$PORT" -ngl "$NGL" -fa on -c "$CTX_SIZE_DEFAULT" \
     --temp 0.5 --top-p 0.85 --top-k 20 --min-p 0 \
     --reasoning-budget 0 --reasoning-format none \
