@@ -194,6 +194,19 @@ bonsai_ctx_default() {
 }
 CTX_SIZE_DEFAULT=$(bonsai_ctx_default)
 
+# Vision projector placement (27B VLM only). By default the mmproj is offloaded
+# to VRAM with the rest of the model. BONSAI_MMPROJ_CPU=1 adds --no-mmproj-offload
+# so it stays in system RAM instead, freeing ~0.9 GiB of VRAM for KV/context on
+# tight cards. Cost: image prompt-processing runs on CPU (tens of ms to seconds
+# per image); token generation and text-only requests are unaffected. Echoes the
+# flag when enabled, empty otherwise; callers add it only when an mmproj is used.
+bonsai_mmproj_offload_flag() {
+    case "${BONSAI_MMPROJ_CPU:-0}" in
+        1|true|yes|on) echo "--no-mmproj-offload" ;;
+        *) echo "" ;;
+    esac
+}
+
 # GPU layer offload: 99 = offload all layers to GPU, 0 = CPU only.
 # Override with BONSAI_NGL env var if needed.
 bonsai_llama_ngl() {

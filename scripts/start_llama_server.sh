@@ -140,11 +140,14 @@ if [ "$BONSAI_MODEL" = "27B" ]; then
     fi
 
     echo "  Context: -c $_ctx (override with BONSAI_CTX, 0 = auto)"
+    _mmproj_cpu=""
+    [ -n "$MMPROJ" ] && _mmproj_cpu=$(bonsai_mmproj_offload_flag)
+    [ -n "$_mmproj_cpu" ] && echo "  Vision:  projector on CPU/RAM (BONSAI_MMPROJ_CPU=1)"
     # shellcheck disable=SC2086
     exec "$BIN" -m "$MODEL" --host "$HOST" --port "$PORT" -ngl "$NGL" -fa on -c "$_ctx" \
         --temp 0.7 --top-p 0.95 --top-k 20 --min-p 0 \
         --jinja \
-        ${MMPROJ:+--mmproj "$MMPROJ"} \
+        ${MMPROJ:+--mmproj "$MMPROJ"} $_mmproj_cpu \
         ${_imt:+--image-max-tokens "$_imt"} \
         ${MD:+-md "$MD"} $_spec_flags \
         $_kv_args ${KV_BIAS:+--kv-mean-center "$KV_BIAS"} \

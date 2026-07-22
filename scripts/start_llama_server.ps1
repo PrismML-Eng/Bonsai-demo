@@ -156,7 +156,15 @@ if ($BonsaiModel -eq "27B") {
         "--min-p", "0",
         "--jinja"
     )
-    if ($Mmproj) { $ServerArgs += @("--mmproj", $Mmproj.FullName) }
+    if ($Mmproj) {
+        $ServerArgs += @("--mmproj", $Mmproj.FullName)
+        # BONSAI_MMPROJ_CPU=1 keeps the vision projector in system RAM instead of
+        # VRAM (frees ~0.9 GiB for KV/context; slower image prefill only).
+        if ($env:BONSAI_MMPROJ_CPU -in @("1", "true", "yes", "on")) {
+            $ServerArgs += "--no-mmproj-offload"
+            Write-Host "  Vision:  projector on CPU/RAM (BONSAI_MMPROJ_CPU=1)" -ForegroundColor Green
+        }
+    }
     if ($SpecArgs.Count -gt 0) { $ServerArgs += $SpecArgs }
     # Image-token cap: big images cost minutes of prefill on slower hardware.
     # Capped at 1024 unless running the CUDA/HIP build; override with

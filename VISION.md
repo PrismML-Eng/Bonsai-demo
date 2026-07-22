@@ -8,6 +8,8 @@ The 27B models are vision-language models: they accept images alongside text. Th
 
 `setup.sh` / `setup.ps1` download the multimodal projector (`*mmproj*.gguf`) next to the 27B weights, and the start scripts load it automatically. Budget about 0.9 GiB of extra memory for the projector.
 
+On a VRAM-tight card you can keep the projector in system RAM instead with `BONSAI_MMPROJ_CPU=1` (passes `--no-mmproj-offload`), reclaiming that ~0.9 GiB for KV/context. The trade-off is a slower image prompt — the projector then runs on CPU, adding tens of ms to a few seconds per image during prefill — while token generation and text-only requests are unaffected.
+
 ## How images are priced
 
 An image is encoded into **vision tokens**: one token covers roughly a 32x32 pixel patch, and the model accepts up to ~4096 vision tokens (about a 4.2 MP image). Vision tokens are prefill: a large photo can add thousands of tokens before the first word of the answer.

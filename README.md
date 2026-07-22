@@ -322,6 +322,7 @@ Two experimental, off-by-default features for the llama.cpp chat server:
 
 - **Speculative decoding**: `BONSAI_SPECULATIVE=1` pairs the 27B with its dspark drafter for roughly 1.8-2x faster decode on code and reasoning (CUDA; Apple Silicon support will be improved later). Trade-offs and verification: [SPECULATIVE.md](SPECULATIVE.md).
 - **4-bit KV cache**: `BONSAI_KV4=1` cuts KV-cache memory roughly 3.5x for very long contexts, with an optional calibration bias for better quality (`./scripts/make_kv_bias.sh`). Details: [KV-CACHE.md](KV-CACHE.md).
+- **Vision projector in RAM**: `BONSAI_MMPROJ_CPU=1` keeps the 27B's vision projector in system RAM instead of VRAM (`--no-mmproj-offload`), freeing ~0.9 GiB of VRAM for KV/context on tight cards. The cost is a slower image prompt (the projector runs on CPU); text-only chat is unaffected.
 
 ### Context Size
 

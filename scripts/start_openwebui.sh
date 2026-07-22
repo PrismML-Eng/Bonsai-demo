@@ -169,12 +169,14 @@ else
         # model and thinking stays on. Older sizes keep their tested flag set.
         if [ "$BONSAI_MODEL" = "27B" ]; then
             _imt=$(bonsai_image_max_tokens)
+            _mmproj_cpu=""
+            [ -n "$MMPROJ" ] && _mmproj_cpu=$(bonsai_mmproj_offload_flag)
             # shellcheck disable=SC2086
             LD_LIBRARY_PATH="$_bin_dir${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
             "$_bin" -m "$_model" --host 127.0.0.1 --port "$LLAMA_PORT" -ngl "$_ngl" -fa on -c "$CTX_SIZE_DEFAULT" \
                 --temp 0.7 --top-p 0.95 --top-k 20 --min-p 0 \
                 --jinja \
-                ${MMPROJ:+--mmproj "$MMPROJ"} \
+                ${MMPROJ:+--mmproj "$MMPROJ"} $_mmproj_cpu \
                 ${_imt:+--image-max-tokens "$_imt"} \
                 $_LLAMA_VERBOSE \
                 > "$_LLAMA_LOG" 2>&1 &
