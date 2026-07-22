@@ -147,7 +147,7 @@ if ($copied.Count -eq 0) { Write-Host "  [WARN] no llama-*.exe found to copy" -F
 # ── Copy DLLs ──
 Write-Host ""
 Write-Host "=== Copying shared libraries ===" -ForegroundColor Cyan
-$dllPatterns = @("llama.dll", "ggml*.dll")
+$dllPatterns = @("llama.dll", "ggml*.dll", "llama-*.dll", "mtmd.dll")
 foreach ($pattern in $dllPatterns) {
     $releasePath = Join-Path $RepoDir "$BuildDir\bin\Release"
     $binPath = Join-Path $RepoDir "$BuildDir\bin"
