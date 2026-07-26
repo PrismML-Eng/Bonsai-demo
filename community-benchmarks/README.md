@@ -4,29 +4,33 @@ Benchmark results submitted by the community, organized by model. **We are espec
 
 ## Bonsai-27B
 
-The 27B models come in two families: Bonsai (1-bit, `Q1_0`) and Ternary-Bonsai (`Q2_0`). Optional column: decode speed with the paired DSpark drafter, where the submitter measured it (llama-server via `BONSAI_SPECULATIVE=1 ./scripts/start_llama_server.sh`; on MLX via community harnesses such as dspark-mlx). Plain `llama-bench` does not exercise the drafter.
+Sorted by decode speed (TG128). The 27B models come in two families: Bonsai (1-bit, `Q1_0`) and Ternary-Bonsai (`Q2_0`). Optional column: decode speed with the paired DSpark drafter, where the submitter measured it (llama-server via `BONSAI_SPECULATIVE=1 ./scripts/start_llama_server.sh`; on MLX via community harnesses such as dspark-mlx). Plain `llama-bench` does not exercise the drafter.
 
 | Family | Hardware | Backend | PP512 (t/s) | TG128 (t/s) | DSpark TG (t/s) | Details |
 |--------|----------|---------|------------:|------------:|----------------:|---------|
+| Ternary | NVIDIA RTX PRO 6000 Blackwell 96 GB | llama.cpp CUDA | 4,552 | 129.9 | | [link](ternary-bonsai/cuda-rtx-pro-6000-blackwell-linux.md) |
+| Bonsai (1-bit) | NVIDIA L40S 48 GB | llama.cpp CUDA | 2,945 | 100.1 | ~107 (1.42x, code) | [link](bonsai/cuda-l40s-27b-linux.md) |
 | Ternary | NVIDIA L40S 48 GB | llama.cpp CUDA | 2,881 | 70.1 | ~87-103 (1.6-1.8x) | [link](ternary-bonsai/cuda-l40s-linux.md) |
+| Ternary | NVIDIA RTX 4070 Ti SUPER 16 GB | llama.cpp CUDA (Windows) | 1,717 | 69.6 | | [link](ternary-bonsai/cuda-rtx4070tisuper-windows.md) |
 | Ternary | NVIDIA RTX A5000 24 GB | llama.cpp CUDA | 1,036 | 48.2 | | [link](ternary-bonsai/cuda-rtxa5000-ubuntu.md) |
-| Ternary | NVIDIA L40S 48 GB | llama.cpp CUDA | 2,881 | 70.1 | ~103 (1.76x, code) | [link](ternary-bonsai/cuda-l40s-linux.md) |
 | Ternary | NVIDIA RTX 5060 Ti 16 GB | llama.cpp CUDA | 1,029 | 44.4 | ~79 (1.78x) | [link](ternary-bonsai/cuda-rtx5060ti-linux.md) |
 | Bonsai (1-bit) | NVIDIA DGX Spark (GB10) | llama.cpp CUDA | 1,003 | 44.1 | no gain on this HW | [link](bonsai/cuda-gb10-27b-linux.md) |
-| Bonsai (1-bit) | NVIDIA L40S 48 GB | llama.cpp CUDA | 2,945 | 100.1 | ~107 (1.42x, code) | [link](bonsai/cuda-l40s-27b-linux.md) |
 | Ternary | Apple M5 Pro 64 GB | MLX 2-bit | 466 | 29.5 | 34-49 (community dspark-mlx) | [link](ternary-bonsai/mlx-m5-pro-macos.md) |
 | Ternary | Apple M5 Pro 64 GB | llama.cpp Metal | 130 | 26.5 | | [link](ternary-bonsai/mlx-m5-pro-macos.md) |
+| Ternary | Apple M4 Pro 64 GB | MLX 2-bit | 120 | 24.8 | | [link](ternary-bonsai/mlx-m4-pro-64gb-macos.md) |
+| Ternary | Apple M4 Pro 64 GB | llama.cpp Metal | 116 | 19.0 | slower on this HW | [link](ternary-bonsai/metal-m4-pro-64gb-macos.md) |
 | Ternary | Apple M3 Pro 18 GB | llama.cpp Metal | 78.6 | 12.6 | | [link](ternary-bonsai/metal-m3-pro-macos.md) |
 
 ## 8B and smaller
 
 | Family | Hardware | Backend | 8B PP512 (t/s) | 8B TG128 (t/s) | Details |
 |--------|----------|---------|---------------:|---------------:|---------|
-| Bonsai (1-bit) | Apple M4 Pro 48 GB | llama.cpp Metal | 487 | 117 | [link](bonsai/metal-m4-pro-48gb-macos.md) |
-| Bonsai (1-bit) | NVIDIA DGX Spark (GB10) | llama.cpp CUDA | 3,978 | 159 | [link](bonsai/cuda-gb10-linux.md) |
-| Bonsai (1-bit) | AMD Strix Halo 128 GB | llama.cpp Vulkan | 831 | 64 | [link](bonsai/vulkan-strix-halo-128gb-archlinux.md) |
-| Bonsai (1-bit) | AMD Strix Halo 128 GB | llama.cpp ROCm HIP | 1,325 | 96 | [link](bonsai/rocm-hip-strix-halo-128gb-archlinux.md) |
+| Ternary | NVIDIA RTX 4070 Ti SUPER 16 GB | llama.cpp CUDA (Windows) | 6,675 | 215.7 | [link](ternary-bonsai/cuda-rtx4070tisuper-windows.md) |
 | Bonsai (1-bit) | NVIDIA GeForce RTX 3080 10 GB | llama.cpp CUDA | 4,770 | 197 | [link](bonsai/cuda-rtx3080-linux.md) |
+| Bonsai (1-bit) | NVIDIA DGX Spark (GB10) | llama.cpp CUDA | 3,978 | 159 | [link](bonsai/cuda-gb10-linux.md) |
+| Bonsai (1-bit) | Apple M4 Pro 48 GB | llama.cpp Metal | 487 | 117 | [link](bonsai/metal-m4-pro-48gb-macos.md) |
+| Bonsai (1-bit) | AMD Strix Halo 128 GB | llama.cpp ROCm HIP | 1,325 | 96 | [link](bonsai/rocm-hip-strix-halo-128gb-archlinux.md) |
+| Bonsai (1-bit) | AMD Strix Halo 128 GB | llama.cpp Vulkan | 831 | 64 | [link](bonsai/vulkan-strix-halo-128gb-archlinux.md) |
 | Bonsai (1-bit) | NVIDIA RTX A2000 Laptop (4 GB) | llama.cpp CUDA | 1,387 | 63 | [link](bonsai/cuda-rtxa2000-debian.md) |
 | Ternary | Apple M3 Pro 18 GB | llama.cpp Metal | 288 | 51.3 | [link](ternary-bonsai/metal-m3-pro-macos.md) |
 
