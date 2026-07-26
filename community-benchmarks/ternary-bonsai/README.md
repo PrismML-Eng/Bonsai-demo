@@ -23,8 +23,8 @@ Benchmark results submitted by the community running [Ternary-Bonsai](https://hu
 
 | Hardware | Backend | 8B PP512 (t/s) | 8B TG128 (t/s) | Details |
 |----------|---------|---------------:|---------------:|---------|
+| NVIDIA RTX 4070 Ti SUPER 16 GB | llama.cpp CUDA (Windows) | 6,675 | 215.7 | [link](cuda-rtx4070tisuper-windows.md) |
 | Apple M3 Pro 18 GB | llama.cpp Metal | 288 | 51.3 | [link](metal-m3-pro-macos.md) |
-| NVIDIA RTX 4070 Ti SUPER 16 GB | llama.cpp CUDA | 6,675 | 215.7 | [link](cuda-rtx4070tisuper-windows.md) |
 
 ## Available Formats
 

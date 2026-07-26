@@ -8,18 +8,18 @@ Benchmark results submitted by the community running [Bonsai](https://huggingfac
 
 | Hardware | Backend | PP512 (t/s) | TG128 (t/s) | Details |
 |----------|---------|------------:|------------:|---------|
-| NVIDIA DGX Spark (GB10) | llama.cpp CUDA | 1,003 | 44.1 | [link](cuda-gb10-27b-linux.md) |
 | NVIDIA L40S 48 GB | llama.cpp CUDA | 2,945 | 100.1 | [link](cuda-l40s-27b-linux.md) |
+| NVIDIA DGX Spark (GB10) | llama.cpp CUDA | 1,003 | 44.1 | [link](cuda-gb10-27b-linux.md) |
 
 ### 8B and smaller
 
 | Hardware | Backend | 8B PP512 (t/s) | 8B TG128 (t/s) | Details |
 |----------|---------|---------------:|---------------:|---------|
-| Apple M4 Pro 48 GB | llama.cpp Metal | 487 | 117 | [link](metal-m4-pro-48gb-macos.md) |
-| NVIDIA DGX Spark (GB10) | llama.cpp CUDA | 3,978 | 159 | [link](cuda-gb10-linux.md) |
-| AMD Strix Halo 128 GB | llama.cpp Vulkan | 831 | 64 | [link](vulkan-strix-halo-128gb-archlinux.md) |
-| AMD Strix Halo 128 GB | llama.cpp ROCm HIP | 1,325 | 96 | [link](rocm-hip-strix-halo-128gb-archlinux.md) |
 | NVIDIA GeForce RTX 3080 10 GB | llama.cpp CUDA | 4,770 | 197 | [link](cuda-rtx3080-linux.md) |
+| NVIDIA DGX Spark (GB10) | llama.cpp CUDA | 3,978 | 159 | [link](cuda-gb10-linux.md) |
+| Apple M4 Pro 48 GB | llama.cpp Metal | 487 | 117 | [link](metal-m4-pro-48gb-macos.md) |
+| AMD Strix Halo 128 GB | llama.cpp ROCm HIP | 1,325 | 96 | [link](rocm-hip-strix-halo-128gb-archlinux.md) |
+| AMD Strix Halo 128 GB | llama.cpp Vulkan | 831 | 64 | [link](vulkan-strix-halo-128gb-archlinux.md) |
 | NVIDIA RTX A2000 Laptop (4 GB) | llama.cpp CUDA | 1,387 | 63 | [link](cuda-rtxa2000-debian.md) |
 
 > Benchmarks for the **Ternary-Bonsai (1.58-bit)** family live in [../ternary-bonsai/](../ternary-bonsai/).
