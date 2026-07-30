@@ -17,6 +17,7 @@ Benchmark results submitted by the community running [Ternary-Bonsai](https://hu
 | Apple M5 Pro 64 GB | llama.cpp Metal | 130 | 26.5 | | [link](mlx-m5-pro-macos.md) |
 | Apple M4 Pro 64 GB | MLX 2-bit | 120 | 24.8 | | [link](mlx-m4-pro-64gb-macos.md) |
 | Apple M4 Pro 64 GB | llama.cpp Metal | 116 | 19.0 | slower on this HW | [link](metal-m4-pro-64gb-macos.md) |
+| NVIDIA GeForce GTX 1080 Ti 11 GB | llama.cpp CUDA | 278 | 20.5 | | [link](cuda-gtx1080ti-linux.md) |
 | Apple M3 Pro 18 GB | llama.cpp Metal | 78.6 | 12.6 | | [link](metal-m3-pro-macos.md) |
 
 ### 8B and smaller
@@ -24,6 +25,7 @@ Benchmark results submitted by the community running [Ternary-Bonsai](https://hu
 | Hardware | Backend | 8B PP512 (t/s) | 8B TG128 (t/s) | Details |
 |----------|---------|---------------:|---------------:|---------|
 | NVIDIA RTX 4070 Ti SUPER 16 GB | llama.cpp CUDA (Windows) | 6,675 | 215.7 | [link](cuda-rtx4070tisuper-windows.md) |
+| NVIDIA GeForce GTX 1080 Ti 11 GB | llama.cpp CUDA | 985 | 68.8 | [link](cuda-gtx1080ti-linux.md) |
 | Apple M3 Pro 18 GB | llama.cpp Metal | 288 | 51.3 | [link](metal-m3-pro-macos.md) |
 
 ## Available Formats
