@@ -2,6 +2,8 @@
 
 ⚠️ **Highly experimental.** Try it for fun and only if you know what you are doing; expect it to change and be polished in later releases. The path is currently stable and fast on CUDA; Apple Silicon (Metal) support will be improved in a later release, so do not expect a speedup on Macs yet.
 
+**Fork-only.** The drafter runs on this demo's llama.cpp [binaries](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b9596-9fcaed7), not on mainline `ggml-org/llama.cpp` — mainline rejects the drafter GGUF with `gguf_init_from_reader: tensor 'dspark.fc.weight' has offset ..., expected ...`. The upstream `Q2_0` backend work covers normal decoding only; our dspark implementation is experimental and not ready to upstream, and it is waiting on llama.cpp's own dspark support to merge and stabilize.
+
 The 27B models ship with a paired **dspark drafter**: a small companion GGUF (`*dspark-Q4_1*.gguf`, downloaded automatically with the 27B weights) that drafts blocks of tokens for the target model to verify. On code and reasoning workloads this gives roughly **1.8-2x faster decode** on CUDA; acceptance is workload-dependent, so casual chat gains less. Output at temperature 0 is identical to normal decoding.
 
 Drafters are **target-specific**: each one only accelerates the exact model it was trained against. The demo downloads the matching drafter for whichever 27B family you use.

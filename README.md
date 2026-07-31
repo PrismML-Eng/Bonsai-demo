@@ -199,6 +199,8 @@ Backend-by-backend migration status:
 
 **CPU, Metal, Vulkan, and CUDA now run `Q2_0` on mainline llama.cpp, no fork needed** (use a recent `ggml-org/llama.cpp` build with the `*-Q2_0_g64.gguf` files). Only the x86 AVX-512-VNNI optimization is still outstanding, and x86 already works today through the generic scalar CPU path. This demo continues to ship the fork [pre-built binaries](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b9596-9fcaed7) and the group-128 `*-Q2_0.gguf` files, so it keeps working out of the box until the format migration finishes and the group-64 files take over the plain `Q2_0` name. MLX 2-bit is supported in stock [MLX](https://github.com/ml-explore/mlx), no fork needed.
 
+That covers plain `Q2_0` inference. **Speculative decoding is still fork-only**: the paired `*dspark-Q4_1*.gguf` drafter does not load on mainline, which fails with `gguf_init_from_reader: tensor 'dspark.fc.weight' has offset ..., expected ...`. Our dspark implementation is experimental and not ready to upstream; it is waiting on llama.cpp's own dspark support to merge and stabilize. Run `BONSAI_SPECULATIVE=1` on this demo's binaries — see [SPECULATIVE.md](SPECULATIVE.md).
+
 To run the smaller ternary models directly on stock `ggml-org/llama.cpp` (CPU, Metal, Vulkan, or CUDA), use the group-64 files:
 
 | Model | Repo | File (mainline-compatible) |
@@ -320,7 +322,7 @@ Upload images in the chat UI (`+` in the message box) or send `image_url` parts 
 
 Two experimental, off-by-default features for the llama.cpp chat server:
 
-- **Speculative decoding**: `BONSAI_SPECULATIVE=1` pairs the 27B with its dspark drafter for roughly 1.8-2x faster decode on code and reasoning (CUDA; Apple Silicon support will be improved later). Trade-offs and verification: [SPECULATIVE.md](SPECULATIVE.md).
+- **Speculative decoding**: `BONSAI_SPECULATIVE=1` pairs the 27B with its dspark drafter for roughly 1.8-2x faster decode on code and reasoning (CUDA; Apple Silicon support will be improved later). Needs this demo's fork binaries — the drafter does not load on mainline llama.cpp. Trade-offs and verification: [SPECULATIVE.md](SPECULATIVE.md).
 - **4-bit KV cache**: `BONSAI_KV4=1` cuts KV-cache memory roughly 3.5x for very long contexts, with an optional calibration bias for better quality (`./scripts/make_kv_bias.sh`). Details: [KV-CACHE.md](KV-CACHE.md).
 - **Vision projector in RAM**: `BONSAI_MMPROJ_CPU=1` keeps the 27B's vision projector in system RAM instead of VRAM (`--no-mmproj-offload`), freeing ~0.9 GiB of VRAM for KV/context on tight cards. The cost is a slower image prompt (the projector runs on CPU); text-only chat is unaffected.
 
