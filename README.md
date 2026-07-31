@@ -105,7 +105,7 @@ See [community-benchmarks/](community-benchmarks/) for results on different hard
 
 Two model families are available, each in sizes **27B**, **8B**, **4B**, and **1.7B**. The 27B models are vision-language models: they accept images as well as text; all 27B repos are gathered in the [Bonsai 27B HF collection](https://huggingface.co/collections/prism-ml/bonsai-27b).
 
-Both formats are landing in mainline llama.cpp: **Q1_0 (1-bit) is fully merged upstream**, and **Q2_0 (ternary) now runs on mainline CPU, Metal, and Vulkan**, with CUDA in review. Details and mainline-compatible files: [binary status](#upstream-status-for-binary) and [ternary status](#upstream-status-for-ternary) below.
+Both formats are landing in mainline llama.cpp: **Q1_0 (1-bit) is fully merged upstream**, and **Q2_0 (ternary) now runs on mainline CPU, Metal, Vulkan, and CUDA**. Details and mainline-compatible files: [binary status](#upstream-status-for-binary) and [ternary status](#upstream-status-for-ternary) below.
 
 ### Bonsai (1-bit)
 
@@ -184,7 +184,7 @@ Ternary support is in the middle of migrating into mainline [llama.cpp](https://
 | File | Format | Runs on |
 |------|--------|---------|
 | `*-Q2_0.gguf` | Group size 128. **The format this demo uses**, compatible with our fork. Once the llama.cpp migration completes, these files will be deprecated and replaced by the `PQ2_0` ggufs | This demo / the fork binaries. Will not load on mainline (same type id, different block size) |
-| `*-Q2_0_g64.gguf` | Group size 64 (2.25 bpw). The official llama.cpp format; these will be renamed to plain `Q2_0`, replacing the current ones | Mainline llama.cpp (CPU and Metal so far) |
+| `*-Q2_0_g64.gguf` | Group size 64 (2.25 bpw). The official llama.cpp format; these will be renamed to plain `Q2_0`, replacing the current ones | Mainline llama.cpp (CPU, Metal, Vulkan, and CUDA) |
 | `*-PQ2_0.gguf` | Not supported yet. Planned as the fork format going forward: the same format as the current group-128 `Q2_0`, just under its own ggml type id so it can coexist with the upstream `Q2_0` | Nothing yet (fork support planned) |
 
 Backend-by-backend migration status:
@@ -194,12 +194,12 @@ Backend-by-backend migration status:
 | CPU (ARM NEON + generic scalar) | ✅ Merged in mainline llama.cpp | [ggml-org/llama.cpp#24448](https://github.com/ggml-org/llama.cpp/pull/24448) |
 | Metal | ✅ Merged in mainline llama.cpp | [ggml-org/llama.cpp#25419](https://github.com/ggml-org/llama.cpp/pull/25419) |
 | Vulkan | ✅ Merged in mainline llama.cpp | [ggml-org/llama.cpp#25430](https://github.com/ggml-org/llama.cpp/pull/25430) |
-| CUDA | 🔄 In review upstream | [ggml-org/llama.cpp#25707](https://github.com/ggml-org/llama.cpp/pull/25707) |
+| CUDA | ✅ Merged in mainline llama.cpp | [ggml-org/llama.cpp#25707](https://github.com/ggml-org/llama.cpp/pull/25707) |
 | x86 (AVX-512-VNNI) | ⏳ Pending | TBD |
 
-**CPU, Metal, and Vulkan now run `Q2_0` on mainline llama.cpp, no fork needed** (use a recent `ggml-org/llama.cpp` build with the `*-Q2_0_g64.gguf` files). CUDA is the last one in review upstream ([#25707](https://github.com/ggml-org/llama.cpp/pull/25707)); until it merges, use this demo: it ships the fork [pre-built binaries](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b9596-9fcaed7), so everything works out of the box with the group-128 `*-Q2_0.gguf` files it downloads. MLX 2-bit is supported in stock [MLX](https://github.com/ml-explore/mlx), no fork needed.
+**CPU, Metal, Vulkan, and CUDA now run `Q2_0` on mainline llama.cpp, no fork needed** (use a recent `ggml-org/llama.cpp` build with the `*-Q2_0_g64.gguf` files). Only the x86 AVX-512-VNNI optimization is still outstanding, and x86 already works today through the generic scalar CPU path. This demo continues to ship the fork [pre-built binaries](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b9596-9fcaed7) and the group-128 `*-Q2_0.gguf` files, so it keeps working out of the box until the format migration finishes and the group-64 files take over the plain `Q2_0` name. MLX 2-bit is supported in stock [MLX](https://github.com/ml-explore/mlx), no fork needed.
 
-To run the smaller ternary models directly on stock `ggml-org/llama.cpp` (CPU or Metal), use the group-64 files:
+To run the smaller ternary models directly on stock `ggml-org/llama.cpp` (CPU, Metal, Vulkan, or CUDA), use the group-64 files:
 
 | Model | Repo | File (mainline-compatible) |
 |-------|------|----------------------------|
