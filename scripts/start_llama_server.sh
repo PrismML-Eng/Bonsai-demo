@@ -103,7 +103,7 @@ if [ "$BONSAI_MODEL" = "27B" ]; then
             [ -f "$_md" ] && MD="$DEMO_DIR/$_md" && break
         done
         if [ -n "$MD" ]; then
-            _nmax=$(bonsai_dspark_block_size "$MD")
+            _nmax="${BONSAI_SPEC_NMAX:-$(bonsai_dspark_block_size "$MD")}"
             _spec_flags="--spec-type draft-dspark --spec-draft-n-max $_nmax -ngld 999 -np 1"
             # dspark re-prefills every request; give the model room to think
             # (it drafts 1.5-2k tokens; a small context truncates answers).

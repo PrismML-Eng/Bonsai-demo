@@ -144,6 +144,25 @@ if ($BonsaiModel -eq "27B") {
             Write-Host "[WARN] BONSAI_SPECULATIVE=1 but no *dspark-Q4_1*.gguf drafter in $ModelDir - running without speculation." -ForegroundColor Yellow
         }
     }
+    # 4-bit KV cache (opt-in, BONSAI_KV4=1): stores the KV cache in Q4_0 to cut
+    # KV memory for very long contexts on tight machines (decode is slightly
+    # slower than F16 KV). If a mean-centering bias built by
+    # scripts/make_kv_bias.sh is present it is applied automatically for
+    # better quality. Mirrors start_llama_server.sh.
+    $KvArgs = @()
+    if ($env:BONSAI_KV4 -eq "1") {
+        $KvArgs = @("--cache-type-k", "q4_0", "--cache-type-v", "q4_0")
+        $KvBias = Get-ChildItem -Path $ModelDir -Filter *kv-bias*.gguf -File -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($KvBias) {
+            # The bias is calibrated with K-rotation off; inference must match
+            # (the loader rejects a mismatch by design).
+            $env:LLAMA_ATTN_ROT_DISABLE = "1"
+            $KvArgs += @("--kv-mean-center", $KvBias.FullName)
+            Write-Host "  KV cache: q4_0 + mean-centering ($($KvBias.Name))" -ForegroundColor Green
+        } else {
+            Write-Host "  KV cache: q4_0 (no bias; run scripts/make_kv_bias.sh for better quality)" -ForegroundColor Green
+        }
+    }
     $ServerArgs = @(
         "-m", $Model.FullName,
         "--host", $HostAddress,
@@ -166,6 +185,7 @@ if ($BonsaiModel -eq "27B") {
         }
     }
     if ($SpecArgs.Count -gt 0) { $ServerArgs += $SpecArgs }
+    if ($KvArgs.Count -gt 0) { $ServerArgs += $KvArgs }
     # Image-token cap: big images cost minutes of prefill on slower hardware.
     # Capped at 1024 unless running the CUDA/HIP build; override with
     # BONSAI_IMAGE_MAX_TOKENS (a number, or 0 to disable the cap).
