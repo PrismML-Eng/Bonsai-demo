@@ -155,7 +155,11 @@ if ($BonsaiModel -eq "27B") {
         $KvBias = Get-ChildItem -Path $ModelDir -Filter *kv-bias*.gguf -File -ErrorAction SilentlyContinue | Select-Object -First 1
         if ($KvBias) {
             # The bias is calibrated with K-rotation off; inference must match
-            # (the loader rejects a mismatch by design).
+            # (the loader rejects a mismatch by design). Save any prior value so
+            # we can restore it in the finally block below (the shell launcher
+            # execs in a child process, but PowerShell shares the parent env and
+            # would otherwise leave this set for later launches).
+            $priorRotDisable = $env:LLAMA_ATTN_ROT_DISABLE
             $env:LLAMA_ATTN_ROT_DISABLE = "1"
             $KvArgs += @("--kv-mean-center", $KvBias.FullName)
             Write-Host "  KV cache: q4_0 + mean-centering ($($KvBias.Name))" -ForegroundColor Green
@@ -205,5 +209,15 @@ if ($BonsaiModel -eq "27B") {
 
 $EffCtx = if ($BonsaiModel -eq "27B") { $Ctx } else { $CtxDefault }
 Write-Host "  Context: -c $EffCtx (override with BONSAI_CTX, 0 = auto)"
-& $Bin @ServerArgs @args
-exit $LASTEXITCODE
+try {
+    & $Bin @ServerArgs @args
+    $code = $LASTEXITCODE
+} finally {
+    # Don't leak the KV4 bias flag into the parent PowerShell session.
+    if ($null -eq $priorRotDisable) {
+        Remove-Item Env:LLAMA_ATTN_ROT_DISABLE -ErrorAction SilentlyContinue
+    } else {
+        $env:LLAMA_ATTN_ROT_DISABLE = $priorRotDisable
+    }
+}
+exit $code
