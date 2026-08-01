@@ -184,6 +184,8 @@ Every script in this repo is driven by environment variables — model selection
 
 The build scripts take their options as **command-line flags, not environment variables** (e.g. `./scripts/build_cuda_linux.sh [repo_dir] --archs \"80;86\" --output cuda`, or `.\scripts\build_cuda_windows.ps1 -Archs \"80;86;89;90\"`) — see the "Building from Source" section below.
 
+**Platform coverage:** the model/setup vars (`BONSAI_FAMILY`, `BONSAI_MODEL`, `BONSAI_TOKEN`) and the llama.cpp server vars (`BONSAI_HOST`, `BONSAI_CTX`, `BONSAI_NGL`, `BONSAI_IMAGE_MAX_TOKENS`, `BONSAI_MMPROJ_CPU`, `BONSAI_SPECULATIVE`, `BONSAI_SPEC_NMAX`, `BONSAI_KV4`) work on **Linux, macOS, and Windows** (the `.ps1` launchers mirror the `.sh` ones). The **MLX** vars (`BONSAI_BACKEND=mlx`, `BONSAI_MLX_VLM`, `BONSAI_MLX_VISION`, `BONSAI_SKIP_MLX`) and the **Open WebUI** vars (`BONSAI_ALLOW_REMOTE`, `BONSAI_LOG`, `BONSAI_LLAMA_VERBOSE`, `BONSAI_MAX_TOOL_ITERS`, `BONSAI_CODE_INTERPRETER`, `BONSAI_JUPYTER_PORT`, `BONSAI_BRAVE_TOOLS`, `BRAVE_API_KEY`) are **macOS/Linux only** — MLX is Apple Silicon-only, and Open WebUI has no Windows launcher (`start_openwebui.sh` only; `setup.ps1` doesn't install it), so those vars have no effect on Windows.
+
 Combine them freely:
 
 ```bash
