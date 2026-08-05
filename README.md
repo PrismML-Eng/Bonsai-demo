@@ -144,17 +144,21 @@ This is the default family. Set `BONSAI_FAMILY=bonsai` to use the 1-bit Bonsai f
 
 ### Environment variables
 
-Both variables are optional. **If you set neither, the default is `Ternary-Bonsai-27B`:** that's what plain `./setup.sh` downloads and runs. They're read by `setup.sh`, `setup.ps1`, `download_models.sh`, and every `run_*` / `start_*` script (Linux, macOS, and Windows).
+Both variables are optional. **If you set neither, the default is `Ternary-Bonsai-27B`:** that's what plain `./setup.sh` downloads and runs.
 
-| Variable        | Default   | Valid values                       | Purpose |
-|-----------------|-----------|------------------------------------|---------|
-| `BONSAI_FAMILY` | `ternary` | `ternary`, `bonsai`, `all`         | Model family. `ternary` = Ternary-Bonsai; `bonsai` = 1-bit Bonsai. `all` expands to both families (setup/download only). |
-| `BONSAI_MODEL`  | `27B`    | `27B`, `8B`, `4B`, `1.7B`, `all`   | Model size. `all` expands to all four sizes (setup/download only). |
-| `BONSAI_TOKEN`  | —        | HF read-only token                 | Only needed for the 27B models while their repos are private (removed at launch). |
-| `BONSAI_SKIP_GGUF` | unset  | `1`                                 | Skip the GGUF download entirely (macOS MLX-only setups, saves disk space). The llama.cpp scripts then point you at the MLX ones instead (see "Running the Model" below). |
-| `BONSAI_SKIP_MLX`  | unset  | `1`                                 | Skip the MLX download (macOS only; MLX is skipped automatically on Intel Macs and non-macOS). |
+Every launcher is configured through environment variables. The most common ones:
 
-`all` is only valid for `setup.sh` / `setup.ps1` / `download_models.sh` — the run/server scripts need a concrete family/size.
+| Variable | Default | Values | Purpose |
+|----------|---------|--------|---------|
+| `BONSAI_MODEL` | `27B` | `27B`, `8B`, `4B`, `1.7B` | Model size. |
+| `BONSAI_FAMILY` | `ternary` | `ternary`, `bonsai` | Model family (`ternary` = Ternary-Bonsai, `bonsai` = 1-bit Bonsai). |
+| `BONSAI_NGL` | auto-detect | int; `0` = CPU-only | GPU layer offload. |
+| `BONSAI_CTX` | auto (RAM-tiered) | `0`, or ≤ `262144` | Context length (`0`/unset = automatic safe size). |
+| `BONSAI_HOST` | `127.0.0.1` | any bind address | Server bind address. A non-loopback value exposes the server — see the security note in the full reference. |
+| `BONSAI_SPECULATIVE` | `0` | `1` | Speculative decoding with the dspark drafter ([SPECULATIVE.md](SPECULATIVE.md)). |
+| `BONSAI_KV4` | `0` | `1` | 4-bit KV cache for long contexts ([KV-CACHE.md](KV-CACHE.md)). |
+
+**Full reference** — all 24 variables (model/setup, server, MLX, Open WebUI, tools, and platform coverage): **[environment_variables.md](environment_variables.md)**.
 
 Combine them freely:
 
