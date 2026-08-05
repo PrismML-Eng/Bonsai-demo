@@ -199,7 +199,7 @@ Backend-by-backend migration status:
 
 **`Q2_0` now runs on mainline llama.cpp across CPU, Metal, Vulkan, and CUDA — no fork needed.** Use a recent [`ggml-org/llama.cpp`](https://github.com/ggml-org/llama.cpp) build with the `*-Q2_0_g64.gguf` files (the x86 AVX-512-VNNI *optimization* is still pending, but x86 already works via the generic CPU path). MLX 2-bit runs on stock [MLX](https://github.com/ml-explore/mlx). This demo still bundles the fork [pre-built binaries](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b9596-9fcaed7) and the group-128 `*-Q2_0.gguf` files for a one-command setup; those keep working until the migration renames the group-64 files to plain `Q2_0`.
 
-**Speculative decoding stays fork-only** for now: the `*dspark-Q4_1*.gguf` drafter does not load on mainline. Our dspark is experimental and waiting on llama.cpp's own dspark support to stabilize. Use `BONSAI_SPECULATIVE=1` with this demo's binaries — see [SPECULATIVE.md](SPECULATIVE.md).
+**Speculative decoding stays fork-only.** Mainline llama.cpp now has its own DSpark ([ggml-org/llama.cpp#25173](https://github.com/ggml-org/llama.cpp/pull/25173)), but our `*dspark-Q4_1*.gguf` drafter uses fork-specific GGUF packing that mainline can't load ([ggml-org/llama.cpp#26337](https://github.com/ggml-org/llama.cpp/issues/26337)). Use `BONSAI_SPECULATIVE=1` with this demo's binaries — see [SPECULATIVE.md](SPECULATIVE.md).
 
 To run the smaller ternary models directly on stock `ggml-org/llama.cpp`, use the group-64 files:
 
