@@ -185,7 +185,7 @@ Ternary support is in the middle of migrating into mainline [llama.cpp](https://
 |------|--------|---------|
 | `*-Q2_0.gguf` | Group size 128. **The format this demo uses**, compatible with our fork. Once the llama.cpp migration completes, these files will be deprecated and replaced by the `PQ2_0` ggufs | This demo / the fork binaries. Will not load on mainline (same type id, different block size) |
 | `*-Q2_0_g64.gguf` | Group size 64 (2.25 bpw). The official llama.cpp format; these will be renamed to plain `Q2_0`, replacing the current ones | Mainline llama.cpp (CPU, Metal, Vulkan, and CUDA) |
-| `*-PQ2_0.gguf` | Not supported yet. Planned as the fork format going forward: the same format as the current group-128 `Q2_0`, just under its own ggml type id so it can coexist with the upstream `Q2_0` | Nothing yet (fork support planned) |
+| `*-PQ2_0.gguf` | ⚠️ **Do not use yet.** Reserved name for a future migration format, so the fork's group-128 packing can coexist with upstream's group-64 `Q2_0` under its own ggml type id. Files are uploaded but experimental — **no guarantee they stay the same**; the format or name may still change, so don't depend on them. | Fork (experimental; subject to change) |
 
 Backend-by-backend migration status:
 
@@ -197,11 +197,11 @@ Backend-by-backend migration status:
 | CUDA | ✅ Merged in mainline llama.cpp | [ggml-org/llama.cpp#25707](https://github.com/ggml-org/llama.cpp/pull/25707) |
 | x86 (AVX-512-VNNI) | ⏳ Pending | TBD |
 
-**CPU, Metal, Vulkan, and CUDA now run `Q2_0` on mainline llama.cpp, no fork needed** (use a recent `ggml-org/llama.cpp` build with the `*-Q2_0_g64.gguf` files). Only the x86 AVX-512-VNNI optimization is still outstanding, and x86 already works today through the generic scalar CPU path. This demo continues to ship the fork [pre-built binaries](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b9596-9fcaed7) and the group-128 `*-Q2_0.gguf` files, so it keeps working out of the box until the format migration finishes and the group-64 files take over the plain `Q2_0` name. MLX 2-bit is supported in stock [MLX](https://github.com/ml-explore/mlx), no fork needed.
+**`Q2_0` now runs on mainline llama.cpp across CPU, Metal, Vulkan, and CUDA — no fork needed.** Use a recent [`ggml-org/llama.cpp`](https://github.com/ggml-org/llama.cpp) build with the `*-Q2_0_g64.gguf` files (the x86 AVX-512-VNNI *optimization* is still pending, but x86 already works via the generic CPU path). MLX 2-bit runs on stock [MLX](https://github.com/ml-explore/mlx). This demo still bundles the fork [pre-built binaries](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b9596-9fcaed7) and the group-128 `*-Q2_0.gguf` files for a one-command setup; those keep working until the migration renames the group-64 files to plain `Q2_0`.
 
-That covers plain `Q2_0` inference. **Speculative decoding is still fork-only**: the paired `*dspark-Q4_1*.gguf` drafter does not load on mainline, which fails with `gguf_init_from_reader: tensor 'dspark.fc.weight' has offset ..., expected ...`. Our dspark implementation is experimental and not ready to upstream; it is waiting on llama.cpp's own dspark support to merge and stabilize. Run `BONSAI_SPECULATIVE=1` on this demo's binaries — see [SPECULATIVE.md](SPECULATIVE.md).
+**Speculative decoding stays fork-only** for now: the `*dspark-Q4_1*.gguf` drafter does not load on mainline. Our dspark is experimental and waiting on llama.cpp's own dspark support to stabilize. Use `BONSAI_SPECULATIVE=1` with this demo's binaries — see [SPECULATIVE.md](SPECULATIVE.md).
 
-To run the smaller ternary models directly on stock `ggml-org/llama.cpp` (CPU, Metal, Vulkan, or CUDA), use the group-64 files:
+To run the smaller ternary models directly on stock `ggml-org/llama.cpp`, use the group-64 files:
 
 | Model | Repo | File (mainline-compatible) |
 |-------|------|----------------------------|
