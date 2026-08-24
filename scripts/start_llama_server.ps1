@@ -26,6 +26,10 @@ try {
     exit 1
 } catch {}
 
+# Captured unconditionally: the finally block at the end restores it on every
+# launch, not just the ones where the KV4 bias block below sets it.
+$priorRotDisable = $env:LLAMA_ATTN_ROT_DISABLE
+
 if ($BonsaiFamily -eq "ternary") {
     $ModelDir = Join-Path $DemoDir "models\ternary-gguf\$BonsaiModel"
 
@@ -155,11 +159,10 @@ if ($BonsaiModel -eq "27B") {
         $KvBias = Get-ChildItem -Path $ModelDir -Filter *kv-bias*.gguf -File -ErrorAction SilentlyContinue | Select-Object -First 1
         if ($KvBias) {
             # The bias is calibrated with K-rotation off; inference must match
-            # (the loader rejects a mismatch by design). Save any prior value so
-            # we can restore it in the finally block below (the shell launcher
-            # execs in a child process, but PowerShell shares the parent env and
-            # would otherwise leave this set for later launches).
-            $priorRotDisable = $env:LLAMA_ATTN_ROT_DISABLE
+            # (the loader rejects a mismatch by design). The finally block below
+            # restores the prior value (the shell launcher execs in a child
+            # process, but PowerShell shares the parent env and would otherwise
+            # leave this set for later launches).
             $env:LLAMA_ATTN_ROT_DISABLE = "1"
             $KvArgs += @("--kv-mean-center", $KvBias.FullName)
             Write-Host "  KV cache: q4_0 + mean-centering ($($KvBias.Name))" -ForegroundColor Green
