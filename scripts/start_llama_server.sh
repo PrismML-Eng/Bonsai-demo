@@ -13,7 +13,7 @@ assert_gguf_downloaded start_mlx_server.sh
 
 # Bind to localhost by default; override with BONSAI_HOST=0.0.0.0 for LAN/remote.
 HOST="${BONSAI_HOST:-127.0.0.1}"
-PORT=8080
+PORT="${PORT:-8080}"
 
 # ── Check port is free ──
 if curl -s --max-time 2 "http://localhost:$PORT/health" >/dev/null 2>&1; then

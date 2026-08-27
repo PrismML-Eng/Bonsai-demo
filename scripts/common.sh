@@ -30,7 +30,7 @@ case "$BONSAI_MODEL" in
             ternary)
                 GGUF_MODEL_DIR="models/ternary-gguf/${BONSAI_MODEL}"
                 MLX_MODEL_DIR="models/Ternary-Bonsai-${BONSAI_MODEL}-mlx-2bit"
-                GGUF_QUANT_PATTERN="*-Q2_0.gguf"
+                GGUF_QUANT_PATTERN="*g64.gguf"
                 BONSAI_DISPLAY="Ternary-Bonsai-${BONSAI_MODEL}"
                 ;;
             # Anything else, including "all": paths stay empty; assert_valid_model

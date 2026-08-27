@@ -1,5 +1,9 @@
 # Speculative decoding (experimental)
 
+> Note (prism-v7): the published 27B dspark drafter GGUFs predate the v7 format
+> convergence and do not load on v7 builds; re-exported drafters are in progress.
+> Speculative decoding is unavailable until they ship.
+
 ⚠️ **Highly experimental.** Try it for fun and only if you know what you are doing; expect it to change and be polished in later releases. The path is currently stable and fast on CUDA; Apple Silicon (Metal) support will be improved in a later release, so do not expect a speedup on Macs yet.
 
 **Fork-only.** The drafter runs on this demo's llama.cpp [binaries](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b9596-9fcaed7), not on mainline `ggml-org/llama.cpp`. Mainline now has its own DSpark ([#25173](https://github.com/ggml-org/llama.cpp/pull/25173)), but our drafter uses fork-specific GGUF packing (different tensor names, plus log-SNR conditioning mainline's graph doesn't have), so it fails to load with `gguf_init_from_reader: tensor 'dspark.fc.weight' has offset ..., expected ...` (tracked in [#26337](https://github.com/ggml-org/llama.cpp/issues/26337)).
@@ -29,7 +33,7 @@ If you run llama-server directly instead of through the start script, this is th
 
 ```bash
 bin/cuda/llama-server \
-  -m models/ternary-gguf/27B/Ternary-Bonsai-27B-Q2_0.gguf \
+  -m models/ternary-gguf/27B/Ternary-Bonsai-27B-Q2_g64.gguf \
   -md models/ternary-gguf/27B/Ternary-Bonsai-27B-dspark-Q4_1.gguf \
   --spec-type draft-dspark --spec-draft-n-max 4 \
   -ngl 999 -ngld 999 -fa on -c 16384 -np 1 \
@@ -68,7 +72,7 @@ Each API response's `timings` object includes `draft_n` and `draft_n_accepted`. 
 
 ```bash
 bin/mac/llama-speculative-simple \
-  -m models/ternary-gguf/27B/Ternary-Bonsai-27B-Q2_0.gguf \
+  -m models/ternary-gguf/27B/Ternary-Bonsai-27B-Q2_g64.gguf \
   -md models/ternary-gguf/27B/Ternary-Bonsai-27B-dspark-Q4_1.gguf \
   --spec-type draft-dspark --spec-draft-n-max 4 \
   -ngl 999 -ngld 999 -c 8192 -n 400 --temp 0 -e \
