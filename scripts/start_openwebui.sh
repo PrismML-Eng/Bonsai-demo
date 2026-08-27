@@ -150,11 +150,8 @@ else
     # Find model + binary: select exactly the demo quant for the family
     # (a leftover F16 or g64 file must never be picked up).
     _model=""
-    for _m in $GGUF_MODEL_DIR/$GGUF_QUANT_PATTERN; do
-        [ -f "$_m" ] || continue
-        case "$_m" in *mmproj*|*dspark*|*kv-bias*) continue ;; esac
-        _model="$DEMO_DIR/$_m" && break
-    done
+    _model="$(select_model_gguf "$GGUF_MODEL_DIR" || true)"
+    [ -n "$_model" ] && _model="$DEMO_DIR/$_model"
     _bin=""
     for _d in bin/mac bin/cuda bin/rocm bin/hip bin/vulkan bin/cpu llama.cpp/build/bin llama.cpp/build-mac/bin llama.cpp/build-cuda/bin; do
         [ -f "$DEMO_DIR/$_d/llama-server" ] && _bin="$DEMO_DIR/$_d/llama-server" && break

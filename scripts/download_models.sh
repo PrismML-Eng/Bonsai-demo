@@ -103,7 +103,12 @@ download_one() {
             _gguf_dir="models/ternary-gguf/${_size}"
             _mlx_dir="models/Ternary-Bonsai-${_size}-mlx-2bit"
             _display="Ternary-Bonsai-${_size}"
-            _gguf_pattern="*g64.gguf"
+            # both ternary formats: PQ2_0 (fork group-128) and the official group-64
+            # Q2_0 (pre-v7 repos name it *_Q2_0_g64 / 27B *_Q2_g64). The launcher picks
+            # per backend at runtime; see select_model_gguf in common.sh and
+            # MODEL-FORMATS.md. Newer repos ship the official file as plain *-Q2_0.gguf;
+            # download_one falls back to that name when no *g64 file exists in the repo.
+            _gguf_pattern="*-PQ2_0.gguf,*g64.gguf"
             ;;
     esac
 
@@ -129,7 +134,14 @@ download_one() {
         info "Skipping GGUF ${_display} (BONSAI_SKIP_GGUF=1)."
     else
         _gguf_present=false
-        if [ -d "$_gguf_dir" ] && ls "$_gguf_dir"/$_gguf_pattern >/dev/null 2>&1; then
+        _gguf_check_pattern="$(printf '%s' "$_gguf_pattern" | tr ',' ' ')"
+        _gguf_any_present() {
+            for _p in $_gguf_check_pattern; do
+                ls "$_gguf_dir"/$_p >/dev/null 2>&1 && return 0
+            done
+            return 1
+        }
+        if [ -d "$_gguf_dir" ] && _gguf_any_present; then
             if { [ -z "$_mmproj_pattern" ] || ls "$_gguf_dir"/$_mmproj_pattern >/dev/null 2>&1; } \
                 && { [ -z "$_drafter_pattern" ] || ls "$_gguf_dir"/$_drafter_pattern >/dev/null 2>&1; }; then
                 _gguf_present=true
@@ -144,9 +156,14 @@ download_one() {
                 err "Failed to download GGUF ${_display} from ${_gguf_repo}."
                 exit 1
             fi
-            if ! ls "$_gguf_dir"/$_gguf_pattern >/dev/null 2>&1; then
-                err "Download reported success but no file matching ${_gguf_pattern} was written to ${_gguf_dir}/."
-                exit 1
+            if ! _gguf_any_present; then
+                # newer repos ship the official group-64 file as plain *-Q2_0.gguf
+                # and carry no *g64 name; fall back to that exact pattern.
+                step "No PQ2_0/g64 file in ${_gguf_repo}; falling back to *-Q2_0.gguf (official group-64 on current repos) ..."
+                if ! hf_download "$_gguf_repo" "$_gguf_dir" "*-Q2_0.gguf" || ! ls "$_gguf_dir"/*-Q2_0.gguf >/dev/null 2>&1; then
+                    err "Download reported success but no usable model file was written to ${_gguf_dir}/."
+                    exit 1
+                fi
             fi
             if [ -n "$_mmproj_pattern" ] && ! ls "$_gguf_dir"/$_mmproj_pattern >/dev/null 2>&1; then
                 warn "No ${_mmproj_pattern} file in ${_gguf_repo} — image input will be disabled for ${_display}."

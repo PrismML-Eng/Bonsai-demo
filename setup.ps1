@@ -229,7 +229,10 @@ function Download-GgufModel($Family, $Size) {
         $repo = "prism-ml/Ternary-Bonsai-${Size}-gguf"
         $dir = Join-Path $PSScriptRoot "models\ternary-gguf\$Size"
         $display = "Ternary-Bonsai-$Size"
-        $pattern = "*g64.gguf"
+        # both ternary formats: PQ2_0 (fork group-128) and official group-64 Q2_0
+        # (pre-v7 repos name it *_Q2_0_g64 / 27B *_Q2_g64); launcher picks per
+        # backend at runtime. See MODEL-FORMATS.md.
+        $pattern = "*-PQ2_0.gguf,*g64.gguf"
     } else {
         $repo = "prism-ml/Bonsai-${Size}-gguf"
         $dir = Join-Path $PSScriptRoot "models\gguf\$Size"

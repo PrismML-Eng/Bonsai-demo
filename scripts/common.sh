@@ -30,7 +30,9 @@ case "$BONSAI_MODEL" in
             ternary)
                 GGUF_MODEL_DIR="models/ternary-gguf/${BONSAI_MODEL}"
                 MLX_MODEL_DIR="models/Ternary-Bonsai-${BONSAI_MODEL}-mlx-2bit"
-                GGUF_QUANT_PATTERN="*g64.gguf"
+                # ternary selection is backend-aware; see select_model_gguf below
+                # and MODEL-FORMATS.md for the PQ2_0 / group-64 Q2_0 story
+                GGUF_QUANT_PATTERN=""
                 BONSAI_DISPLAY="Ternary-Bonsai-${BONSAI_MODEL}"
                 ;;
             # Anything else, including "all": paths stay empty; assert_valid_model
@@ -71,16 +73,64 @@ _assert_concrete_model() {
     fi
 }
 
-# True if the concrete GGUF file for the current family/size is present
-# (matching GGUF_QUANT_PATTERN, excluding the mmproj/dspark/kv-bias extras --
-# same filter run_llama.sh / start_llama_server.sh use to pick MODEL).
-bonsai_gguf_present() {
-    for _m in $GGUF_MODEL_DIR/$GGUF_QUANT_PATTERN; do
-        [ -f "$_m" ] || continue
-        case "$_m" in *mmproj*|*dspark*|*kv-bias*) continue ;; esac
-        return 0
+# Backends with optimized PQ2_0 (fork group-128) kernels. Update this registry as
+# kernel ports land; anything not listed falls back to the official group-64 Q2_0
+# files, which every backend supports. See MODEL-FORMATS.md.
+pq2_0_ready_backend() {
+    case "$1" in
+        mac|cpu|cuda|rocm|hip|local) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# Derive the backend name from a resolved llama-server binary path
+# (bin/<backend>/llama-server, or a local llama.cpp build -> "local").
+backend_from_bin() {
+    case "$1" in
+        */bin/mac/*)    echo mac ;;
+        */bin/cuda/*)   echo cuda ;;
+        */bin/rocm/*)   echo rocm ;;
+        */bin/hip/*)    echo hip ;;
+        */bin/vulkan/*) echo vulkan ;;
+        */bin/cpu/*)    echo cpu ;;
+        *)              echo local ;;
+    esac
+}
+
+# Print the model GGUF to use for the current family in dir $1, given backend $2
+# (optional; unknown/empty is treated as PQ2_0-ready).
+# Ternary preference order:
+#   1. *-PQ2_0.gguf        (fork group-128, when the backend has kernels for it)
+#   2. *g64.gguf           (official group-64 on pre-v7 repos: *_Q2_0_g64 / 27B *_Q2_g64)
+#   3. *-Q2_0.gguf         (official group-64 under its plain name on newer repos;
+#                           on pre-v7 repos this name is the DEPRECATED legacy file,
+#                           but those repos always carry a *g64.gguf so it is never
+#                           reached there unless only the legacy file is on disk)
+select_model_gguf() {
+    _smg_dir="$1"; _smg_backend="${2:-}"
+    if [ "$BONSAI_FAMILY" = "bonsai" ]; then
+        _smg_patterns="*-Q1_0.gguf"
+    else
+        _smg_patterns="*g64.gguf *-Q2_0.gguf"
+        if [ -z "$_smg_backend" ] || pq2_0_ready_backend "$_smg_backend"; then
+            _smg_patterns="*-PQ2_0.gguf $_smg_patterns"
+        fi
+    fi
+    for _smg_p in $_smg_patterns; do
+        for _smg_m in $_smg_dir/$_smg_p; do
+            [ -f "$_smg_m" ] || continue
+            case "$_smg_m" in *mmproj*|*dspark*|*kv-bias*) continue ;; esac
+            echo "$_smg_m"
+            return 0
+        done
     done
     return 1
+}
+
+# True if the concrete GGUF file for the current family/size is present
+# (excluding the mmproj/dspark/kv-bias extras -- same filter the launchers use).
+bonsai_gguf_present() {
+    select_model_gguf "$GGUF_MODEL_DIR" > /dev/null
 }
 
 # True if the MLX model for the current family/size is present.

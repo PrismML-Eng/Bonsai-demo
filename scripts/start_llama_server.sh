@@ -22,19 +22,25 @@ if curl -s --max-time 2 "http://localhost:$PORT/health" >/dev/null 2>&1; then
     exit 1
 fi
 
-# ── Find model: select exactly the demo quant for the family
-#    (a leftover F16 or g64 file must never be picked up) ──
-MODEL=""
-for _m in $GGUF_MODEL_DIR/$GGUF_QUANT_PATTERN; do
-    [ -f "$_m" ] || continue
-    case "$_m" in *mmproj*|*dspark*|*kv-bias*) continue ;; esac
-    MODEL="$DEMO_DIR/$_m" && break
+# ── Find binary first (its backend decides the ternary quant; see common.sh) ──
+BIN=""
+for _d in bin/mac bin/cuda bin/rocm bin/hip bin/vulkan bin/cpu llama.cpp/build/bin llama.cpp/build-mac/bin llama.cpp/build-cuda/bin; do
+    [ -f "$DEMO_DIR/$_d/llama-server" ] && BIN="$DEMO_DIR/$_d/llama-server" && break
 done
+if [ -z "$BIN" ]; then
+    err "llama-server not found. Run ./setup.sh or ./scripts/download_binaries.sh first."
+    exit 1
+fi
+BACKEND="$(backend_from_bin "$BIN")"
+
+# ── Find model: backend-aware selection, never the deprecated legacy Q2_0 ──
+MODEL="$(select_model_gguf "$GGUF_MODEL_DIR" "$BACKEND" || true)"
 if [ -z "$MODEL" ]; then
-    err "No ${GGUF_QUANT_PATTERN} model found in ${GGUF_MODEL_DIR}/."
+    err "No model file for ${BONSAI_DISPLAY} found in ${GGUF_MODEL_DIR}/."
     echo "  Re-run ./scripts/download_models.sh to fetch the model weights."
     exit 1
 fi
+MODEL="$DEMO_DIR/$MODEL"
 
 # ── Vision: use the multimodal projector when present (27B is a VLM) ──
 MMPROJ=""
@@ -44,16 +50,6 @@ done
 if [ "$BONSAI_MODEL" = "27B" ] && [ -z "$MMPROJ" ]; then
     warn "No mmproj file found in ${GGUF_MODEL_DIR}/ — image input disabled."
     echo "  Re-run ./scripts/download_models.sh to fetch it."
-fi
-
-# ── Find binary (search all known locations) ──
-BIN=""
-for _d in bin/mac bin/cuda bin/rocm bin/hip bin/vulkan bin/cpu llama.cpp/build/bin llama.cpp/build-mac/bin llama.cpp/build-cuda/bin; do
-    [ -f "$DEMO_DIR/$_d/llama-server" ] && BIN="$DEMO_DIR/$_d/llama-server" && break
-done
-if [ -z "$BIN" ]; then
-    err "llama-server not found. Run ./setup.sh or ./scripts/download_binaries.sh first."
-    exit 1
 fi
 
 BIN_DIR="$(cd "$(dirname "$BIN")" && pwd)"

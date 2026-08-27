@@ -27,10 +27,22 @@ if ($BonsaiFamily -eq "ternary") {
 
 # Select exactly the demo quant for the family (a leftover F16 or g64 file
 # must never be picked up).
-$QuantPattern = if ($BonsaiFamily -eq "ternary") { "*-Q2_0.gguf" } else { "*-Q1_0.gguf" }
-$Model = Get-ChildItem -Path $ModelDir -Filter $QuantPattern -File -ErrorAction SilentlyContinue |
-    Where-Object { $_.Name -notlike "*mmproj*" -and $_.Name -notlike "*dspark*" -and $_.Name -notlike "*kv-bias*" } |
-    Select-Object -First 1
+$Model = $null
+if ($BonsaiFamily -eq "ternary") {
+    # PQ2_0 first (fork group-128; CPU/CUDA/HIP builds), then official group-64
+    # (*g64 on pre-v7 repos, plain *-Q2_0 on newer repos). Vulkan builds have no
+    # PQ2_0 kernels yet: set BONSAI_FORCE_G64=1 to skip PQ2_0. See MODEL-FORMATS.md.
+    $tryPatterns = if ($env:BONSAI_FORCE_G64 -eq "1") { @("*g64.gguf", "*-Q2_0.gguf") }
+                   else { @("*-PQ2_0.gguf", "*g64.gguf", "*-Q2_0.gguf") }
+} else {
+    $tryPatterns = @("*-Q1_0.gguf")
+}
+foreach ($qp in $tryPatterns) {
+    $Model = Get-ChildItem -Path $ModelDir -Filter $qp -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -notlike "*mmproj*" -and $_.Name -notlike "*dspark*" -and $_.Name -notlike "*kv-bias*" } |
+        Select-Object -First 1
+    if ($Model) { break }
+}
 if (-not $Model) {
     Write-Host "[ERR] GGUF model not found for $FamilyDisplay-$BonsaiModel in $ModelDir" -ForegroundColor Red
     Write-Host "      Run .\setup.ps1 first." -ForegroundColor Yellow
