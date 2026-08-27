@@ -26,11 +26,9 @@ and lm head (the runtime borrows the target's), shrinking the drafter to about
 0.6 GB with unchanged acceptance. Measured on the 27B: +29% decode on an M5 Max,
 +73 to +93% on an L40S.
 
-⚠️ **Highly experimental.** Try it for fun and only if you know what you are doing; expect it to change and be polished in later releases. The path is currently stable and fast on CUDA; Apple Silicon (Metal) support will be improved in a later release, so do not expect a speedup on Macs yet.
+As of prism-v7, dspark rides on mainline llama.cpp's own DSpark implementation (upstream `draft-dspark`, [#25173](https://github.com/ggml-org/llama.cpp/pull/25173)) with a few fork-side patches on top (log-SNR conditioning, layout auto-detection from the model, the drafter converter; some of these will be proposed upstream). It is a supported path on both CUDA and Apple Silicon: at temperature 0 output is identical to normal decoding, and measured decode gains on the 27B are +29% on an M5 Max and +73 to +93% on an L40S, workload-dependent (code and reasoning draft best).
 
-**Fork-only.** The drafter runs on this demo's llama.cpp [binaries](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b9596-9fcaed7), not on mainline `ggml-org/llama.cpp`. Mainline now has its own DSpark ([#25173](https://github.com/ggml-org/llama.cpp/pull/25173)), but our drafter uses fork-specific GGUF packing (different tensor names, plus log-SNR conditioning mainline's graph doesn't have), so it fails to load with `gguf_init_from_reader: tensor 'dspark.fc.weight' has offset ..., expected ...` (tracked in [#26337](https://github.com/ggml-org/llama.cpp/issues/26337)).
-
-The 27B models ship with a paired **dspark drafter**: a small companion GGUF (`*dspark-Q4_1*.gguf`, downloaded automatically with the 27B weights) that drafts blocks of tokens for the target model to verify. On code and reasoning workloads this gives roughly **1.8-2x faster decode** on CUDA; acceptance is workload-dependent, so casual chat gains less. Output at temperature 0 is identical to normal decoding.
+The 27B models ship with a paired **dspark drafter**: a small companion GGUF (downloaded automatically with the 27B weights) that drafts blocks of tokens for the target model to verify. For older model releases the published drafter needs the one-time conversion above; newer releases ship ready-to-use drafters. On code and reasoning workloads this gives roughly **1.8-2x faster decode** on CUDA; acceptance is workload-dependent, so casual chat gains less. Output at temperature 0 is identical to normal decoding.
 
 Drafters are **target-specific**: each one only accelerates the exact model it was trained against. The demo downloads the matching drafter for whichever 27B family you use.
 

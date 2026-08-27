@@ -1,6 +1,6 @@
 # Ternary model formats and the prism-v7 migration
 
-The 2-bit (ternary) Bonsai GGUFs exist in three formats. This page says which file to
+The ternary Bonsai GGUFs exist in three formats. This page says which file to
 use, what changed in the prism-v7 migration, and why the current HuggingFace repos are
 named the way they are.
 
