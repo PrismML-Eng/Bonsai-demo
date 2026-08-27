@@ -1,8 +1,30 @@
 # Speculative decoding (experimental)
 
-> Note (prism-v7): the published 27B dspark drafter GGUFs predate the v7 format
-> convergence and do not load on v7 builds; re-exported drafters are in progress.
-> Speculative decoding is unavailable until they ship.
+> Note (prism-v7): the published 27B dspark drafter GGUFs for OLDER model releases
+> predate the v7 format convergence and do not load on v7 builds as-is. Convert
+> them once with the two commands below; newer model releases ship ready-to-use
+> drafters and need no conversion.
+
+## Converting the published drafter (older models)
+
+The converter ships with the fork (gguf-py, command `gguf-dspark-to-dflash`).
+Convert from the published bf16 drafter (NOT the Q4_1, which contains a legacy
+tensor), using the target model as the tokenizer donor, then quantize:
+
+```
+gguf-dspark-to-dflash --drop-shared-tensors \
+    models/ternary-gguf/27B/Ternary-Bonsai-27B-dspark-bf16.gguf \
+    models/ternary-gguf/27B/Ternary-Bonsai-27B-PQ2_0.gguf \
+    /tmp/drafter-conv.gguf
+llama-quantize /tmp/drafter-conv.gguf \
+    models/ternary-gguf/27B/Ternary-Bonsai-27B-dspark-dflash-Q4_0.gguf Q4_0
+```
+
+The output name must keep `dspark-dflash` in it, which is what
+`BONSAI_SPECULATIVE=1` looks for. `--drop-shared-tensors` omits the embedding
+and lm head (the runtime borrows the target's), shrinking the drafter to about
+0.6 GB with unchanged acceptance. Measured on the 27B: +29% decode on an M5 Max,
++73 to +93% on an L40S.
 
 ⚠️ **Highly experimental.** Try it for fun and only if you know what you are doing; expect it to change and be polished in later releases. The path is currently stable and fast on CUDA; Apple Silicon (Metal) support will be improved in a later release, so do not expect a speedup on Macs yet.
 

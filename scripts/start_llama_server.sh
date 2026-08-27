@@ -95,7 +95,11 @@ if [ "$BONSAI_MODEL" = "27B" ]; then
     _spec_flags=""
     _ctx="$CTX_SIZE_DEFAULT"
     if [ "${BONSAI_SPECULATIVE:-0}" = "1" ]; then
-        for _md in "$GGUF_MODEL_DIR"/*dspark-Q4_1*.gguf; do
+        # v7 builds read only converted (arch=dflash) drafters; the published legacy
+        # *dspark-Q4_1/bf16 files must be run through gguf-dspark-to-dflash first.
+        # See SPECULATIVE.md for the two commands. Converted files keep "dspark-dflash"
+        # in their name so they are found here (and never picked as the main model).
+        for _md in "$GGUF_MODEL_DIR"/*dspark-dflash*.gguf; do
             [ -f "$_md" ] && MD="$DEMO_DIR/$_md" && break
         done
         if [ -n "$MD" ]; then
@@ -108,7 +112,8 @@ if [ "$BONSAI_MODEL" = "27B" ]; then
             case "${BONSAI_CTX:-0}" in 0|"") _ctx=16384 ;; esac
             echo "  Speculative: $(basename "$MD") (draft-dspark, n-max $_nmax)"
         else
-            warn "BONSAI_SPECULATIVE=1 but no *dspark-Q4_1*.gguf drafter in ${GGUF_MODEL_DIR}/; running without speculation."
+            warn "BONSAI_SPECULATIVE=1 but no converted *dspark-dflash*.gguf drafter in ${GGUF_MODEL_DIR}/; running without speculation."
+            echo "  Convert the published drafter once (see SPECULATIVE.md, section 'Converting the published drafter')."
             echo "  Re-run ./scripts/download_models.sh to fetch it."
         fi
     fi
