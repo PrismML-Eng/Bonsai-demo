@@ -42,17 +42,33 @@ if ($BonsaiFamily -eq "ternary") {
 $Display = "$FamilyDisplay-$BonsaiModel"
 # Select exactly the demo quant for the family (a leftover F16 or g64 file
 # must never be picked up).
+$BinCandidates = @(
+    "bin\cuda\llama-server.exe",
+    "bin\hip\llama-server.exe",
+    "bin\vulkan\llama-server.exe",
+    "bin\cpu\llama-server.exe",
+    "llama.cpp\build\bin\Release\llama-server.exe",
+    "llama.cpp\build\bin\llama-server.exe"
+)
 $Model = $null
+$BinRel = $null
+foreach ($cand in $BinCandidates) {
+    if (Test-Path (Join-Path $DemoDir $cand)) { $BinRel = $cand; break }
+}
+$Pq2Ready = $BinRel -notlike "bin\vulkan\*"
 if ($BonsaiFamily -eq "ternary") {
-    # PQ2_0 first (fork group-128; CPU/CUDA/HIP builds), then official group-64
-    # (*g64 on pre-v7 repos, plain *-Q2_0 on newer repos). Vulkan builds have no
-    # PQ2_0 kernels yet: set BONSAI_FORCE_G64=1 to skip PQ2_0. See MODEL-FORMATS.md.
-    $tryPatterns = if ($env:BONSAI_FORCE_G64 -eq "1") { @("*g64.gguf", "*-Q2_0.gguf") }
+    # PQ2_0 where the backend has kernels (see MODEL-FORMATS.md); official group-64
+    # otherwise (*g64 on pre-v7 repos, plain *-Q2_0 on newer repos).
+    # BONSAI_FORCE_G64=1 skips PQ2_0 regardless of backend.
+    $tryPatterns = if ($env:BONSAI_FORCE_G64 -eq "1" -or -not $Pq2Ready) { @("*g64.gguf", "*-Q2_0.gguf") }
                    else { @("*-PQ2_0.gguf", "*g64.gguf", "*-Q2_0.gguf") }
 } else {
     $tryPatterns = @("*-Q1_0.gguf")
 }
 foreach ($qp in $tryPatterns) {
+    # plain *-Q2_0.gguf is only trusted with the downloader's .official-q2_0 marker
+    # (newer repos); otherwise it is a deprecated legacy leftover v7 refuses to load
+    if ($qp -eq "*-Q2_0.gguf" -and -not (Test-Path (Join-Path $ModelDir ".official-q2_0"))) { continue }
     $Model = Get-ChildItem -Path $ModelDir -Filter $qp -File -ErrorAction SilentlyContinue |
         Where-Object { $_.Name -notlike "*mmproj*" -and $_.Name -notlike "*dspark*" -and $_.Name -notlike "*kv-bias*" } |
         Select-Object -First 1
@@ -71,15 +87,6 @@ if ($BonsaiModel -eq "27B" -and -not $Mmproj) {
     Write-Host "       Re-run setup.ps1 to fetch it." -ForegroundColor Yellow
 }
 
-$BinCandidates = @(
-    "bin\cuda\llama-server.exe",
-    "bin\hip\llama-server.exe",
-    "bin\vulkan\llama-server.exe",
-    "bin\cpu\llama-server.exe",
-    "llama.cpp\build\bin\Release\llama-server.exe",
-    "llama.cpp\build\bin\llama-server.exe"
-)
-$BinRel = $BinCandidates | Where-Object { Test-Path (Join-Path $DemoDir $_) } | Select-Object -First 1
 if (-not $BinRel) {
     Write-Host "[ERR] llama-server.exe not found. Run .\setup.ps1 first." -ForegroundColor Red
     exit 1
@@ -146,7 +153,9 @@ if ($BonsaiModel -eq "27B") {
     $Ctx = $CtxDefault
     $SpecArgs = @()
     if ($env:BONSAI_SPECULATIVE -eq "1") {
-        $Drafter = Get-ChildItem -Path $ModelDir -Filter *dspark-Q4_1*.gguf -File -ErrorAction SilentlyContinue | Select-Object -First 1
+        # v7 builds read only converted (arch=dflash) drafters; convert the downloaded
+        # bf16 sidecar once with gguf-dspark-to-dflash (see SPECULATIVE.md)
+        $Drafter = Get-ChildItem -Path $ModelDir -Filter *dspark-dflash*.gguf -File -ErrorAction SilentlyContinue | Select-Object -First 1
         if ($Drafter) {
             $Nmax = if ($env:BONSAI_SPEC_NMAX) { $env:BONSAI_SPEC_NMAX } else { "4" }
             $SpecArgs = @("-md", $Drafter.FullName, "--spec-type", "draft-dspark", "--spec-draft-n-max", $Nmax, "-ngld", "999", "-np", "1")
@@ -156,7 +165,8 @@ if ($BonsaiModel -eq "27B") {
             if (-not $env:BONSAI_CTX -or $env:BONSAI_CTX -eq "0") { $Ctx = "16384" }
             Write-Host "  Speculative: $($Drafter.Name) (draft-dspark, n-max $Nmax)" -ForegroundColor Green
         } else {
-            Write-Host "[WARN] BONSAI_SPECULATIVE=1 but no *dspark-Q4_1*.gguf drafter in $ModelDir - running without speculation." -ForegroundColor Yellow
+            Write-Host "[WARN] BONSAI_SPECULATIVE=1 but no converted *dspark-dflash*.gguf drafter in $ModelDir - running without speculation." -ForegroundColor Yellow
+            Write-Host "       Convert the downloaded bf16 drafter once (see SPECULATIVE.md, section 'Converting the published drafter')." -ForegroundColor Yellow
         }
     }
     # 4-bit KV cache (opt-in, BONSAI_KV4=1): stores the KV cache in Q4_0 to cut

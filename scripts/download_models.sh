@@ -103,12 +103,22 @@ download_one() {
             _gguf_dir="models/ternary-gguf/${_size}"
             _mlx_dir="models/Ternary-Bonsai-${_size}-mlx-2bit"
             _display="Ternary-Bonsai-${_size}"
-            # both ternary formats: PQ2_0 (fork group-128) and the official group-64
-            # Q2_0 (pre-v7 repos name it *_Q2_0_g64 / 27B *_Q2_g64). The launcher picks
-            # per backend at runtime; see select_model_gguf in common.sh and
-            # MODEL-FORMATS.md. Newer repos ship the official file as plain *-Q2_0.gguf;
-            # download_one falls back to that name when no *g64 file exists in the repo.
-            _gguf_pattern="*-PQ2_0.gguf,*g64.gguf"
+            # ternary: download only the format the installed backend will use
+            # (PQ2_0 where it has kernels, official group-64 otherwise; both when no
+            # binary is installed yet). See select_model_gguf in common.sh and
+            # MODEL-FORMATS.md. Newer repos ship the official file as plain
+            # *-Q2_0.gguf; download_one falls back to that name when no *g64 exists.
+            _dl_backend=""
+            for _bd in bin/mac bin/cuda bin/rocm bin/hip bin/vulkan bin/cpu; do
+                [ -d "$_bd" ] && _dl_backend="${_bd#bin/}" && break
+            done
+            if [ -z "$_dl_backend" ]; then
+                _gguf_pattern="*-PQ2_0.gguf,*g64.gguf"
+            elif pq2_0_ready_backend "$_dl_backend"; then
+                _gguf_pattern="*-PQ2_0.gguf"
+            else
+                _gguf_pattern="*g64.gguf"
+            fi
             ;;
     esac
 
@@ -121,7 +131,9 @@ download_one() {
     _drafter_pattern=""
     if [ "$_size" = "27B" ]; then
         _mmproj_pattern="*mmproj*.gguf"
-        _drafter_pattern="*dspark-Q4_1*.gguf"
+        # the bf16 drafter is the input for the one-time gguf-dspark-to-dflash
+        # conversion (see SPECULATIVE.md); the legacy Q4_1 sidecar cannot load on v7
+        _drafter_pattern="*dspark-bf16*.gguf"
         _dl_patterns="$_gguf_pattern,$_mmproj_pattern,$_drafter_pattern"
     fi
 
@@ -139,6 +151,8 @@ download_one() {
             for _p in $_gguf_check_pattern; do
                 ls "$_gguf_dir"/$_p >/dev/null 2>&1 && return 0
             done
+            # a previous run that fell back to the plain official name marked the dir
+            [ -f "$_gguf_dir/.official-q2_0" ] && ls "$_gguf_dir"/*-Q2_0.gguf >/dev/null 2>&1 && return 0
             return 1
         }
         if [ -d "$_gguf_dir" ] && _gguf_any_present; then
@@ -164,6 +178,9 @@ download_one() {
                     err "Download reported success but no usable model file was written to ${_gguf_dir}/."
                     exit 1
                 fi
+                # mark the dir: its plain-named Q2_0 is the OFFICIAL group-64 file, so
+                # the selector and the presence fast-path may trust that name here
+                touch "$_gguf_dir/.official-q2_0"
             fi
             if [ -n "$_mmproj_pattern" ] && ! ls "$_gguf_dir"/$_mmproj_pattern >/dev/null 2>&1; then
                 warn "No ${_mmproj_pattern} file in ${_gguf_repo} — image input will be disabled for ${_display}."

@@ -28,7 +28,7 @@ and lm head (the runtime borrows the target's), shrinking the drafter to about
 
 As of prism-v7, dspark rides on mainline llama.cpp's own DSpark implementation (upstream `draft-dspark`, [#25173](https://github.com/ggml-org/llama.cpp/pull/25173)) with a few fork-side patches on top (log-SNR conditioning, layout auto-detection from the model, the drafter converter; some of these will be proposed upstream). It is a supported path on both CUDA and Apple Silicon: at temperature 0 output is identical to normal decoding, and measured decode gains on the 27B are +29% on an M5 Max and +73 to +93% on an L40S, workload-dependent (code and reasoning draft best).
 
-The 27B models ship with a paired **dspark drafter**: a small companion GGUF (downloaded automatically with the 27B weights) that drafts blocks of tokens for the target model to verify. For older model releases the published drafter needs the one-time conversion above; newer releases ship ready-to-use drafters. On code and reasoning workloads this gives roughly **1.8-2x faster decode** on CUDA; acceptance is workload-dependent, so casual chat gains less. Output at temperature 0 is identical to normal decoding.
+The 27B models ship with a paired **dspark drafter**: a small companion GGUF that drafts blocks of tokens for the target model to verify. The downloader fetches the bf16 drafter automatically with the 27B weights; for older model releases run the one-time conversion above to produce the loadable file, while newer releases ship ready-to-use drafters. On code and reasoning workloads this gives roughly **1.8-2x faster decode** on CUDA; acceptance is workload-dependent, so casual chat gains less. Output at temperature 0 is identical to normal decoding.
 
 Drafters are **target-specific**: each one only accelerates the exact model it was trained against. The demo downloads the matching drafter for whichever 27B family you use.
 
@@ -54,7 +54,7 @@ If you run llama-server directly instead of through the start script, this is th
 ```bash
 bin/cuda/llama-server \
   -m models/ternary-gguf/27B/Ternary-Bonsai-27B-Q2_g64.gguf \
-  -md models/ternary-gguf/27B/Ternary-Bonsai-27B-dspark-Q4_1.gguf \
+  -md models/ternary-gguf/27B/Ternary-Bonsai-27B-dspark-dflash-Q4_0.gguf \
   --spec-type draft-dspark --spec-draft-n-max 4 \
   -ngl 999 -ngld 999 -fa on -c 16384 -np 1 \
   --host 127.0.0.1 --port 8080
@@ -93,7 +93,7 @@ Each API response's `timings` object includes `draft_n` and `draft_n_accepted`. 
 ```bash
 bin/mac/llama-speculative-simple \
   -m models/ternary-gguf/27B/Ternary-Bonsai-27B-Q2_g64.gguf \
-  -md models/ternary-gguf/27B/Ternary-Bonsai-27B-dspark-Q4_1.gguf \
+  -md models/ternary-gguf/27B/Ternary-Bonsai-27B-dspark-dflash-Q4_0.gguf \
   --spec-type draft-dspark --spec-draft-n-max 4 \
   -ngl 999 -ngld 999 -c 8192 -n 400 --temp 0 -e \
   -p "<|im_start|>user\nImplement binary search in Python.<|im_end|>\n<|im_start|>assistant\n"

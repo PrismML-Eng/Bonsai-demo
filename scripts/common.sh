@@ -117,6 +117,13 @@ select_model_gguf() {
         fi
     fi
     for _smg_p in $_smg_patterns; do
+        # plain *-Q2_0.gguf is only trusted when the downloader marked the dir as
+        # holding the OFFICIAL plain-named file (newer repos). Without the marker a
+        # plain Q2_0 file is a deprecated legacy leftover from a pre-v7 install,
+        # which v7 binaries refuse; skipping it here lets the download prompt fire.
+        if [ "$_smg_p" = "*-Q2_0.gguf" ] && [ ! -f "$_smg_dir/.official-q2_0" ]; then
+            continue
+        fi
         for _smg_m in $_smg_dir/$_smg_p; do
             [ -f "$_smg_m" ] || continue
             case "$_smg_m" in *mmproj*|*dspark*|*kv-bias*) continue ;; esac

@@ -150,7 +150,11 @@ else
     # Find model + binary: select exactly the demo quant for the family
     # (a leftover F16 or g64 file must never be picked up).
     _model=""
-    _model="$(select_model_gguf "$GGUF_MODEL_DIR" || true)"
+    _owb_backend=""
+    for _bd in bin/mac bin/cuda bin/rocm bin/hip bin/vulkan bin/cpu; do
+        [ -f "$_bd/llama-server" ] && _owb_backend="${_bd#bin/}" && break
+    done
+    _model="$(select_model_gguf "$GGUF_MODEL_DIR" "$_owb_backend" || true)"
     [ -n "$_model" ] && _model="$DEMO_DIR/$_model"
     _bin=""
     for _d in bin/mac bin/cuda bin/rocm bin/hip bin/vulkan bin/cpu llama.cpp/build/bin llama.cpp/build-mac/bin llama.cpp/build-cuda/bin; do

@@ -27,17 +27,33 @@ if ($BonsaiFamily -eq "ternary") {
 
 # Select exactly the demo quant for the family (a leftover F16 or g64 file
 # must never be picked up).
+$BinCandidates = @(
+    "bin\cuda\llama-cli.exe",
+    "bin\hip\llama-cli.exe",
+    "bin\vulkan\llama-cli.exe",
+    "bin\cpu\llama-cli.exe",
+    "llama.cpp\build\bin\Release\llama-cli.exe",
+    "llama.cpp\build\bin\llama-cli.exe"
+)
 $Model = $null
+$BinRel = $null
+foreach ($cand in $BinCandidates) {
+    if (Test-Path (Join-Path $DemoDir $cand)) { $BinRel = $cand; break }
+}
+$Pq2Ready = $BinRel -notlike "bin\vulkan\*"
 if ($BonsaiFamily -eq "ternary") {
-    # PQ2_0 first (fork group-128; CPU/CUDA/HIP builds), then official group-64
-    # (*g64 on pre-v7 repos, plain *-Q2_0 on newer repos). Vulkan builds have no
-    # PQ2_0 kernels yet: set BONSAI_FORCE_G64=1 to skip PQ2_0. See MODEL-FORMATS.md.
-    $tryPatterns = if ($env:BONSAI_FORCE_G64 -eq "1") { @("*g64.gguf", "*-Q2_0.gguf") }
+    # PQ2_0 where the backend has kernels (see MODEL-FORMATS.md); official group-64
+    # otherwise (*g64 on pre-v7 repos, plain *-Q2_0 on newer repos).
+    # BONSAI_FORCE_G64=1 skips PQ2_0 regardless of backend.
+    $tryPatterns = if ($env:BONSAI_FORCE_G64 -eq "1" -or -not $Pq2Ready) { @("*g64.gguf", "*-Q2_0.gguf") }
                    else { @("*-PQ2_0.gguf", "*g64.gguf", "*-Q2_0.gguf") }
 } else {
     $tryPatterns = @("*-Q1_0.gguf")
 }
 foreach ($qp in $tryPatterns) {
+    # plain *-Q2_0.gguf is only trusted with the downloader's .official-q2_0 marker
+    # (newer repos); otherwise it is a deprecated legacy leftover v7 refuses to load
+    if ($qp -eq "*-Q2_0.gguf" -and -not (Test-Path (Join-Path $ModelDir ".official-q2_0"))) { continue }
     $Model = Get-ChildItem -Path $ModelDir -Filter $qp -File -ErrorAction SilentlyContinue |
         Where-Object { $_.Name -notlike "*mmproj*" -and $_.Name -notlike "*dspark*" -and $_.Name -notlike "*kv-bias*" } |
         Select-Object -First 1
@@ -49,15 +65,6 @@ if (-not $Model) {
     exit 1
 }
 
-$BinCandidates = @(
-    "bin\cuda\llama-cli.exe",
-    "bin\hip\llama-cli.exe",
-    "bin\vulkan\llama-cli.exe",
-    "bin\cpu\llama-cli.exe",
-    "llama.cpp\build\bin\Release\llama-cli.exe",
-    "llama.cpp\build\bin\llama-cli.exe"
-)
-$BinRel = $BinCandidates | Where-Object { Test-Path (Join-Path $DemoDir $_) } | Select-Object -First 1
 if (-not $BinRel) {
     Write-Host "[ERR] llama-cli.exe not found. Run .\setup.ps1 first." -ForegroundColor Red
     exit 1
