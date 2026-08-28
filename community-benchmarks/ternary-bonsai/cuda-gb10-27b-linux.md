@@ -19,9 +19,13 @@ build: e311ed38f (10660)
 
 The tg128 test was run separately with `-p 0 -n 128 -r 5` because the combined invocation emitted only pp512 for this model.
 
-## Group-64 Q2_0 Attempt
+## Group-64 Q2_0
 
-Following the current submission guidance, the separately published `Ternary-Bonsai-27B-Q2_0.gguf` (SHA-256 `868c11714cf8fe47f5ec9eeb2be0ab1a337112886f92ee0ede6b855c4fa31757`) was also downloaded and tested with the same command. Build 10660 refused it before benchmarking: the file uses the legacy Prism group-128 layout under ggml type ID 42, while current builds interpret Q2_0 as official group-64. The model repository exposed no separate `_g64` file at the time of testing, so no comparable group-64 result could be recorded.
+Not measured in this submission. The file first grabbed for this test, `Ternary-Bonsai-27B-Q2_0.gguf`, is the legacy pre-migration pack, and build 10660 refused it as designed. The actual group-64 file does exist in the repository as `Ternary-Bonsai-27B-Q2_g64.gguf` (7.06 GiB; note the 27B naming differs from the smaller sizes' `*-Q2_0_g64.gguf`) - a follow-up run on this hardware is welcome:
+
+```bash
+hf download prism-ml/Ternary-Bonsai-27B-GGUF --include "*Q2_g64*" --local-dir models/ternary-gguf/27B
+```
 
 ## DSpark Results
 
