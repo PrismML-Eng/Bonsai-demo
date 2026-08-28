@@ -10,7 +10,10 @@ $VenvPy  = Join-Path $VenvDir "Scripts\python.exe"
 # v7 binaries read the official group-64 Q2_0 files and PQ2_0; they do NOT read
 # the legacy *-Q2_0.gguf files that pre-v7 releases used.
 $ReleaseTag = "prism-b10658-4725def"
-$WinAssetTag = "prism-b1-9fcaed7"                    # Windows builds use shortened tag
+# The windows-cuda release job currently misnumbers its asset as b1-<sha> (fork
+# issue #111, fixed by llama.cpp #132); until a release ships that fix, the CUDA
+# zip must be addressed by this literal name. Keep in sync with $ReleaseTag's sha.
+$WinAssetTag = "prism-b1-4725def"
 $BaseUrl = "https://github.com/PrismML-Eng/llama.cpp/releases/download/$ReleaseTag"
 
 $BonsaiModel  = if ($env:BONSAI_MODEL)  { $env:BONSAI_MODEL }  else { "27B" }
