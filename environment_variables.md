@@ -9,7 +9,7 @@ Every script in this repo is driven by environment variables — model selection
 | **Model & setup** | | | |
 | `BONSAI_FAMILY` | `ternary` | `ternary`, `bonsai`, `all` | Model family. `ternary` = Ternary-Bonsai; `bonsai` = 1-bit Bonsai. `all` expands to both families (setup/download only). |
 | `BONSAI_MODEL` | `27B` | `27B`, `8B`, `4B`, `1.7B`, `all` | Model size. `all` expands to all four sizes (setup/download only). |
-| `BONSAI_TOKEN` | — | HF read-only token | Only needed for the 27B models while their repos are private (removed at launch). May also be stored in a gitignored `.bonsai_token` file. |
+| `BONSAI_TOKEN` | — | HF read-only token | No longer needed: all model repos are public. Kept for compatibility; if set, it is passed to the HF downloads. |
 | `BONSAI_SKIP_GGUF` | unset | `1` | Skip the GGUF download entirely (macOS MLX-only setups, saves disk space). The llama.cpp scripts then point you at the MLX ones instead (see "Running the Model" below). |
 | `BONSAI_SKIP_MLX` | unset | `1` | Skip the MLX download (macOS only; MLX is skipped automatically on Intel Macs and non-macOS). |
 | `BONSAI_OPENWEBUI` | `1` | `0` | Skip installing Open WebUI during `setup.sh`. (`setup.sh` only installs it — the demo is launched separately with `./scripts/start_openwebui.sh`.) |
@@ -19,7 +19,8 @@ Every script in this repo is driven by environment variables — model selection
 | `BONSAI_NGL` | auto-detect | any int; `0` = CPU-only | Override GPU layer offload. Auto-detect keys on installed tooling, so weak iGPUs can be better with `0`. |
 | `BONSAI_IMAGE_MAX_TOKENS` | `1024` on Metal/Vulkan/CPU; uncapped on CUDA/ROCm | number; `0` = uncapped | Cap on vision tokens per image (27B). `0` restores full detail (best for OCR / screenshots / small text) but is slower on large images. |
 | `BONSAI_MMPROJ_CPU` | unset | `1` | Keep the 27B vision projector in system RAM instead of VRAM (`--no-mmproj-offload`), freeing ~0.9 GiB for KV/context; slower image prefill. |
-| `BONSAI_SPECULATIVE` | `0` | `1` | Enable speculative decoding with the paired dspark drafter (~1.8–2x decode on code/reasoning; CUDA — not recommended on Apple Silicon yet). Opt-in, server-only. [SPECULATIVE.md](SPECULATIVE.md) |
+| `BONSAI_SPECULATIVE` | `0` | `1` | Enable speculative decoding with the paired dspark drafter (CUDA: 1.8-2.4x decode for ternary, 1.4-1.75x for 1-bit, code/math best; not recommended on Apple Silicon — only ternary code/math gains there). Opt-in, server-only. [SPECULATIVE.md](SPECULATIVE.md) |
+| `PORT` | `8080` | Port for `start_llama_server.sh`. |
 | `BONSAI_SPEC_NMAX` | `4` | int | dspark draft n-max override (PowerShell scripts only). |
 | `BONSAI_KV4` | `0` | `1` | 4-bit (Q4_0) KV cache, ~3.5x less KV memory for very long contexts; decode slightly slower than F16. Optional calibration bias via `./scripts/make_kv_bias.sh`. [KV-CACHE.md](KV-CACHE.md) |
 | **MLX server** | | | |

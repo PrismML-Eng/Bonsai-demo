@@ -10,7 +10,9 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 DEMO_DIR="$(resolve_demo_dir)"
 cd "$DEMO_DIR"
 
-RELEASE_TAG="prism-b9596-9fcaed7"
+# v7 binaries read the official group-64 Q2_0 files and PQ2_0; they do NOT read
+# the legacy *-Q2_0.gguf files that pre-v7 releases used.
+RELEASE_TAG="prism-b10660-e311ed3"
 BASE_URL="https://github.com/PrismML-Eng/llama.cpp/releases/download/$RELEASE_TAG"
 
 OS="$(uname -s)"

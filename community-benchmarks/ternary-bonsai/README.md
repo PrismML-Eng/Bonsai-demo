@@ -9,9 +9,10 @@ Benchmark results submitted by the community running [Ternary-Bonsai](https://hu
 | Hardware | Backend | PP512 (t/s) | TG128 (t/s) | DSpark TG (t/s) | Details |
 |----------|---------|------------:|------------:|----------------:|---------|
 | NVIDIA RTX PRO 6000 Blackwell 96 GB | llama.cpp CUDA | 4,552 | 129.9 | | [link](cuda-rtx-pro-6000-blackwell-linux.md) |
-| NVIDIA L40S 48 GB | llama.cpp CUDA | 2,881 | 70.1 | ~87-103 (1.6-1.8x) | [link](cuda-l40s-linux.md) |
+| NVIDIA L40S 48 GB | llama.cpp CUDA | 3,036 | 74.3 | ~133-175 (1.8-2.4x) | [link](cuda-l40s-linux.md) |
 | NVIDIA RTX 4070 Ti SUPER 16 GB | llama.cpp CUDA (Windows) | 1,717 | 69.6 | | [link](cuda-rtx4070tisuper-windows.md) |
 | NVIDIA RTX A5000 24 GB | llama.cpp CUDA | 1,036 | 48.2 | | [link](cuda-rtxa5000-ubuntu.md) |
+| Apple M5 Max 48 GB | llama.cpp Metal | 816 | 45.8 | ~1.2x code/math only | [link](metal-m5-max-48gb-macos.md) |
 | NVIDIA RTX 5060 Ti 16 GB | llama.cpp CUDA | 1,029 | 44.4 | ~79 (1.78x) | [link](cuda-rtx5060ti-linux.md) |
 | Apple M5 Pro 64 GB | MLX 2-bit | 466 | 29.5 | 34-49 (community dspark-mlx) | [link](mlx-m5-pro-macos.md) |
 | Apple M5 Pro 64 GB | llama.cpp Metal | 130 | 26.5 | | [link](mlx-m5-pro-macos.md) |
@@ -30,7 +31,15 @@ Benchmark results submitted by the community running [Ternary-Bonsai](https://hu
 
 ## Available Formats
 
-- **GGUF** (`Q2_0`):
+Since the llama.cpp fork's rebase onto current mainline (releases `prism-b10658` and newer) there are **two ternary GGUF formats**, and benchmark submissions should include both where possible:
+
+- **`PQ2_0`** — our group-128 packing (`*-PQ2_0.gguf`). Smallest file (27B: 6.66 GiB) and usually fastest where supported (CUDA, Metal, CPU, ROCm).
+- **`Q2_0` group-64** — the official upstream format (27B: `Ternary-Bonsai-27B-Q2_g64.gguf`; 8B/4B/1.7B: `*-Q2_0_g64.gguf`). Slightly larger (27B: 7.05 GiB), widest backend coverage (adds Vulkan and SYCL).
+- The **legacy `*-Q2_0.gguf` files** (no `g64` in the name) predate the migration: they still work on the old `prism-v5` releases, but `prism-b10658+` builds refuse them with an error pointing at the two formats above. Don't benchmark those on new builds.
+
+Repos:
+
+- **GGUF**:
   - [prism-ml/Ternary-Bonsai-27B-gguf](https://huggingface.co/prism-ml/Ternary-Bonsai-27B-gguf)
   - [prism-ml/Ternary-Bonsai-8B-gguf](https://huggingface.co/prism-ml/Ternary-Bonsai-8B-gguf)
   - [prism-ml/Ternary-Bonsai-4B-gguf](https://huggingface.co/prism-ml/Ternary-Bonsai-4B-gguf)

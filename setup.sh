@@ -259,17 +259,19 @@ uv sync
 info "Base deps installed (cmake, ninja, setuptools, huggingface-cli)."
 
 # ────────────────────────────────────────────────────
-#  6. Download models from HuggingFace
+#  6. llama.cpp pre-built binaries
+# ────────────────────────────────────────────────────
+# Binaries come FIRST so the model downloader knows the backend and fetches a
+# single ternary format (PQ2_0 where the backend has kernels, group-64 Q2_0
+# otherwise) instead of both. The downloader fast-skips when the installed
+# binaries already match the pinned release, and refreshes on a pin change.
+sh "$SCRIPT_DIR/scripts/download_binaries.sh"
+
+# ────────────────────────────────────────────────────
+#  7. Download models from HuggingFace
 # ────────────────────────────────────────────────────
 step "Model download (BONSAI_FAMILY=${BONSAI_FAMILY} BONSAI_MODEL=${BONSAI_MODEL}) ..."
 BONSAI_FAMILY="$BONSAI_FAMILY" BONSAI_MODEL="$BONSAI_MODEL" sh "$SCRIPT_DIR/scripts/download_models.sh"
-
-# ────────────────────────────────────────────────────
-#  7. llama.cpp pre-built binaries
-# ────────────────────────────────────────────────────
-# Always defer to the downloader: it fast-skips when the installed binaries
-# already match the pinned release, and refreshes them when the pin changed.
-sh "$SCRIPT_DIR/scripts/download_binaries.sh"
 
 chmod +x "$SCRIPT_DIR"/scripts/*.sh 2>/dev/null || true
 

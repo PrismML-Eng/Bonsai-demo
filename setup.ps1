@@ -7,8 +7,9 @@ $PythonVersion = "3.11"
 $VenvDir = Join-Path $PSScriptRoot ".venv"
 $VenvPy  = Join-Path $VenvDir "Scripts\python.exe"
 
-$ReleaseTag = "prism-b9596-9fcaed7"
-$WinAssetTag = "prism-b1-9fcaed7"                    # Windows builds use shortened tag
+# v7 binaries read the official group-64 Q2_0 files and PQ2_0; they do NOT read
+# the legacy *-Q2_0.gguf files that pre-v7 releases used.
+$ReleaseTag = "prism-b10660-e311ed3"
 $BaseUrl = "https://github.com/PrismML-Eng/llama.cpp/releases/download/$ReleaseTag"
 
 $BonsaiModel  = if ($env:BONSAI_MODEL)  { $env:BONSAI_MODEL }  else { "27B" }
@@ -229,28 +230,38 @@ function Download-GgufModel($Family, $Size) {
         $repo = "prism-ml/Ternary-Bonsai-${Size}-gguf"
         $dir = Join-Path $PSScriptRoot "models\ternary-gguf\$Size"
         $display = "Ternary-Bonsai-$Size"
-        $pattern = "*-Q2_0.gguf"
+        # both ternary formats: PQ2_0 (fork group-128) and official group-64 Q2_0
+        # (pre-v7 repos name it *_Q2_0_g64 / 27B *_Q2_g64); launcher picks per
+        # backend at runtime. See MODEL-FORMATS.md. Must stay separate patterns:
+        # Get-ChildItem -Filter and the HF CLI both treat a comma string as one literal.
+        $patterns = @("*-PQ2_0.gguf", "*g64.gguf")
     } else {
         $repo = "prism-ml/Bonsai-${Size}-gguf"
         $dir = Join-Path $PSScriptRoot "models\gguf\$Size"
         $display = "Bonsai-$Size"
-        $pattern = "*-Q1_0.gguf"
+        $patterns = @("*-Q1_0.gguf")
     }
 
     # 27B extras: the mmproj (multimodal projector) for image input, and the
     # paired dspark drafter for optional speculative decoding (BONSAI_SPECULATIVE=1).
     $mmprojPattern = if ($Size -eq "27B") { "*mmproj*.gguf" } else { $null }
-    $drafterPattern = if ($Size -eq "27B") { "*dspark-Q4_1*.gguf" } else { $null }
+    # bf16 drafter = conversion input for speculative decoding (see SPECULATIVE.md);
+    # the legacy Q4_1 sidecar cannot load on v7 builds
+    $drafterPattern = if ($Size -eq "27B") { "*dspark-bf16*.gguf" } else { $null }
 
     # Fast-path and post-download checks both filter on the target quant
     # pattern (not just any *.gguf) so a leftover F16 or other quant from an
     # earlier download doesn't get picked up at runtime. For 27B the fast-path
     # also requires the mmproj + drafter so a re-run backfills vision + speculative.
-    $quantPresent = Get-ChildItem -Path $dir -Filter $pattern -File -ErrorAction SilentlyContinue | Select-Object -First 1
+    $quantPresent = $null
+    foreach ($p in $patterns) {
+        $quantPresent = Get-ChildItem -Path $dir -Filter $p -File -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($quantPresent) { break }
+    }
     $mmprojPresent = if ($mmprojPattern) { Get-ChildItem -Path $dir -Filter $mmprojPattern -File -ErrorAction SilentlyContinue | Select-Object -First 1 } else { $true }
     $drafterPresent = if ($drafterPattern) { Get-ChildItem -Path $dir -Filter $drafterPattern -File -ErrorAction SilentlyContinue | Select-Object -First 1 } else { $true }
     if ($quantPresent -and $mmprojPresent -and $drafterPresent) {
-        Write-Host "[OK] GGUF $display ($pattern) already present." -ForegroundColor Green
+        Write-Host "[OK] GGUF $display ($($patterns -join ', ')) already present." -ForegroundColor Green
         return
     }
 
@@ -293,15 +304,28 @@ function Download-GgufModel($Family, $Size) {
         exit 1
     }
     New-Item -ItemType Directory -Path $dir -Force | Out-Null
-    $HfArgs = @("download", $repo, "--local-dir", $dir, "--include", $pattern)
+    $HfArgs = @("download", $repo, "--local-dir", $dir)
+    foreach ($p in $patterns) { $HfArgs += @("--include", $p) }
     if ($mmprojPattern) { $HfArgs += @("--include", $mmprojPattern) }
     if ($drafterPattern) { $HfArgs += @("--include", $drafterPattern) }
     if ($env:BONSAI_TOKEN) { $env:HF_TOKEN = $env:BONSAI_TOKEN }  # pass via env (hf reads HF_TOKEN), not a CLI arg visible in the process list
     & $HfCli @HfArgs
     $DownloadExitCode = $LASTEXITCODE
-    $DownloadedGguf = Get-ChildItem -Path $dir -Filter $pattern -File -ErrorAction SilentlyContinue | Select-Object -First 1
+    $DownloadedGguf = $null
+    foreach ($p in $patterns) {
+        $DownloadedGguf = Get-ChildItem -Path $dir -Filter $p -File -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($DownloadedGguf) { break }
+    }
+    if (($DownloadExitCode -eq 0) -and (-not $DownloadedGguf) -and ($Family -eq "ternary")) {
+        # newer repos ship the official group-64 file as plain *-Q2_0.gguf with no *g64 name
+        Write-Host "==>    No PQ2_0/g64 file in $repo; falling back to *-Q2_0.gguf (official group-64 on current repos) ..."
+        & $HfCli download $repo --local-dir $dir --include "*-Q2_0.gguf"
+        $DownloadExitCode = $LASTEXITCODE
+        $DownloadedGguf = Get-ChildItem -Path $dir -Filter "*-Q2_0.gguf" -File -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($DownloadedGguf) { New-Item -ItemType File -Path (Join-Path $dir ".official-q2_0") -Force | Out-Null }
+    }
     if ($DownloadExitCode -ne 0 -or -not $DownloadedGguf) {
-        Write-Host "[ERR] Failed to download GGUF $display matching $pattern. Try running '$HfCli download $repo --local-dir $dir --include $pattern' manually." -ForegroundColor Red
+        Write-Host "[ERR] Failed to download GGUF $display matching $($patterns -join ', '). Try '$HfCli download $repo --local-dir $dir --include <pattern>' manually." -ForegroundColor Red
         exit 1
     }
     if ($mmprojPattern -and -not (Get-ChildItem -Path $dir -Filter $mmprojPattern -File -ErrorAction SilentlyContinue)) {
@@ -372,7 +396,7 @@ if ($GpuType -eq "hip") {
     Download-Binary "llama-bin-win-hip-radeon-x64.zip" $BinDir
 } elseif ($GpuType -eq "cuda") {
     $BinDir = Join-Path $PSScriptRoot "bin\cuda"
-    Download-Binary "llama-${WinAssetTag}-bin-win-cuda-${CudaTag}-x64.zip" $BinDir
+    Download-Binary "llama-${ReleaseTag}-bin-win-cuda-${CudaTag}-x64.zip" $BinDir
 
     # Also download CUDA runtime DLLs
     $DllAsset = "cudart-llama-bin-win-cuda-${CudaTag}-x64.zip"
