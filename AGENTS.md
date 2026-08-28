@@ -23,7 +23,7 @@ The 27B generation is a step change over the earlier 8B/4B/1.7B demos:
 
 | `BONSAI_FAMILY` / `BONSAI_MODEL` | Weights | Notes |
 |---|---|---|
-| `ternary` / `27B` (default) | GGUF Q2_0 ~6.7 GB + mmproj 0.9 GB; MLX 2-bit ~7.9 GB | Higher quality |
+| `ternary` / `27B` (default) | GGUF ~6.7-7.1 GB + mmproj 0.9 GB; MLX 2-bit ~7.9 GB | Higher quality. Two GGUF formats since the mainline rebase (`prism-b10658+`): `PQ2_0` (group 128, 6.66 GiB, smallest/fastest where supported: CUDA, Metal, CPU, ROCm) and official `Q2_0` group 64 (`Ternary-Bonsai-27B-Q2_g64.gguf`, 7.05 GiB, adds Vulkan/SYCL); smaller sizes use `*-Q2_0_g64.gguf` naming. The scripts pick per backend. Legacy `*-Q2_0.gguf` files (no `g64`) only load on old `prism-v5` releases; new binaries refuse them with an error |
 | `bonsai` / `27B` | GGUF Q1_0 ~3.5 GB + mmproj 0.9 GB; MLX 1-bit ~4.8 GB | Smallest and fastest; fits on a modern iPhone without offloading |
 | `8B` / `4B` / `1.7B` (both families) | smaller | Text-only, no tools wiring, legacy tested flag set |
 
@@ -31,8 +31,8 @@ Both 27B families have identical capabilities (vision, tools, thinking, long con
 they differ in size and speed. Context: 262,144 tokens max; FP16 KV cache is
 64 KiB/token (~6.3 GiB at 100K), so 100K context fits on many consumer devices —
 full peak-memory table in the README's Context Size section. All 27B repos:
-https://huggingface.co/collections/prism-ml/bonsai-27b. While the 27B repos are
-private, downloads need `BONSAI_TOKEN` (read-only HF token).
+https://huggingface.co/collections/prism-ml/bonsai-27b. All model repos are public;
+no token needed.
 
 ## Knobs that matter (27B)
 
@@ -41,7 +41,7 @@ All extra args pass straight through the start scripts, e.g.
 
 | Knob | What it does | Trade-off |
 |---|---|---|
-| `BONSAI_SPECULATIVE=1` (env, `start_llama_server.sh` only) | **Experimental.** Loads the paired `dspark` drafter for speculative decoding (`--spec-type draft-dspark`), ~1.8-2x decode on code/reasoning. Off by default. | The drafter path is stable and fast on CUDA; Apple Silicon (Metal) support will be improved in a later release, so do not recommend it on Macs yet. Disables cross-request prompt-cache reuse (every turn re-prefills) and forces single-slot (`-np 1`); worse for multi-turn and the agentic Open WebUI path, which is why it is server-only and opt-in. The prebuilt binaries include both the dspark-capable `llama-server` and the CLI one-shot `llama-speculative-simple`. Details: SPECULATIVE.md. |
+| `BONSAI_SPECULATIVE=1` (env, `start_llama_server.sh` only) | **Experimental.** Loads the paired DSpark drafter for speculative decoding (`--spec-type draft-dspark`). Post-migration (`prism-b10658+`) the drafter is the converted `*dspark-dflash*` sidecar (~0.6 GiB; embedding/lm_head shared with the target — one-time conversion documented in SPECULATIVE.md). Measured on an L40S: ternary 27B 1.8-2.4x decode (2.06x blended), 1-bit 27B 1.4-1.75x (1.60x blended). Off by default. | The drafter path is stable and fast on CUDA. On Apple Silicon (Metal) it only pays off for ternary code/math (~1.2x) and is a net slowdown on chat/reasoning and for the 1-bit family, so do not recommend it on Macs. Disables cross-request prompt-cache reuse (every turn re-prefills) and forces single-slot (`-np 1`); worse for multi-turn and the agentic Open WebUI path, which is why it is server-only and opt-in. The prebuilt binaries include both the dspark-capable `llama-server` and the CLI one-shot `llama-speculative-simple`. Details: SPECULATIVE.md. |
 | `BONSAI_KV4=1` (env, `start_llama_server.sh` only) | **Experimental.** Q4_0 (4-bit) KV cache, ~3.5x smaller KV memory. Optional quality booster: `./scripts/make_kv_bias.sh` builds a model-specific mean-centering bias (tiny calibration corpus is enough; users can pass their own text) that the server picks up automatically. | Memory tool, not a speed tool: decode is slightly slower than F16 KV. The 27B's hybrid attention already keeps KV small, so only reach for this at very long contexts on tight machines. The bias is calibrated with K-rotation off and the script/server handle the matching flags automatically; llama.cpp backend only. Details: KV-CACHE.md. |
 | `--reasoning-budget N` | Caps thinking at N tokens (default -1 = unlimited) | Middle ground; pair with `--reasoning-budget-message` |
 | `--image-max-tokens N` | Downscales images to ~N vision tokens (1 token ~ 32x32 px). Model allows ~4096 (=4.2 MP) | The scripts default this to **1024 on Metal / Vulkan / CPU** and leave CUDA/ROCm uncapped; override with `BONSAI_IMAGE_MAX_TOKENS` (0 = uncapped). Loses fine detail (small text / OCR) on large images; images under the cap are unaffected |
