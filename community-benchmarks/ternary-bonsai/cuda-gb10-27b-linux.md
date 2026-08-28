@@ -43,9 +43,23 @@ The BF16 sidecar from `setup.sh` was converted for the v7 runtime and quantized 
 Three passes used the same OpenAI chat request at temperature 0 and seed 42: "Implement quicksort in Python with type hints, tests, and a concise complexity explanation", with `max_tokens: 512`.
 
 | Mode | Pass 1 | Pass 2 | Pass 3 | Mean | Speedup | Draft acceptance |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| --- | ---: | ---: | ---: | ---: | ---: |
 | Baseline | 28.61 | 28.60 | 28.59 | 28.60 t/s | 1.00x | — |
 | DSpark Q4_0 | 69.45 | 70.41 | 70.17 | 70.01 t/s | 2.45x | 371/560 (66.3%) |
+
+## Detailed DSpark workload matrix
+
+A broader deployed-server comparison used 16 chat-templated prompts (four each for code, math, reasoning, and chat), 256 generated tokens per prompt, temperature 0, seed 42, and the same single-slot server settings above. Rates are arithmetic means of the server decode-only `predicted_per_second`; acceptance is aggregated accepted/drafted tokens.
+
+| workload | no drafter | + DSpark | accept | speedup |
+| --- | ---: | ---: | ---: | ---: |
+| code | 28.89 | 72.01 | 0.683 (746/1093) | **2.49x** |
+| math | 28.81 | 75.48 | 0.731 (758/1037) | **2.62x** |
+| reasoning | 28.59 | 66.27 | 0.611 (721/1181) | **2.32x** |
+| chat | 28.55 | 56.11 | 0.479 (668/1395) | **1.97x** |
+| blended (16 prompts) | 28.71 | 67.47 | 0.615 (2893/4706) | **2.35x** |
+
+Higher draft acceptance tracks higher throughput: math and code benefit most, while conversational prose still gains 1.97x at 48% acceptance.
 
 ## Configuration
 
