@@ -7,10 +7,9 @@ $PythonVersion = "3.11"
 $VenvDir = Join-Path $PSScriptRoot ".venv"
 $VenvPy  = Join-Path $VenvDir "Scripts\python.exe"
 
-# TODO(prism-v7 switch): set to the first prism-v7 release tag before merging.
 # v7 binaries read the official group-64 Q2_0 files and PQ2_0; they do NOT read
 # the legacy *-Q2_0.gguf files that pre-v7 releases used.
-$ReleaseTag = "prism-v7-TBD"
+$ReleaseTag = "prism-b10658-4725def"
 $WinAssetTag = "prism-b1-9fcaed7"                    # Windows builds use shortened tag
 $BaseUrl = "https://github.com/PrismML-Eng/llama.cpp/releases/download/$ReleaseTag"
 
