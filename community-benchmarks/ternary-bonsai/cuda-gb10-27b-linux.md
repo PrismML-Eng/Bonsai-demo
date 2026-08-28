@@ -2,7 +2,7 @@
 
 ## Summary
 
-NVIDIA DGX Spark with GB10 GPU (128 GB unified LPDDR5X memory), CUDA 13.0 on DGX OS (Ubuntu 24.04, aarch64). Ternary-Bonsai-27B reaches **29.16 t/s tg128** and **1,005.19 t/s pp512**. Its v7 DFlash-format DSpark drafter raises matched 512-token code generation from **~28.6 t/s to ~70.0 t/s (2.45x)**.
+NVIDIA DGX Spark with GB10 GPU (128 GB unified LPDDR5X memory), CUDA 13.0 on DGX OS (Ubuntu 24.04, aarch64). Ternary-Bonsai-27B reaches **29.16 t/s tg128** and **1,005.19 t/s pp512**. The official group-64 Q2_0 variant measures **28.01 t/s tg128** and **1,008.80 t/s pp512**. Its v7 DFlash-format DSpark drafter raises matched 512-token code generation from **~28.6 t/s to ~70.0 t/s (2.45x)**.
 
 ## llama-bench Results
 
@@ -19,13 +19,18 @@ build: e311ed38f (10660)
 
 The tg128 test was run separately with `-p 0 -n 128 -r 5` because the combined invocation emitted only pp512 for this model.
 
-## Group-64 Q2_0
-
-Not measured in this submission. The file first grabbed for this test, `Ternary-Bonsai-27B-Q2_0.gguf`, is the legacy pre-migration pack, and build 10660 refused it as designed. The actual group-64 file does exist in the repository as `Ternary-Bonsai-27B-Q2_g64.gguf` (7.06 GiB; note the 27B naming differs from the smaller sizes' `*-Q2_0_g64.gguf`) - a follow-up run on this hardware is welcome:
+## Official Group-64 Q2_0 Results
 
 ```bash
-hf download prism-ml/Ternary-Bonsai-27B-GGUF --include "*Q2_g64*" --local-dir models/ternary-gguf/27B
+LD_LIBRARY_PATH="$PWD/bin/cuda" bin/cuda/llama-bench -m models/ternary-gguf/27B/Ternary-Bonsai-27B-Q2_g64.gguf -ngl 99 -fa on -r 5
 ```
+
+| model | size | params | backend | ngl | fa | test | t/s |
+| --- | ---: | ---: | --- | --: | --: | ---: | ---: |
+| qwen35 27B Q2_0 | 7.05 GiB | 26.90 B | CUDA | 99 | 1 | pp512 | 1008.80 ± 13.11 |
+| qwen35 27B Q2_0 | 7.05 GiB | 26.90 B | CUDA | 99 | 1 | tg128 | 28.01 ± 0.03 |
+
+build: e311ed38f (10660)
 
 ## DSpark Results
 
