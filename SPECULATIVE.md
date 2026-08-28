@@ -23,14 +23,13 @@ llama-quantize /tmp/drafter-conv.gguf \
 The output name must keep `dspark-dflash` in it, which is what
 `BONSAI_SPECULATIVE=1` looks for. `--drop-shared-tensors` omits the embedding
 and lm head (the runtime borrows the target's), shrinking the drafter to about
-0.6 GB with unchanged acceptance. Measured on the 27B: +29% decode on an M5 Max,
-+73 to +93% on an L40S.
+0.6 GB with unchanged acceptance.
 
-As of prism-v7, dspark rides on mainline llama.cpp's own DSpark implementation (upstream `draft-dspark`, [#25173](https://github.com/ggml-org/llama.cpp/pull/25173)) with a few fork-side patches on top (log-SNR conditioning, layout auto-detection from the model, the drafter converter; some of these will be proposed upstream). It is a supported path on both CUDA and Apple Silicon: at temperature 0 output is identical to normal decoding, and measured decode gains on the 27B are +29% on an M5 Max and +73 to +93% on an L40S, workload-dependent (code and reasoning draft best).
+As of prism-v7, dspark rides on mainline llama.cpp's own DSpark implementation (upstream `draft-dspark`, [#25173](https://github.com/ggml-org/llama.cpp/pull/25173)) with a few fork-side patches on top (log-SNR conditioning, layout auto-detection from the model, the drafter converter; some of these will be proposed upstream). It is a supported path on both CUDA and Apple Silicon: at temperature 0 output is identical to normal decoding. Measured decode gains on the 27B are strongly workload-dependent (code and math draft best, casual chat worst). On an L40S (CUDA): 1.8-2.4x for the ternary 27B (2.06x blended) and 1.4-1.75x for the 1-bit 27B (1.60x blended). On an M5 Max (Metal) only ternary code/math workloads gain (~1.2x); chat/reasoning and the 1-bit family come out slower, so it is not recommended on Apple Silicon. Full per-workload tables: [community-benchmarks](community-benchmarks/README.md).
 
-The 27B models ship with a paired **dspark drafter**: a small companion GGUF that drafts blocks of tokens for the target model to verify. The downloader fetches the bf16 drafter automatically with the 27B weights; for older model releases run the one-time conversion above to produce the loadable file, while newer releases ship ready-to-use drafters. On code and reasoning workloads this gives roughly **1.8-2x faster decode** on CUDA; acceptance is workload-dependent, so casual chat gains less. Output at temperature 0 is identical to normal decoding.
+The 27B models ship with a paired **dspark drafter**: a small companion GGUF that drafts blocks of tokens for the target model to verify. The downloader fetches the bf16 drafter automatically with the 27B weights; for older model releases run the one-time conversion above to produce the loadable file, while newer releases ship ready-to-use drafters. On code and math workloads this gives roughly **1.75-2.4x faster decode** on CUDA; acceptance is workload-dependent, so casual chat gains less. Output at temperature 0 is identical to normal decoding.
 
-Drafters are **target-specific**: each one only accelerates the exact model it was trained against. The demo downloads the matching drafter for whichever 27B family you use.
+Drafters are **target-specific**: each one only accelerates the exact model it is paired with. The demo downloads the matching drafter for whichever 27B family you use.
 
 ## Enable it
 
