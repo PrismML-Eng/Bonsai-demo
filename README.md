@@ -54,9 +54,6 @@ cd Bonsai-demo
 # (Optional) Choose a model size: 27B (default), 8B, 4B, or 1.7B
 export BONSAI_MODEL=27B
 
-# Set your HuggingFace token (only required for 27B while its repos are private)
-export BONSAI_TOKEN="hf_your_token_here"
-
 # One command does everything: installs deps, downloads models + binaries
 ./setup.sh
 ```
@@ -69,9 +66,6 @@ cd Bonsai-demo
 
 # (Optional) Choose a model size: 27B (default), 8B, 4B, or 1.7B
 $env:BONSAI_MODEL = "27B"
-
-# Set your HuggingFace token (only required for 27B while its repos are private)
-$env:BONSAI_TOKEN = "hf_your_token_here"
 
 # Run setup
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
@@ -183,13 +177,13 @@ Q1_0 is supported out of the box in upstream [llama.cpp](https://github.com/ggml
 
 ## Upstream Status for Ternary
 
-Ternary support is in the middle of migrating into mainline [llama.cpp](https://github.com/ggml-org/llama.cpp): backends are landing one by one, so today it is a mix of mainline and our fork. The practical consequence first: **we currently ship three ternary GGUF variants, and each one needs to run in the right place.**
+Ternary support has largely landed in mainline [llama.cpp](https://github.com/ggml-org/llama.cpp), and our fork has completed its rebase onto current mainline (release line `prism-b10658+`, which this demo bundles). The practical consequence first: **there are two current ternary GGUF formats plus one deprecated legacy one, and each needs the right binaries.**
 
 | File | Format | Runs on |
 |------|--------|---------|
-| `*-Q2_0.gguf` | Group size 128. **The format this demo uses**, compatible with our fork. Once the llama.cpp migration completes, these files will be deprecated and replaced by the `PQ2_0` ggufs | This demo / the fork binaries. Will not load on mainline (same type id, different block size) |
-| `*-Q2_0_g64.gguf` | Group size 64 (2.25 bpw). The official llama.cpp format; these will be renamed to plain `Q2_0`, replacing the current ones | Mainline llama.cpp (CPU, Metal, Vulkan, and CUDA) |
-| `*-PQ2_0.gguf` | ⚠️ **Do not use yet.** Reserved name for a future migration format, so the fork's group-128 packing can coexist with upstream's group-64 `Q2_0` under its own ggml type id. Files are uploaded but experimental — **no guarantee they stay the same**; the format or name may still change, so don't depend on them. | Fork (experimental; subject to change) |
+| `*-PQ2_0.gguf` | Group size 128 (2.13 bpw), our packing under its own ggml type (`PQ2_0`, id 142). **The format this demo prefers**: smallest file and usually fastest where the backend is optimized (CUDA, Metal, CPU, ROCm) | This demo / fork binaries `prism-b10658+` |
+| `*-Q2_0_g64.gguf` (27B file: `*-Q2_g64.gguf`) | Group size 64 (2.25 bpw). The official llama.cpp `Q2_0` format, widest backend coverage (adds Vulkan and SYCL) | Mainline llama.cpp (CPU, Metal, Vulkan, CUDA) and fork binaries `prism-b10658+` |
+| `*-Q2_0.gguf` (legacy, no `g64`) | ⚠️ **Deprecated.** Pre-migration group-128 files stored under ggml type id 42, which now belongs to the official group-64 format | Only the old `prism-v5` releases. `prism-b10658+` binaries refuse them with an error pointing at the two formats above |
 
 Backend-by-backend migration status:
 
@@ -201,9 +195,9 @@ Backend-by-backend migration status:
 | CUDA | ✅ Merged in mainline llama.cpp | [ggml-org/llama.cpp#25707](https://github.com/ggml-org/llama.cpp/pull/25707) |
 | x86 (AVX-512-VNNI) | ⏳ Pending | TBD |
 
-**`Q2_0` now runs on mainline llama.cpp across CPU, Metal, Vulkan, and CUDA — no fork needed.** Use a recent [`ggml-org/llama.cpp`](https://github.com/ggml-org/llama.cpp) build with the `*-Q2_0_g64.gguf` files (the x86 AVX-512-VNNI *optimization* is still pending, but x86 already works via the generic CPU path). MLX 2-bit runs on stock [MLX](https://github.com/ml-explore/mlx). This demo still bundles the fork [pre-built binaries](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b9596-9fcaed7) and the group-128 `*-Q2_0.gguf` files for a one-command setup; those keep working until the migration renames the group-64 files to plain `Q2_0`.
+**`Q2_0` (group 64) runs on mainline llama.cpp across CPU, Metal, Vulkan, and CUDA — no fork needed.** Use a recent [`ggml-org/llama.cpp`](https://github.com/ggml-org/llama.cpp) build with the `*-Q2_0_g64.gguf` files (the x86 AVX-512-VNNI *optimization* is still pending, but x86 already works via the generic CPU path). MLX 2-bit runs on stock [MLX](https://github.com/ml-explore/mlx). This demo bundles the post-migration fork [pre-built binaries](https://github.com/PrismML-Eng/llama.cpp/releases/latest), which read both current formats; the setup scripts download `PQ2_0` where the backend is optimized for it and the group-64 file otherwise (details: [community-benchmarks/ternary-bonsai/README.md](community-benchmarks/ternary-bonsai/README.md#available-formats)).
 
-**Speculative decoding stays fork-only.** Mainline llama.cpp now has its own DSpark ([ggml-org/llama.cpp#25173](https://github.com/ggml-org/llama.cpp/pull/25173)), but our `*dspark-Q4_1*.gguf` drafter uses fork-specific GGUF packing that mainline can't load ([ggml-org/llama.cpp#26337](https://github.com/ggml-org/llama.cpp/issues/26337)). Use `BONSAI_SPECULATIVE=1` with this demo's binaries — see [SPECULATIVE.md](SPECULATIVE.md).
+**Speculative decoding: use this demo's binaries.** Since the rebase, dspark rides on mainline llama.cpp's own DSpark implementation ([ggml-org/llama.cpp#25173](https://github.com/ggml-org/llama.cpp/pull/25173)) with fork-side patches on top, and the drafter is the converted `*dspark-dflash*` sidecar (~0.6 GB; the old `*dspark-Q4_1*.gguf` files are the pre-migration packing). Use `BONSAI_SPECULATIVE=1` with this demo's binaries — see [SPECULATIVE.md](SPECULATIVE.md).
 
 To run the smaller ternary models directly on stock `ggml-org/llama.cpp`, use the group-64 files:
 
@@ -226,7 +220,7 @@ The setup script handles everything for you, even on a fresh machine:
 1. **Checks/installs system deps:** Xcode CLT on macOS, build-essential on Linux
 2. **Installs [uv](https://docs.astral.sh/uv/):** fast Python package manager (user-local, not global)
 3. **Creates a Python venv** and runs `uv sync` — installs cmake, ninja, huggingface-cli from `pyproject.toml`
-4. **Downloads models** from HuggingFace (needs `BONSAI_TOKEN` for 27B while its repos are private)
+4. **Downloads models** from HuggingFace (all model repos are public; no token needed)
 5. **Downloads pre-built binaries** from [GitHub Release](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b9596-9fcaed7) (or builds from source if you prefer)
 6. **Builds MLX from source** (macOS only): clones our fork, builds it into the venv, installs the ML stack (mlx-lm, torch, transformers)
 7. **Installs Open WebUI** into the venv for the agentic demo (skip with `BONSAI_OPENWEBUI=0`)
@@ -326,7 +320,7 @@ Upload images in the chat UI (`+` in the message box) or send `image_url` parts 
 
 Two experimental, off-by-default features for the llama.cpp chat server:
 
-- **Speculative decoding**: `BONSAI_SPECULATIVE=1` pairs the 27B with its dspark drafter for roughly 1.8-2x faster decode on code and reasoning (CUDA; Apple Silicon support will be improved later). Needs this demo's fork binaries — the drafter does not load on mainline llama.cpp. Trade-offs and verification: [SPECULATIVE.md](SPECULATIVE.md).
+- **Speculative decoding**: `BONSAI_SPECULATIVE=1` pairs the 27B with its dspark drafter. Measured on an L40S (CUDA): 1.8-2.4x faster decode for the ternary 27B and 1.4-1.75x for the 1-bit 27B, workload-dependent (code/math best). On Apple Silicon (Metal) it only pays off for ternary code/math (~1.2x) and is a net slowdown otherwise, so leave it off on Macs. Needs this demo's binaries. Trade-offs and verification: [SPECULATIVE.md](SPECULATIVE.md).
 - **4-bit KV cache**: `BONSAI_KV4=1` cuts KV-cache memory roughly 3.5x for very long contexts, with an optional calibration bias for better quality (`./scripts/make_kv_bias.sh`). Details: [KV-CACHE.md](KV-CACHE.md).
 - **Vision projector in RAM**: `BONSAI_MMPROJ_CPU=1` keeps the 27B's vision projector in system RAM instead of VRAM (`--no-mmproj-offload`), freeing ~0.9 GiB of VRAM for KV/context on tight cards. The cost is a slower image prompt (the projector runs on CPU); text-only chat is unaffected.
 

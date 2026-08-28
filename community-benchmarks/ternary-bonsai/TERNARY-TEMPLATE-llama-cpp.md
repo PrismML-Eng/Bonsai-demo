@@ -62,19 +62,21 @@ $BENCH -m models/ternary-gguf/27B/Ternary-Bonsai-27B-Q2_g64.gguf -ngl 99 -fa 1
 ```bash
 # GPU (Metal / CUDA / Vulkan / ROCm) — adjust BENCH path:
 BENCH=bin/mac/llama-bench
-$BENCH -m models/ternary-gguf/8B/*.gguf -ngl 99 -fa 1
+$BENCH -m models/ternary-gguf/8B/Ternary-Bonsai-8B-PQ2_0.gguf -ngl 99 -fa 1
+$BENCH -m models/ternary-gguf/8B/Ternary-Bonsai-8B-Q2_0_g64.gguf -ngl 99 -fa 1
 
 # CPU only:
-# $BENCH -m models/ternary-gguf/8B/*.gguf -ngl 0 -fa 1 -t $(sysctl -n hw.logicalcpu)  # macOS
-# $BENCH -m models/ternary-gguf/8B/*.gguf -ngl 0 -fa 1 -t $(nproc)                     # Linux
+# $BENCH -m models/ternary-gguf/8B/Ternary-Bonsai-8B-PQ2_0.gguf -ngl 0 -fa 1 -t $(sysctl -n hw.logicalcpu)  # macOS
+# $BENCH -m models/ternary-gguf/8B/Ternary-Bonsai-8B-PQ2_0.gguf -ngl 0 -fa 1 -t $(nproc)                     # Linux
 ```
 
-(paste llama-bench output here — raw markdown table, no code block; the 8B/4B/1.7B repos also have both formats, `*-PQ2_0.gguf` and `*-Q2_0_g64.gguf` — bench each if you have both)
+(paste llama-bench output here — raw markdown table, no code block; run both format files if you have them — `setup.sh` downloads one, `hf download` the other as shown for the 27B)
 
 ### Ternary-Bonsai-4B
 
 ```bash
-$BENCH -m models/ternary-gguf/4B/*.gguf -ngl 99 -fa 1
+$BENCH -m models/ternary-gguf/4B/Ternary-Bonsai-4B-PQ2_0.gguf -ngl 99 -fa 1
+$BENCH -m models/ternary-gguf/4B/Ternary-Bonsai-4B-Q2_0_g64.gguf -ngl 99 -fa 1
 ```
 
 (paste llama-bench output here, or remove if skipped)
@@ -82,7 +84,8 @@ $BENCH -m models/ternary-gguf/4B/*.gguf -ngl 99 -fa 1
 ### Ternary-Bonsai-1.7B
 
 ```bash
-$BENCH -m models/ternary-gguf/1.7B/*.gguf -ngl 99 -fa 1
+$BENCH -m models/ternary-gguf/1.7B/Ternary-Bonsai-1.7B-PQ2_0.gguf -ngl 99 -fa 1
+$BENCH -m models/ternary-gguf/1.7B/Ternary-Bonsai-1.7B-Q2_0_g64.gguf -ngl 99 -fa 1
 ```
 
 (paste llama-bench output here, or remove if skipped)
