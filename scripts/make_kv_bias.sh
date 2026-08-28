@@ -20,15 +20,16 @@ DEMO_DIR="$(resolve_demo_dir)"
 cd "$DEMO_DIR"
 assert_gguf_downloaded
 
-# ── Find the target model: select exactly the demo quant for the family ──
-MODEL=""
-for _m in $GGUF_MODEL_DIR/$GGUF_QUANT_PATTERN; do
-    [ -f "$_m" ] || continue
-    case "$_m" in *mmproj*|*dspark*|*kv-bias*) continue ;; esac
-    MODEL="$DEMO_DIR/$_m" && break
+# ── Find the target model: backend-aware, so the bias matches the file
+#    start_llama_server.sh will actually load ──
+_kb_backend=""
+for _d in bin/mac bin/cuda bin/rocm bin/hip bin/vulkan bin/cpu; do
+    [ -f "$_d/llama-server" ] && _kb_backend="$(backend_from_bin "$_d/llama-server")" && break
 done
+MODEL="$(select_model_gguf "$GGUF_MODEL_DIR" "$_kb_backend" || true)"
+[ -n "$MODEL" ] && MODEL="$DEMO_DIR/$MODEL"
 if [ -z "$MODEL" ]; then
-    err "No ${GGUF_QUANT_PATTERN} model found in ${GGUF_MODEL_DIR}/."
+    err "No model file found in ${GGUF_MODEL_DIR}/."
     exit 1
 fi
 

@@ -13,7 +13,7 @@ assert_gguf_downloaded start_mlx_server.sh
 
 # Bind to localhost by default; override with BONSAI_HOST=0.0.0.0 for LAN/remote.
 HOST="${BONSAI_HOST:-127.0.0.1}"
-PORT=8080
+PORT="${PORT:-8080}"
 
 # ── Check port is free ──
 if curl -s --max-time 2 "http://localhost:$PORT/health" >/dev/null 2>&1; then
@@ -22,19 +22,25 @@ if curl -s --max-time 2 "http://localhost:$PORT/health" >/dev/null 2>&1; then
     exit 1
 fi
 
-# ── Find model: select exactly the demo quant for the family
-#    (a leftover F16 or g64 file must never be picked up) ──
-MODEL=""
-for _m in $GGUF_MODEL_DIR/$GGUF_QUANT_PATTERN; do
-    [ -f "$_m" ] || continue
-    case "$_m" in *mmproj*|*dspark*|*kv-bias*) continue ;; esac
-    MODEL="$DEMO_DIR/$_m" && break
+# ── Find binary first (its backend decides the ternary quant; see common.sh) ──
+BIN=""
+for _d in bin/mac bin/cuda bin/rocm bin/hip bin/vulkan bin/cpu llama.cpp/build/bin llama.cpp/build-mac/bin llama.cpp/build-cuda/bin; do
+    [ -f "$DEMO_DIR/$_d/llama-server" ] && BIN="$DEMO_DIR/$_d/llama-server" && break
 done
+if [ -z "$BIN" ]; then
+    err "llama-server not found. Run ./setup.sh or ./scripts/download_binaries.sh first."
+    exit 1
+fi
+BACKEND="$(backend_from_bin "$BIN")"
+
+# ── Find model: backend-aware selection, never the deprecated legacy Q2_0 ──
+MODEL="$(select_model_gguf "$GGUF_MODEL_DIR" "$BACKEND" || true)"
 if [ -z "$MODEL" ]; then
-    err "No ${GGUF_QUANT_PATTERN} model found in ${GGUF_MODEL_DIR}/."
+    err "No model file for ${BONSAI_DISPLAY} found in ${GGUF_MODEL_DIR}/."
     echo "  Re-run ./scripts/download_models.sh to fetch the model weights."
     exit 1
 fi
+MODEL="$DEMO_DIR/$MODEL"
 
 # ── Vision: use the multimodal projector when present (27B is a VLM) ──
 MMPROJ=""
@@ -44,16 +50,6 @@ done
 if [ "$BONSAI_MODEL" = "27B" ] && [ -z "$MMPROJ" ]; then
     warn "No mmproj file found in ${GGUF_MODEL_DIR}/ — image input disabled."
     echo "  Re-run ./scripts/download_models.sh to fetch it."
-fi
-
-# ── Find binary (search all known locations) ──
-BIN=""
-for _d in bin/mac bin/cuda bin/rocm bin/hip bin/vulkan bin/cpu llama.cpp/build/bin llama.cpp/build-mac/bin llama.cpp/build-cuda/bin; do
-    [ -f "$DEMO_DIR/$_d/llama-server" ] && BIN="$DEMO_DIR/$_d/llama-server" && break
-done
-if [ -z "$BIN" ]; then
-    err "llama-server not found. Run ./setup.sh or ./scripts/download_binaries.sh first."
-    exit 1
 fi
 
 BIN_DIR="$(cd "$(dirname "$BIN")" && pwd)"
@@ -99,7 +95,11 @@ if [ "$BONSAI_MODEL" = "27B" ]; then
     _spec_flags=""
     _ctx="$CTX_SIZE_DEFAULT"
     if [ "${BONSAI_SPECULATIVE:-0}" = "1" ]; then
-        for _md in "$GGUF_MODEL_DIR"/*dspark-Q4_1*.gguf; do
+        # v7 builds read only converted (arch=dflash) drafters; the published legacy
+        # *dspark-Q4_1/bf16 files must be run through gguf-dspark-to-dflash first.
+        # See SPECULATIVE.md for the two commands. Converted files keep "dspark-dflash"
+        # in their name so they are found here (and never picked as the main model).
+        for _md in "$GGUF_MODEL_DIR"/*dspark-dflash*.gguf; do
             [ -f "$_md" ] && MD="$DEMO_DIR/$_md" && break
         done
         if [ -n "$MD" ]; then
@@ -112,7 +112,8 @@ if [ "$BONSAI_MODEL" = "27B" ]; then
             case "${BONSAI_CTX:-0}" in 0|"") _ctx=16384 ;; esac
             echo "  Speculative: $(basename "$MD") (draft-dspark, n-max $_nmax)"
         else
-            warn "BONSAI_SPECULATIVE=1 but no *dspark-Q4_1*.gguf drafter in ${GGUF_MODEL_DIR}/; running without speculation."
+            warn "BONSAI_SPECULATIVE=1 but no converted *dspark-dflash*.gguf drafter in ${GGUF_MODEL_DIR}/; running without speculation."
+            echo "  Convert the published drafter once (see SPECULATIVE.md, section 'Converting the published drafter')."
             echo "  Re-run ./scripts/download_models.sh to fetch it."
         fi
     fi

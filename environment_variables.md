@@ -20,6 +20,7 @@ Every script in this repo is driven by environment variables — model selection
 | `BONSAI_IMAGE_MAX_TOKENS` | `1024` on Metal/Vulkan/CPU; uncapped on CUDA/ROCm | number; `0` = uncapped | Cap on vision tokens per image (27B). `0` restores full detail (best for OCR / screenshots / small text) but is slower on large images. |
 | `BONSAI_MMPROJ_CPU` | unset | `1` | Keep the 27B vision projector in system RAM instead of VRAM (`--no-mmproj-offload`), freeing ~0.9 GiB for KV/context; slower image prefill. |
 | `BONSAI_SPECULATIVE` | `0` | `1` | Enable speculative decoding with the paired dspark drafter (~1.8–2x decode on code/reasoning; CUDA — not recommended on Apple Silicon yet). Opt-in, server-only. [SPECULATIVE.md](SPECULATIVE.md) |
+| `PORT` | `8080` | Port for `start_llama_server.sh`. |
 | `BONSAI_SPEC_NMAX` | `4` | int | dspark draft n-max override (PowerShell scripts only). |
 | `BONSAI_KV4` | `0` | `1` | 4-bit (Q4_0) KV cache, ~3.5x less KV memory for very long contexts; decode slightly slower than F16. Optional calibration bias via `./scripts/make_kv_bias.sh`. [KV-CACHE.md](KV-CACHE.md) |
 | **MLX server** | | | |
