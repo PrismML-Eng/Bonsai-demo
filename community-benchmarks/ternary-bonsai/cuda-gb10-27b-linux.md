@@ -2,7 +2,7 @@
 
 ## Summary
 
-NVIDIA DGX Spark with GB10 GPU (128 GB unified LPDDR5X memory), CUDA 13.0 on DGX OS (Ubuntu 24.04, aarch64). Ternary-Bonsai-27B reaches **29.16 t/s tg128** and **1,005.19 t/s pp512**. Its v7 DFlash-format DSpark drafter raises matched 512-token code generation from **~28.6 t/s to ~70.0 t/s (2.45x)**.
+NVIDIA DGX Spark with GB10 GPU (128 GB unified LPDDR5X memory), CUDA 13.0 on DGX OS (Ubuntu 24.04, aarch64). Ternary-Bonsai-27B reaches **29.16 t/s tg128** and **1,005.19 t/s pp512**. The official group-64 Q2_0 variant measures **28.01 t/s tg128** and **1,008.80 t/s pp512**. Its v7 DFlash-format DSpark drafter raises matched 512-token code generation from **~28.6 t/s to ~70.0 t/s (2.45x)**.
 
 ## llama-bench Results
 
@@ -19,13 +19,18 @@ build: e311ed38f (10660)
 
 The tg128 test was run separately with `-p 0 -n 128 -r 5` because the combined invocation emitted only pp512 for this model.
 
-## Group-64 Q2_0
-
-Not measured in this submission. The file first grabbed for this test, `Ternary-Bonsai-27B-Q2_0.gguf`, is the legacy pre-migration pack, and build 10660 refused it as designed. The actual group-64 file does exist in the repository as `Ternary-Bonsai-27B-Q2_g64.gguf` (7.06 GiB; note the 27B naming differs from the smaller sizes' `*-Q2_0_g64.gguf`) - a follow-up run on this hardware is welcome:
+## Official Group-64 Q2_0 Results
 
 ```bash
-hf download prism-ml/Ternary-Bonsai-27B-GGUF --include "*Q2_g64*" --local-dir models/ternary-gguf/27B
+LD_LIBRARY_PATH="$PWD/bin/cuda" bin/cuda/llama-bench -m models/ternary-gguf/27B/Ternary-Bonsai-27B-Q2_g64.gguf -ngl 99 -fa on -r 5
 ```
+
+| model | size | params | backend | ngl | fa | test | t/s |
+| --- | ---: | ---: | --- | --: | --: | ---: | ---: |
+| qwen35 27B Q2_0 | 7.05 GiB | 26.90 B | CUDA | 99 | 1 | pp512 | 1008.80 ± 13.11 |
+| qwen35 27B Q2_0 | 7.05 GiB | 26.90 B | CUDA | 99 | 1 | tg128 | 28.01 ± 0.03 |
+
+build: e311ed38f (10660)
 
 ## DSpark Results
 
@@ -38,9 +43,23 @@ The BF16 sidecar from `setup.sh` was converted for the v7 runtime and quantized 
 Three passes used the same OpenAI chat request at temperature 0 and seed 42: "Implement quicksort in Python with type hints, tests, and a concise complexity explanation", with `max_tokens: 512`.
 
 | Mode | Pass 1 | Pass 2 | Pass 3 | Mean | Speedup | Draft acceptance |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| --- | ---: | ---: | ---: | ---: | ---: |
 | Baseline | 28.61 | 28.60 | 28.59 | 28.60 t/s | 1.00x | — |
 | DSpark Q4_0 | 69.45 | 70.41 | 70.17 | 70.01 t/s | 2.45x | 371/560 (66.3%) |
+
+## Detailed DSpark workload matrix
+
+A broader deployed-server comparison used 16 chat-templated prompts (four each for code, math, reasoning, and chat), 256 generated tokens per prompt, temperature 0, seed 42, and the same single-slot server settings above. Rates are arithmetic means of the server decode-only `predicted_per_second`; acceptance is aggregated accepted/drafted tokens.
+
+| workload | no drafter | + DSpark | accept | speedup |
+| --- | ---: | ---: | ---: | ---: |
+| code | 28.89 | 72.01 | 0.683 (746/1093) | **2.49x** |
+| math | 28.81 | 75.48 | 0.731 (758/1037) | **2.62x** |
+| reasoning | 28.59 | 66.27 | 0.611 (721/1181) | **2.32x** |
+| chat | 28.55 | 56.11 | 0.479 (668/1395) | **1.97x** |
+| blended (16 prompts) | 28.71 | 67.47 | 0.615 (2893/4706) | **2.35x** |
+
+Higher draft acceptance tracks higher throughput: math and code benefit most, while conversational prose still gains 1.97x at 48% acceptance.
 
 ## Configuration
 
