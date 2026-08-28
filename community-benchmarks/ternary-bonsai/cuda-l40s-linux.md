@@ -49,6 +49,8 @@ Post-migration drafter: the published `Ternary-Bonsai-27B-dspark-bf16.gguf` side
 
 Output is identical to non-speculative at temperature 0. The lighter drafter helps every category now — even low-acceptance chat is 1.8x, where the old 1.95 GiB drafter topped out at 1.76x on its best category.
 
+**Methodology caveats:** these are `llama-server` numbers with the chat template applied, so they reflect what `start_llama_server.sh` users actually get, and they run below bare-loop tools on the same hardware for two reasons: (1) the chat template engages the model's thinking phase, whose token distribution drafts differently than a raw completion (acceptance here vs the mid-70s% a single raw code prompt reaches), and (2) the server adds per-token work (sampler chain, incremental detokenization, streaming/slot bookkeeping, and the speculative path's extra KV-cache management) that a tight loop like `llama-speculative-simple` skips. A single raw code prompt through `llama-speculative-simple` therefore reads higher on the same machine; the tables above are the deployed-reality numbers.
+
 ## Configuration
 
 All layers offloaded, flash attention on, single sequence. The legacy `Ternary-Bonsai-27B-Q2_0.gguf` (no `g64` in the name) is refused by these builds with an error pointing at the two formats above.

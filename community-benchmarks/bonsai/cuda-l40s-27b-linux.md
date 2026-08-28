@@ -36,6 +36,8 @@ Post-migration drafter: the published `Bonsai-27B-dspark-bf16.gguf` sidecar conv
 
 Output is identical to non-speculative at temperature 0. The multiplier stays below ternary's (2.06x blended) because the 1-bit target is already fast, so each accepted draft token saves less absolute time.
 
+**Methodology caveats:** these are `llama-server` numbers with the chat template applied, so they reflect what `start_llama_server.sh` users actually get, and they run below bare-loop tools on the same hardware for two reasons: (1) the chat template engages the model's thinking phase, whose token distribution drafts differently than a raw completion (acceptance here vs the mid-70s% a single raw code prompt reaches), and (2) the server adds per-token work (sampler chain, incremental detokenization, streaming/slot bookkeeping, and the speculative path's extra KV-cache management) that a tight loop like `llama-speculative-simple` skips. A single raw code prompt through `llama-speculative-simple` therefore reads higher on the same machine; the tables above are the deployed-reality numbers.
+
 ## Configuration
 
 All layers offloaded, flash attention on, single sequence.

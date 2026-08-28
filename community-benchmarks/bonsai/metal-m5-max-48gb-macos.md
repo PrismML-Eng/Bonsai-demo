@@ -36,6 +36,8 @@ Post-migration drafter (converted `dspark-dflash` Q4_0, ~0.6 GiB), target `Q1_0`
 
 Even at 0.72 acceptance the drafter loses on Metal here: the 1-bit target decodes so fast that the per-step draft cost exceeds the tokens it saves. Leave `BONSAI_SPECULATIVE` off for this family on Apple Silicon.
 
+**Methodology caveats:** these are `llama-server` numbers with the chat template applied, so they reflect what `start_llama_server.sh` users actually get, and they run below bare-loop tools on the same hardware for two reasons: (1) the chat template engages the model's thinking phase, whose token distribution drafts differently than a raw completion (acceptance here vs the mid-70s% a single raw code prompt reaches), and (2) the server adds per-token work (sampler chain, incremental detokenization, streaming/slot bookkeeping, and the speculative path's extra KV-cache management) that a tight loop like `llama-speculative-simple` skips. A single raw code prompt through `llama-speculative-simple` therefore reads higher on the same machine; the tables above are the deployed-reality numbers.
+
 ## Configuration
 
 All layers offloaded, flash attention on, single sequence.
