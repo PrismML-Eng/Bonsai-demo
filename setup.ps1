@@ -169,7 +169,10 @@ foreach ($p in @(
             $out = & $p 2>&1 | Out-String
             if ($out -match 'CUDA Version:\s+(\d+)\.(\d+)') {
                 $major = [int]$Matches[1]; $minor = [int]$Matches[2]
-                if ($major -gt 12 -or ($major -eq 12 -and $minor -ge 4)) {
+                if ($major -gt 13 -or ($major -eq 13 -and $minor -ge 3)) {
+                    $CudaTag = "13.3"
+                    $GpuType = "cuda"
+                } elseif ($major -gt 12 -or ($major -eq 12 -and $minor -ge 4)) {
                     $CudaTag = "12.4"
                     $GpuType = "cuda"
                 } else {
@@ -384,9 +387,12 @@ foreach ($binRelDir in @("bin\hip", "bin\cuda", "bin\vulkan", "bin\cpu")) {
     $stampFile = Join-Path $binDir ".llama_release"
     $installedTag = if (Test-Path $stampFile) { (Get-Content -Raw $stampFile).Trim() } else { "" }
 
-    if ($installedTag -ne $ReleaseTag) {
+    # The stamp includes the CUDA variant so a resolver change (e.g. 12.4 -> 13.3)
+    # refreshes an existing install of the same release.
+    $expectedStamp = if ($GpuType -eq "cuda") { "$ReleaseTag cuda-$CudaTag" } else { $ReleaseTag }
+    if ($installedTag -ne $expectedStamp) {
         $was = if ($installedTag) { $installedTag } else { "an older/unknown release" }
-        Write-Host "[WARN] Binaries in $binRelDir are $was; updating to $ReleaseTag ..." -ForegroundColor Yellow
+        Write-Host "[WARN] Binaries in $binRelDir are $was; updating to $expectedStamp ..." -ForegroundColor Yellow
         Remove-Item -Recurse -Force $binDir
     }
 }
@@ -423,7 +429,7 @@ if ($GpuType -eq "hip") {
 
 # Record the installed release so a future setup detects a version bump and
 # refreshes the binaries instead of keeping the old ones.
-if ($BinDir) { Set-Content -Path (Join-Path $BinDir ".llama_release") -Value $ReleaseTag -NoNewline -Encoding utf8 }
+if ($BinDir) { $finalStamp = if ($GpuType -eq "cuda") { "$ReleaseTag cuda-$CudaTag" } else { $ReleaseTag }; Set-Content -Path (Join-Path $BinDir ".llama_release") -Value $finalStamp -NoNewline -Encoding utf8 }
 
 # ── Done ──
 Write-Host ""
