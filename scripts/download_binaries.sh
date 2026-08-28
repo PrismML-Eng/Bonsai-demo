@@ -65,7 +65,9 @@ case "$OS" in
         if [ "$_gpu_type" = "cuda" ]; then
             _major="${_cuda_ver%%.*}"
             _minor="${_cuda_ver#*.}"
-            if [ "$_major" -ge 13 ] || { [ "$_major" -eq 12 ] && [ "$_minor" -ge 8 ]; }; then
+            if [ "$_major" -gt 13 ] || { [ "$_major" -eq 13 ] && [ "$_minor" -ge 3 ]; }; then
+                _cuda_tag="13.3"
+            elif [ "$_major" -eq 13 ] || { [ "$_major" -eq 12 ] && [ "$_minor" -ge 8 ]; }; then
                 _cuda_tag="12.8"
             elif [ "$_major" -eq 12 ]; then
                 _cuda_tag="12.4"
