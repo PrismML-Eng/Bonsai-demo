@@ -2,49 +2,49 @@
 
 ## Summary
 
-NVIDIA DGX Spark with GB10 GPU (128 GB unified LPDDR5X memory), CUDA 13.0 on DGX OS (Ubuntu 24.04 base, aarch64). Extends the existing [GB10 results](cuda-gb10-linux.md) (8B/4B/1.7B) with the **27B model**: **~44 t/s tg128, ~1,003 t/s pp512** — full 27B-class reasoning at reading speed on a compact unified-memory box.
-
-Also tested speculative decoding against the 27B Q1_0 target on this hardware: it does not help (details in Configuration).
+NVIDIA DGX Spark with GB10 GPU (128 GB unified LPDDR5X memory), CUDA 13.0 on DGX OS (Ubuntu 24.04, aarch64). Bonsai-27B reaches **45.44 t/s tg128** and **1,023.58 t/s pp512**. The current v7 DFlash-format DSpark drafter raises matched 512-token code generation from **~43.5 t/s to ~96.1 t/s (2.21x)**.
 
 ## llama-bench Results
 
-### Bonsai-27B
-
 ```bash
-BENCH=llama.cpp-prism/build/bin/llama-bench
-$BENCH -m models/gguf/27B/Bonsai-27B-Q1_0.gguf -ngl 99 -fa 1
+LD_LIBRARY_PATH="$PWD/bin/cuda" bin/cuda/llama-bench -m models/gguf/27B/Bonsai-27B-Q1_0.gguf -ngl 99 -fa on -r 5
 ```
 
-| model                          |       size |     params | backend    | ngl |  fa |            test |                  t/s |
-| ------------------------------ | ---------: | ---------: | ---------- | --: | --: | --------------: | -------------------: |
-| qwen35 27B Q1_0                |   3.53 GiB |    26.90 B | CUDA       |  99 |   1 |           pp512 |       1003.34 ± 7.71 |
-| qwen35 27B Q1_0                |   3.53 GiB |    26.90 B | CUDA       |  99 |   1 |           tg128 |         44.14 ± 0.06 |
+| model | size | params | backend | ngl | fa | test | t/s |
+| --- | ---: | ---: | --- | --: | --: | ---: | ---: |
+| qwen35 27B Q1_0 | 3.53 GiB | 26.90 B | CUDA | 99 | 1 | pp512 | 1023.58 ± 16.55 |
+| qwen35 27B Q1_0 | 3.53 GiB | 26.90 B | CUDA | 99 | 1 | tg128 | 45.44 ± 0.07 |
 
-build: 62061f9 (branch `prism`, built from source)
+build: e311ed38f (10660)
+
+## DSpark Results
+
+The BF16 sidecar from `setup.sh` was converted for the v7 runtime and quantized to Q4_0 as documented in `SPECULATIVE.md`. Both servers used `-ngl 999 -fa on -c 16384 -np 1`; DSpark additionally used:
+
+```bash
+-md models/gguf/27B/Bonsai-27B-dspark-dflash-Q4_0.gguf --spec-type draft-dspark --spec-draft-n-max 4 -ngld 999
+```
+
+Three passes used the same OpenAI chat request at temperature 0 and seed 42: "Implement quicksort in Python with type hints, tests, and a concise complexity explanation", with `max_tokens: 512`.
+
+| Mode | Pass 1 | Pass 2 | Pass 3 | Mean | Speedup | Draft acceptance |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Baseline | 43.49 | 43.46 | 43.55 | 43.50 t/s | 1.00x | — |
+| DSpark Q4_0 | 94.10 | 96.91 | 97.18 | 96.07 t/s | 2.21x | 383/512 (74.8%) |
 
 ## Configuration
 
-- Server-mode sustained generation (320-token responses via `/v1/chat/completions`, temp 0, 3 passes) matches llama-bench closely: 43.7 t/s.
-- Speculative decoding on the 27B Q1_0 target was consistently neutral-to-negative on this hardware — the Q1_0 forward pass is cheap enough that drafting overhead cancels verification-batching gains:
-  - `draft-dspark` with the official 27B DSpark drafter (Q4_1, `--spec-draft-n-max 4`): 21.6 t/s at 78% acceptance (vs 43.7 base)
-  - Same drafter requantized to Q2_K: 21.2 t/s (still ~2x slower than base)
-  - Bonsai-8B-Q1_0 as a `draft-simple` drafter: 43.9 t/s — exact wash with base
-  - `ngram-simple`: ~6% acceptance on reasoning-heavy output, no gain
-  - KV-cache quantization (q8_0/q4_0) and batch tuning (`-b 4096 -ub 1024`): no measurable change
-- The experimental `megakernel/rmsnorm-qmv-fuse` branch (5d906dc) measured 42.82 ± 0.08 tg128 — parity with `prism` on this GPU.
-
-## Notes
-
-- NVIDIA driver 580.126.09, CUDA 13.0, GPU compute capability 12.1
-- Numbers are stable across runs (± 0.1 t/s server-mode)
-- For contrast, standard PTQ imatrix quants of the same model (Q4_K_M, 16.6 GB) decode at ~12 t/s on this hardware (bandwidth-bound), where the DSpark drafter *does* help: 15.7 t/s (+31%) at 79% acceptance
+- All layers offloaded; flash attention enabled; one server slot
+- PrismML-Eng/llama.cpp `prism` commit `e311ed38f` (build 10660), built for CUDA architecture `121a`
+- NVIDIA driver 580.173.02; CUDA toolkit 13.0.88
+- GPU idle before recorded runs; a lightweight inspection service retained ~1.5 GiB at 0% GPU utilization
 
 ## Hardware
 
-```
-Architecture:                            aarch64
-CPU(s):                                  20 (Cortex-X925 / Cortex-A725)
-Mem:                                     119Gi unified LPDDR5X
-NVIDIA-SMI 580.126.09    Driver Version: 580.126.09    CUDA Version: 13.0
+```text
+Architecture: aarch64
+CPU(s): 20 (10 Cortex-X925 / 10 Cortex-A725)
+Mem: 121 GiB unified LPDDR5X
+OS: Ubuntu 24.04.4 LTS
 GPU: NVIDIA GB10 (compute capability 12.1)
 ```

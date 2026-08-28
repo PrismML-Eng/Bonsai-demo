@@ -10,7 +10,7 @@ Benchmark results submitted by the community running [Bonsai](https://huggingfac
 |----------|---------|------------:|------------:|---------|
 | NVIDIA L40S 48 GB | llama.cpp CUDA | 2,937 | 107.5 | [link](cuda-l40s-27b-linux.md) |
 | Apple M5 Max 48 GB | llama.cpp Metal | 796 | 63.9 | [link](metal-m5-max-48gb-macos.md) |
-| NVIDIA DGX Spark (GB10) | llama.cpp CUDA | 1,003 | 44.1 | [link](cuda-gb10-27b-linux.md) |
+| NVIDIA DGX Spark (GB10) | llama.cpp CUDA | 1,024 | 45.4 | [link](cuda-gb10-27b-linux.md) |
 | NVIDIA GeForce GTX 1080 Ti 11 GB | llama.cpp CUDA | 285 | 28.3 | [link](cuda-gtx1080ti-linux.md) |
 
 ### 8B and smaller

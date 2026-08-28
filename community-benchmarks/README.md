@@ -15,9 +15,10 @@ Sorted by decode speed (TG128). The 27B models come in two families: Bonsai (1-b
 | Bonsai (1-bit) | Apple M5 Max 48 GB | llama.cpp Metal | 796 | 63.9 | slower on this HW | [link](bonsai/metal-m5-max-48gb-macos.md) |
 | Ternary | NVIDIA RTX A5000 24 GB | llama.cpp CUDA | 1,036 | 48.2 | | [link](ternary-bonsai/cuda-rtxa5000-ubuntu.md) |
 | Ternary | Apple M5 Max 48 GB | llama.cpp Metal | 816 | 45.8 | ~1.2x code/math only | [link](ternary-bonsai/metal-m5-max-48gb-macos.md) |
+| Bonsai (1-bit) | NVIDIA DGX Spark (GB10) | llama.cpp CUDA | 1,024 | 45.4 | ~96.1 (2.21x, code) | [link](bonsai/cuda-gb10-27b-linux.md) |
 | Ternary | NVIDIA RTX 5060 Ti 16 GB | llama.cpp CUDA | 1,029 | 44.4 | ~79 (1.78x) | [link](ternary-bonsai/cuda-rtx5060ti-linux.md) |
-| Bonsai (1-bit) | NVIDIA DGX Spark (GB10) | llama.cpp CUDA | 1,003 | 44.1 | no gain on this HW | [link](bonsai/cuda-gb10-27b-linux.md) |
 | Ternary | Apple M5 Pro 64 GB | MLX 2-bit | 466 | 29.5 | 34-49 (community dspark-mlx) | [link](ternary-bonsai/mlx-m5-pro-macos.md) |
+| Ternary | NVIDIA DGX Spark (GB10) | llama.cpp CUDA | 1,005 | 29.2 | ~70.0 (2.45x, code) | [link](ternary-bonsai/cuda-gb10-27b-linux.md) |
 | Bonsai (1-bit) | NVIDIA GeForce GTX 1080 Ti 11 GB | llama.cpp CUDA | 285 | 28.3 | | [link](bonsai/cuda-gtx1080ti-linux.md) |
 | Ternary | Apple M5 Pro 64 GB | llama.cpp Metal | 130 | 26.5 | | [link](ternary-bonsai/mlx-m5-pro-macos.md) |
 | Ternary | Apple M4 Pro 64 GB | MLX 2-bit | 120 | 24.8 | | [link](ternary-bonsai/mlx-m4-pro-64gb-macos.md) |

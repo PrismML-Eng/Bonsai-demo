@@ -15,6 +15,7 @@ Benchmark results submitted by the community running [Ternary-Bonsai](https://hu
 | Apple M5 Max 48 GB | llama.cpp Metal | 816 | 45.8 | ~1.2x code/math only | [link](metal-m5-max-48gb-macos.md) |
 | NVIDIA RTX 5060 Ti 16 GB | llama.cpp CUDA | 1,029 | 44.4 | ~79 (1.78x) | [link](cuda-rtx5060ti-linux.md) |
 | Apple M5 Pro 64 GB | MLX 2-bit | 466 | 29.5 | 34-49 (community dspark-mlx) | [link](mlx-m5-pro-macos.md) |
+| NVIDIA DGX Spark (GB10) | llama.cpp CUDA | 1,005 | 29.2 | ~70.0 (2.45x) | [link](cuda-gb10-27b-linux.md) |
 | Apple M5 Pro 64 GB | llama.cpp Metal | 130 | 26.5 | | [link](mlx-m5-pro-macos.md) |
 | Apple M4 Pro 64 GB | MLX 2-bit | 120 | 24.8 | | [link](mlx-m4-pro-64gb-macos.md) |
 | Apple M4 Pro 64 GB | llama.cpp Metal | 116 | 19.0 | slower on this HW | [link](metal-m4-pro-64gb-macos.md) |
