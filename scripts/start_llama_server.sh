@@ -107,9 +107,9 @@ if [ "$BONSAI_MODEL" = "27B" ]; then
             _spec_flags="--spec-type draft-dspark --spec-draft-n-max $_nmax -ngld 999 -np 1"
             # dspark re-prefills every request; give the model room to think
             # (it drafts 1.5-2k tokens; a small context truncates answers).
-            # An explicit non-zero BONSAI_CTX still wins; unset or 0 (auto) gets
-            # this dspark-friendly floor.
-            case "${BONSAI_CTX:-0}" in 0|"") _ctx=16384 ;; esac
+            # Raise the auto floor to 16384 if the tiered default is smaller;
+            # an explicit non-zero BONSAI_CTX wins as usual.
+            [ "$_ctx" -lt 16384 ] 2>/dev/null && _ctx=16384
             echo "  Speculative: $(basename "$MD") (draft-dspark, n-max $_nmax)"
         else
             warn "BONSAI_SPECULATIVE=1 but no converted *dspark-dflash*.gguf drafter in ${GGUF_MODEL_DIR}/; running without speculation."
