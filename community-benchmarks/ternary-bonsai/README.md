@@ -37,6 +37,7 @@ Since the llama.cpp fork's rebase onto current mainline (releases `prism-b10658`
 - **`PQ2_0`** — our group-128 packing (`*-PQ2_0.gguf`). Smallest file (27B: 6.66 GiB) and usually fastest where supported (CUDA, Metal, CPU, ROCm).
 - **`Q2_0` group-64** — the official upstream format (27B: `Ternary-Bonsai-27B-Q2_g64.gguf`; 8B/4B/1.7B: `*-Q2_0_g64.gguf`). Slightly larger (27B: 7.05 GiB), widest backend coverage (adds Vulkan and SYCL).
 - The **legacy `*-Q2_0.gguf` files** (no `g64` in the name) predate the migration: they still work on the old `prism-v5` releases, but `prism-b10658+` builds refuse them with an error pointing at the two formats above. Don't benchmark those on new builds.
+- **Filename trap:** on the 27B repo a search for `Q2_0` surfaces the legacy file first, and a search for `Q2_0_g64` finds nothing (the 27B file is `Q2_g64`). If the only Q2 file you see is `Ternary-Bonsai-27B-Q2_0.gguf`, keep looking: `hf download prism-ml/Ternary-Bonsai-27B-GGUF --include "*PQ2_0*" --include "*g64*"` fetches both current formats.
 
 Repos:
 
