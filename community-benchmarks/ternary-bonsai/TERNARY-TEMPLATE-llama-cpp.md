@@ -27,6 +27,12 @@
     prism-b10658+ binaries refuse them with a clear error. If the user has old files or
     old binaries, point them at the new release and the two files above instead of
     benchmarking the legacy pair.
+    FILENAME TRAP (this has burned an agent before): on the 27B repo, searching for
+    "Q2_0" finds the legacy Ternary-Bonsai-27B-Q2_0.gguf FIRST, and searching for
+    "Q2_0_g64" finds NOTHING, because the 27B group-64 file is named Q2_g64 (unlike
+    the smaller sizes). Do not conclude the group-64 file is missing. Fetch both
+    current 27B formats in one command:
+      hf download prism-ml/Ternary-Bonsai-27B-GGUF --include "*PQ2_0*" --include "*g64*" --local-dir models/ternary-gguf/27B
 -->
 
 ## Summary
