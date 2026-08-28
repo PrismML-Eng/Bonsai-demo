@@ -106,12 +106,15 @@ URL="$BASE_URL/$ASSET"
 
 if [ -d "$DEST" ] && ls "$DEST"/llama-* >/dev/null 2>&1; then
     _installed=""
+    # The stamp includes the CUDA variant so a resolver change (e.g. 12.8 -> 13.3)
+    # refreshes an existing install of the same release.
+    _stamp="$RELEASE_TAG${_cuda_tag:+ cuda-$_cuda_tag}"
     [ -f "$DEST/.llama_release" ] && _installed="$(cat "$DEST/.llama_release" 2>/dev/null)"
-    if [ "$_installed" = "$RELEASE_TAG" ]; then
-        info "Binaries already present in $DEST/ ($RELEASE_TAG)."
+    if [ "$_installed" = "$_stamp" ]; then
+        info "Binaries already present in $DEST/ ($_stamp)."
         exit 0
     fi
-    warn "Binaries in $DEST/ are ${_installed:-an older/unknown release}; updating to $RELEASE_TAG ..."
+    warn "Binaries in $DEST/ are ${_installed:-an older/unknown release}; updating to $_stamp ..."
     rm -rf "$DEST"
 fi
 
@@ -185,7 +188,8 @@ fi
 
 # Record the installed release so re-running setup can detect a version bump
 # and refresh the binaries instead of keeping the old ones.
-printf '%s\n' "$RELEASE_TAG" > "$DEST/.llama_release"
+_stamp="$RELEASE_TAG${_cuda_tag:+ cuda-$_cuda_tag}"
+printf '%s\n' "$_stamp" > "$DEST/.llama_release"
 
 info "Binaries installed to $DEST/ ($RELEASE_TAG)"
 ls -lh "$DEST"/llama-* 2>/dev/null || true
