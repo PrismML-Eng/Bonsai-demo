@@ -23,6 +23,7 @@ Sorted by decode speed (TG128). The 27B models come in two families: Bonsai (1-b
 | Ternary | Apple M4 Pro 64 GB | MLX 2-bit | 120 | 24.8 | | [link](ternary-bonsai/mlx-m4-pro-64gb-macos.md) |
 | Ternary | Apple M4 Pro 64 GB | llama.cpp Metal | 116 | 19.0 | slower on this HW | [link](ternary-bonsai/metal-m4-pro-64gb-macos.md) |
 | Ternary | NVIDIA GeForce GTX 1080 Ti 11 GB | llama.cpp CUDA | 278 | 20.5 | | [link](ternary-bonsai/cuda-gtx1080ti-linux.md) |
+| Ternary | Apple M4 24 GB | MLX 2-bit | 65.2 | 12.7 | | [link](ternary-bonsai/mlx-m4-24gb-macos.md) |
 | Ternary | Apple M3 Pro 18 GB | llama.cpp Metal | 78.6 | 12.6 | | [link](ternary-bonsai/metal-m3-pro-macos.md) |
 
 ## 8B and smaller
