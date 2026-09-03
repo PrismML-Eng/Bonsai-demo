@@ -20,6 +20,7 @@ Benchmark results submitted by the community running [Ternary-Bonsai](https://hu
 | Apple M4 Pro 64 GB | MLX 2-bit | 120 | 24.8 | | [link](mlx-m4-pro-64gb-macos.md) |
 | Apple M4 Pro 64 GB | llama.cpp Metal | 116 | 19.0 | slower on this HW | [link](metal-m4-pro-64gb-macos.md) |
 | NVIDIA GeForce GTX 1080 Ti 11 GB | llama.cpp CUDA | 278 | 20.5 | | [link](cuda-gtx1080ti-linux.md) |
+| Apple M1 Pro 32 GB | MLX 2-bit | 65.1 | 15.0 | ~10 MLX / ~11 code llama.cpp (net slowdown on MLX) | [link](mlx-m1-pro-32gb-macos.md) |
 | Apple M4 24 GB | MLX 2-bit | 65.2 | 12.7 | | [link](mlx-m4-24gb-macos.md) |
 | Apple M3 Pro 18 GB | llama.cpp Metal | 78.6 | 12.6 | | [link](metal-m3-pro-macos.md) |
 
