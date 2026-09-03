@@ -14,6 +14,8 @@ Every script in this repo is driven by environment variables — model selection
 | `BONSAI_SKIP_MLX` | unset | `1` | Skip the MLX download (macOS only; MLX is skipped automatically on Intel Macs and non-macOS). |
 | `BONSAI_OPENWEBUI` | `1` | `0` | Skip installing Open WebUI during `setup.sh`. (`setup.sh` only installs it — the demo is launched separately with `./scripts/start_openwebui.sh`.) |
 | **llama.cpp server** | | | |
+| `BONSAI_GGUF` | unset | path to a `.gguf` | Run any GGUF directly with `start_llama_server.sh`, skipping the family/size lookup and the download check (relative paths resolve against the demo dir). Drafters and kv-bias files are picked up from the same folder as the file. |
+| `BONSAI_MMPROJ` | unset | path to an mmproj `.gguf` | Vision projector to pair with `BONSAI_GGUF`. Without it a custom model runs text-only. |
 | `BONSAI_HOST` | `127.0.0.1` | any bind address | Bind address. For `start_llama_server.sh` this is the llama-server's `--host`. For `start_openwebui.sh` it binds the **Open WebUI** UI instead (its managed llama-server stays on `127.0.0.1`), so a non-loopback value exposes the unauthenticated UI/code interpreter — that requires opt-in via `BONSAI_ALLOW_REMOTE=1` (trusted networks only). |
 | `BONSAI_CTX` | auto (RAM-tiered) | `0`, or ≤ `262144` | Context length. `0`/unset = automatic RAM-tiered size (never `-c 0`); an explicit number forces it (e.g. `262144` for full training context). |
 | `BONSAI_NGL` | auto-detect | any int; `0` = CPU-only | Override GPU layer offload. Auto-detect keys on installed tooling, so weak iGPUs can be better with `0`. |

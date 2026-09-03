@@ -9,7 +9,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 assert_valid_model
 DEMO_DIR="$(resolve_demo_dir)"
 cd "$DEMO_DIR"
-assert_gguf_downloaded start_mlx_server.sh
+[ -n "${BONSAI_GGUF:-}" ] || assert_gguf_downloaded start_mlx_server.sh
 
 # Bind to localhost by default; override with BONSAI_HOST=0.0.0.0 for LAN/remote.
 HOST="${BONSAI_HOST:-127.0.0.1}"
@@ -33,23 +33,46 @@ if [ -z "$BIN" ]; then
 fi
 BACKEND="$(backend_from_bin "$BIN")"
 
-# ── Find model: backend-aware selection, never the deprecated legacy Q2_0 ──
-MODEL="$(select_model_gguf "$GGUF_MODEL_DIR" "$BACKEND" || true)"
-if [ -z "$MODEL" ]; then
-    err "No model file for ${BONSAI_DISPLAY} found in ${GGUF_MODEL_DIR}/."
-    echo "  Re-run ./scripts/download_models.sh to fetch the model weights."
-    exit 1
-fi
-MODEL="$DEMO_DIR/$MODEL"
+if [ -n "${BONSAI_GGUF:-}" ]; then
+    # ── Custom model: BONSAI_GGUF points at any GGUF, skipping the family/size
+    # lookup. BONSAI_MMPROJ optionally pairs a vision projector. Relative paths
+    # resolve against the demo dir. Drafters / kv-bias files are searched next
+    # to the model file, exactly like a normal model dir.
+    MODEL="$BONSAI_GGUF"
+    case "$MODEL" in /*) ;; *) MODEL="$DEMO_DIR/$MODEL" ;; esac
+    if [ ! -f "$MODEL" ]; then
+        err "BONSAI_GGUF=$BONSAI_GGUF does not exist."
+        exit 1
+    fi
+    MMPROJ="${BONSAI_MMPROJ:-}"
+    if [ -n "$MMPROJ" ]; then
+        case "$MMPROJ" in /*) ;; *) MMPROJ="$DEMO_DIR/$MMPROJ" ;; esac
+        if [ ! -f "$MMPROJ" ]; then
+            err "BONSAI_MMPROJ=$BONSAI_MMPROJ does not exist."
+            exit 1
+        fi
+    fi
+    GGUF_MODEL_DIR="$(dirname "$MODEL")"
+    BONSAI_DISPLAY="$(basename "$MODEL")"
+else
+    # ── Find model: backend-aware selection, never the deprecated legacy Q2_0 ──
+    MODEL="$(select_model_gguf "$GGUF_MODEL_DIR" "$BACKEND" || true)"
+    if [ -z "$MODEL" ]; then
+        err "No model file for ${BONSAI_DISPLAY} found in ${GGUF_MODEL_DIR}/."
+        echo "  Re-run ./scripts/download_models.sh to fetch the model weights."
+        exit 1
+    fi
+    MODEL="$DEMO_DIR/$MODEL"
 
-# ── Vision: use the multimodal projector when present (27B is a VLM) ──
-MMPROJ=""
-for _mp in $GGUF_MODEL_DIR/*mmproj*.gguf; do
-    [ -f "$_mp" ] && MMPROJ="$DEMO_DIR/$_mp" && break
-done
-if [ "$BONSAI_MODEL" = "27B" ] && [ -z "$MMPROJ" ]; then
-    warn "No mmproj file found in ${GGUF_MODEL_DIR}/ — image input disabled."
-    echo "  Re-run ./scripts/download_models.sh to fetch it."
+    # ── Vision: use the multimodal projector when present (27B is a VLM) ──
+    MMPROJ=""
+    for _mp in $GGUF_MODEL_DIR/*mmproj*.gguf; do
+        [ -f "$_mp" ] && MMPROJ="$DEMO_DIR/$_mp" && break
+    done
+    if [ "$BONSAI_MODEL" = "27B" ] && [ -z "$MMPROJ" ]; then
+        warn "No mmproj file found in ${GGUF_MODEL_DIR}/ — image input disabled."
+        echo "  Re-run ./scripts/download_models.sh to fetch it."
+    fi
 fi
 
 BIN_DIR="$(cd "$(dirname "$BIN")" && pwd)"
@@ -100,7 +123,9 @@ if [ "$BONSAI_MODEL" = "27B" ]; then
         # See SPECULATIVE.md for the two commands. Converted files keep "dspark-dflash"
         # in their name so they are found here (and never picked as the main model).
         for _md in "$GGUF_MODEL_DIR"/*dspark-dflash*.gguf; do
-            [ -f "$_md" ] && MD="$DEMO_DIR/$_md" && break
+            [ -f "$_md" ] || continue
+            case "$_md" in /*) MD="$_md" ;; *) MD="$DEMO_DIR/$_md" ;; esac
+            break
         done
         if [ -n "$MD" ]; then
             _nmax="${BONSAI_SPEC_NMAX:-$(bonsai_dspark_block_size "$MD")}"
@@ -128,7 +153,9 @@ if [ "$BONSAI_MODEL" = "27B" ]; then
     if [ "${BONSAI_KV4:-0}" = "1" ]; then
         _kv_args="--cache-type-k q4_0 --cache-type-v q4_0"
         for _kb in "$GGUF_MODEL_DIR"/*kv-bias*.gguf; do
-            [ -f "$_kb" ] && KV_BIAS="$DEMO_DIR/$_kb" && break
+            [ -f "$_kb" ] || continue
+            case "$_kb" in /*) KV_BIAS="$_kb" ;; *) KV_BIAS="$DEMO_DIR/$_kb" ;; esac
+            break
         done
         if [ -n "$KV_BIAS" ]; then
             # The bias is calibrated with K-rotation off; inference must match
