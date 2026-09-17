@@ -64,7 +64,7 @@ CUDA_MAJOR=$(echo "$CUDA_VERSION" | cut -d. -f1)
 # Set default architectures: build a fat binary covering all supported GPUs
 if [ -z "$CUDA_ARCHS" ]; then
     if [ "$CUDA_MAJOR" -ge 13 ]; then
-        CUDA_ARCHS="80;86;89;90;100;120a"
+        CUDA_ARCHS="80;86;89;90;100;120a;121a"
     else
         CUDA_ARCHS="80;86;89;90;120a"
     fi
@@ -128,13 +128,8 @@ done
 
 echo ""
 echo "=== Copying shared libraries ==="
-cp -a "$REPO_DIR/$BUILD_DIR"/bin/libllama.so* "$DEST/"
-cp -a "$REPO_DIR/$BUILD_DIR"/bin/libggml.so* "$DEST/"
-cp -a "$REPO_DIR/$BUILD_DIR"/bin/libggml-base.so* "$DEST/"
-cp -a "$REPO_DIR/$BUILD_DIR"/bin/libggml-cpu.so* "$DEST/"
-cp -a "$REPO_DIR/$BUILD_DIR"/bin/libggml-cuda.so* "$DEST/"
-cp -a "$REPO_DIR/$BUILD_DIR"/bin/libmtmd.so* "$DEST/" 2>/dev/null || true
-echo "  Copied shared libraries (libllama, libggml, libggml-base, libggml-cpu, libggml-cuda, libmtmd)"
+cp -a "$REPO_DIR/$BUILD_DIR"/bin/lib*.so* "$DEST/"
+echo "  Copied shared libraries (libllama, libggml, libllama-*-impl, libmtmd)"
 
 echo ""
 echo "=== Patching RUNPATH for portability ==="
