@@ -162,7 +162,7 @@ Full guide with entry examples: **TOOLS.md** (repo root). The essentials:
   and add `http://127.0.0.1:8001/mcp` in Settings -> MCP Client. See TOOLS.md.
 - Cost: ~2.9k prompt tokens (limited to web/news/summarizer; the full Brave set is ~29k, so start_openwebui.sh passes --enabled-tools).
 
-## Behavior notes (from testing on Apple Silicon)
+## Behavior notes (from testing)
 
 - Binary is the snappier demo; ternary trades speed for quality-per-bit. Both were
   tested working end to end (text, native tool_calls with round-trips, vision).
@@ -189,7 +189,12 @@ Full guide with entry examples: **TOOLS.md** (repo root). The essentials:
 - **M5 Macs on macOS 26.2–26.4:** if Metal init fails with `error compiling source` /
   command-buffer status 5, set `GGML_METAL_TENSOR_DISABLE=1` (README Appendix — FAQ has
   details). Keep `-ngl` on GPU; don't reach for `BONSAI_NGL=0`.
-- Linux CUDA / Windows / CPU-only: not tested yet — extend these notes after testing.
+- **Windows + CUDA**: verified on an RTX 4090 with `bonsai2` 27B `PQ2_0` — text, streaming,
+  `reasoning_content`, and image input through the mmproj all work under `llama-server`. Both bands
+  are benchmarked: `community-benchmarks/bonsai2/cuda-rtx4090-windows.md`. The Windows CUDA archive
+  links `cudart64_12`/`cublas64_12`, which `setup.ps1` fetches alongside it as a separate asset —
+  only the manual download flow has to remember that.
+- Linux CUDA and CPU-only: not tested yet — extend these notes after testing.
 
 ## Quick verification commands
 
