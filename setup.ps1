@@ -177,7 +177,7 @@ foreach ($p in @(
     if ($p -and (Test-Path $p)) {
         try {
             $out = & $p 2>&1 | Out-String
-            if ($out -match 'CUDA Version:\s+(\d+)\.(\d+)') {
+            if ($out -match 'CUDA(?:\s+UMD)?\s+Version:\s+(\d+)\.(\d+)') {
                 $major = [int]$Matches[1]; $minor = [int]$Matches[2]
                 if ($major -gt 13 -or ($major -eq 13 -and $minor -ge 3)) {
                     $CudaTag = "13.3"
