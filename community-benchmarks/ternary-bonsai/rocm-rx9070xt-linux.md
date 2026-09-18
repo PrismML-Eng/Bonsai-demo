@@ -11,10 +11,10 @@ Headline, both current Bonsai 2 bands, 27B:
 | Band | Size | PP512 (t/s) | TG128 (t/s) |
 |------|-----:|------------:|------------:|
 | `PQ2_0` (2.13 bpw, group 128) | 6.70 GiB | **1046.35** | **50.69** |
-| `PTQ1_0` (1.75 bpw, group 128) | 5.53 GiB | 951.11 | 34.13 |
+| `PTQ1_0` (1.75 bpw, group 128) | 5.53 GiB | 955.90 | 34.05 |
 
-**`PQ2_0` is decisively faster on this hardware — ~48% higher decode (50.69 vs 34.13 t/s)
-and ~10% higher prefill — despite being 1.17 GiB larger.** The docs say neither packing is
+**`PQ2_0` is decisively faster on this hardware — ~49% higher decode (50.69 vs 34.05 t/s)
+and ~9% higher prefill — despite being 1.17 GiB larger.** The docs say neither packing is
 uniformly faster; on RDNA4/ROCm that is not a close call. On this card `PTQ1_0` is worth
 choosing only when the 1.17 GiB genuinely decides whether the model fits. (It does on
 smaller cards — see Notes.)
@@ -35,8 +35,8 @@ from, so it is not strictly apples-to-apples with the existing rows.
 
 | model                          |       size |     params | backend    | ngl |  fa |            test |                  t/s |
 | ------------------------------ | ---------: | ---------: | ---------- | --: | --: | --------------: | -------------------: |
-| qwen35 27B PTQ1_0 - 1.75 bpw ternary (group 128) |   5.53 GiB |    26.90 B | ROCm       |  99 |   1 |           pp512 |       951.11 ± 13.09 |
-| qwen35 27B PTQ1_0 - 1.75 bpw ternary (group 128) |   5.53 GiB |    26.90 B | ROCm       |  99 |   1 |           tg128 |         34.13 ± 0.06 |
+| qwen35 27B PTQ1_0 - 1.75 bpw ternary (group 128) |   5.53 GiB |    26.90 B | ROCm       |  99 |   1 |           pp512 |        955.90 ± 9.45 |
+| qwen35 27B PTQ1_0 - 1.75 bpw ternary (group 128) |   5.53 GiB |    26.90 B | ROCm       |  99 |   1 |           tg128 |         34.05 ± 0.06 |
 
 ### Commands run
 
@@ -103,8 +103,13 @@ at 64k context with `--cache-type-k q4_0 --cache-type-v q4_0` (6.4–7.7 GiB of 
 That is the case where `PTQ1_0`'s smaller footprint is the whole point. Happy to submit that
 as a separate entry if useful.
 
-**One harness oddity.** The first `PTQ1_0` run exited cleanly (status 0) after printing only
-the `pp512` row, never running `tg128` — no error, no crash, nothing in the log beyond the
-backend-load lines. An identical re-run with `-r 3` completed both rows normally. Not
-reproducible on demand, and `PQ2_0` never did it. Flagging in case anyone else sees a
-silently truncated benchmark.
+**One harness oddity.** One `PTQ1_0` run exited cleanly (status 0) after printing only the
+`pp512` row, never running `tg128` — no error, no crash, nothing in the log beyond the
+backend-load lines. Two subsequent identical runs both completed normally, so it is a
+one-off rather than something about that file or that band, and `PQ2_0` never did it.
+Flagging in case anyone else sees a silently truncated benchmark.
+
+**Reproducibility.** Both bands were benchmarked with the same command shape and llama-bench's
+default repetition count; the numbers above are from those runs. `PTQ1_0` was additionally run
+with `-r 3` as a cross-check and agreed within error (pp512 951.11 ± 13.09, tg128 34.13 ± 0.06),
+as did `PQ2_0` unpinned without `HIP_VISIBLE_DEVICES` (pp512 1043.12 ± 8.85, tg128 50.70 ± 0.22).
