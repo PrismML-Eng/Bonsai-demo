@@ -1,6 +1,6 @@
 #!/bin/sh
 # Run Bonsai model with MLX (Apple Silicon only)
-# Usage: ./scripts/run_mlx.sh -p "Your prompt" [--image photo.jpg]
+# Usage: ./scripts/run_mlx.sh -p "Your prompt" [--image photo.jpg] [--stats]
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -22,7 +22,7 @@ PROMPT=""
 # Only Bonsai 2 has a vision tower and a thinking phase, and only its generator takes
 # top-k. The earlier families go to mlx_generate.py, which would abort in argparse on any
 # of the three, so refuse them here with a message that says why.
-_BONSAI2_ONLY=" --image --top-k --no-think "
+_BONSAI2_ONLY=" --image --top-k --no-think --stats "
 
 # Rebuild the passthrough flags as real positional parameters. Collecting them into a
 # string and expanding it unquoted would split paths on whitespace, so `--image "my cat.jpg"`
@@ -43,7 +43,7 @@ while [ "$1" != "--end-of-args--" ]; do
     case "$1" in
         -p) PROMPT="$2"; shift 2 ;;
         --image|-n|--temp|--top-p|--top-k) set -- "$@" "$1" "$2"; shift 2 ;;
-        --no-think) set -- "$@" "$1"; shift ;;
+        --no-think|--stats) set -- "$@" "$1"; shift ;;
         *) shift ;;
     esac
 done
