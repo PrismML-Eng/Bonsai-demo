@@ -108,6 +108,15 @@ if (-not $BinRel) {
     exit 1
 }
 
+# Bonsai 2 ships only PQ2_0/PTQ1_0 and the Vulkan build has no kernels for them
+# (MODEL-FORMATS.md), so the server crashes while loading the model.
+if ($BonsaiFamily -eq "bonsai2" -and -not $Pq2Ready) {
+    Write-Host "[ERR] Bonsai 2 cannot run on the Vulkan build (no PQ2_0 kernels yet): $BinRel" -ForegroundColor Red
+    Write-Host "      If you have an NVIDIA or AMD GPU, delete bin\vulkan and re-run .\setup.ps1 to fetch the CUDA/HIP build." -ForegroundColor Yellow
+    Write-Host "      Otherwise use a family with a group-64 fallback: `$env:BONSAI_FAMILY='ternary'; .\scripts\start_llama_server.ps1" -ForegroundColor Yellow
+    exit 1
+}
+
 $Bin = Join-Path $DemoDir $BinRel
 $BinDir = Split-Path $Bin -Parent
 $env:Path = "$BinDir;$env:Path"
