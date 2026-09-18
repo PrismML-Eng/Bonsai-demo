@@ -21,10 +21,11 @@ MODEL="$DEMO_DIR/$MLX_MODEL_DIR"
 PORT="${PORT:-8081}"
 
 # Bonsai 2 on mlx-serve. The pack's rotated basis needs a server that applies
-# the Hadamard activation transform itself; mlx-serve does from the build that
-# carries ddalcu/mlx-serve#457. Opt-in only (BONSAI_MLX_SERVE=/path/to/mlx-serve),
-# never auto-detected: an mlx-serve WITHOUT that support loads the same bytes
-# and returns wrong output with no error. No Python venv is needed on this path.
+# the Hadamard activation transform itself; mlx-serve does from v26.9.5
+# (ddalcu/mlx-serve@89eeb24, "Prism Bonsai 2 lands"). Opt-in only
+# (BONSAI_MLX_SERVE=/path/to/mlx-serve), never auto-detected: an older
+# mlx-serve loads the same bytes and returns wrong output with no error.
+# No Python venv is needed on this path.
 if [ "$BONSAI_FAMILY" = "bonsai2" ] && [ -n "${BONSAI_MLX_SERVE:-}" ]; then
     if [ ! -x "$BONSAI_MLX_SERVE" ]; then
         err "BONSAI_MLX_SERVE=$BONSAI_MLX_SERVE is not an executable."
@@ -34,7 +35,7 @@ if [ "$BONSAI_FAMILY" = "bonsai2" ] && [ -n "${BONSAI_MLX_SERVE:-}" ]; then
     echo "=== MLX server (mlx-serve) ==="
     echo "  Model: ${BONSAI_DISPLAY}-mlx"
     echo "  Port:  $PORT"
-    echo "  Needs an mlx-serve build with Prism Hadamard support (ddalcu/mlx-serve#457)."
+    echo "  Needs an mlx-serve build with Prism Hadamard support (mlx-serve v26.9.5+, ddalcu/mlx-serve@89eeb24)."
     echo "  Thinking is on by default; pass reasoning_effort per request (xhigh|medium|low)."
     echo ""
     exec "$BONSAI_MLX_SERVE" --model "$MODEL" --serve --host 127.0.0.1 --port "$PORT" \
@@ -68,7 +69,7 @@ if [ "$BONSAI_FAMILY" = "bonsai2" ]; then
     echo ""
     echo "  One-shot MLX instead:   ./scripts/run_mlx.sh -p \"...\" [--image photo.jpg]"
     echo "  Or serve with llama.cpp: ./scripts/start_llama_server.sh"
-    echo "  Or with an mlx-serve build that has Prism Hadamard support (ddalcu/mlx-serve#457):"
+    echo "  Or with an mlx-serve build that has Prism Hadamard support (mlx-serve v26.9.5+, ddalcu/mlx-serve@89eeb24):"
     echo "    BONSAI_MLX_SERVE=/path/to/mlx-serve ./scripts/start_mlx_server.sh"
     exit 1
 fi

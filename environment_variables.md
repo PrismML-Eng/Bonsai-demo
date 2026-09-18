@@ -28,7 +28,7 @@ Every script in this repo is driven by environment variables — model selection
 | **MLX server** | | | |
 | `BONSAI_BACKEND` | `llama` | `llama`, `mlx` | Which backend `start_openwebui.sh` serves (`mlx` is Apple Silicon-only). It does **not** change `run_llama.sh` / `run_llama.ps1` / `run_mlx.sh` — those pick their backend by which script you invoke. |
 | `BONSAI_MLX_VLM` | `1` | `0` | Use mlx-vlm for MLX image input (27B ternary; needs the `.venv-vlm` from setup.sh). |
-| `BONSAI_MLX_SERVE` | unset | path to an `mlx-serve` binary | Serve a **Bonsai 2** MLX pack with [mlx-serve](https://github.com/ddalcu/mlx-serve) instead of refusing. The build must apply the pack's Hadamard activation transform (ddalcu/mlx-serve#457); one that does not returns wrong output with no error, which is why this is opt-in and never auto-detected. `PORT` overrides the default 8081. |
+| `BONSAI_MLX_SERVE` | unset | path to an `mlx-serve` binary | Serve a **Bonsai 2** MLX pack with [mlx-serve](https://github.com/ddalcu/mlx-serve) instead of refusing. The build must apply the pack's Hadamard activation transform (mlx-serve v26.9.5+, ddalcu/mlx-serve@89eeb24); one that does not returns wrong output with no error, which is why this is opt-in and never auto-detected. `PORT` overrides the default 8081. |
 | `BONSAI_MLX_VISION` | `0` | `1` | Force MLX vision for a pre-existing MLX server whose implementation isn't known (set it explicitly if you started it with mlx-vlm). |
 | **Open WebUI** | | | |
 | `BONSAI_ALLOW_REMOTE` | `0` | `1` | Allow binding Open WebUI to a non-loopback `BONSAI_HOST`. Auth is disabled + a code interpreter may be enabled, so this is trusted-networks-only. |
