@@ -1,8 +1,8 @@
 # SHA-256 of the executable loader the Bonsai 2 MLX pack ships in runtime/.
 #
-# scripts/mlx_generate_bonsai2.py imports that code, so a change to it is a change
-# to what runs on the user's machine. These hashes are the reviewed revision: the
-# generator refuses to import anything that does not match.
+# scripts/mlx_generate_bonsai2.py and scripts/mlx_server_bonsai2.py both import that
+# code, so a change to it is a change to what runs on the user's machine. These hashes
+# are the reviewed revision: both scripts refuse to import anything that does not match.
 #
 # Re-pin after a deliberate runtime/ change, from the demo root:
 #   shasum -a 256 models/Ternary-Bonsai-2-27B-mlx-2bit/runtime/*.py

@@ -20,6 +20,32 @@ assert_mlx_downloaded
 MODEL="$DEMO_DIR/$MLX_MODEL_DIR"
 PORT=8081
 
+# Bonsai 2 packs are rotated and need the Hadamard-aware loader they ship in runtime/.
+# Neither mlx_vlm.server nor mlx_lm.server knows about it out of the box, so
+# mlx_server_bonsai2.py swaps that loader into mlx_vlm.server's single loading seam
+# before handing off to the stock server. It needs only .venv-vlm (the stock-mlx
+# venv from setup.sh), so this branch runs before ensure_venv, which activates the
+# unrelated 1-bit .venv and would fail on an MLX-only Bonsai 2 install.
+if [ "$BONSAI_FAMILY" = "bonsai2" ]; then
+    if [ "${BONSAI_MLX_VLM:-1}" = "0" ]; then
+        warn "BONSAI_MLX_VLM=0 is ignored for bonsai2: it has no text-only mlx_lm path to fall back to."
+    fi
+    _vlm_py="$DEMO_DIR/.venv-vlm/bin/python"
+    if [ ! -x "$_vlm_py" ]; then
+        err "Python venv not found. Run ./setup.sh first."
+        exit 1
+    fi
+    export HF_HOME="$DEMO_DIR/.hf_cache"
+    mkdir -p "$HF_HOME/hub"
+    echo ""
+    echo "=== MLX server ==="
+    echo "  Model: ${BONSAI_DISPLAY}-mlx"
+    echo "  Port:  $PORT"
+    echo ""
+    step "Serving with mlx-vlm, pack loader swapped in by mlx_server_bonsai2.py (image input enabled)."
+    exec "$_vlm_py" "$SCRIPT_DIR/mlx_server_bonsai2.py" --model "$MODEL" --port "$PORT" "$@"
+fi
+
 ensure_venv "$DEMO_DIR"
 
 export HF_HOME="$DEMO_DIR/.hf_cache"
@@ -36,19 +62,6 @@ echo ""
 # ternary 2-bit runs on stock mlx; binary 1-bit still needs the PrismML fork,
 # so it stays on text-only mlx_lm below. Disable with BONSAI_MLX_VLM=0.
 # The 27B is a thinking model and thinking stays on.
-# Bonsai 2 packs are rotated and need the Hadamard-aware loader they ship in runtime/.
-# Neither mlx_vlm.server nor mlx_lm.server knows about it: they would load the weights and
-# return wrong output with no error. Refuse until a server path exists.
-if [ "$BONSAI_FAMILY" = "bonsai2" ]; then
-    err "No MLX server for Bonsai 2 yet."
-    echo "  Its MLX pack needs the loader bundled in the pack, which mlx_lm.server and"
-    echo "  mlx_vlm.server do not use; serving through them would return wrong output."
-    echo ""
-    echo "  One-shot MLX instead:   ./scripts/run_mlx.sh -p \"...\" [--image photo.jpg]"
-    echo "  Or serve with llama.cpp: ./scripts/start_llama_server.sh"
-    exit 1
-fi
-
 VLM_PY="$DEMO_DIR/.venv-vlm/bin/python"
 if [ "$BONSAI_MODEL" = "27B" ] && [ "$BONSAI_FAMILY" = "ternary" ] \
     && [ "${BONSAI_MLX_VLM:-1}" != "0" ] && [ -x "$VLM_PY" ] \

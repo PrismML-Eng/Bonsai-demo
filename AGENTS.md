@@ -179,9 +179,12 @@ Full guide with entry examples: **TOOLS.md** (repo root). The essentials:
 - Vision encode runs on GPU by default (`--mmproj-offload`).
 - MLX: the **ternary 27B gets full vision + native tool calls** via mlx-vlm
   (`start_mlx_server.sh` uses the stock-mlx `.venv-vlm` that setup.sh creates;
-  `BONSAI_MLX_VLM=0` opts out). The binary 27B MLX should support vision the same
-  way (the vision tower is full precision in both packs) — it just hasn't been
-  wired through / verified in these scripts yet.
+  `BONSAI_MLX_VLM=0` opts out). **Bonsai 2's MLX pack gets vision too**, served the
+  same way through `mlx_server_bonsai2.py` (its own Hadamard-aware loader swapped
+  into mlx-vlm's loading seam; `BONSAI_MLX_VLM=0` is ignored here, since Bonsai 2
+  has no text-only mlx_lm path to fall back to). The binary 27B MLX should support
+  vision the same way (the vision tower is full precision in both packs) — it just
+  hasn't been wired through / verified in these scripts yet.
 - MLX has **no cross-request prompt cache** (mlx-vlm re-prefills the full
   conversation, image tokens included, on every turn), so follow-ups are much
   slower than llama.cpp (which caches the KV prefix). Steer multi-turn users to

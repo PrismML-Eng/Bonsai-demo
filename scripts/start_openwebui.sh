@@ -44,16 +44,6 @@ case "$BONSAI_HOST" in
         ;;
 esac
 
-# Bonsai 2 has no MLX server path yet: its pack needs the Hadamard-aware loader bundled in
-# runtime/, which neither mlx_lm.server nor mlx_vlm.server uses, so they would serve wrong
-# output with no error. Fail here rather than start something that looks fine and is not.
-if [ "$BONSAI_BACKEND" = "mlx" ] && [ "$BONSAI_FAMILY" = "bonsai2" ]; then
-    err "No MLX server for Bonsai 2 yet; use the llama.cpp backend."
-    echo "    BONSAI_BACKEND=llama ./scripts/start_openwebui.sh"
-    echo "  One-shot MLX still works: ./scripts/run_mlx.sh -p \"...\" [--image photo.jpg]"
-    exit 1
-fi
-
 # Assert the weights the selected backend actually needs (an MLX-only run must
 # not require the GGUF, and vice versa).
 if [ "$BONSAI_BACKEND" = "mlx" ]; then
@@ -229,7 +219,10 @@ if [ "$BONSAI_BACKEND" = "mlx" ]; then
     if curl -fsS --max-time 2 "http://localhost:$MLX_PORT/v1/models" >/dev/null 2>&1; then
         _MLX_PREEXISTING=true
         info "MLX server already running on port $MLX_PORT"
-    elif [ -d "$DEMO_DIR/$MLX_MODEL_DIR" ] && python -c "import mlx_lm" 2>/dev/null; then
+    elif [ -d "$DEMO_DIR/$MLX_MODEL_DIR" ] \
+        && { [ "$BONSAI_FAMILY" = "bonsai2" ] || python -c "import mlx_lm" 2>/dev/null; }; then
+        # Bonsai 2 serves through .venv-vlm's mlx_vlm (checked below), never plain
+        # mlx_lm, so the mlx_lm import check above is skipped for that family.
         step "Starting MLX server on port $MLX_PORT (${BONSAI_DISPLAY}) ..."
         export HF_HOME="$DEMO_DIR/.hf_cache"
         mkdir -p "$HF_HOME/hub"
@@ -237,8 +230,25 @@ if [ "$BONSAI_BACKEND" = "mlx" ]; then
         # .venv-vlm from setup.sh). Binary 1-bit needs the fork -> text-only.
         # Disable with BONSAI_MLX_VLM=0.
         _VLM_PY="$DEMO_DIR/.venv-vlm/bin/python"
+        # Bonsai 2 packs are rotated and need the Hadamard-aware loader they ship in
+        # runtime/. mlx_server_bonsai2.py swaps that loader into mlx_vlm.server's
+        # loading seam before handing off to the stock server, so this only needs
+        # .venv-vlm — never plain mlx_lm, which would silently serve wrong output.
+        if [ "$BONSAI_FAMILY" = "bonsai2" ]; then
+            if [ "${BONSAI_MLX_VLM:-1}" = "0" ]; then
+                warn "BONSAI_MLX_VLM=0 is ignored for bonsai2: it has no text-only mlx_lm path to fall back to."
+            fi
+            if [ ! -x "$_VLM_PY" ]; then
+                err "Python venv not found. Run ./setup.sh first."
+                exit 1
+            fi
+            _MLX_VISION=true
+            "$_VLM_PY" "$SCRIPT_DIR/mlx_server_bonsai2.py" \
+                --model "$DEMO_DIR/$MLX_MODEL_DIR" \
+                --port "$MLX_PORT" \
+                > "$_MLX_LOG" 2>&1 &
         # The 27B is a thinking model and thinking stays on.
-        if [ "$BONSAI_MODEL" = "27B" ] && [ "$BONSAI_FAMILY" = "ternary" ] \
+        elif [ "$BONSAI_MODEL" = "27B" ] && [ "$BONSAI_FAMILY" = "ternary" ] \
             && [ "${BONSAI_MLX_VLM:-1}" != "0" ] && [ -x "$_VLM_PY" ] \
             && "$_VLM_PY" -c "import mlx_vlm" 2>/dev/null; then
             _MLX_VISION=true
