@@ -226,3 +226,8 @@ mlx/
 # Internal launch working notes — never commit
 TODOS.md
 llama.cpp
+
+# LM Studio generator plugin dependencies (LMSTUDIO.md)
+scripts/lmstudio-plugin/node_modules/
+scripts/lmstudio-plugin/.lmstudio/
+scripts/lmstudio-plugin/package-lock.json

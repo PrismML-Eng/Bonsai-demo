@@ -518,6 +518,7 @@ Bonsai-demo/
 ├── TOOLS.md                        # Tool calling & MCP guide
 ├── OPENWEBUI.md                    # Open WebUI agentic demo guide
 ├── VISION.md                       # Image input: costs, caps, OCR tips
+├── LMSTUDIO.md                     # LM Studio front end (generator plugin)
 ├── SPECULATIVE.md                  # Speculative decoding (experimental)
 ├── KV-CACHE.md                     # 4-bit KV cache (experimental)
 ├── AGENTS.md                       # Agent guide (hardware tuning knobs)
@@ -537,6 +538,7 @@ Bonsai-demo/
 │   ├── start_mlx_server.sh         # MLX server (port 8081)
 │   ├── start_openwebui.sh          # Open WebUI + auto-starts backends
 │   ├── openwebui/                  # Open WebUI demo tools + seeding
+│   ├── lmstudio-plugin/            # LM Studio generator plugin
 │   ├── build_mac.sh                # Build llama.cpp for Mac
 │   ├── build_cpu_linux.sh          # Build llama.cpp for Linux (CPU only)
 │   ├── build_cuda_linux.sh         # Build llama.cpp for Linux CUDA
