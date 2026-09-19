@@ -345,6 +345,31 @@ raise SystemExit(0 if v >= (0, 31) else 1)
         info "MLX already installed in the venv — skipping build."
     else
         step "Building MLX from source (this takes 2-5 minutes on first install) ..."
+        # MLX compiles the Metal-4 "nax" kernels (M5 neural accelerators) when the
+        # toolchain reports __METAL_VERSION__ >= 400. The prism fork's nax sources
+        # do not compile with the Metal 4.1 compiler shipped in Xcode 27, so on
+        # that toolchain the deployment target is pinned down to 15.0: the probe
+        # in mlx/CMakeLists.txt then reports 320 and the kernel list takes its
+        # MLX_METAL_NO_NAX branch. Nothing is lost below M5 — those kernels never
+        # dispatch there. Force with BONSAI_MLX_NAX=1 (on) or =0 (off).
+        _metal_lang_version=$(echo "__METAL_VERSION__" | xcrun -sdk macosx metal -E -x metal -P - 2>/dev/null | tail -1)
+        _nax=on
+        case "${BONSAI_MLX_NAX:-auto}" in
+            1) ;;
+            0) _nax=off ;;
+            *)
+                case "$_metal_lang_version" in
+                    ''|*[!0-9]*) ;;   # probe failed — leave CMake to decide
+                    *) if [ "$_metal_lang_version" -ge 410 ]; then _nax=off; fi ;;
+                esac
+                ;;
+        esac
+        if [ "$_nax" = off ]; then
+            warn "Metal ${_metal_lang_version:-?} toolchain: building MLX without nax kernels (M5-only; BONSAI_MLX_NAX=1 forces them on)."
+            CMAKE_ARGS="${CMAKE_ARGS:+$CMAKE_ARGS }-DCMAKE_OSX_DEPLOYMENT_TARGET=15.0"
+            export CMAKE_ARGS
+        fi
+
         # --no-build-isolation required: MLX's C++/Metal build needs pre-installed setuptools
         uv pip install --python "$VENV_PY" -e mlx/ --no-build-isolation
         step "Installing MLX Python deps (mlx-lm, torch, transformers, ...) ..."
