@@ -34,7 +34,8 @@ python3 scripts/spec_bench/spec_bench.py \
 The run has two requirements:
 
 - The patched runtime. Build `bin/cuda/llama-server` from prism commit
-  `1a07bfa5f` with the branch `fix/dflash-borrowed-hadamard` applied. The
+  `1a07bfa5f` with the fix of PrismML-Eng/llama.cpp PR #210 (branch
+  `fix/dflash-borrowed-hadamard`) applied. The
   published run reports build `b10687-5d80cff0b` in `results.json`.
 - An idle GPU. No other process may generate on the GPU during the run,
   because a shared GPU gives numbers that are not publishable. The tool
