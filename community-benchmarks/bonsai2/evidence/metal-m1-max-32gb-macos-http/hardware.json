@@ -1,0 +1,17 @@
+{
+  "chip": "Apple M1 Max",
+  "cpu_cores": 10,
+  "performance_cores": 8,
+  "efficiency_cores": 2,
+  "gpu_cores": 24,
+  "memory_bytes": 34359738368,
+  "machine_model": "MacBookPro18,4",
+  "os": "macOS 15.1.1 (24B91)",
+  "power": "AC, low power mode off",
+  "measurement_order": [
+    "Ferrum 8K",
+    "Ferrum 2K",
+    "Prism 2K",
+    "Prism 8K"
+  ]
+}

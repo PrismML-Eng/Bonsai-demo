@@ -1,0 +1,23 @@
+Selected startup lines from prism-server.log; values describe backend buffer categories, not independent OS residency totals.
+0.00.043.048 I cmn  common_param: system_info: n_threads = 8 (n_threads_batch = 8) / 10 | MTL : EMBED_LIBRARY = 1 | CPU : NEON = 1 | ARM_FMA = 1 | DOTPROD = 1 | LLAMAFILE = 1 | ACCELERATE = 1 | REPACK = 1 |
+0.00.823.344 I load_tensors: offloaded 65/65 layers to GPU
+0.00.823.346 I load_tensors:   CPU_Mapped model buffer size =   322.07 MiB
+0.00.823.346 I load_tensors:  MTL0_Mapped model buffer size =  6861.73 MiB
+0.00.829.965 I llama_context: n_ctx                 = 16384
+0.00.829.965 I llama_context: n_ctx_seq             = 16384
+0.00.829.965 I llama_context: n_batch               = 512
+0.00.829.966 I llama_context: n_ubatch              = 512
+0.00.829.966 I llama_context: flash_attn            = auto
+0.00.829.969 I llama_context: n_ctx_seq (16384) < n_ctx_train (262144) -- the full capacity of the model will not be utilized
+0.00.830.131 I llama_context:        CPU  output buffer size =     0.95 MiB
+0.00.875.488 I llama_kv_cache:       MTL0 KV buffer size =  1024.00 MiB
+0.00.953.957 I llama_kv_cache: size = 1024.00 MiB ( 16384 cells,  16 layers,  1/1 seqs), K (f16):  512.00 MiB, V (f16):  512.00 MiB
+0.00.971.246 I llama_memory_recurrent:       MTL0 RS buffer size =   149.62 MiB
+0.00.971.257 I llama_memory_recurrent: size =  149.62 MiB (     1 cells,  64 layers,  1 seqs  0 rs_seq), R (f32):    5.62 MiB, S (f32):  144.00 MiB
+0.00.978.514 I resolve_fused_ops: Flash Attention enabled
+0.01.014.407 I sched_reserve:       MTL0 compute buffer size =   183.28 MiB
+0.01.014.411 I sched_reserve:        CPU compute buffer size =    36.02 MiB
+
+Final /usr/bin/time -l process counters (whole server process lifetime):
+          2373206016  maximum resident set size
+          1685871488  peak memory footprint

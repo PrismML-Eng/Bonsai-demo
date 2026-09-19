@@ -1,0 +1,786 @@
+{
+  "schema_version": 1,
+  "preset": null,
+  "env_hash": "sha256:ce932da08e4debc0c59f663efc3d3ef2d1c8b373720e4e508a80e88c33e09dc3",
+  "backend": "metal",
+  "execution_resource_authority": "plan_runtime",
+  "startup_memory_plan": {
+    "request": {
+      "device": {
+        "capacity_bytes": 22906503168,
+        "available_bytes": 13558464512,
+        "source": "metal_recommended_minus_allocated_and_host_free_inactive_pages_with_process_limits"
+      },
+      "usable_capacity_bytes": 12202617737,
+      "context_is_explicit": true,
+      "sequences_is_explicit": true,
+      "batch_is_explicit": true
+    },
+    "requested": {
+      "context_tokens": 16384,
+      "max_sequences": 1,
+      "max_batch_tokens": 512
+    },
+    "selected": {
+      "context_tokens": 16384,
+      "max_sequences": 1,
+      "max_batch_tokens": 512
+    },
+    "context_peak_bytes": 8541571648,
+    "decode_peak_bytes": 7349385824,
+    "reasons": []
+  },
+  "requested_gpu_devices": null,
+  "selected_gpu_devices": null,
+  "cuda_device_count": 0,
+  "selected_distributed_strategy": "none",
+  "selected_layer_split_plan": null,
+  "selected_layer_split_stages": null,
+  "selected_pipeline_mode": "sequential",
+  "selected_microbatch_size": 1,
+  "selected_stage_bridge": null,
+  "selected_weight_placement": "single_device",
+  "selected_kv_layout": "paged",
+  "selected_attention_impl": "portable",
+  "selected_attention_policy": "portable",
+  "attention_execution": {
+    "schema_version": 1,
+    "resource_authority": "plan_runtime",
+    "requested_policy": "auto",
+    "compiled_policy": "portable",
+    "selection_scope": "per_invocation",
+    "observed_variant_source": "vnext.device_native_work",
+    "legacy_attention_keys_apply": false,
+    "decode": {
+      "selector": "compiled_provider"
+    },
+    "prefill": {
+      "selector": "admitted_shape",
+      "variants_are_observed_at_runtime": true
+    }
+  },
+  "selected_graph_mode": "graph_disabled",
+  "selected_max_sequences": 1,
+  "selected_max_model_len": 16384,
+  "selected_kv_capacity": 16384,
+  "selected_kv_capacity_source": "configured_token_limit",
+  "selected_max_batched_tokens": 512,
+  "selected_recurrent_state_max_slots": null,
+  "selected_admission_limit": 1,
+  "entries": [
+    {
+      "key": "FERRUM_ATTENTION_POLICY",
+      "effective_value": "portable",
+      "source": "default",
+      "affects": [
+        "correctness",
+        "performance"
+      ]
+    },
+    {
+      "key": "FERRUM_BATCHED_GRAPH",
+      "effective_value": "0",
+      "source": "memory_profile",
+      "affects": [
+        "performance"
+      ]
+    },
+    {
+      "key": "FERRUM_GREEDY_ARGMAX",
+      "effective_value": "1",
+      "source": "memory_profile",
+      "affects": [
+        "performance"
+      ]
+    },
+    {
+      "key": "FERRUM_KV_CAPACITY",
+      "effective_value": "16384",
+      "source": "cli",
+      "affects": [
+        "memory"
+      ]
+    },
+    {
+      "key": "FERRUM_KV_DTYPE",
+      "effective_value": "fp16",
+      "source": "cli",
+      "affects": [
+        "correctness",
+        "memory"
+      ]
+    },
+    {
+      "key": "FERRUM_MAX_BATCHED_TOKENS",
+      "effective_value": "512",
+      "source": "cli",
+      "affects": [
+        "performance",
+        "memory"
+      ]
+    },
+    {
+      "key": "FERRUM_MAX_MODEL_LEN",
+      "effective_value": "16384",
+      "source": "cli",
+      "affects": [
+        "correctness",
+        "memory"
+      ]
+    },
+    {
+      "key": "FERRUM_MOE_DEVICE_ROUTE",
+      "effective_value": "0",
+      "source": "memory_profile",
+      "affects": [
+        "performance"
+      ]
+    },
+    {
+      "key": "FERRUM_PAGED_MAX_SEQS",
+      "effective_value": "1",
+      "source": "cli",
+      "affects": [
+        "performance",
+        "memory"
+      ]
+    },
+    {
+      "key": "FERRUM_PREFIX_CACHE",
+      "effective_value": "0",
+      "source": "cli",
+      "affects": [
+        "correctness"
+      ]
+    },
+    {
+      "key": "FERRUM_PREFIX_CACHE_PRODUCT",
+      "effective_value": "0",
+      "source": "cli",
+      "affects": [
+        "correctness"
+      ]
+    },
+    {
+      "key": "FERRUM_PREFIX_CACHE_REQUESTED",
+      "effective_value": "0",
+      "source": "cli",
+      "affects": [
+        "correctness"
+      ]
+    },
+    {
+      "key": "FERRUM_PROFILE_DETAIL",
+      "effective_value": "off",
+      "source": "cli",
+      "affects": [
+        "diagnostics"
+      ]
+    },
+    {
+      "key": "FERRUM_REUSABLE_EXECUTION",
+      "effective_value": "0",
+      "source": "memory_profile",
+      "affects": [
+        "correctness",
+        "performance",
+        "memory"
+      ]
+    },
+    {
+      "key": "FERRUM_RUNTIME_MEMORY_BUDGET_BYTES",
+      "effective_value": "12202617737",
+      "source": "memory_profile",
+      "affects": [
+        "correctness",
+        "memory"
+      ]
+    },
+    {
+      "key": "FERRUM_SESSION_CACHE",
+      "effective_value": "off",
+      "source": "cli",
+      "affects": [
+        "performance"
+      ]
+    },
+    {
+      "key": "FERRUM_UNIFIED_GRAPH",
+      "effective_value": "0",
+      "source": "memory_profile",
+      "affects": [
+        "performance"
+      ]
+    },
+    {
+      "key": "FERRUM_UNIFIED_GRAPH_LAYERS_ONLY",
+      "effective_value": "0",
+      "source": "memory_profile",
+      "affects": [
+        "performance"
+      ]
+    },
+    {
+      "key": "FERRUM_UNIFIED_GRAPH_LM_HEAD_EAGER",
+      "effective_value": "0",
+      "source": "memory_profile",
+      "affects": [
+        "performance"
+      ]
+    },
+    {
+      "key": "FERRUM_VLLM_MOE",
+      "effective_value": "0",
+      "source": "memory_profile",
+      "affects": [
+        "performance"
+      ]
+    },
+    {
+      "key": "FERRUM_VLLM_MOE_PAIR_IDS",
+      "effective_value": "0",
+      "source": "memory_profile",
+      "affects": [
+        "performance"
+      ]
+    }
+  ],
+  "model_capabilities": {
+    "architecture": "qwen3_5",
+    "quantization": "quantization.gguf.pq2-0",
+    "moe": null,
+    "max_context_len": 262144,
+    "num_hidden_layers": 64,
+    "head_dim": 256,
+    "kv_heads": 4,
+    "estimated_weight_bytes": 7206168928,
+    "recurrent_state_bytes_per_sequence": 153944064,
+    "supported_dtypes": [
+      "fp16",
+      "fp32"
+    ],
+    "graph_safe_moe": false
+  },
+  "hardware_capabilities": {
+    "backend": "metal",
+    "cuda_runtime": null,
+    "compute_capability": null,
+    "vram_bytes": 22906503168,
+    "sm_count": null,
+    "supported_dtypes": [
+      "fp16",
+      "fp32"
+    ],
+    "supported_kv_dtypes": [
+      "fp16",
+      "int8"
+    ],
+    "graph_support": false,
+    "compiled_features": {
+      "cuda": false,
+      "vllm_paged_attn": false,
+      "vllm_moe_marlin": false,
+      "cuda_graph": false,
+      "greedy_argmax": true,
+      "fa2_source": false,
+      "fa2_direct_ffi": false,
+      "fa2_native_operator_artifact": false
+    }
+  },
+  "workload_profile": {
+    "preset": null,
+    "serving_mode": "openai_chat",
+    "target_concurrency": 32,
+    "prompt_length_class": "unknown",
+    "output_length_class": "unknown",
+    "priority": "balanced"
+  },
+  "admission": {
+    "schema_version": 1,
+    "backend": "metal",
+    "model_architecture": "qwen3_5",
+    "resource_authority": "plan_runtime",
+    "source": "startup_preflight",
+    "scheduler_policy": "prompt_token_estimate",
+    "effective_max_concurrent": 1,
+    "maximum_active_sequences": 1,
+    "maximum_scheduled_tokens": 512,
+    "queue_depth": 0,
+    "active_prefill": 0,
+    "active_decode": 0,
+    "current_batch_size": 0,
+    "rejected_requests_total": 0,
+    "failed_requests_total": 0,
+    "completed_requests_total": 0,
+    "max_sequences": 1,
+    "recurrent_state_max_slots": null,
+    "legacy_recurrent_state_max_slots_estimate": null,
+    "legacy_recurrent_state_limit_applies": false,
+    "kv_capacity_source": "legacy_block_preflight_estimate",
+    "kv_capacity_applies_to_selected_state_layout": false,
+    "kv_capacity_is_resident_usage": false,
+    "kv_block_count": 2048,
+    "kv_block_size_tokens": 16,
+    "kv_capacity_tokens": 32768,
+    "max_model_length": 16384,
+    "max_batched_tokens": 512,
+    "memory_estimate": {
+      "source": "legacy_f16_geometry_estimate",
+      "applies_to_selected_state_layout": false,
+      "is_resident_usage": false,
+      "selected_state_evidence_source": "executor.kv_storage.logical_sequence_state",
+      "vram_bytes": 22906503168,
+      "estimated_weight_bytes": 7206168928,
+      "kv_bytes_per_token": 262144,
+      "recurrent_state_bytes_per_sequence": 153944064,
+      "recurrent_state_budget_bytes": 15700334240,
+      "recurrent_state_budget_raw_slots": 101,
+      "recurrent_state_budget_max_slots": 64,
+      "recurrent_state_capacity_bytes": null,
+      "kv_capacity_bytes": 8589934592
+    }
+  },
+  "decisions": [
+    {
+      "schema_version": 1,
+      "selection": "attention_execution_policy",
+      "selected": "portable",
+      "source": "compiled_feature",
+      "source_key": null,
+      "candidates": [
+        "native-adaptive",
+        "portable"
+      ],
+      "rejected": [
+        {
+          "value": "native-adaptive",
+          "reason": "native adaptive provider is not selected or compiled"
+        }
+      ],
+      "affects": [
+        "correctness",
+        "performance"
+      ]
+    },
+    {
+      "schema_version": 1,
+      "selection": "attention_prefill_mixed_backend",
+      "selected": "portable",
+      "source": "compiled_feature",
+      "source_key": null,
+      "candidates": [
+        "cuda_native_adaptive",
+        "metal_native_adaptive",
+        "portable"
+      ],
+      "rejected": [
+        {
+          "value": "cuda_native_adaptive",
+          "reason": "CUDA native adaptive provider is not selected"
+        },
+        {
+          "value": "metal_native_adaptive",
+          "reason": "Metal native adaptive provider is not selected"
+        }
+      ],
+      "affects": [
+        "correctness",
+        "performance"
+      ]
+    },
+    {
+      "schema_version": 1,
+      "selection": "attention_decode_backend",
+      "selected": "portable",
+      "source": "compiled_feature",
+      "source_key": null,
+      "candidates": [
+        "cuda_native_adaptive",
+        "metal_native_adaptive",
+        "portable"
+      ],
+      "rejected": [
+        {
+          "value": "cuda_native_adaptive",
+          "reason": "CUDA native adaptive provider is not selected"
+        },
+        {
+          "value": "metal_native_adaptive",
+          "reason": "Metal native adaptive provider is not selected"
+        }
+      ],
+      "affects": [
+        "correctness",
+        "performance"
+      ]
+    },
+    {
+      "schema_version": 1,
+      "selection": "moe_implementation",
+      "selected": "legacy_moe",
+      "source": "workload_preset",
+      "source_key": null,
+      "candidates": [
+        "vllm_marlin_moe_device_route_pair_ids",
+        "vllm_marlin_moe_device_route",
+        "vllm_marlin_moe",
+        "legacy_moe"
+      ],
+      "rejected": [
+        {
+          "value": "vllm_marlin_moe_device_route_pair_ids",
+          "reason": "pair-id device route not selected"
+        },
+        {
+          "value": "vllm_marlin_moe_device_route",
+          "reason": "device-route MoE not selected"
+        },
+        {
+          "value": "vllm_marlin_moe",
+          "reason": "vLLM Marlin MoE not selected"
+        }
+      ],
+      "affects": [
+        "performance"
+      ]
+    },
+    {
+      "schema_version": 1,
+      "selection": "moe_graph_policy",
+      "selected": "graph_disabled",
+      "source": "workload_preset",
+      "source_key": null,
+      "candidates": [
+        "graph_clean_decode",
+        "graph_disabled"
+      ],
+      "rejected": [
+        {
+          "value": "graph_clean_decode",
+          "reason": "graph decode not selected"
+        }
+      ],
+      "affects": [
+        "performance",
+        "correctness"
+      ]
+    },
+    {
+      "schema_version": 1,
+      "selection": "reusable_execution_policy",
+      "selected": "disabled",
+      "source": "hardware_capability",
+      "source_key": null,
+      "candidates": [
+        "enabled_when_runtime_capable",
+        "disabled"
+      ],
+      "rejected": [
+        {
+          "value": "enabled_when_runtime_capable",
+          "reason": "reusable device programs are disabled"
+        }
+      ],
+      "affects": [
+        "performance",
+        "correctness"
+      ]
+    },
+    {
+      "schema_version": 1,
+      "selection": "decode_graph_policy",
+      "selected": "graph_disabled",
+      "source": "default",
+      "source_key": null,
+      "candidates": [
+        "unified_decode_graph_layers_only",
+        "unified_decode_graph_lm_head_eager",
+        "unified_decode_graph",
+        "legacy_batched_decode_graph",
+        "graph_disabled"
+      ],
+      "rejected": [
+        {
+          "value": "unified_decode_graph_layers_only",
+          "reason": "layers-only unified decode graph not selected"
+        },
+        {
+          "value": "unified_decode_graph_lm_head_eager",
+          "reason": "lm-head-eager unified decode graph not selected"
+        },
+        {
+          "value": "unified_decode_graph",
+          "reason": "unified decode graph not selected"
+        },
+        {
+          "value": "legacy_batched_decode_graph",
+          "reason": "legacy batched decode graph not selected"
+        }
+      ],
+      "affects": [
+        "performance",
+        "correctness"
+      ]
+    },
+    {
+      "schema_version": 1,
+      "selection": "kv_block_count",
+      "selected": "2048",
+      "source": "workload_preset",
+      "source_key": null,
+      "candidates": [
+        "2048"
+      ],
+      "rejected": [],
+      "affects": [
+        "memory"
+      ]
+    },
+    {
+      "schema_version": 1,
+      "selection": "prefix_cache_policy",
+      "selected": "prefix_cache_disabled",
+      "source": "cli",
+      "source_key": "FERRUM_PREFIX_CACHE",
+      "candidates": [
+        "prefix_cache_enabled",
+        "prefix_cache_disabled"
+      ],
+      "rejected": [
+        {
+          "value": "prefix_cache_enabled",
+          "reason": "prefix cache not selected"
+        }
+      ],
+      "affects": [
+        "correctness",
+        "performance",
+        "memory"
+      ]
+    },
+    {
+      "schema_version": 1,
+      "selection": "scheduler_admission_policy",
+      "selected": "prompt_token_estimate",
+      "source": "default",
+      "source_key": null,
+      "candidates": [
+        "continuous_default",
+        "prompt_token_estimate",
+        "prefill_first_until_active",
+        "prefill_first_until_active+active_decode_prefill_chunk",
+        "active_decode_prefill_chunk",
+        "prefill_step_chunk",
+        "prefill_token_budget:elastic"
+      ],
+      "rejected": [],
+      "affects": [
+        "performance"
+      ]
+    },
+    {
+      "schema_version": 1,
+      "selection": "sampling_readback_path",
+      "selected": "gpu_greedy_argmax",
+      "source": "hardware_capability",
+      "source_key": null,
+      "candidates": [
+        "gpu_greedy_argmax",
+        "logits_readback"
+      ],
+      "rejected": [
+        {
+          "value": "logits_readback",
+          "reason": "logits readback not selected"
+        }
+      ],
+      "affects": [
+        "performance",
+        "correctness"
+      ]
+    },
+    {
+      "schema_version": 1,
+      "selection": "max_model_len",
+      "selected": "16384",
+      "source": "cli",
+      "source_key": "FERRUM_MAX_MODEL_LEN",
+      "candidates": [
+        "16384"
+      ],
+      "rejected": [],
+      "affects": [
+        "memory",
+        "performance"
+      ]
+    },
+    {
+      "schema_version": 1,
+      "selection": "max_sequences",
+      "selected": "1",
+      "source": "cli",
+      "source_key": "FERRUM_PAGED_MAX_SEQS",
+      "candidates": [
+        "1"
+      ],
+      "rejected": [],
+      "affects": [
+        "memory",
+        "performance"
+      ]
+    },
+    {
+      "schema_version": 1,
+      "selection": "max_batched_tokens",
+      "selected": "512",
+      "source": "cli",
+      "source_key": "FERRUM_MAX_BATCHED_TOKENS",
+      "candidates": [
+        "512"
+      ],
+      "rejected": [],
+      "affects": [
+        "memory",
+        "performance"
+      ]
+    },
+    {
+      "schema_version": 1,
+      "selection": "runtime_memory_budget_bytes",
+      "selected": "12202617737",
+      "source": "memory_profile",
+      "source_key": "FERRUM_RUNTIME_MEMORY_BUDGET_BYTES",
+      "candidates": [
+        "12202617737"
+      ],
+      "rejected": [],
+      "affects": [
+        "memory",
+        "performance"
+      ]
+    }
+  ],
+  "numerical_execution": {
+    "requested": "auto",
+    "requested_kv_storage": "f16",
+    "selected_kv_storage": "f16",
+    "selected_profile": "qwen3_5.f32-master",
+    "selected_version": {
+      "major": 1,
+      "minor": 0
+    },
+    "profile_fingerprint": "9ece74fc6e3c544a5fe13c124a716ac7280aadfc1c99c3edac3b40815285ca52",
+    "qualification_version": {
+      "major": 1,
+      "minor": 1
+    },
+    "definition_fingerprint": "f1f11e336805e5e4012e43d31f8bd4b01ccee6610615440db4e684f6cb1ac96f",
+    "prepared_family_fingerprint": "1445e63cb64bcfad3458cda4598b968f54f36d69c72ab2503329d669c552dd09",
+    "capability_catalog_fingerprint": "63c8aee2867037d1c3d02cdd178191e38dfca86b2945d4c9e92a9e6d325bec04",
+    "runtime_policy_fingerprint": "48f7d866e2f6f36346f1ad56aaf54bcc693c11b9ed6b0cbbf7fda3c8179d44af",
+    "execution_plan_hash": "e54359451c5e8be8c04677219981cbed101c320ce1499d3f9ead4e360622ff53",
+    "rejected": []
+  },
+  "resolution_evidence": {
+    "schema_version": 1,
+    "requested_model": "bonsai2:27b",
+    "resolved_model": "prism-ml/Ternary-Bonsai-2-27B-gguf",
+    "original_sources": {
+      "semantic": {
+        "kind": "repository",
+        "location": "Qwen/Qwen3.8-27B",
+        "requested_revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0"
+      },
+      "tokenizer": {
+        "kind": "repository",
+        "location": "Qwen/Qwen3.8-27B",
+        "requested_revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0"
+      },
+      "weights": {
+        "kind": "repository",
+        "location": "prism-ml/Ternary-Bonsai-2-27B-gguf",
+        "requested_revision": "6ed5e12bf84b7a63069882c91dd9e9218647d17b"
+      }
+    },
+    "resolved_sources": {
+      "semantic": {
+        "canonical_location": "Qwen/Qwen3.8-27B",
+        "resolved_revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+        "files": [
+          {
+            "relative_path": "config.json",
+            "size_bytes": 4312,
+            "sha256": "191e0af232104ed8b65258cf3fb2b842e288008baca7633c11b82a1ac7203aab"
+          }
+        ]
+      },
+      "tokenizer": {
+        "canonical_location": "Qwen/Qwen3.8-27B",
+        "resolved_revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+        "files": [
+          {
+            "relative_path": "chat_template.jinja",
+            "size_bytes": 8952,
+            "sha256": "c3cf9e34abf4f9e36c2d72165aa9c132d3e2a725b6c2586aaa3a8af9d7a81041"
+          },
+          {
+            "relative_path": "generation_config.json",
+            "size_bytes": 202,
+            "sha256": "e70c136c1b78ddc1fb0905bac8e733a4dc448d4f852a5dd75143fffc70be550e"
+          },
+          {
+            "relative_path": "tokenizer.json",
+            "size_bytes": 12809320,
+            "sha256": "0997f410c57a1f4e53b09e4be8f4a172d90edd9564368fb0847030937229b9f3"
+          },
+          {
+            "relative_path": "tokenizer_config.json",
+            "size_bytes": 17928,
+            "sha256": "b11349aafa7cdc6a320767cf7ceb29ed82f7eda5d65e8e0819e76f0ce947bf27"
+          }
+        ]
+      },
+      "weights": {
+        "canonical_location": "prism-ml/Ternary-Bonsai-2-27B-gguf",
+        "resolved_revision": "6ed5e12bf84b7a63069882c91dd9e9218647d17b",
+        "files": [
+          {
+            "relative_path": "Ternary-Bonsai-2-27B-PQ2_0.gguf",
+            "size_bytes": 7206168928,
+            "sha256": "3907dc1658db1f78a9826bf8d5bcb8dc65db0d466388937af57f2294fae62ec1"
+          }
+        ]
+      }
+    },
+    "semantic_config": {
+      "role": "semantic",
+      "source_file": "config.json",
+      "container_sha256": "191e0af232104ed8b65258cf3fb2b842e288008baca7633c11b82a1ac7203aab"
+    },
+    "tokenizer": {
+      "role": "tokenizer",
+      "source_file": "tokenizer.json",
+      "container_sha256": "0997f410c57a1f4e53b09e4be8f4a172d90edd9564368fb0847030937229b9f3"
+    },
+    "template": {
+      "role": "tokenizer",
+      "source_file": "chat_template.jinja",
+      "container_sha256": "c3cf9e34abf4f9e36c2d72165aa9c132d3e2a725b6c2586aaa3a8af9d7a81041",
+      "content_sha256": "c3cf9e34abf4f9e36c2d72165aa9c132d3e2a725b6c2586aaa3a8af9d7a81041"
+    }
+  },
+  "kv_storage": {
+    "source": "resolved_model_plan",
+    "requested": "f16",
+    "selected": "f16",
+    "numerical_profile": "qwen3_5.f32-master",
+    "logical_sequence_state": {
+      "kv_bytes_per_token": 65536,
+      "other_token_scaled_bytes_per_token": 0,
+      "fixed_bytes_per_sequence": 153944064
+    },
+    "logical_bytes_scope": "complete_model_excluding_alignment_workspace_and_checkpoint_copies",
+    "resident_usage_source": "dynamic_pools"
+  },
+  "attention_execution_policy": "portable"
+}

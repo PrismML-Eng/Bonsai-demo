@@ -1,0 +1,4 @@
+Selected lines from ferrum-server.log; startup imported-buffer accounting and final /usr/bin/time -l counters.
+2026-09-19T10:33:15.680567Z  INFO ferrum.startup: vNext static initialization completed initialized_resource_count=3 uploaded_component_count=0 uploaded_bytes=0 transformed_component_count=0 transformed_bytes=0 imported_component_count=854 imported_bytes=7189893120 upload_command_count=0 transform_command_count=0 submission_batch_count=0 total_duration_us=196427 setup_duration_us=7528 source_materialization_duration_us=20210 device_encode_duration_us=0 device_import_duration_us=8386 submission_wait_duration_us=0 import_seal_duration_us=159202 slowest_component_id="component.layer.10.linear_attn_b" slowest_component_materialization_duration_us=302
+           487456768  maximum resident set size
+          1078913088  peak memory footprint

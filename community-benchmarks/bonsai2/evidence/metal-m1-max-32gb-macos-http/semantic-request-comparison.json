@@ -1,0 +1,84 @@
+{
+  "description": "Comparison of saved semantic request JSON documents. Workspace names differ in system context; native tool-call IDs differ in later turns. Request hashes below identify the saved JSON evidence, not a captured network packet.",
+  "requests": [
+    {
+      "index": 0,
+      "ferrum_saved_request_sha256": "b0b151967bcc04542bff363280d5c1f1e2a07dd4e7752153991355e99674b60e",
+      "prism_saved_request_sha256": "8bedeefdb81db70505c1f48dbb94ff765479c5cff759a35295125567595ceb73",
+      "tools_schema_equal": true,
+      "differing_json_paths": [
+        "messages.0.content"
+      ],
+      "differences_after_workspace_name_normalization": []
+    },
+    {
+      "index": 1,
+      "ferrum_saved_request_sha256": "e769148e6e545e7f23c63cd6820a1461181f60e563b088d27f05f263b2c6f521",
+      "prism_saved_request_sha256": "7dad262c01bffdcbc655ae2e9c20653592d3a8663fa6948330474307da523539",
+      "tools_schema_equal": true,
+      "differing_json_paths": [
+        "messages.0.content",
+        "messages.2.tool_calls.0.id",
+        "messages.2.tool_calls.1.id",
+        "messages.3.tool_call_id",
+        "messages.4.tool_call_id"
+      ],
+      "differences_after_workspace_name_normalization": [
+        "messages.2.tool_calls.0.id",
+        "messages.2.tool_calls.1.id",
+        "messages.3.tool_call_id",
+        "messages.4.tool_call_id"
+      ]
+    },
+    {
+      "index": 2,
+      "ferrum_saved_request_sha256": "87a1365ba7914881c4b33032b800fba097a4365ae0764c5413ae3318feb2ad72",
+      "prism_saved_request_sha256": "2485ec862ac5948a5cf485b8b54f26914342bcfe9250477a78d8be62e9dc2682",
+      "tools_schema_equal": true,
+      "differing_json_paths": [
+        "messages.0.content",
+        "messages.2.tool_calls.0.id",
+        "messages.2.tool_calls.1.id",
+        "messages.3.tool_call_id",
+        "messages.4.tool_call_id",
+        "messages.5.tool_calls.0.id",
+        "messages.6.tool_call_id"
+      ],
+      "differences_after_workspace_name_normalization": [
+        "messages.2.tool_calls.0.id",
+        "messages.2.tool_calls.1.id",
+        "messages.3.tool_call_id",
+        "messages.4.tool_call_id",
+        "messages.5.tool_calls.0.id",
+        "messages.6.tool_call_id"
+      ]
+    },
+    {
+      "index": 3,
+      "ferrum_saved_request_sha256": "68b850dcdb238154a8dee1ef667f58712540e3c011c32eeca2e35559792a66b1",
+      "prism_saved_request_sha256": "8e1b3ea2f5e0f0f48c6621638986b92c0da34b906852605822cd7950271b221b",
+      "tools_schema_equal": true,
+      "differing_json_paths": [
+        "messages.0.content",
+        "messages.2.tool_calls.0.id",
+        "messages.2.tool_calls.1.id",
+        "messages.3.tool_call_id",
+        "messages.4.tool_call_id",
+        "messages.5.tool_calls.0.id",
+        "messages.6.tool_call_id",
+        "messages.7.tool_calls.0.id",
+        "messages.8.tool_call_id"
+      ],
+      "differences_after_workspace_name_normalization": [
+        "messages.2.tool_calls.0.id",
+        "messages.2.tool_calls.1.id",
+        "messages.3.tool_call_id",
+        "messages.4.tool_call_id",
+        "messages.5.tool_calls.0.id",
+        "messages.6.tool_call_id",
+        "messages.7.tool_calls.0.id",
+        "messages.8.tool_call_id"
+      ]
+    }
+  ]
+}

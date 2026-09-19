@@ -1,0 +1,111 @@
+{
+  "description": "Selected fields from the completed harness report, with local paths and full model output omitted. Candidate source, original source, specification, and acceptance tests are provided separately.",
+  "source_report_sha256": "9f9d03cfd79f82280b15041ddc0920485f0f8de53bf4451f3a0f96cb54d34c85",
+  "accepted": true,
+  "agent": {
+    "kind": "orchestral",
+    "version": "0.4.1"
+  },
+  "agent_wall_ms": 242354,
+  "protected_unchanged": true,
+  "initial_validation": {
+    "elapsed_ms": 2324,
+    "exit_code": 1,
+    "timed_out": false
+  },
+  "final_validation": {
+    "elapsed_ms": 1573,
+    "exit_code": 0,
+    "timed_out": false
+  },
+  "agent_process": {
+    "elapsed_ms": 242354,
+    "exit_code": 0,
+    "timed_out": false
+  },
+  "source_changed": true,
+  "requests": [
+    {
+      "index": 0,
+      "http_status": 200,
+      "error": null,
+      "saw_done": true,
+      "usage": {
+        "completion_tokens": 53,
+        "prompt_tokens": 2633,
+        "total_tokens": 2686
+      }
+    },
+    {
+      "index": 1,
+      "http_status": 200,
+      "error": null,
+      "saw_done": true,
+      "usage": {
+        "completion_tokens": 172,
+        "prompt_tokens": 2871,
+        "total_tokens": 3043
+      }
+    },
+    {
+      "index": 2,
+      "http_status": 200,
+      "error": null,
+      "saw_done": true,
+      "usage": {
+        "completion_tokens": 27,
+        "prompt_tokens": 3093,
+        "total_tokens": 3120
+      }
+    },
+    {
+      "index": 3,
+      "http_status": 200,
+      "error": null,
+      "saw_done": true,
+      "usage": {
+        "completion_tokens": 61,
+        "prompt_tokens": 3252,
+        "total_tokens": 3313
+      }
+    }
+  ],
+  "file_tool_calls": [
+    {
+      "name": "file_read",
+      "path": "SPEC.md",
+      "is_error": false
+    },
+    {
+      "name": "file_read",
+      "path": "src/lib.rs",
+      "is_error": false
+    },
+    {
+      "name": "file_edit",
+      "path": "src/lib.rs",
+      "is_error": false
+    },
+    {
+      "name": "file_read",
+      "path": "src/lib.rs",
+      "is_error": false
+    }
+  ],
+  "server": {
+    "context_window": 16384,
+    "max_tokens": 512,
+    "thinking": "off",
+    "sampling_params": {
+      "frequency_penalty": 0,
+      "min_p": 0,
+      "presence_penalty": 0,
+      "repetition_penalty": 1,
+      "seed": 0,
+      "temperature": 0,
+      "top_k": 0,
+      "top_p": 1
+    }
+  },
+  "validation_repairs": 0
+}

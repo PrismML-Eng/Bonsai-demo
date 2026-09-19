@@ -1,0 +1,129 @@
+{
+  "description": "Selected fields from the completed harness report, with local paths and full model output omitted. Task artifacts match the files in ../semantic-ferrum exactly.",
+  "source_report_sha256": "2dfdbff7c02f522a83c158fb54a2312ec72611eb0e221115cf56c1d9820b8d0c",
+  "accepted": true,
+  "agent": {
+    "kind": "orchestral",
+    "version": "0.4.1"
+  },
+  "agent_wall_ms": 143189,
+  "protected_unchanged": true,
+  "initial_validation": {
+    "elapsed_ms": 1525,
+    "exit_code": 1,
+    "timed_out": false
+  },
+  "final_validation": {
+    "elapsed_ms": 1650,
+    "exit_code": 0,
+    "timed_out": false
+  },
+  "agent_process": {
+    "elapsed_ms": 143189,
+    "exit_code": 0,
+    "timed_out": false
+  },
+  "source_changed": true,
+  "shared_artifacts_sha256": {
+    "SPEC.md": "dd9d494ddf4960a159df56dae0ce342025612e1603cb278f24ee581711382390",
+    "candidate.rs": "a08bd7580942fd61252175ea062b5a051c5be8806688d8b345993b4ca2d2121b",
+    "acceptance.rs": "622340a5711ba30fd992ad2dabec01ec7e835f19b6080a7ea9a75a16907bde5d",
+    "initial.rs": "45b570681c5293e2cdacefe80190ea50359df9ec1f151340b197e0514b8a3654"
+  },
+  "requests": [
+    {
+      "index": 0,
+      "http_status": 200,
+      "error": null,
+      "saw_done": true,
+      "usage": {
+        "completion_tokens": 53,
+        "prompt_tokens": 2631,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "total_tokens": 2684
+      }
+    },
+    {
+      "index": 1,
+      "http_status": 200,
+      "error": null,
+      "saw_done": true,
+      "usage": {
+        "completion_tokens": 172,
+        "prompt_tokens": 2869,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "total_tokens": 3041
+      }
+    },
+    {
+      "index": 2,
+      "http_status": 200,
+      "error": null,
+      "saw_done": true,
+      "usage": {
+        "completion_tokens": 27,
+        "prompt_tokens": 3091,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "total_tokens": 3118
+      }
+    },
+    {
+      "index": 3,
+      "http_status": 200,
+      "error": null,
+      "saw_done": true,
+      "usage": {
+        "completion_tokens": 61,
+        "prompt_tokens": 3250,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "total_tokens": 3311
+      }
+    }
+  ],
+  "file_tool_calls": [
+    {
+      "name": "file_read",
+      "path": "SPEC.md",
+      "is_error": false
+    },
+    {
+      "name": "file_read",
+      "path": "src/lib.rs",
+      "is_error": false
+    },
+    {
+      "name": "file_edit",
+      "path": "src/lib.rs",
+      "is_error": false
+    },
+    {
+      "name": "file_read",
+      "path": "src/lib.rs",
+      "is_error": false
+    }
+  ],
+  "server": {
+    "context_window": 16384,
+    "max_tokens": 512,
+    "thinking": "off",
+    "sampling_params": {
+      "frequency_penalty": 0,
+      "min_p": 0,
+      "presence_penalty": 0,
+      "repetition_penalty": 1,
+      "seed": 0,
+      "temperature": 0,
+      "top_k": 0,
+      "top_p": 1
+    }
+  },
+  "validation_repairs": 0
+}

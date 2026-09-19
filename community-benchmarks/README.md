@@ -42,6 +42,14 @@ Sorted by decode speed (TG128). The 27B models come in two families: Bonsai (1-b
 | Bonsai (1-bit) | NVIDIA RTX A2000 Laptop (4 GB) | llama.cpp CUDA | 1,387 | 63 | [link](bonsai/cuda-rtxa2000-debian.md) |
 | Ternary | Apple M3 Pro 18 GB | llama.cpp Metal | 288 | 51.3 | [link](ternary-bonsai/metal-m3-pro-macos.md) |
 
+## HTTP serving comparisons
+
+These reports measure complete API requests, including time to first token and
+response latency. Their results are separate from the `llama-bench` PP512/TG128
+tables above.
+
+- [Bonsai 2 27B PQ2_0 — Apple M1 Max 32 GB, Metal: Ferrum and Prism llama-server](bonsai2/metal-m1-max-32gb-macos-http.md)
+
 ## Model Families
 
 - **[Bonsai (1-bit)](bonsai/)**: the 1-bit Bonsai family (27B, 8B, 4B, 1.7B) in GGUF and MLX 1-bit formats.
