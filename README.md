@@ -585,6 +585,14 @@ GGML_METAL_TENSOR_DISABLE=1 ./scripts/run_llama.sh -p "Hello"
 ```
 
 
+### setup.ps1 picks Vulkan/CPU instead of CUDA on an NVIDIA GPU
+
+**Symptom:** `setup.ps1` reports `[INFO] No GPU toolchain detected. Will use CPU build.` or falls back to Vulkan, even though `nvidia-smi` runs fine and shows the GPU.
+
+**Cause:** GPU detection greps `nvidia-smi`'s output for the literal string `CUDA Version:`. Some newer driver builds (observed on driver 610.88, CUDA 13.3) instead print `CUDA UMD Version:` — the extra `UMD` breaks the match, so `$GpuType` never becomes `cuda` and detection falls through to Vulkan or CPU. Worse for `bonsai2`: the family has no Vulkan-tuned kernels, so a simple prompt can sit with 0 prompt tokens processed for minutes instead of erroring out.
+
+**Fix:** widen the regex to accept the optional `UMD` token (`CUDA (?:UMD )?Version:\s+(\d+)\.(\d+)`), fixed in this version of `setup.ps1`. If you're on an older copy of the script, apply that change to the `-match` line in the GPU-detection block, then re-run `.\setup.ps1`.
+
 ### CUDA source build runs out of memory or freezes
 
 **Symptom:** `cmake --build` hangs, the system becomes unresponsive, or the build process is killed with an OOM error when building llama.cpp from source with CUDA enabled.
