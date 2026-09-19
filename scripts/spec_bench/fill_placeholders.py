@@ -91,7 +91,8 @@ def expected_keys(drafters=DRAFTER_KEYS, slot_counts=SLOT_COUNTS, passes=SINGLE_
     for n in slot_counts:
         keys += ["slots.%d.baseline.stream" % n, "slots.%d.baseline.aggregate" % n]
         for d in drafters:
-            keys += ["slots.%d.%s.%s" % (n, d, f) for f in ("stream", "aggregate", "accept", "speedup")]
+            keys += ["slots.%d.%s.%s" % (n, d, f)
+                     for f in ("stream", "aggregate", "accept", "speedup", "aggregate_speedup")]
     keys += ["power.source", "power.idle.w", "power.baseline.w", "power.baseline.mj"]
     for d in drafters:
         keys += ["power.%s.w" % d, "power.%s.mj" % d]
@@ -108,12 +109,32 @@ def single_slot_rows(results):
     return [r for r in results.get("results", []) if r.get("error") is None and r.get("slots", 1) == 1]
 
 
-def workload_placeholders(results, ph):
+def workload_keys(by_config, wanted):
+    """The (prompt_id, pass) keys of one workload that every config with rows completed.
+
+    A config that has no successful single-slot row at all (a server that
+    did not start) takes no part. The baseline rate, every config rate and
+    every speedup of the workload cover this one key set, so the printed
+    values agree with each other after a partial failure.
+    """
+    common = None
+    for name, current in by_config.items():
+        if not current:
+            continue
+        present = {k for k in current if k in wanted}
+        common = present if common is None else common & present
+    return sorted(common or ())
+
+
+def workload_placeholders(results, ph, notes=None):
     """W.baseline, W.<cfg>.tps/accept/speedup/tps_step from the request rows.
 
-    Rates are arithmetic means of tok_s over the prompts and passes that both
-    the config and the baseline completed; acceptance and tokens per step are
-    aggregated over the same rows.
+    Rates are arithmetic means of tok_s over the prompts and passes that the
+    baseline and every config completed (see workload_keys); acceptance and
+    tokens per step are aggregated over the same rows. A workload that some
+    config did not complete at all is omitted. `notes` receives a line for
+    every omitted workload and for every workload whose key set is smaller
+    than the baseline set.
     """
     rows = single_slot_rows(results)
     names = results.get("config_names") or sorted({r["config"] for r in rows})
@@ -121,17 +142,25 @@ def workload_placeholders(results, ph):
     base = by_config.get("baseline", {})
     for w, set_name, category in WORKLOADS:
         wanted = {(r["prompt_id"], r["pass"]) for r in workload_rows(rows, set_name, category)}
-        base_keys = sorted(k for k in base if k in wanted)
-        if base_keys:
-            base_mean = mean(base[k]["tok_s"] for k in base_keys)
-            ph["%s.baseline" % w] = fmt_rate(base_mean)
-            ph["%s.baseline.tps" % w] = fmt_rate(base_mean)
+        keys = workload_keys(by_config, wanted)
+        base_count = sum(1 for k in base if k in wanted)
+        if not keys:
+            if notes is not None and base_count:
+                notes.append("%s: omitted; a config completed none of the %d baseline requests" % (w, base_count))
+            continue
+        if notes is not None and base_count > len(keys):
+            notes.append("%s: values cover the %d of %d baseline requests that every config completed"
+                         % (w, len(keys), base_count))
+        base_rate = None
+        if base:
+            base_rate = mean(base[k]["tok_s"] for k in keys)
+            ph["%s.baseline" % w] = fmt_rate(base_rate)
+            ph["%s.baseline.tps" % w] = fmt_rate(base_rate)
         for name in names:
             if name == "baseline":
                 continue
             current = by_config.get(name, {})
-            keys = sorted(k for k in current if k in wanted and (not base or k in base))
-            if not keys:
+            if not current:
                 continue
             ck = config_key(name)
             rate = mean(current[k]["tok_s"] for k in keys)
@@ -142,26 +171,30 @@ def workload_placeholders(results, ph):
             ph["%s.%s.accept" % (w, ck)] = fmt_pct((accepted / drafted) if drafted else None)
             ph["%s.%s.tps_step" % (w, ck)] = fmt_step(tokens_per_step(generated, accepted))
             speedup = None
-            if base:
-                base_rate = mean(base[k]["tok_s"] for k in keys)
-                if base_rate and rate is not None:
-                    speedup = rate / base_rate
+            if base and base_rate and rate is not None:
+                speedup = rate / base_rate
             ph["%s.%s.speedup" % (w, ck)] = fmt_x(speedup)
 
 
 def single_placeholders(single, ph):
-    """single.<cfg>.p<i>, mean, and for drafters speedup, accept and tps_step."""
+    """single.<cfg>.p<i>, mean, and for drafters speedup, accept and tps_step.
+
+    `passes` holds one position per attempted pass; a failed pass is None
+    and prints as n/a in its own position. The mean and the speedup come
+    from the successful passes. A config with no successful pass is skipped.
+    """
     configs = single.get("configs") if isinstance(single.get("configs"), dict) else single
     entries = {}
     for name, entry in (configs or {}).items():
-        if not isinstance(entry, dict) or entry.get("error") or not entry.get("passes"):
+        if not isinstance(entry, dict) or not entry.get("passes"):
             continue
-        passes = [p for p in entry["passes"] if p is not None]
-        if not passes:
+        passes = list(entry["passes"])
+        values = [p for p in passes if p is not None]
+        if not values:
             continue
         entries[name] = {
             "passes": passes,
-            "mean": mean(passes),
+            "mean": mean(values),
             "accepted": entry.get("accepted") or 0,
             "drafted": entry.get("drafted") or 0,
             "predicted_n": entry.get("predicted_n") or 0,
@@ -188,9 +221,11 @@ def slot_placeholders(results, ph):
     entries = {(e["config"], e["slots"]): e for e in results.get("multi_slot") or []}
     for (name, slots), e in sorted(entries.items(), key=lambda kv: (kv[0][1], kv[0][0])):
         ck = config_key(name)
+        # The error key records a server refusal and also the first request
+        # error of a run that completed in part, so a partial run stays visible.
+        if e.get("error"):
+            ph["slots.%d.%s.error" % (slots, ck)] = str(e["error"])
         if not e.get("ok"):
-            if e.get("error"):
-                ph["slots.%d.%s.error" % (slots, ck)] = str(e["error"])
             continue
         ph["slots.%d.%s.stream" % (slots, ck)] = fmt_rate(e.get("per_stream_tok_s"))
         ph["slots.%d.%s.aggregate" % (slots, ck)] = fmt_rate(e.get("aggregate_tok_s"))
@@ -232,13 +267,20 @@ def exact_placeholders(results, ph):
         ph["exact.%s.total" % ck] = str(report.get("compared"))
 
 
-def build(results, single=None):
-    """The placeholder map from a results.json object and an optional single.json object."""
+def build(results, single=None, notes=None):
+    """The placeholder map from a results.json object and an optional single.json object.
+
+    `notes`, when given, receives one line per workload whose values cover
+    fewer requests than the baseline completed.
+    """
     ph = {}
+    defined = results.get("configs_defined") or {}
     for name in results.get("config_names") or []:
         ck = config_key(name)
-        ph["labels.%s" % ck] = LABELS.get(ck, name)
-    workload_placeholders(results, ph)
+        # A config added with --add-config takes the column label the run recorded.
+        column = (defined.get(name) or {}).get("column") if name != "baseline" else None
+        ph["labels.%s" % ck] = LABELS.get(ck) or column or name
+    workload_placeholders(results, ph, notes)
     if single is None:
         single = results.get("single")
     if single:
@@ -283,7 +325,8 @@ def main(argv=None):
         print("fill_placeholders: single prompt data from results.json")
     else:
         print("fill_placeholders: no single prompt data")
-    ph = build(results, single)
+    notes = []
+    ph = build(results, single, notes)
     out = args.out or os.path.join(args.results_dir, "placeholders.json")
     with open(out, "w", encoding="utf-8") as f:
         json.dump(ph, f, indent=1, sort_keys=True)
@@ -291,6 +334,8 @@ def main(argv=None):
     missing = [k for k in expected_keys() if k not in ph]
     na = sorted(k for k, v in ph.items() if v == "n/a")
     print("fill_placeholders: wrote %d keys to %s" % (len(ph), out))
+    for line in notes:
+        print("fill_placeholders: partial workload %s" % line)
     if na:
         print("fill_placeholders: %d keys are n/a: %s" % (len(na), ", ".join(na)))
     if missing:

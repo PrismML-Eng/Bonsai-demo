@@ -86,12 +86,13 @@ def bench_args(args):
 
 
 def summarize_record(record):
+    """Per config: one rate per attempted pass (None for a failed pass), mean and counters from the successful ones."""
     ok = [r for r in record["rows"] if r["error"] is None]
     drafted = sum(r["draft_n"] or 0 for r in ok)
     accepted = sum(r["draft_n_accepted"] or 0 for r in ok)
     generated = sum(r["predicted_n"] or 0 for r in ok)
     record.update({
-        "passes": [r["tok_s"] for r in ok],
+        "passes": sb.positional_passes(record["rows"]),
         "mean_tok_s": sb.mean(r["tok_s"] for r in ok),
         "predicted_n": generated,
         "drafted": drafted,
@@ -136,7 +137,7 @@ def run_config(args, bargs, name, out_dir, base_outputs):
                     raise sb.BenchError("missing file: %s" % path)
             if cfg["drafter"] is not None:
                 record["drafter"] = sb.display_path(required[2])
-                record["drafter_metadata"] = sb.gguf_metadata(required[2], sb.DRAFTER_KEYS)
+                record["drafter_metadata"] = sb.read_drafter_metadata(required[2])
             if sb.port_in_use(bargs.host, bargs.port):
                 raise sb.BenchError("something already listens on %s:%d; the tool never stops "
                                     "a server it did not start" % (bargs.host, bargs.port))
@@ -185,23 +186,46 @@ def run_config(args, bargs, name, out_dir, base_outputs):
                         row["draft_n"], row.get("tokens_per_step") or 0.0)
                 base = base_outputs.get(pass_no)
                 if base is not None:
-                    index = sb.first_diff(base["tokens"], output["tokens"])
-                    line += "  identical" if index is None else "  differs at token %d" % index
+                    index, unit, _, _ = sb.compare_outputs(base, output)
+                    line += "  identical" if index is None else "  differs at %s %d" % (unit, index)
             print(line)
             sys.stdout.flush()
-    except sb.BenchError as exc:
-        record["error"] = str(exc)
-        print("  ERROR: %s" % exc)
+    except sb.CONFIG_ERRORS as exc:
+        record["error"] = sb.config_error_text(exc)
+        print("  ERROR: %s" % record["error"])
     finally:
         if server is not None:
             server.stop()
     record["finished_utc"] = utc_now()
     summarize_record(record)
-    if base_outputs and outputs:
-        same = sum(1 for k, v in outputs.items() if k in base_outputs
-                   and sb.first_diff(base_outputs[k]["tokens"], v["tokens"]) is None)
-        record["identical_to_baseline"] = "%d/%d" % (same, len(outputs))
     return record, outputs
+
+
+def identical_to_baseline(base_outputs, outputs):
+    """The count "same/compared" over the passes that both the baseline and the config completed, or None.
+
+    Token ids compare when both sides have them; otherwise the text compares.
+    The caller runs this after every config, so the order of the configs
+    does not matter.
+    """
+    common = sorted(k for k in outputs if k in base_outputs)
+    if not common:
+        return None
+    same = sum(1 for k in common if sb.compare_outputs(base_outputs[k], outputs[k])[0] is None)
+    return "%d/%d" % (same, len(common))
+
+
+def update_cross_config(data, outputs):
+    """Speedup and identity of every drafter config against the baseline, from the runs so far."""
+    base = data["configs"].get("baseline")
+    base_outputs = outputs.get("baseline") or {}
+    for name, entry in data["configs"].items():
+        if name == "baseline":
+            continue
+        entry["speedup"] = None
+        if base and base["mean_tok_s"] and entry["mean_tok_s"] is not None:
+            entry["speedup"] = entry["mean_tok_s"] / base["mean_tok_s"]
+        entry["identical_to_baseline"] = identical_to_baseline(base_outputs, outputs.get(name) or {})
 
 
 def write_single(out_dir, data, outputs):
@@ -225,7 +249,9 @@ def print_table(data):
         if e["error"] and not e["passes"]:
             print("%-16s ERROR %s" % (name, e["error"]))
             continue
-        cells = "".join("  %6.2f" % v for v in e["passes"]) + "        " * (n_pass - len(e["passes"]))
+        # A failed pass keeps its position and prints as n/a.
+        cells = "".join("     n/a" if v is None else "  %6.2f" % v for v in e["passes"])
+        cells += "        " * (n_pass - len(e["passes"]))
         accept = "   n/a " if e["accept_rate"] is None else "  %.3f" % e["accept_rate"]
         step = "     n/a" if e["tokens_per_step"] is None else "  %6.2f" % e["tokens_per_step"]
         speedup = "     n/a" if e["speedup"] is None else "  %5.2fx" % e["speedup"]
@@ -278,10 +304,9 @@ def main(argv=None):
             record, config_outputs = run_config(args, bargs, name, out_dir, outputs.get("baseline", {}))
             data["configs"][name] = record
             outputs[name] = config_outputs
-            base = data["configs"].get("baseline")
-            for cfg_name, entry in data["configs"].items():
-                if cfg_name != "baseline" and base and base["mean_tok_s"] and entry["mean_tok_s"] is not None:
-                    entry["speedup"] = entry["mean_tok_s"] / base["mean_tok_s"]
+            # Every config that ran so far is compared again, so a baseline
+            # that runs after a drafter still gives that drafter its figures.
+            update_cross_config(data, outputs)
             write_single(out_dir, data, outputs)
     except KeyboardInterrupt:
         print("\ninterrupted; partial results written")

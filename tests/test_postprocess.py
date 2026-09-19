@@ -106,14 +106,80 @@ class FillPlaceholdersTests(unittest.TestCase):
         self.assertEqual((ph["exact.v2.identical"], ph["exact.v2.total"], ph["exact.v1.identical"]), ("61", "62", "62"))
         self.assertTrue(all(isinstance(v, str) for v in ph.values()))
 
+    def test_expected_keys_match_the_documented_schema(self):
+        keys = fill_placeholders.expected_keys()
+        self.assertEqual(len(keys), len(set(keys)))
+        for key in ("slots.2.v2.aggregate_speedup", "slots.4.v1.aggregate_speedup", "code.baseline.tps",
+                    "single.v2.tps_step", "blended.v1.tps_step", "exact.v1.total", "power.v2.mj"):
+            self.assertIn(key, keys)
+        self.assertFalse([k for k in keys if k.endswith(".tok_step")])
+
     def test_speedup_uses_prompts_present_in_both_configs(self):
         results = synthetic_results()
         results["results"] = [r for r in results["results"]
                               if not (r["config"] == "baseline" and r["prompt_id"] == "math-01")]
-        ph = fill_placeholders.build(results)
+        notes = []
+        ph = fill_placeholders.build(results, notes=notes)
         self.assertNotIn("math.baseline", ph)
         self.assertNotIn("math.v2.tps", ph)
         self.assertEqual(ph["blended.v2.speedup"], "2.00x")
+        # The baseline itself has no math row, so there is nothing to note.
+        self.assertEqual(notes, [])
+
+    def test_workload_values_cover_the_requests_every_config_completed(self):
+        # v1 failed code-01. The baseline rate, both drafter rates and both
+        # speedups of every workload that holds code-01 then cover the same
+        # four remaining matrix requests, so the printed figures agree.
+        results = synthetic_results()
+        for r in results["results"]:
+            if r["config"] == "baseline" and r["prompt_id"] == "code-01":
+                r["tok_s"] = 300.0
+        results["results"] = [r for r in results["results"]
+                              if not (r["config"] == "dspark-v1" and r["prompt_id"] == "code-01")]
+        notes = []
+        ph = fill_placeholders.build(results, notes=notes)
+        self.assertNotIn("code.baseline", ph)
+        self.assertNotIn("code.v2.tps", ph)
+        self.assertEqual((ph["blended.baseline"], ph["blended.baseline.tps"]), ("30.0", "30.0"))
+        self.assertEqual((ph["blended.v2.tps"], ph["blended.v2.speedup"]), ("60.0", "2.00x"))
+        self.assertEqual((ph["blended.v1.tps"], ph["blended.v1.speedup"]), ("45.0", "1.50x"))
+        self.assertEqual(ph["math.baseline"], "30.0")
+        self.assertEqual(notes, ["code: omitted; a config completed none of the 1 baseline requests",
+                                 "blended: values cover the 4 of 5 baseline requests that every config completed"])
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = pathlib.Path(tmp)
+            with open(run_dir / "results.json", "w", encoding="utf-8") as f:
+                json.dump(results, f)
+            code, text = quiet(fill_placeholders.main, [str(run_dir)])
+        self.assertEqual(code, 0)
+        self.assertIn("partial workload blended: values cover the 4 of 5 baseline requests", text)
+        self.assertIn("partial workload code: omitted", text)
+
+    def test_failed_single_pass_keeps_its_position(self):
+        results = synthetic_results()
+        results["single"] = {
+            "baseline": {"passes": [10.0, None, 12.0], "predicted_n": 20, "drafted": 0, "accepted": 0},
+            "dspark-v2": {"passes": [None, 22.0, 22.0], "predicted_n": 20, "drafted": 40, "accepted": 20},
+            "dspark-v1": {"passes": [None, None, None], "predicted_n": 0, "drafted": 0, "accepted": 0},
+        }
+        ph = fill_placeholders.build(results)
+        self.assertEqual((ph["single.baseline.p1"], ph["single.baseline.p2"], ph["single.baseline.p3"]),
+                         ("10.0", "n/a", "12.0"))
+        self.assertEqual(ph["single.baseline.mean"], "11.0")
+        self.assertEqual((ph["single.v2.p1"], ph["single.v2.p3"], ph["single.v2.mean"]), ("n/a", "22.0", "22.0"))
+        self.assertEqual(ph["single.v2.speedup"], "2.00x")
+        self.assertNotIn("single.v1.mean", ph)
+        self.assertNotIn("single.v1.p1", ph)
+
+    def test_partial_slot_run_keeps_its_rates_and_its_error(self):
+        results = synthetic_results()
+        for e in results["multi_slot"]:
+            if e["config"] == "dspark-v2" and e["slots"] == 2:
+                e.update({"ok": 7, "errors": 1, "error": "URLError: timed out"})
+        ph = fill_placeholders.build(results)
+        self.assertEqual((ph["slots.2.v2.stream"], ph["slots.2.v2.speedup"]), ("30.0", "2.00x"))
+        self.assertEqual(ph["slots.2.v2.error"], "URLError: timed out")
+        self.assertNotIn("slots.2.v1.error", ph)
 
     def test_single_json_overrides_results(self):
         results = synthetic_results()
@@ -249,7 +315,21 @@ class FillDocTests(unittest.TestCase):
         self.write_values({})
         code, text = quiet(fill_doc.main, [str(self.doc), str(self.values), "--check"])
         self.assertEqual(code, 1)
-        self.assertIn("malformed markers", text)
+        self.assertIn("malformed markers: {{BENCH:code baseline}}", text)
+
+    def test_unterminated_marker_is_a_problem(self):
+        # A marker that never closes has no "}}" for the regex to find, so
+        # the check must look at every "{{BENCH:" start, not at closed pairs.
+        self.doc.write_text("runs at {{BENCH:code.baseline tok/s\nand {{BENCH:code.v2.tps}} with the drafter\n")
+        self.write_values({"code.baseline": "30.0", "code.v2.tps": "60.0"})
+        code, text = quiet(fill_doc.main, [str(self.doc), str(self.values), "--check"])
+        self.assertEqual(code, 1)
+        self.assertIn("1 malformed markers: {{BENCH:code.baseline tok/s", text)
+        self.assertEqual(fill_doc.malformed_markers("{{BENCH:ok.key}} {{BENCH:bad key}}"), ["{{BENCH:bad key}}"])
+        self.assertEqual(fill_doc.malformed_markers("{{BENCH:ok.key}}"), [])
+        code, text = quiet(fill_doc.main, [str(self.doc), str(self.values)])
+        self.assertEqual(code, 1)
+        self.assertIn("refused to write", text)
 
     def test_bad_inputs(self):
         code, _ = quiet(fill_doc.main, [str(self.doc), str(self.doc.with_name("absent.json"))])
@@ -340,6 +420,68 @@ class SinglePromptBenchTests(unittest.TestCase):
         data = self.single()
         self.assertIn("missing file", data["configs"]["dspark-v2"]["error"])
         self.assertEqual(data["configs"]["dspark-v2"]["passes"], [])
+        self.assertIsNone(data["configs"]["dspark-v2"]["identical_to_baseline"])
+        self.assertEqual(data["configs"]["baseline"]["passes"], [40.0])
+
+    def test_baseline_after_the_drafter_still_gets_compared(self):
+        code, text = quiet(single_prompt_bench.main, [
+            "--bin-dir", str(self.bin_dir), "--model", str(self.model), "--drafter-v1", str(self.drafter),
+            "--configs", "dspark-v1,baseline", "--port", str(test_spec_bench.free_port()),
+            "--repeats", "2", "--n-predict", "4", "--warmup-tokens", "0", "--allow-busy-gpu", "--out", str(self.out),
+        ])
+        self.assertEqual(code, 0, text)
+        data = self.single()
+        self.assertEqual(data["config_names"], ["dspark-v1", "baseline"])
+        v1 = data["configs"]["dspark-v1"]
+        self.assertEqual(v1["identical_to_baseline"], "2/2")
+        self.assertAlmostEqual(v1["speedup"], 1.0)
+        self.assertIsNone(data["configs"]["baseline"]["identical_to_baseline"])
+
+    def test_failed_pass_keeps_its_position(self):
+        code, text = quiet(single_prompt_bench.main, [
+            "--bin-dir", str(self.bin_dir), "--model", str(self.model), "--drafter-v1", str(self.drafter),
+            "--configs", "baseline,dspark-v1", "--port", str(test_spec_bench.free_port()),
+            "--repeats", "3", "--n-predict", "4", "--warmup-tokens", "0", "--allow-busy-gpu",
+            "--server-extra", "--fail-single-pass 2", "--out", str(self.out),
+        ])
+        self.assertEqual(code, 1, text)
+        self.assertIn("configs with errors: baseline, dspark-v1", text)
+        data = self.single()
+        for name in ("baseline", "dspark-v1"):
+            entry = data["configs"][name]
+            self.assertIsNone(entry["error"])
+            self.assertEqual(entry["passes"], [40.0, None, 40.0])
+            self.assertAlmostEqual(entry["mean_tok_s"], 40.0)
+            self.assertEqual([r["pass"] for r in entry["rows"] if r["error"] is not None], [2])
+        v1 = data["configs"]["dspark-v1"]
+        self.assertAlmostEqual(v1["speedup"], 1.0)
+        # Only the passes both sides completed take part in the identity count.
+        self.assertEqual(v1["identical_to_baseline"], "2/2")
+        self.assertIn("n/a", text)
+        # fill_placeholders keeps pass 3 in its position.
+        results = synthetic_results(with_single=False)
+        with open(self.out / "results.json", "w", encoding="utf-8") as f:
+            json.dump(results, f)
+        code, _ = quiet(fill_placeholders.main, [str(self.out)])
+        self.assertEqual(code, 0)
+        with open(self.out / "placeholders.json", encoding="utf-8") as f:
+            ph = json.load(f)
+        self.assertEqual((ph["single.v1.p1"], ph["single.v1.p2"], ph["single.v1.p3"]), ("40.0", "n/a", "40.0"))
+        self.assertEqual(ph["single.v1.mean"], "40.0")
+
+    def test_truncated_drafter_is_recorded_and_the_run_continues(self):
+        truncated = self.drafter.with_name("short.gguf")
+        truncated.write_bytes(self.drafter.read_bytes()[:40])
+        code, text = quiet(single_prompt_bench.main, [
+            "--bin-dir", str(self.bin_dir), "--model", str(self.model), "--drafter-v2", str(truncated),
+            "--configs", "dspark-v2,baseline", "--port", str(test_spec_bench.free_port()),
+            "--repeats", "1", "--n-predict", "4", "--warmup-tokens", "0", "--allow-busy-gpu", "--out", str(self.out),
+        ])
+        self.assertEqual(code, 1, text)
+        data = self.single()
+        self.assertIn("cannot read the GGUF header", data["configs"]["dspark-v2"]["error"])
+        self.assertEqual(data["configs"]["dspark-v2"]["passes"], [])
+        self.assertIsNone(data["configs"]["baseline"]["error"])
         self.assertEqual(data["configs"]["baseline"]["passes"], [40.0])
 
     def test_remote_server_is_not_launched(self):

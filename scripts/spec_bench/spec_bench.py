@@ -34,6 +34,8 @@ import urllib.error
 import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+import fill_placeholders  # noqa: E402  (the placeholder map has one producer)
 
 
 def find_demo_dir():
@@ -69,8 +71,6 @@ CONFIGS = {
     "dspark-v1": {"drafter": "v1", "n_max": 4, "column": "DSpark v1 (Ternary-Bonsai-27B drafter, K=4)"},
     "dspark-v2": {"drafter": "v2", "n_max": 5, "column": "DSpark v2 (K=5)"},
 }
-# Short config keys in placeholders.json; other configs use their own name.
-PLACEHOLDER_KEYS = {"baseline": "baseline", "dspark-v1": "v1", "dspark-v2": "v2"}
 # The single prompt of the PrismML GB10 document, run for several passes.
 SINGLE_ID = "single-quicksort"
 SINGLE_PROMPT = "Implement quicksort in Python with type hints, tests, and a concise complexity explanation"
@@ -247,6 +247,23 @@ def gguf_metadata(path, prefixes):
     return found
 
 
+def read_drafter_metadata(path):
+    """The drafter header keys, or a BenchError that names the file and the defect."""
+    try:
+        return gguf_metadata(path, DRAFTER_KEYS)
+    except (OSError, ValueError, struct.error) as exc:
+        raise BenchError("cannot read the GGUF header of %s: %s" % (display_path(path), exc))
+
+
+def drafter_block_size(metadata):
+    """The drafter block size: dflash.block_size, else dspark.dspark.block_size, else None."""
+    for key in ("dflash.block_size", "dspark.dspark.block_size"):
+        value = (metadata or {}).get(key)
+        if isinstance(value, int):
+            return value
+    return None
+
+
 # ---------------------------------------------------------------------------
 # HTTP
 
@@ -267,6 +284,17 @@ def http_json(url, body=None, timeout=30):
 
 
 REQUEST_ERRORS = (urllib.error.URLError, socket.timeout, ValueError, OSError, HttpError, KeyError, TypeError)
+# Errors of one configuration run outside a request (/props, warm-up, a bad
+# GGUF header, a server that does not start). The tool records them in the
+# config record and continues with the next configuration.
+CONFIG_ERRORS = (BenchError, struct.error) + REQUEST_ERRORS
+
+
+def config_error_text(exc):
+    """The error text of a config record: the BenchError message, or the type and message."""
+    if isinstance(exc, BenchError):
+        return str(exc)
+    return "%s: %s" % (type(exc).__name__, exc)
 
 
 def port_in_use(host, port):
@@ -518,6 +546,19 @@ def tokens_per_step(predicted_n, accepted):
     return (predicted_n / steps) if steps > 0 else None
 
 
+def draft_counters_present(row):
+    """Whether a response carried draft counters: True, False, or None when unknown.
+
+    Only a response with server timings can answer. A wall-timed chat row
+    (no timings) and a failed request leave the state unknown. Presence is
+    the test, not a nonzero value: a drafter that drafted nothing on a short
+    answer still reports draft_n 0.
+    """
+    if row.get("error") is not None or row.get("timings_source") != "timings":
+        return None
+    return row.get("draft_n") is not None
+
+
 def timings_row(timings):
     return {
         "prompt_n": timings.get("prompt_n"),
@@ -544,7 +585,11 @@ def run_completion(url, prompt, n_predict, seed, timeout):
     started = time.monotonic()
     resp = http_json(url + "/completion", body, timeout=timeout)
     wall_ms = (time.monotonic() - started) * 1000.0
-    tokens = resp.get("tokens") or []
+    # A server that ignores return_tokens sends no token ids. The output
+    # then keeps tokens as None and the exactness check compares the text.
+    tokens = resp.get("tokens")
+    if not isinstance(tokens, list):
+        tokens = None
     content = resp.get("content") or ""
     row = timings_row(resp.get("timings") or {})
     row.update({
@@ -552,14 +597,25 @@ def run_completion(url, prompt, n_predict, seed, timeout):
         "timings_source": "timings",
         "finish_reason": resp.get("stop_type"),
         "truncated": resp.get("truncated"),
-        "output_tokens": len(tokens),
+        "output_tokens": None if tokens is None else len(tokens),
         "output_chars": len(content),
         "output_sha256": sha256_text(content),
-        "tokens_sha256": sha256_text(",".join(str(t) for t in tokens)),
+        "tokens_sha256": None if tokens is None else sha256_text(",".join(str(t) for t in tokens)),
         "wall_ms": round(wall_ms, 1),
         "error": None,
     })
     return row, {"tokens": tokens, "content": content}
+
+
+def compare_outputs(a, b):
+    """Compare two outputs. Return (first_diff index or None, unit, length a, length b).
+
+    Outputs with token ids on both sides compare by token id. Otherwise
+    (chat outputs, or a server that returned no ids) they compare as text.
+    """
+    if a["tokens"] is not None and b["tokens"] is not None:
+        return first_diff(a["tokens"], b["tokens"]), "token", len(a["tokens"]), len(b["tokens"])
+    return first_diff(a["content"], b["content"]), "char", len(a["content"]), len(b["content"])
 
 
 def chat_messages(prompt, data):
@@ -935,6 +991,11 @@ def slot_summary(rows, config_records, subset_ids):
         drafted = sum(r["draft_n"] or 0 for r in ok)
         accepted = sum(r["draft_n_accepted"] or 0 for r in ok)
         first_error = next((r["error"] for r in selected if r["error"] is not None), None)
+        # draft_fields: True when a response carried draft counters, False
+        # when the server timings carried none, None when every response
+        # was wall timed (no timings, so the state is unknown).
+        states = [s for s in (draft_counters_present(r) for r in ok) if s is not None]
+        draft_fields = any(states) if states else None
         entries.append({
             "config": name,
             "slots": slots,
@@ -949,25 +1010,39 @@ def slot_summary(rows, config_records, subset_ids):
             "accepted": accepted,
             "accept_rate": (accepted / drafted) if drafted else None,
             "tokens_per_step": tokens_per_step(tokens, accepted),
-            "draft_fields": any(r["draft_n"] is not None for r in ok),
+            "draft_fields": draft_fields,
             "error": rec["error"] or first_error,
         })
     return entries
 
 
+def positional_passes(rows):
+    """One rate per attempted pass, in pass order. A failed pass holds None."""
+    passes = [None] * max([r["pass"] for r in rows] or [0])
+    for r in rows:
+        if r["error"] is None:
+            passes[r["pass"] - 1] = r.get("tok_s")
+    return passes
+
+
 def single_summary(rows, config_names, single_id=SINGLE_ID):
-    """Per config: the decode rate of every pass of the single prompt, the mean, acceptance and speedup."""
+    """Per config: the decode rate of every pass of the single prompt, the mean, acceptance and speedup.
+
+    `passes` keeps one position per attempted pass; a failed pass is None.
+    The mean, the counters and the speedup come from the successful passes.
+    """
     report = {}
     for name in config_names:
-        ok = sorted([r for r in rows if r["config"] == name and r.get("slots", 1) == 1
-                     and r["prompt_id"] == single_id and r["error"] is None], key=lambda r: r["pass"])
-        if not ok:
+        attempted = [r for r in rows if r["config"] == name and r.get("slots", 1) == 1
+                     and r["prompt_id"] == single_id]
+        if not attempted:
             continue
+        ok = [r for r in attempted if r["error"] is None]
         drafted = sum(r["draft_n"] or 0 for r in ok)
         accepted = sum(r["draft_n_accepted"] or 0 for r in ok)
         generated = sum(r["predicted_n"] or 0 for r in ok)
         report[name] = {
-            "passes": [r["tok_s"] for r in ok],
+            "passes": positional_passes(attempted),
             "mean_tok_s": mean(r["tok_s"] for r in ok),
             "predicted_n": generated,
             "drafted": drafted,
@@ -978,8 +1053,8 @@ def single_summary(rows, config_names, single_id=SINGLE_ID):
         }
     base = report.get("baseline")
     for name, entry in report.items():
-        if name != "baseline" and base and base["mean_tok_s"]:
-            entry["speedup"] = (entry["mean_tok_s"] or 0.0) / base["mean_tok_s"]
+        if name != "baseline" and base and base["mean_tok_s"] and entry["mean_tok_s"] is not None:
+            entry["speedup"] = entry["mean_tok_s"] / base["mean_tok_s"]
     return report
 
 
@@ -993,12 +1068,7 @@ def exactness(rows, outputs, config_names, repeats):
     if "baseline" not in config_names:
         return None
     base = index_rows(rows, "baseline")
-
-    def compare(a, b):
-        if a["tokens"] is not None and b["tokens"] is not None:
-            return first_diff(a["tokens"], b["tokens"]), "token", len(a["tokens"]), len(b["tokens"])
-        return first_diff(a["content"], b["content"]), "char", len(a["content"]), len(b["content"])
-
+    compare = compare_outputs
     report = {"configs": {}, "baseline_passes_identical": None}
     for name in config_names:
         if name == "baseline":
@@ -1055,119 +1125,6 @@ def fmt_speedup(value):
 
 def fmt_watts(value):
     return "n/a" if value is None else "%.1f" % value
-
-
-def placeholder_key(name):
-    return PLACEHOLDER_KEYS.get(name, name)
-
-
-def p_rate(value):
-    return "n/a" if value is None else "%.1f" % value
-
-
-def p_rate2(value):
-    return "n/a" if value is None else "%.2f" % value
-
-
-def p_pct(value):
-    return "n/a" if value is None else "%.1f%%" % (value * 100.0)
-
-
-def p_x(value):
-    return "n/a" if value is None else "%.2fx" % value
-
-
-def p_mj(value):
-    return "n/a" if value is None else "%.0f" % value
-
-
-# Placeholder workload key -> summary row label (exact, or a prefix for the
-# rows whose label carries a prompt count).
-PLACEHOLDER_WORKLOADS = [
-    ("code", "code"), ("math", "math"), ("reasoning", "reasoning"), ("chat", "chat"),
-    ("longform", "long-form"), ("tool", "tool"), ("agent", "agent"),
-    ("blended", "blended ("), ("long2000", "long-form ("),
-]
-
-
-def find_workload(entries, label):
-    for e in entries:
-        if e["workload"] == label:
-            return e
-    if label.endswith("("):
-        for e in entries:
-            if e["workload"].startswith(label):
-                return e
-    return None
-
-
-def build_placeholders(header, summary, extras, exact, configs, single):
-    """A flat map of printed values for the document fill step, as strings."""
-    ph = {}
-    names = header["config_names"]
-    drafters = [n for n in names if n != "baseline"]
-    for name in names:
-        ph["labels.%s" % placeholder_key(name)] = "baseline" if name == "baseline" else CONFIGS[name]["column"]
-    for name, e in (single or {}).items():
-        key = placeholder_key(name)
-        for i, value in enumerate(e["passes"], 1):
-            ph["single.%s.p%d" % (key, i)] = p_rate(value)
-        ph["single.%s.mean" % key] = p_rate(e["mean_tok_s"])
-        if name != "baseline":
-            ph["single.%s.speedup" % key] = p_x(e["speedup"])
-            ph["single.%s.accept" % key] = p_pct(e["accept_rate"])
-            ph["single.%s.tok_step" % key] = p_rate2(e["tokens_per_step"])
-    for wkey, label in PLACEHOLDER_WORKLOADS:
-        base_entry = find_workload(summary.get("baseline") or [], label)
-        if base_entry is not None:
-            ph["%s.baseline" % wkey] = p_rate(base_entry["no_drafter_tok_s"])
-        for name in drafters:
-            entry = find_workload(summary["tables"].get(name) or [], label)
-            if entry is None:
-                continue
-            key = placeholder_key(name)
-            ph["%s.%s.tps" % (wkey, key)] = p_rate(entry["with_drafter_tok_s"])
-            ph["%s.%s.accept" % (wkey, key)] = p_pct(entry["accept_rate"])
-            ph["%s.%s.speedup" % (wkey, key)] = p_x(entry["speedup"])
-            ph["%s.%s.tok_step" % (wkey, key)] = p_rate2(entry["with_drafter_tokens_per_step"])
-            if "%s.baseline" % wkey not in ph and entry["no_drafter_tok_s"] is not None:
-                ph["%s.baseline" % wkey] = p_rate(entry["no_drafter_tok_s"])
-    slot_entries = {(e["config"], e["slots"]): e for e in (extras.get("slots") or [])}
-    for (name, slots), e in sorted(slot_entries.items(), key=lambda kv: (kv[0][1], kv[0][0])):
-        key = placeholder_key(name)
-        ph["slots.%d.%s.stream" % (slots, key)] = p_rate(e["per_stream_tok_s"])
-        ph["slots.%d.%s.aggregate" % (slots, key)] = p_rate(e["aggregate_tok_s"])
-        if name != "baseline":
-            ph["slots.%d.%s.accept" % (slots, key)] = p_pct(e["accept_rate"])
-            base = slot_entries.get(("baseline", slots))
-            stream = aggregate = None
-            if base and base["per_stream_tok_s"] and e["per_stream_tok_s"] is not None:
-                stream = e["per_stream_tok_s"] / base["per_stream_tok_s"]
-            if base and base["aggregate_tok_s"] and e["aggregate_tok_s"] is not None:
-                aggregate = e["aggregate_tok_s"] / base["aggregate_tok_s"]
-            # speedup is the per-stream (decode-only) ratio, like the matrix;
-            # aggregate_speedup is the wall-clock throughput ratio.
-            ph["slots.%d.%s.speedup" % (slots, key)] = p_x(stream)
-            ph["slots.%d.%s.aggregate_speedup" % (slots, key)] = p_x(aggregate)
-            if e["error"]:
-                ph["slots.%d.%s.error" % (slots, key)] = e["error"]
-    powered = [c for c in configs if c["slots"] == 1 and c.get("power") and not c["power"].get("unavailable")]
-    host = header["environment"]["hostname"]
-    ph["power.source"] = ("nvidia-smi --query-gpu=power.draw sampled at 1 Hz by a background thread on %s "
-                          "while the server ran; mean W over the generation phase, and mJ/token = mean W / "
-                          "(generated tokens per wall second) x 1000." % host)
-    idle = next((c["power"]["idle_w"] for c in powered if c["name"] == "baseline"),
-                next((c["power"]["idle_w"] for c in powered), None))
-    ph["power.idle.w"] = p_rate(idle)
-    for c in powered:
-        key = placeholder_key(c["name"])
-        ph["power.%s.w" % key] = p_rate(c["power"]["mean_w"])
-        ph["power.%s.mj" % key] = p_mj(c["power"]["energy_mj_per_token"])
-    for name, report in ((exact or {}).get("configs") or {}).items():
-        key = placeholder_key(name)
-        ph["exact.%s.identical" % key] = str(report["identical"])
-        ph["exact.%s.total" % key] = str(report["compared"])
-    return ph
 
 
 def render_markdown(header, summary, exact, configs, rows, extras):
@@ -1338,13 +1295,16 @@ def render_markdown(header, summary, exact, configs, rows, extras):
                 result = "ERROR: %s" % e["error"]
             elif e["errors"]:
                 result = "%d of %d requests failed: %s" % (e["errors"], e["prompts"], e["error"])
-            elif CONFIGS.get(e["config"], {}).get("drafter") and not e["draft_fields"]:
+            elif CONFIGS.get(e["config"], {}).get("drafter") and e["draft_fields"] is False:
                 result = "no draft counters in the responses (speculation not engaged)"
+            elif CONFIGS.get(e["config"], {}).get("drafter") and e["draft_fields"] is None:
+                result = "ok (wall timed, no draft counters available)"
             else:
                 result = "ok"
             accept = "n/a" if e["accept_rate"] is None else "%.3f" % e["accept_rate"]
+            # `prompts` counts the attempted requests; `result` says how many failed.
             lines.append("| %s | %d | %d | %s | %s | %s | %s |" % (
-                e["config"], e["slots"], e["ok"], fmt_rate(e["per_stream_tok_s"]),
+                e["config"], e["slots"], e["prompts"], fmt_rate(e["per_stream_tok_s"]),
                 fmt_rate(e["aggregate_tok_s"]), accept, result))
         lines.append("")
 
@@ -1521,7 +1481,8 @@ def parse_args(argv):
     p.add_argument("--drafter-v2", default=DEFAULT_DRAFTER_V2,
                    help="DSpark v2 drafter GGUF (config dspark-v2)")
     p.add_argument("--configs", default=None,
-                   help="comma-separated subset of the configs (default: baseline,dspark-v2 plus every --add-config)")
+                   help="comma-separated subset of the configs (default: every config, %s, plus every "
+                        "--add-config; with --server-url, the named configs)" % ",".join(CONFIGS))
     p.add_argument("--add-config", action="append", type=parse_add_config, default=[], metavar="NAME=DRAFTER:NMAX",
                    help="add a drafter config with its own draft length, for example dspark-v2-k7=path.gguf:7")
     p.add_argument("--server-url", action="append", default=[], metavar="NAME=URL",
@@ -1720,7 +1681,13 @@ def model_files(args):
     return files
 
 
-def write_outputs(out_dir, header, configs, rows, outputs, prompts, subset_ids):
+def build_results(header, configs, rows, outputs, prompts, subset_ids):
+    """The results.json object: header, config records, rows, every summary and the placeholder map.
+
+    The placeholder map comes from fill_placeholders.build on this same
+    object, so the tool's placeholders.json and the post-processed one have
+    one schema.
+    """
     summary = summarize(prompts, rows, header["config_names"])
     exact = exactness(rows, outputs, header["config_names"], header["repeats"])
     single = single_summary(rows, header["config_names"])
@@ -1731,19 +1698,24 @@ def write_outputs(out_dir, header, configs, rows, outputs, prompts, subset_ids):
         "subset_ids": subset_ids,
         "single": single,
     }
-    placeholders = build_placeholders(header, summary, extras, exact, configs, single)
     results = dict(header, configs=configs, results=rows, summary=summary, exactness=exact,
                    long_form=extras["long_form"], tool_calls=extras["tool_calls"], multi_slot=extras["slots"],
-                   single=single, placeholders=placeholders,
+                   single=single,
                    power=[{"config": c["name"], "slots": c["slots"], "power": c["power"]} for c in configs])
+    results["placeholders"] = fill_placeholders.build(results)
+    return results, extras
+
+
+def write_outputs(out_dir, header, configs, rows, outputs, prompts, subset_ids):
+    results, extras = build_results(header, configs, rows, outputs, prompts, subset_ids)
     with open(os.path.join(out_dir, "results.json"), "w", encoding="utf-8") as f:
         json.dump(results, f, indent=1)
         f.write("\n")
     with open(os.path.join(out_dir, "placeholders.json"), "w", encoding="utf-8") as f:
-        json.dump(placeholders, f, indent=1, sort_keys=True)
+        json.dump(results["placeholders"], f, indent=1, sort_keys=True)
         f.write("\n")
     with open(os.path.join(out_dir, "summary.md"), "w", encoding="utf-8") as f:
-        f.write(render_markdown(header, summary, exact, configs, rows, extras))
+        f.write(render_markdown(header, results["summary"], results["exactness"], configs, rows, extras))
     dump = [
         {"config": k[0], "slots": k[1], "prompt_id": k[2], "pass": k[3], "content": v["content"], "tokens": v["tokens"]}
         for k, v in sorted(outputs.items())
@@ -1795,8 +1767,8 @@ def run_config(args, name, slots, prompts, subset, data, out_dir, rows, outputs,
                 # A remote server does not expose its drafter, so the metadata
                 # is recorded only for servers the tool launches itself.
                 record["drafter"] = display_path(required[2])
-                record["drafter_metadata"] = gguf_metadata(required[2], DRAFTER_KEYS)
-                block = record["drafter_metadata"].get("dflash.block_size")
+                record["drafter_metadata"] = read_drafter_metadata(required[2])
+                block = drafter_block_size(record["drafter_metadata"])
                 if block is not None and cfg["n_max"] > block:
                     print("  WARNING: --spec-draft-n-max %d exceeds the drafter block size %d"
                           % (cfg["n_max"], block))
@@ -1843,13 +1815,15 @@ def run_config(args, name, slots, prompts, subset, data, out_dir, rows, outputs,
             rows.append(row)
             outputs[(name, slots, row["prompt_id"], row["pass"])] = output
             record["requests"] += 1
-            if row["error"] is None:
-                if cfg["drafter"] is not None and record["spec_engaged"] is None:
-                    record["spec_engaged"] = bool(row["draft_n"])
-                    if not record["spec_engaged"]:
-                        print("  WARNING: the response carries no draft counters; speculation is not engaged")
-                if cfg["drafter"] is None and row["draft_n"]:
-                    print("  WARNING: the baseline response carries draft counters; this server has a drafter")
+            present = draft_counters_present(row)
+            if present is None:
+                return
+            if cfg["drafter"] is not None and record["spec_engaged"] is None:
+                record["spec_engaged"] = present
+                if not present:
+                    print("  WARNING: the response carries no draft counters; speculation is not engaged")
+            if cfg["drafter"] is None and present:
+                print("  WARNING: the baseline response carries draft counters; this server has a drafter")
 
         for pass_no in range(1, args.repeats + 1):
             if slots == 1:
@@ -1893,9 +1867,9 @@ def run_config(args, name, slots, prompts, subset, data, out_dir, rows, outputs,
                         wave_no, len(batch), sum(r["predicted_n"] or 0 for r in ok), wall,
                         sum(r["predicted_n"] or 0 for r in ok) / wall if wall else 0.0))
                     sys.stdout.flush()
-    except BenchError as exc:
-        record["error"] = str(exc)
-        print("  ERROR: %s" % exc)
+    except CONFIG_ERRORS as exc:
+        record["error"] = config_error_text(exc)
+        print("  ERROR: %s" % record["error"])
     finally:
         if sampler is not None:
             samples = sampler.stop()
@@ -1933,12 +1907,7 @@ def print_row(row, output, base_output):
         if row.get("timings_source") == "wall":
             line += "  (wall timed)"
     if base_output is not None and output is not None:
-        if output["tokens"] is not None and base_output["tokens"] is not None:
-            index = first_diff(base_output["tokens"], output["tokens"])
-            unit = "token"
-        else:
-            index = first_diff(base_output["content"], output["content"])
-            unit = "char"
+        index, unit, _, _ = compare_outputs(base_output, output)
         line += "  identical" if index is None else "  differs at %s %d" % (unit, index)
     print(line)
     sys.stdout.flush()

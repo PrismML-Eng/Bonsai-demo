@@ -1,5 +1,6 @@
 import collections
 import importlib.util
+import io
 import json
 import pathlib
 import socket
@@ -9,6 +10,7 @@ import subprocess
 import tempfile
 import time
 import unittest
+from contextlib import redirect_stdout
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -23,7 +25,9 @@ PROMPTS_PATH = ROOT / "scripts" / "spec_bench" / "prompts.json"
 # GPU. With a drafter it adds draft counters, and at K=5 it changes the last
 # token (and the chat text) so the exactness report has something to list.
 # With a drafter and more than one slot it exits at once with an error line,
-# like a build that refuses that combination.
+# like a build that refuses that combination. `--draft-zero` reports draft
+# counters of zero, `--no-tokens` omits the token ids from /completion, and
+# `--fail-single-pass N` answers the Nth quicksort request with HTTP 500.
 FAKE_SERVER = r'''#!/usr/bin/env python3
 import json, sys, http.server
 args = sys.argv[1:]
@@ -31,17 +35,19 @@ port = int(args[args.index("--port") + 1])
 drafter = "-md" in args
 n_max = int(args[args.index("--spec-draft-n-max") + 1]) if drafter else 0
 slots = int(args[args.index("-np") + 1]) if "-np" in args else 1
+fail_pass = int(args[args.index("--fail-single-pass") + 1]) if "--fail-single-pass" in args else 0
 if drafter and slots > 1:
     print("common_init_from_params: error: speculative decoding requires n_parallel == 1", flush=True)
     sys.exit(1)
 health_calls = {"n": 0}
+single_calls = {"n": 0}
 
 def timings(n):
     t = {"prompt_n": 10, "prompt_ms": 5.0, "predicted_n": n, "predicted_ms": 100.0,
          "predicted_per_second": n * 10.0}
     if drafter:
-        t["draft_n"] = n * 2
-        t["draft_n_accepted"] = n // 2
+        t["draft_n"] = 0 if "--draft-zero" in args else n * 2
+        t["draft_n_accepted"] = 0 if "--draft-zero" in args else n // 2
     return t
 
 class H(http.server.BaseHTTPRequestHandler):
@@ -93,11 +99,18 @@ class H(http.server.BaseHTTPRequestHandler):
             self.send(200, out)
             return
         n = min(body["n_predict"], 8)
+        if "quicksort" in body["prompt"]:
+            single_calls["n"] += 1
+            if single_calls["n"] == fail_pass:
+                self.send(500, {"error": {"message": "fake failure of pass %d" % fail_pass}})
+                return
         tokens = [sum(map(ord, body["prompt"])) % 1000 + i for i in range(n)]
         if drafter and n_max == 5 and n > 1:
             tokens[-1] += 1
         out = {"content": "".join(chr(97 + t % 26) for t in tokens), "tokens": tokens,
                "stop_type": "limit", "truncated": False, "timings": timings(n)}
+        if "--no-tokens" in args:
+            del out["tokens"]
         self.send(200, out)
 
 http.server.ThreadingHTTPServer(("127.0.0.1", port), H).serve_forever()
@@ -211,6 +224,68 @@ class HelperTests(unittest.TestCase):
         self.assertEqual(meta["general.architecture"], "dflash")
         self.assertEqual(meta["dflash.block_size"], 7)
         self.assertEqual(meta["tokenizer.ggml.tokens"], "array[2]")
+
+    def test_truncated_gguf_is_a_bench_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / "d.gguf"
+            write_gguf(path, 7)
+            path.write_bytes(path.read_bytes()[:40])
+            with self.assertRaises(spec_bench.BenchError) as raised:
+                spec_bench.read_drafter_metadata(str(path))
+        self.assertIn("cannot read the GGUF header", str(raised.exception))
+        self.assertIn("d.gguf", str(raised.exception))
+
+    def test_drafter_block_size_falls_back_to_the_dspark_key(self):
+        self.assertEqual(spec_bench.drafter_block_size({"dflash.block_size": 7}), 7)
+        self.assertEqual(spec_bench.drafter_block_size({"dspark.dspark.block_size": 4}), 4)
+        self.assertEqual(spec_bench.drafter_block_size({"dflash.block_size": 7, "dspark.dspark.block_size": 4}), 7)
+        self.assertIsNone(spec_bench.drafter_block_size({"dflash.block_size": "array[2]"}))
+        self.assertIsNone(spec_bench.drafter_block_size({}))
+        self.assertIsNone(spec_bench.drafter_block_size(None))
+
+    def test_draft_counters_present_tests_presence_not_value(self):
+        self.assertTrue(spec_bench.draft_counters_present({"error": None, "timings_source": "timings", "draft_n": 0}))
+        self.assertTrue(spec_bench.draft_counters_present({"error": None, "timings_source": "timings", "draft_n": 9}))
+        self.assertFalse(spec_bench.draft_counters_present({"error": None, "timings_source": "timings", "draft_n": None}))
+        self.assertIsNone(spec_bench.draft_counters_present({"error": None, "timings_source": "wall", "draft_n": None}))
+        self.assertIsNone(spec_bench.draft_counters_present({"error": "HttpError: HTTP 500", "draft_n": None}))
+
+    def test_compare_outputs_falls_back_to_text_without_token_ids(self):
+        with_ids = {"tokens": [1, 2, 3], "content": "abc"}
+        self.assertEqual(spec_bench.compare_outputs(with_ids, {"tokens": [1, 2, 4], "content": "abd"}), (2, "token", 3, 3))
+        self.assertEqual(spec_bench.compare_outputs(with_ids, {"tokens": None, "content": "abd"}), (2, "char", 3, 3))
+        self.assertEqual(spec_bench.compare_outputs(with_ids, {"tokens": None, "content": "abc"}), (None, "char", 3, 3))
+        # Two outputs without ids and different text are different, not identical.
+        self.assertEqual(spec_bench.compare_outputs({"tokens": None, "content": "ab"}, {"tokens": None, "content": "ac"})[0], 1)
+
+    def test_run_completion_keeps_missing_token_ids_as_none(self):
+        original = spec_bench.http_json
+        answers = iter([
+            {"content": "abc", "stop_type": "limit", "timings": {"predicted_n": 3, "predicted_per_second": 30.0}},
+            {"content": "abc", "tokens": [5, 6, 7], "stop_type": "limit", "timings": {"predicted_n": 3}},
+        ])
+        spec_bench.http_json = lambda url, body=None, timeout=30: next(answers)
+        try:
+            row, output = spec_bench.run_completion("http://h", {"prompt": "p"}, 3, 42, 5)
+            self.assertIsNone(output["tokens"])
+            self.assertEqual(output["content"], "abc")
+            self.assertIsNone(row["output_tokens"])
+            self.assertIsNone(row["tokens_sha256"])
+            self.assertEqual(row["output_chars"], 3)
+            row, output = spec_bench.run_completion("http://h", {"prompt": "p"}, 3, 42, 5)
+            self.assertEqual(output["tokens"], [5, 6, 7])
+            self.assertEqual(row["output_tokens"], 3)
+        finally:
+            spec_bench.http_json = original
+
+    def test_configs_help_names_the_real_default(self):
+        out = io.StringIO()
+        with redirect_stdout(out), self.assertRaises(SystemExit):
+            spec_bench.parse_args(["--help"])
+        text = " ".join(out.getvalue().split())
+        self.assertIn("(default: every config, baseline,dspark-v1,dspark-v2, plus every --add-config;", text)
+        self.assertNotIn("default: baseline,dspark-v2", text)
+        self.assertEqual(spec_bench.parse_args([]).config_names, ["baseline", "dspark-v1", "dspark-v2"])
 
     def test_parse_server_url(self):
         self.assertEqual(
@@ -387,11 +462,11 @@ class PowerTests(unittest.TestCase):
 def make_row(config, prompt, tok_s, slots=1, pass_no=1, drafted=None, accepted=None, wall_ms=1000.0, **extra):
     row = {"config": config, "slots": slots, "prompt_id": prompt["id"], "category": prompt["category"],
            "set": prompt["set"], "pass": pass_no, "wave": None, "tok_s": tok_s, "error": None,
-           "prompt_n": 50, "predicted_n": 20, "predicted_ms": 20000.0 / tok_s,
+           "prompt_n": 50, "predicted_n": 20, "predicted_ms": (20000.0 / tok_s) if tok_s else None,
            "draft_n": drafted, "draft_n_accepted": accepted, "wall_ms": wall_ms,
            "tokens_per_step": spec_bench.tokens_per_step(20, accepted),
            "endpoint": "chat" if prompt["set"] in spec_bench.CHAT_SETS else "completion",
-           "finish_reason": "stop"}
+           "finish_reason": "stop", "timings_source": "timings"}
     row.update(extra)
     return row
 
@@ -519,6 +594,69 @@ class SummaryTests(unittest.TestCase):
         failed = by_key[("dspark-v2", 4)]
         self.assertEqual(failed["ok"], 0)
         self.assertIn("n_parallel", failed["error"])
+        self.assertTrue(single["draft_fields"])
+        self.assertTrue(double["draft_fields"])
+        self.assertFalse(by_key[("baseline", 1)]["draft_fields"])
+        self.assertIsNone(failed["draft_fields"])
+
+    def test_slot_summary_draft_fields_and_partial_failures(self):
+        # A drafter that drafted nothing still carries counters (draft_n 0);
+        # wall-timed rows carry none and leave the state unknown; a failed
+        # request counts as attempted and its error is kept.
+        rows = [make_row("dspark-v2", self.prompts[0], 20.0, slots=2, drafted=0, accepted=0),
+                make_row("dspark-v2", self.prompts[1], None, slots=2, error="URLError: timed out")]
+        wall = [make_row("dspark-v2", p, 20.0, slots=4, timings_source="wall") for p in self.prompts[:2]]
+        configs = [dict(self.configs[2]), dict(self.configs[3], error=None, wave_seconds=0.5)]
+        by_key = {(e["config"], e["slots"]): e for e in spec_bench.slot_summary(rows + wall, configs, self.subset)}
+        partial = by_key[("dspark-v2", 2)]
+        self.assertEqual((partial["prompts"], partial["ok"], partial["errors"]), (2, 1, 1))
+        self.assertTrue(partial["draft_fields"])
+        self.assertEqual(partial["error"], "URLError: timed out")
+        unknown = by_key[("dspark-v2", 4)]
+        self.assertEqual((unknown["prompts"], unknown["ok"]), (2, 2))
+        self.assertIsNone(unknown["draft_fields"])
+        self.assertIsNone(unknown["error"])
+        extras = {"slots": list(by_key.values()), "subset_ids": self.subset}
+        text = spec_bench.render_markdown(self.header(), {"tables": {}, "baseline": None}, None, configs, [], extras)
+        self.assertIn("| dspark-v2 | 2 | 2 | 20.00 | 40.00 | n/a | 1 of 2 requests failed: URLError: timed out |", text)
+        self.assertIn("| dspark-v2 | 4 | 2 | 20.00 | 80.00 | n/a | ok (wall timed, no draft counters available) |", text)
+
+    def test_single_summary_keeps_a_failed_pass_in_its_position(self):
+        single = {"id": spec_bench.SINGLE_ID, "category": "single", "set": "single", "n_predict": 20}
+        rows = [make_row("baseline", single, 30.0, pass_no=1),
+                make_row("baseline", single, None, pass_no=2, error="HttpError: HTTP 500: boom"),
+                make_row("baseline", single, 32.0, pass_no=3),
+                make_row("dspark-v2", single, 60.0, pass_no=1, drafted=20, accepted=15),
+                make_row("dspark-v2", single, 64.0, pass_no=3, drafted=20, accepted=15)]
+        report = spec_bench.single_summary(rows, self.names)
+        self.assertEqual(report["baseline"]["passes"], [30.0, None, 32.0])
+        self.assertAlmostEqual(report["baseline"]["mean_tok_s"], 31.0)
+        # A pass that never ran (no row) is None too.
+        self.assertEqual(report["dspark-v2"]["passes"], [60.0, None, 64.0])
+        self.assertAlmostEqual(report["dspark-v2"]["speedup"], 2.0)
+        self.assertEqual((report["dspark-v2"]["drafted"], report["dspark-v2"]["accepted"]), (40, 30))
+        self.assertEqual(spec_bench.positional_passes([]), [])
+        header = dict(self.header(), single={"n_predict": 20, "repeats": 3})
+        text = spec_bench.render_markdown(header, {"tables": {}, "baseline": None}, None, [], rows,
+                                          {"single": report})
+        self.assertIn("| baseline | 30.00 | n/a | 32.00 | 31.00 | n/a | 1.00 | n/a |", text)
+        self.assertIn("| dspark-v2 | 60.00 | n/a | 64.00 | 62.00 | 0.750 (30/40) | 4.00 | **2.00x** |", text)
+        # A drafter with no successful pass has no mean and no speedup.
+        report = spec_bench.single_summary(rows[:3] + [dict(rows[4], error="boom", tok_s=None)], self.names)
+        self.assertEqual(report["dspark-v2"]["passes"], [None, None, None])
+        self.assertIsNone(report["dspark-v2"]["mean_tok_s"])
+        self.assertIsNone(report["dspark-v2"]["speedup"])
+
+    def header(self):
+        return {
+            "note": "unit test", "created_utc": "now", "repeats": 1, "seed": 42, "slots": [1, 2, 4],
+            "prompt_summary": "5 prompts", "config_names": self.names, "reasoning_effort": "template",
+            "power_idle_s": 10, "mode": "launch", "build_info": "b0",
+            "single": {"n_predict": 20, "repeats": 3},
+            "environment": {"hostname": "h", "gpu_name": "G", "driver_version": "1",
+                            "cuda_version": "13", "llama_server_version": "v", "gpu_smi_line": "G, 1",
+                            "gpu_compute_apps": [{"name": "other", "used_memory": "1 MiB"}]},
+        }
 
     def single_rows(self):
         single = {"id": spec_bench.SINGLE_ID, "category": "single", "set": "single", "n_predict": 20}
@@ -547,18 +685,28 @@ class SummaryTests(unittest.TestCase):
         exact = spec_bench.exactness(rows, outputs, self.names, 1)
         self.assertEqual(exact["configs"]["dspark-v2"]["compared"], 8)
         self.assertTrue(exact["baseline_passes_identical"])
-        extras = {"slots": spec_bench.slot_summary(rows, self.configs, self.subset)}
-        header = {"config_names": self.names, "environment": {"hostname": "h"}}
-        ph = spec_bench.build_placeholders(header, summary, extras, exact, self.configs, single)
+        # The tool's placeholders.json comes from fill_placeholders.build on
+        # the results object, so it carries the documented key names.
+        header = {"config_names": self.names, "environment": {"hostname": "h"}, "repeats": 1,
+                  "configs_defined": {"dspark-v2": spec_bench.CONFIGS["dspark-v2"]}}
+        results, extras = spec_bench.build_results(header, self.configs, rows, outputs, self.prompts, self.subset)
+        self.assertEqual(results["single"], single)
+        self.assertEqual(results["exactness"]["configs"]["dspark-v2"]["compared"], 8)
+        self.assertEqual(extras["slots"], spec_bench.slot_summary(rows, self.configs, self.subset))
+        ph = results["placeholders"]
         self.assertEqual(ph["labels.v2"], "DSpark v2 (K=5)")
         self.assertEqual(ph["labels.baseline"], "baseline")
         self.assertEqual((ph["single.baseline.p1"], ph["single.baseline.p3"], ph["single.baseline.mean"]),
                          ("30.0", "32.0", "31.0"))
         self.assertEqual((ph["single.v2.mean"], ph["single.v2.speedup"], ph["single.v2.accept"]),
                          ("62.0", "2.00x", "75.0%"))
+        self.assertEqual(ph["single.v2.tps_step"], "4.00")
+        self.assertNotIn("single.v2.tok_step", ph)
         self.assertEqual((ph["code.baseline"], ph["code.v2.tps"], ph["code.v2.accept"], ph["code.v2.speedup"]),
                          ("10.0", "25.0", "75.0%", "2.50x"))
-        self.assertEqual(ph["code.v2.tok_step"], "4.00")
+        self.assertEqual(ph["code.baseline.tps"], "10.0")
+        self.assertEqual(ph["code.v2.tps_step"], "4.00")
+        self.assertNotIn("code.v2.tok_step", ph)
         self.assertEqual((ph["blended.baseline"], ph["blended.v2.speedup"]), ("10.0", "2.50x"))
         self.assertEqual((ph["long2000.baseline"], ph["long2000.v2.tps"]), ("10.0", "25.0"))
         self.assertEqual((ph["tool.v2.tps"], ph["agent.v2.speedup"]), ("25.0", "2.50x"))
@@ -586,17 +734,8 @@ class SummaryTests(unittest.TestCase):
             "subset_ids": self.subset,
             "single": spec_bench.single_summary(rows, self.names),
         }
-        header = {
-            "note": "unit test", "created_utc": "now", "repeats": 1, "seed": 42, "slots": [1, 2, 4],
-            "prompt_summary": "5 prompts", "config_names": self.names, "reasoning_effort": "template",
-            "power_idle_s": 10, "mode": "launch", "build_info": "b0",
-            "single": {"n_predict": 20, "repeats": 3},
-            "environment": {"hostname": "h", "gpu_name": "G", "driver_version": "1",
-                            "cuda_version": "13", "llama_server_version": "v", "gpu_smi_line": "G, 1",
-                            "gpu_compute_apps": [{"name": "other", "used_memory": "1 MiB"}]},
-        }
         failed = dict(self.rows[0], config="dspark-v2", error="URLError: timed out")
-        text = spec_bench.render_markdown(header, summary, exact, self.configs, self.rows + [failed], extras)
+        text = spec_bench.render_markdown(self.header(), summary, exact, self.configs, self.rows + [failed], extras)
         self.assertIn("## Workload matrix: dspark-v2", text)
         self.assertIn("| workload | no drafter | DSpark v2 (K=5) | accept | tok/step | speedup |", text)
         self.assertIn("| --- | ---: | ---: | ---: | ---: | ---: |", text)
@@ -771,7 +910,14 @@ class FakeServerRunTests(unittest.TestCase):
         self.assertEqual(ph["code.v1.tps"], "40.0")
         self.assertEqual(ph["labels.v1"], "DSpark v1 (Ternary-Bonsai-27B drafter, K=4)")
         self.assertEqual((ph["exact.v1.identical"], ph["exact.v1.total"]), ("4", "4"))
-        self.assertEqual(ph["power.idle.w"], "n/a")
+        # The map has the schema of fill_placeholders: tps_step, the
+        # <W>.baseline.tps alias, and no power keys when power was not sampled.
+        self.assertEqual((ph["single.v1.tps_step"], ph["code.v1.tps_step"]), ("2.00", "2.00"))
+        self.assertEqual(ph["code.baseline.tps"], ph["code.baseline"])
+        self.assertNotIn("single.v1.tok_step", ph)
+        self.assertNotIn("power.idle.w", ph)
+        self.assertIn("nvidia-smi", ph["power.source"])
+        self.assertEqual(results["placeholders"], ph)
         text = (self.out / "summary.md").read_text()
         self.assertIn("## Single prompt", text)
         self.assertIn("| dspark-v1 | 60.00 | 60.00 | 60.00 | 60.00 | 0.250 (9/36) | 2.00 | **1.00x** |", text)
@@ -850,6 +996,125 @@ class FakeServerRunTests(unittest.TestCase):
         self.assertGreater(tool_row["tok_s"], 0)
         self.assertEqual(results["tool_calls"]["dspark-v2"]["wall_timed"], 1)
         self.assertFalse((self.out / "server-dspark-v2-np1.log").exists())
+
+    def test_zero_draft_counters_still_mean_speculation_is_engaged(self):
+        port = free_port()
+        proc = subprocess.Popen([str(self.server), "--port", str(port), "-md", "x",
+                                 "--spec-draft-n-max", "4", "--draft-zero"],
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        try:
+            for _ in range(50):
+                if spec_bench.port_in_use("127.0.0.1", port):
+                    break
+                time.sleep(0.2)
+            out = io.StringIO()
+            with redirect_stdout(out):
+                code = spec_bench.main([
+                    "--bin-dir", str(self.bin_dir), "--server-url", "dspark-v2=http://127.0.0.1:%d" % port,
+                    "--prompt-ids", "code-01", "--n-predict", "4", "--warmup-tokens", "0",
+                    "--no-power", "--no-single", "--out", str(self.out),
+                ])
+        finally:
+            proc.terminate()
+            proc.wait()
+        self.assertEqual(code, 0)
+        results = self.results()
+        self.assertTrue(results["configs"][0]["spec_engaged"])
+        self.assertEqual(results["results"][0]["draft_n"], 0)
+        self.assertNotIn("speculation is not engaged", out.getvalue())
+
+    def test_failed_single_pass_keeps_its_position(self):
+        code = spec_bench.main([a for a in self.common if a != "--no-single"] + [
+            "--configs", "baseline,dspark-v1", "--port", str(free_port()),
+            "--prompt-ids", "code-01", "--n-predict", "4", "--single-n-predict", "6",
+            "--server-extra", "--fail-single-pass 2",
+        ])
+        # A failed request makes the exit code 1; the run itself completes.
+        self.assertEqual(code, 1)
+        results = self.results()
+        self.assertTrue(all(c["error"] is None for c in results["configs"]))
+        failed = [r for r in results["results"] if r["error"] is not None]
+        self.assertEqual([(r["config"], r["prompt_id"], r["pass"]) for r in failed],
+                         [("baseline", spec_bench.SINGLE_ID, 2), ("dspark-v1", spec_bench.SINGLE_ID, 2)])
+        self.assertIn("HTTP 500", failed[0]["error"])
+        for name in ("baseline", "dspark-v1"):
+            self.assertEqual(results["single"][name]["passes"], [60.0, None, 60.0])
+            self.assertAlmostEqual(results["single"][name]["mean_tok_s"], 60.0)
+        self.assertAlmostEqual(results["single"]["dspark-v1"]["speedup"], 1.0)
+        # Pass 3 stays pass 3 in the placeholders; pass 2 prints as n/a.
+        ph = results["placeholders"]
+        self.assertEqual((ph["single.baseline.p1"], ph["single.baseline.p2"], ph["single.baseline.p3"]),
+                         ("60.0", "n/a", "60.0"))
+        self.assertEqual(ph["single.v1.mean"], "60.0")
+        # Only the passes both sides completed are compared.
+        self.assertEqual(results["exactness"]["configs"]["dspark-v1"]["compared"], 3)
+        text = (self.out / "summary.md").read_text()
+        self.assertIn("| baseline | 60.00 | n/a | 60.00 | 60.00 | n/a | 1.00 | n/a |", text)
+
+    def test_missing_token_ids_fall_back_to_text_comparison(self):
+        code = spec_bench.main(self.common + [
+            "--configs", "baseline,dspark-v2", "--add-config", "k7=%s:7" % self.drafter,
+            "--port", str(free_port()), "--prompt-ids", "code-01", "--n-predict", "4",
+            "--server-extra=--no-tokens",
+        ])
+        del spec_bench.CONFIGS["k7"]
+        self.assertEqual(code, 0)
+        results = self.results()
+        for r in results["results"]:
+            self.assertIsNone(r["output_tokens"])
+            self.assertIsNone(r["tokens_sha256"])
+            self.assertEqual(r["output_chars"], 4)
+        # K=5 changes the last token, so the text differs at character 3;
+        # without ids the comparison must not call the two outputs identical.
+        exact = results["exactness"]["configs"]
+        self.assertEqual((exact["dspark-v2"]["compared"], exact["dspark-v2"]["identical"]), (1, 0))
+        self.assertEqual((exact["dspark-v2"]["diffs"][0]["unit"], exact["dspark-v2"]["diffs"][0]["first_diff"]), ("char", 3))
+        self.assertEqual((exact["k7"]["compared"], exact["k7"]["identical"]), (1, 1))
+        with open(self.out / "outputs.json", encoding="utf-8") as f:
+            dump = json.load(f)
+        self.assertTrue(all(d["tokens"] is None for d in dump))
+
+    def test_truncated_drafter_is_recorded_and_the_run_continues(self):
+        truncated = self.drafter.with_name("short.gguf")
+        truncated.write_bytes(self.drafter.read_bytes()[:40])
+        code = spec_bench.main(self.common + [
+            "--drafter-v2", str(truncated), "--configs", "dspark-v2,baseline", "--port", str(free_port()),
+            "--prompt-ids", "code-01", "--n-predict", "4",
+        ])
+        self.assertEqual(code, 1)
+        results = self.results()
+        self.assertIn("cannot read the GGUF header", results["configs"][0]["error"])
+        self.assertIn("short.gguf", results["configs"][0]["error"])
+        self.assertIsNone(results["configs"][1]["error"])
+        self.assertEqual([r["config"] for r in results["results"]], ["baseline"])
+
+    def test_props_error_is_recorded_and_the_run_continues(self):
+        original = spec_bench.fetch_props
+        calls = {"n": 0}
+
+        def broken_once(url):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise spec_bench.HttpError(500, "props broken")
+            return original(url)
+
+        spec_bench.fetch_props = broken_once
+        try:
+            code = spec_bench.main(self.common + [
+                "--configs", "baseline,dspark-v1", "--port", str(free_port()),
+                "--prompt-ids", "code-01", "--n-predict", "4",
+            ])
+        finally:
+            spec_bench.fetch_props = original
+        self.assertEqual(code, 1)
+        results = self.results()
+        self.assertEqual(results["configs"][0]["error"], "HttpError: HTTP 500: props broken")
+        self.assertIsNone(results["configs"][1]["error"])
+        self.assertEqual(results["configs"][1]["props"]["build_info"], "b0-test")
+        self.assertEqual([r["config"] for r in results["results"]], ["dspark-v1"])
+        # The failed server was stopped before the next one took the port.
+        self.assertTrue((self.out / "server-baseline-np1.log").exists())
+        self.assertIn("error: HttpError: HTTP 500: props broken", (self.out / "summary.md").read_text())
 
 
 if __name__ == "__main__":

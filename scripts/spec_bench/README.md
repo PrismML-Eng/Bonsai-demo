@@ -73,8 +73,9 @@ trained for the Bonsai 2 target; it has block size 7 and runs at K=5.
 
 Useful flags:
 
-- `--configs baseline,dspark-v2` runs a subset. `--add-config dspark-v2-k7=path.gguf:7`
-  adds a drafter config with another draft length; added configs always run.
+- `--configs baseline,dspark-v2` runs a subset; the default runs every
+  config. `--add-config dspark-v2-k7=path.gguf:7` adds a drafter config with
+  another draft length; added configs always run.
 - `--slots 1` (the default) skips the multi-slot runs.
 - `--repeats 3` runs every prompt three times per server.
 - `--no-single` skips the single-prompt passes; `--single-repeats`,
@@ -150,7 +151,10 @@ From each response the tool records `timings.prompt_n`, `predicted_n`,
 and the draft counters `draft_n` and `draft_n_accepted`. llama-server puts
 these counters in the response only when a drafter is loaded; the tool
 warns when a drafter configuration returns none, because that means
-speculation is not engaged.
+speculation is not engaged. The test is the presence of the counters, not
+a nonzero value: a short answer can report `draft_n` 0 with speculation
+engaged. Only a response that carries `timings` can answer; a wall-timed
+chat response leaves the state unknown.
 
 The summary reports, per workload and per drafter configuration:
 
@@ -175,7 +179,9 @@ document ("Implement quicksort in Python with type hints, tests, and a
 concise complexity explanation") for 3 passes at 256 tokens, on
 `/completion` with the client-side ChatML template, after the prompt set.
 The summary lists the rate of every pass, the mean, acceptance, tokens per
-step and speedup per config. These rows are not part of the workload matrix,
+step and speedup per config. A pass that fails keeps its position and
+prints as `n/a`; the mean, the acceptance and the speedup come from the
+passes that completed. These rows are not part of the workload matrix,
 but they take part in the exactness check, and the baseline passes are
 compared with each other.
 
@@ -210,12 +216,15 @@ the drafter when the config has one) and fires a fixed 8-prompt subset (2
 code, 2 chat, 2 reasoning, 2 tool) in waves of N concurrent requests. The
 summary reports, per config and slot count:
 
+- `prompts`: the requests the run attempted, failed ones included.
 - `per stream`: the mean `predicted_per_second` that each request saw.
 - `aggregate`: generated tokens over the wall time of all waves, prefill
   included. The `slots 1` row uses the same prompts from the single-slot run.
 - `accept`: aggregated acceptance over the subset.
-- `result`: `ok`, the exact error when the server refused or a request
-  failed, or a note when a drafter server returned no draft counters.
+- `result`: `ok`, the exact error when the server refused, the count and
+  the first error when some requests failed, a note when a drafter server
+  returned no draft counters, or a note when every response was wall timed
+  and the counters are unknown.
 
 A server that exits at start with `-np N` and a drafter is a finding, not a
 failure of the tool: the run records the last error lines of the server log
@@ -262,7 +271,9 @@ compares every drafter output with the baseline output for the same prompt
 and pass, from the single-slot runs. `/completion` outputs are identical when
 their token id sequences are equal. Chat outputs (reasoning, answer and tool
 calls) are compared as text, because `/v1/chat/completions` returns no token
-ids. For a different output the summary lists the 0-based index of the first
+ids. A `/completion` output from a server that ignores `return_tokens` has
+no ids either; it is compared as text and its row records no token count.
+For a different output the summary lists the 0-based index of the first
 differing token or character; when one output is a prefix of the other, the
 index equals the shorter length. For chat prompts the tool also hashes the
 templated prompt from `/apply-template`, so a difference caused by a
@@ -276,17 +287,26 @@ The output directory (`--out`; the default is
 
 - `placeholders.json`: a flat map of printed strings for the document fill
   step, for example `code.v2.speedup: "2.06x"`, `tool.v1.accept: "52.1%"`,
-  `single.baseline.p1: "61.5"`. Keys: `labels.{baseline,v1,v2}`;
-  `single.{baseline,v1,v2}.{p1,p2,p3,mean}` and `single.{v1,v2}.{speedup,accept,tok_step}`;
-  `<W>.baseline` and `<W>.{v1,v2}.{tps,accept,speedup,tok_step}` for `W` in
-  code, math, reasoning, chat, longform, tool, agent, blended (the 40 matrix
-  prompts) and long2000 (the 6 long prompts); `slots.<N>.baseline.{stream,aggregate}`
-  and `slots.<N>.{v1,v2}.{stream,aggregate,accept,speedup,aggregate_speedup}`
+  `single.baseline.p1: "61.5"`. The tool builds it with the same function
+  as `fill_placeholders.py`, so both files have one schema. Keys:
+  `labels.{baseline,v1,v2}`; `single.{baseline,v1,v2}.{p1,p2,p3,mean}` and
+  `single.{v1,v2}.{speedup,accept,tps_step}`; `<W>.baseline` (also
+  `<W>.baseline.tps`) and `<W>.{v1,v2}.{tps,accept,speedup,tps_step}` for
+  `W` in code, math, reasoning, chat, longform, tool, agent, blended (the 40
+  matrix prompts) and long2000 (the 6 long prompts);
+  `slots.<N>.baseline.{stream,aggregate}` and
+  `slots.<N>.{v1,v2}.{stream,aggregate,accept,speedup,aggregate_speedup}`
   (`speedup` is the per-stream ratio, `aggregate_speedup` the wall-clock
-  throughput ratio; an `error` key holds the server's refusal); `power.source`,
+  throughput ratio; an `error` key holds the server's refusal, or the first
+  request error of a run that completed in part); `power.source`,
   `power.idle.w`, `power.{baseline,v1,v2}.{w,mj}`; `exact.{v1,v2}.{identical,total}`.
-  A missing value prints as `n/a`. Configs added with `--add-config` use
-  their own name as the key.
+  The workload values of every config cover the prompts and passes that
+  the baseline and every config completed, so the printed rates and
+  speedups agree with each other; a workload that a config did not
+  complete at all is absent. A value the run could not compute prints as
+  `n/a`; a key the run did not produce is absent (for example the power
+  keys with `--no-power`). Configs added with `--add-config` use their own
+  name as the key.
 - `results.json`: the header (host, GPU name and driver from nvidia-smi,
   CUDA, GPU processes at start, llama-server version and build, every flag,
   the plan with the ETA, size and SHA-256 of every local model file, the
@@ -309,7 +329,11 @@ The output directory (`--out`; the default is
   server.
 
 The tool writes the files after each server run, so a partial run keeps its
-data.
+data. A configuration that fails before or between its requests (a missing
+or unreadable drafter file, a server that does not start or exits, a failed
+`/props` or warm-up request) is recorded with its error, and the run
+continues with the next configuration. The exit code is 1 when any
+configuration or request failed.
 
 ## Post-processing scripts
 
@@ -318,28 +342,37 @@ touch `spec_bench.py`:
 
 - `fill_placeholders.py <results_dir>` reads `results.json` (schema 2) and,
   when present, `single.json`, and writes `placeholders.json`: a flat map of
-  printed strings for a document. Workload figures come from the request
-  rows: `<W>.baseline` (also `<W>.baseline.tps`) and `<W>.{v1,v2}.{tps,accept,speedup,tps_step}`
-  for `W` in code, math, reasoning, chat, longform, tool, agent, blended and
-  long2000, where `tps_step` is `predicted_n / (predicted_n - draft_n_accepted)`
-  over the workload. `single.{baseline,v1,v2}.{p1,p2,p3,mean}` and
+  printed strings for a document, with the schema listed under Output files.
+  Workload figures come from the request rows over the prompts and passes
+  that the baseline and every config completed; `tps_step` is
+  `predicted_n / (predicted_n - draft_n_accepted)` over the workload. The
+  script prints a note for every workload that covers fewer requests than
+  the baseline completed, and for every workload it left out.
+  `single.{baseline,v1,v2}.{p1,p2,p3,mean}` and
   `single.{v1,v2}.{speedup,accept,tps_step}` come from `single.json` (or from
-  the tool's own single-prompt rows when `single.json` is absent).
-  `slots.<N>.*`, `power.*` and `exact.*` come from the multi-slot, power and
-  exactness sections. Config names map to keys as baseline, dspark-v1 -> v1,
-  dspark-v2 -> v2; `labels.*` hold the document labels. The script lists every
-  expected key the run did not produce; `--strict` makes that an error.
+  the tool's own single-prompt rows when `single.json` is absent); a failed
+  pass keeps its position and prints as `n/a`. `slots.<N>.*`, `power.*` and
+  `exact.*` come from the multi-slot, power and exactness sections. Config
+  names map to keys as baseline, dspark-v1 -> v1, dspark-v2 -> v2;
+  `labels.*` hold the document labels. The script lists every expected key
+  the run did not produce; `--strict` makes that an error.
 - `fill_doc.py <doc.md> <placeholders.json> [--check] [--out FILE] [--strict]`
   replaces every `{{BENCH:key}}` marker in a markdown document. It reports
-  markers without a value and values without a marker, and refuses to write
-  when any marker would remain. `--check` writes nothing; `--strict` treats
-  an `n/a` value as missing.
+  markers without a value, values without a marker and malformed markers
+  (a bad character in the key, or a marker that never closes), and refuses
+  to write when any marker would remain. `--check` writes nothing;
+  `--strict` treats an `n/a` value as missing.
 - `single_prompt_bench.py --out <results_dir> [--configs ...] [--add-config ...]`
   reuses the server launch and `/completion` client of `spec_bench.py` to run
   the quicksort prompt (256 tokens, temperature 0, seed 42) for 3 passes per
   config on a launched server, one server at a time, and writes `single.json`
   and `single-outputs.json` into the results directory. `--server-url NAME=URL`
-  uses a running server instead.
+  uses a running server instead. Per config, `passes` holds one rate per
+  attempted pass (`null` for a failed pass), and `identical_to_baseline`
+  counts the passes that both the config and the baseline completed; the
+  script computes it after every config, so the order of `--configs` does
+  not matter. A config that fails before its first request is recorded
+  with its error and the script continues with the next one.
 
 Order for a document: run `spec_bench.py`, run `single_prompt_bench.py` with
 the same `--out`, run `fill_placeholders.py <out>`, then
@@ -356,15 +389,20 @@ python3 -m unittest tests.test_spec_bench tests.test_postprocess
 
 `tests/test_spec_bench.py` checks the prompt set (including the tool and
 agent sets), the tool-call parser, the power math, the tokens-per-step math,
-the summary math, the single-prompt summary, the placeholders map, the
-exactness rules, the multi-slot table, the markdown shape and, with a fake
-`llama-server`, the launch, poll and stop path, the single-prompt passes,
-the multi-slot waves, a drafter server that refuses `-np 2`, and the
-wall-time fallback for a chat response without `timings`.
+the summary math, the single-prompt summary with a failed pass, the
+placeholders map, the exactness rules with and without token ids, the
+draft-counter presence test, the multi-slot table with a partial failure,
+the markdown shape and, with a fake `llama-server`, the launch, poll and
+stop path, the single-prompt passes, a failed single-prompt pass, the
+multi-slot waves, a drafter server that refuses `-np 2`, a truncated
+drafter file, a failed `/props` request, a server without token ids, and
+the wall-time fallback for a chat response without `timings`.
 
 `tests/test_postprocess.py` checks the three scripts against a synthetic
 `results.json` that covers every key, a partial run (missing keys reported,
-`--strict` fails), a document with markers (check, refuse, fill in place and
-to a file), and the single-prompt runner against the fake `llama-server`.
+`--strict` fails, a workload that not every config completed), a document
+with markers (check, refuse, fill in place and to a file, a marker that
+never closes), and the single-prompt runner against the fake `llama-server`
+(a failed pass, the baseline after the drafter, a truncated drafter file).
 
 The tests need no GPU and no model files.

@@ -44,6 +44,23 @@ def fill(text, values):
     return MARKER.sub(replace, text), missing
 
 
+def malformed_markers(text):
+    """Every `{{BENCH:` start that is not a well-formed marker, as a short excerpt.
+
+    This catches a key with a bad character, and also a marker that never
+    closes, which the fill step would otherwise leave in the document.
+    """
+    bad = []
+    for match in ANY_MARKER.finditer(text):
+        start = match.start()
+        if MARKER.match(text, start) is not None:
+            continue
+        end = text.find("}}", start)
+        excerpt = text[start:end + 2] if 0 <= end - start <= 60 else text[start:start + 40]
+        bad.append(excerpt.split("\n")[0])
+    return bad
+
+
 def report(text, values, strict=False):
     """Compare the document markers with the values. Return (problems, notes)."""
     keys = find_keys(text)
@@ -59,7 +76,7 @@ def report(text, values, strict=False):
     unused = sorted(k for k in values if k not in keys)
     if unused:
         notes.append("%d values have no marker: %s" % (len(unused), ", ".join(unused)))
-    malformed = [m for m in re.findall(r"\{\{BENCH:[^}]*\}\}", text) if not MARKER.fullmatch(m)]
+    malformed = malformed_markers(text)
     if malformed:
         problems.append("%d malformed markers: %s" % (len(malformed), ", ".join(malformed)))
     notes.insert(0, "%d markers, %d distinct keys, %d values" % (len(MARKER.findall(text)), len(keys), len(values)))
