@@ -44,9 +44,12 @@ directory and are ignored by git (`.gitignore` here). The feature files alone ar
   and `output` gets 0.4-2.0% acceptance on Bonsai 2, on the release binaries as well.
 - `g++` with OpenMP.
 - Python 3 with `datasets` (prompt building), `torch` with CUDA, `numpy` and `safetensors`
-  (training and conversion). We ran the trainer in a container built on a vLLM image for the
-  GB10 (CUDA 13, aarch64) plus `pip install datasets`. The image is not public. Any Python
-  environment where `torch.cuda.is_available()` is true works: set `DSPARK_TRAINER=python3`.
+  (training and conversion). `run_full_pipeline.sh` runs the trainer with `python3` by
+  default, so the current Python environment must have a `torch` where
+  `torch.cuda.is_available()` is true. We ran the trainer in a container built on a vLLM
+  image for the GB10 (CUDA 13, aarch64) plus `pip install datasets`. The image is not
+  public. To run the trainer in a container, set `DSPARK_TRAINER` to the docker command in
+  the table below.
 - The warm-start checkpoint `RadixArk/Qwen3.8-27B-DSpark` (`model.safetensors`, 3.7 GB) at
   `models/qwen38-dspark/`: `hf download RadixArk/Qwen3.8-27B-DSpark --local-dir
   models/qwen38-dspark`. The trainer accepts every tensor of that checkpoint.
@@ -58,7 +61,7 @@ Environment variables read by the scripts:
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `BONSAI_ROOT` | the checkout that contains this directory | Base for every default path (`models/`, `bin/cuda/`, `llama.cpp/`). The C++ tools default to the current directory when it is unset, so run them from the checkout or set it. |
-| `DSPARK_TRAINER` | `sudo docker run --rm --gpus all -v $BONSAI_ROOT:$BONSAI_ROOT -v <feats_dir>:<feats_dir> bonsai/dflash-trainer:latest python3` | Command that runs `train_dspark_v2.py` in `run_full_pipeline.sh`. The feats directory is mounted as well, so it may live outside the checkout. |
+| `DSPARK_TRAINER` | `python3` | Command that runs `train_dspark_v2.py` in `run_full_pipeline.sh`. Example for a CUDA container: `sudo docker run --rm --gpus all -v $BONSAI_ROOT:$BONSAI_ROOT -v <feats_dir>:<feats_dir> <image> python3`. The checkout and the feats directory must be mounted at the same paths; the feats directory may live outside the checkout. |
 
 All commands below run from the checkout root.
 
@@ -93,6 +96,9 @@ behind an 8-byte header (`vocab u32, embd u32`).
 tools/dspark-retrain/teacher_dump models/bonsai2-gguf/27B/Ternary-Bonsai-2-27B-PQ2_0.gguf tools/dspark-retrain/teacher
 tools/dspark-retrain/validate_wlm models/bonsai2-gguf/27B/Ternary-Bonsai-2-27B-PQ2_0.gguf tools/dspark-retrain/teacher/W_lm.bin
 ```
+
+The dump checks every write. On a short write (for example a full disk) or a failed
+close, it removes the partial file and exits with status 1.
 
 `validate_wlm` runs the model on a prompt, recomputes `final_hidden @ W_lm.T`, and compares
 the argmax and the top-1 logit at every position with the runtime. The gate passes when
@@ -130,13 +136,19 @@ python3 tools/dspark-retrain/build_prompts_broad.py tools/dspark-retrain/prompts
 
 The script writes `prompts_broad.jsonl.counts.json` with the per-source counts. A source
 that fails to download is replaced by the other sources of its category, then by templates.
+Every category has a template generator. When a category still falls short of its target,
+the script writes no output and exits with status 1, so the corpus always holds exactly
+`--total` prompts in the requested mix.
 
 ### 4. Self-distillation with llama-server continuous batching
 
 Start the target as a server with many slots. Then run the client. The client tokenizes the
 chat-templated user turn through `/tokenize`, requests a greedy completion through
 `/completion` with `return_tokens`, and writes `{"tokens": prompt_ids + gen_ids,
-"n_prompt": len(prompt_ids)}` per line. Prompts over 768 tokens are skipped.
+"n_prompt": len(prompt_ids)}` per line. Prompts over 768 tokens are skipped. The client
+keeps at most 2 x `workers` requests in flight and submits no further prompt once the
+accepted count plus the in-flight count reaches the cap, so the server generates at most
+the cap plus the skipped candidates.
 
 Round 1 (code only, 256-token completions, 12 slots):
 
@@ -190,7 +202,9 @@ LD_LIBRARY_PATH=bin/cuda tools/dspark-retrain/extract_feats_tf models/bonsai2-gg
 ```
 
 Measured on a GB10: 237 k tokens in 311 s (762 tok/s, 29 GB) for round 1 and 1.32 M tokens
-in 1,498 s (879 tok/s, 162 GB) for round 2. Write to a temporary name and rename on
+in 1,498 s (879 tok/s, 162 GB) for round 2. The extractor checks every write. On a short
+write (for example a full disk) or a failed close, it reports the sample, removes the
+partial output file, and exits with status 1. Write to a temporary name and rename on
 success if a waiter watches the file. The trainer reads every `*.bin` in `--feats-dir`.
 
 ### 6. Training
@@ -201,8 +215,12 @@ reference and mirrors the llama.cpp runtime forward: the five taps go through `f
 Qwen3-style decoder runs over `[anchor, mask x 6]` noise tokens with block size 7. Each block
 hidden state goes through the borrowed `W_lm` and the Markov head bias. The loss is
 `0.1 * CE + 0.9 * L1 + 1.0 * confidence BCE`, token-normalized over the supervised block
-positions. The synthetic dry run checks shapes, the loss trend and the converter keys on
-the CPU:
+positions. `--max-seq-len` (default 512) keeps the first 512 positions of each sample. The
+generator accepts prompts up to 768 tokens, so a sample whose completion starts at or
+after position 511 keeps no supervised pair inside the window. The trainer skips such
+samples at index time, prints the count, and never feeds them to a batch. The synthetic
+dry run checks shapes, the loss trend, the converter keys and this truncation skip on the
+CPU:
 
 ```bash
 python3 tools/dspark-retrain/train_dspark_v2.py --dry-run
@@ -224,7 +242,9 @@ the directory it is given, so one file works. Do not pass `feats/` itself: after
 it also holds `batch3_broad.bin`, which does not belong in round 1.
 
 This trains with batch size 2, lr 1e-4, 512 anchors, chunk 64, cosine schedule, then
-converts and quantizes (steps 2-5 of the script). We stopped round 1 after epoch 1 (452
+converts and quantizes (steps 2-5 of the script). The script removes the previous
+checkpoint of the tag before training, checks the exit status and the output size of
+every stage, and stops at the first failure. We stopped round 1 after epoch 1 (452
 steps): train-set accuracy kept rising in epoch 2 while held-out acceptance did not move.
 
 Round 2 continues from the round-1 checkpoint on all data (3,401 samples, 1.57 M tokens)
@@ -264,7 +284,8 @@ LD_LIBRARY_PATH=bin/cuda bin/cuda/llama-quantize /tmp/drafter-conv.gguf \
 
 Step 1 writes the SpecForge tensor names into a raw `arch=dspark` GGUF with the Bonsai 2
 hyperparameters (5 blocks, block size 7, target layers 5-61, Markov rank 256, mask token
-248070, vocab 248320). Step 2 rewrites it to the `arch=dflash` convention the runtime
+248070, vocab 248320). Every tensor of the name map is required: when one is missing, step
+1 writes no GGUF and exits with status 1. Step 2 rewrites it to the `arch=dflash` convention the runtime
 loads, injects the tokenizer from the target as donor, shifts `target_layers` by one (the
 runtime taps a layer's input), and drops `token_embd` and `output` because the runtime
 borrows them from the target. The Q4_K_M file is 1.1 GB. A one-shot converter (safetensors
@@ -303,6 +324,11 @@ runs the baseline and the drafter on the same four prompts for a list of `n-max`
 tools/dspark-retrain/eval/spec_eval.sh models/bonsai2-gguf/27B/Ternary-Bonsai-2-27B-PQ2_0.gguf \
     models/bonsai2-gguf/27B/Ternary-Bonsai-2-27B-dspark-dflash-v2-Q4_K_M.gguf /tmp/spec_eval.json 200 '4 5 7' '0.0'
 ```
+
+The harness writes `<out_json>.partial` while it runs and renames it to `<out_json>` at
+the end. A llama command that exits non-zero, or a metric that does not parse, stops the
+harness with exit status 1: the partial file stays for inspection, `<out_json>` is not
+written, and `WROTE` is not printed.
 
 The numbers in the next section come from `llama-speculative-simple` directly:
 

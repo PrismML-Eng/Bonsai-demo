@@ -4,10 +4,13 @@
 # consistency), then /completion greedy (temp 0) with prompt_ids -> generated token ids.
 # Writes {"tokens": prompt_ids + gen_ids, "n_prompt": len(prompt_ids)} per line.
 # JSON prompt content is decoded natively by json.loads (fixes the v1 backslash-n bug).
+# Submissions are bounded: at most 2 x workers requests are in flight, and no prompt is
+# submitted once the accepted count plus the in-flight count reaches max_samples. The
+# server therefore generates at most max_samples completions plus the skipped candidates.
 #
 # Usage: gen_client.py <port> <workers> <n_predict> <out.jsonl> <max_samples> <skip_lines> <prompts.jsonl> [extra_prompts.jsonl ...]
 import sys, json, time, threading, urllib.request
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
 
 port      = int(sys.argv[1])
 workers   = int(sys.argv[2])
@@ -87,13 +90,22 @@ def work(u):
     except Exception as e:
         with lock: counters["skip"] += 1
 
+def accepted():
+    with lock:
+        return counters["done"]
+
+window = max(2 * workers, 1)
 with ThreadPoolExecutor(max_workers=workers) as ex:
-    futs = []
+    pending = set()
     for u in prompts:
-        if counters["done"] >= max_samples: break
-        futs.append(ex.submit(work, u))
-    for _ in futs: pass
-    ex.shutdown(wait=True)
+        # wait for a free slot: the window is full, or the accepted plus in-flight count
+        # already covers the cap and a skip must free the slot first
+        while accepted() < max_samples and (len(pending) >= window or accepted() + len(pending) >= max_samples):
+            _, pending = wait(pending, return_when=FIRST_COMPLETED)
+        if accepted() >= max_samples:
+            break
+        pending.add(ex.submit(work, u))
+    wait(pending)
 
 fout.close()
 el = time.time() - t0

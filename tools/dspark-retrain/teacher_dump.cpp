@@ -14,10 +14,14 @@
 //
 // Pure ggml/gguf: no libllama, CPU only. Links libggml-base (dequantize_row_pq2_0,
 // ggml_get_type_traits, gguf_*).
+//
+// Every write is checked. On a short write (full disk, I/O error) or a failed close, the
+// tool reports the file, removes the partial output file, and exits with status 1.
 
 #include "ggml.h"
 #include "gguf.h"
 
+#include <cerrno>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -168,17 +172,29 @@ int main(int argc, char ** argv) {
         snprintf(path, sizeof(path), "%s/%s", out_dir, out_files[t]);
         FILE * fo = fopen(path, "wb");
         if (!fo) { fprintf(stderr, "ERROR: cannot open %s\n", path); return 1; }
+        // report a short write, remove the partial file, and exit with status 1
+        auto write_fail = [&](const char * what) -> int {
+            fprintf(stderr, "ERROR: short write (%s) to %s: %s\n", what, path, strerror(errno));
+            fclose(fo);
+            remove(path);
+            return 1;
+        };
         const uint32_t hdr[2] = { (uint32_t) n_vocab, (uint32_t) n_embd };
-        fwrite(hdr, sizeof(uint32_t), 2, fo);
+        if (fwrite(hdr, sizeof(uint32_t), 2, fo) != 2) return write_fail("header");
         // write in chunks
         size_t written = 0;
         const size_t chunk = (size_t) n_embd * 4096;
         while (written < n_elem) {
             const size_t nw = (n_elem - written < chunk) ? (n_elem - written) : chunk;
-            fwrite(obuf.data() + written, sizeof(uint16_t), nw, fo);
+            if (fwrite(obuf.data() + written, sizeof(uint16_t), nw, fo) != nw) return write_fail("payload");
             written += nw;
         }
-        fclose(fo);
+        // fclose flushes the last buffer; a failure here is a short write as well
+        if (fclose(fo) != 0) {
+            fprintf(stderr, "ERROR: close of %s failed: %s\n", path, strerror(errno));
+            remove(path);
+            return 1;
+        }
         printf("  wrote %s (%zu bytes payload + 8 header)\n", path, n_elem * 2);
     }
 

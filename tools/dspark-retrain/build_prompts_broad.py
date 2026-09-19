@@ -8,12 +8,14 @@ and <out>.counts.json with the per-source / per-category counts.
 Categories and targets (default total 2500):
     math       25%  gsm8k train + MATH (hendrycks) + template word problems (fallback)
     reasoning  25%  Open-Platypus (non-math sources) + ARC-Challenge + LogiQA + StrategyQA + templates
-    chat       20%  no_robots + dolly-15k + ultrachat first turns
-    code       15%  CodeAlpaca-20k (offset, deduped vs the batch1 prompts) + Evol-Instruct-Code
+    chat       20%  no_robots + dolly-15k + ultrachat first turns + templates (fallback)
+    code       15%  CodeAlpaca-20k (offset, deduped vs the batch1 prompts) + Evol-Instruct-Code + templates (fallback)
     longform   15%  ultrachat long first turns + no_robots Generation + dolly creative + templates
 
 Every HF source is optional: a failed download logs a warning and the category is
-filled from the other sources of that category, then from templates.
+filled from the other sources of that category, then from templates. Every category
+has a template generator. When a category still falls short of its target, the script
+writes no output and exits with status 1, so the emitted total always equals --total.
 
 usage: build_prompts_broad.py <out.jsonl> [--total 2500] [--seed 0] [--dedupe f1.jsonl ...]
 """
@@ -401,6 +403,115 @@ def tmpl_longform(rng):
     return f"Write a persuasive essay arguing that everyone should understand {topic}. Address at least two counterarguments."
 
 
+CHAT_TOPICS = [
+    "time management", "learning a new language", "houseplants", "budget travel", "public speaking",
+    "sleep hygiene", "meal planning", "remote work", "running a first 5k", "a home office setup",
+    "reading more books", "cold emails", "job interviews", "moving to a new city", "learning to cook",
+    "cycling to work", "board games", "digital privacy", "starting a podcast", "gardening in small spaces",
+    "note taking", "saving for a trip", "hiking safely", "adopting a cat", "learning the guitar",
+    "meditation", "writing a resume", "hosting a dinner party", "choosing a laptop", "recycling at home",
+    "learning to swim as an adult", "keeping a journal", "a first car purchase", "volunteering locally",
+    "planning a wedding on a budget", "studying for exams", "starting a book club", "photography as a hobby",
+    "reducing screen time", "a weekend in a new country",
+]
+CHAT_PAIRS = [
+    ("tea", "coffee"), ("renting", "buying a home"), ("e-books", "paper books"), ("cats", "dogs"),
+    ("trains", "planes"), ("morning workouts", "evening workouts"), ("SSDs", "hard drives"),
+    ("Python", "JavaScript"), ("electric cars", "hybrid cars"), ("freelancing", "full-time employment"),
+    ("a fixed-rate mortgage", "a variable-rate mortgage"), ("cardio", "strength training"),
+]
+CHAT_SENTENCES = [
+    "i cant make it to the meeting tomorrow, something came up",
+    "the report is late again and nobody told me",
+    "thanks for the help yesterday, it saved me hours",
+    "can you send me the file when you get a chance",
+    "we should probably talk about the budget soon",
+    "the new update broke my login and i need it fixed today",
+    "is there any chance the deadline could move by a week",
+    "great job on the demo, the client loved it",
+]
+CHAT_AUDIENCE = ["ten-year-old", "complete beginner", "busy manager", "retired teacher"]
+CHAT_TIP_STYLE = ["Keep each tip to one sentence.", "Explain why each tip works.", "Order them by importance."]
+CHAT_TONE = ["polite, professional", "friendly but brief", "formal"]
+
+
+def tmpl_chat(rng):
+    t = rng.randrange(8)
+    topic = rng.choice(CHAT_TOPICS)
+    if t == 0:
+        return f"What are {rng.randint(3, 5)} practical tips for {topic}? {rng.choice(CHAT_TIP_STYLE)}"
+    if t == 1:
+        a, b = rng.choice(CHAT_PAIRS)
+        if rng.random() < 0.5:
+            return f"What are the main differences between {a} and {b}? Answer in two short paragraphs."
+        return f"Which would you recommend for most people, {a} or {b}? Give a short answer with your reasons."
+    if t == 2:
+        return f"Rewrite this message in a {rng.choice(CHAT_TONE)} tone: '{rng.choice(CHAT_SENTENCES)}'"
+    if t == 3:
+        if rng.random() < 0.5:
+            return f"I am new to {topic}. What is the first thing I should learn, and what is a common mistake to avoid?"
+        return f"How do I get started with {topic} if I only have one hour a week? Be concrete."
+    if t == 4:
+        return f"Summarize the pros and cons of {topic} in a short bulleted list."
+    if t == 5:
+        return f"Explain {topic} to a {rng.choice(CHAT_AUDIENCE)} in three or four sentences."
+    if t == 6:
+        return f"Suggest a name and a one-line tagline for a small business focused on {topic}. Give {rng.randint(2, 4)} options."
+    return f"Classify the following message as a question, a complaint, a request, or a thank-you note, and explain why: '{rng.choice(CHAT_SENTENCES)}'"
+
+
+CODE_LANGS = ["Python", "JavaScript", "TypeScript", "Go", "Rust", "Java", "C++", "C#", "Ruby", "Bash"]
+CODE_TASKS = [
+    "reverses the words in a sentence while keeping the punctuation attached to each word",
+    "checks whether a string is a valid IPv4 address",
+    "merges two sorted lists into one sorted list without using the built-in sort",
+    "counts the frequency of each word in a text file and prints the top ten",
+    "converts a Roman numeral to an integer and validates the input",
+    "finds the longest palindromic substring in a string",
+    "parses a duration string such as '1h30m15s' into seconds",
+    "implements a stack with push, pop and a constant-time min operation",
+    "flattens a nested list of arbitrary depth",
+    "computes the nth Fibonacci number with memoization",
+    "removes duplicate entries from a list while preserving the original order",
+    "validates a password against length, digit, upper-case and symbol rules",
+    "groups a list of records by a key and sums a numeric field per group",
+    "implements binary search over a sorted array and returns the insertion point when the value is absent",
+    "converts a CSV line into a list of fields, honoring quoted commas",
+    "checks whether two strings are anagrams, ignoring case and spaces",
+    "rotates a square matrix by 90 degrees in place",
+    "computes the moving average of a list with a given window size",
+    "implements a simple LRU cache with a fixed capacity",
+    "generates all balanced parentheses strings of length 2n",
+    "parses command-line flags of the form --key=value into a dictionary",
+    "finds the first non-repeating character in a string",
+    "converts a temperature between Celsius, Fahrenheit and Kelvin",
+    "computes the edit distance between two strings",
+    "detects a cycle in a singly linked list",
+    "reads a JSON file and prints every key path with its value type",
+    "formats a number of bytes as a human-readable string (KB, MB, GB)",
+    "implements a rate limiter that allows n calls per second",
+    "returns the k most frequent elements in an array",
+    "topologically sorts a directed acyclic graph given as an adjacency list",
+]
+
+
+def tmpl_code(rng):
+    t = rng.randrange(6)
+    lang = rng.choice(CODE_LANGS)
+    task = rng.choice(CODE_TASKS)
+    if t == 0:
+        return f"Write a {lang} function that {task}. Include a docstring or comment and {rng.randint(2, 4)} test cases."
+    if t == 1:
+        return f"Implement, in {lang}, a function that {task}. Explain the time and space complexity."
+    if t == 2:
+        return f"Here is the task: {task}. Write the solution in {lang}, then show one example input and the expected output."
+    if t == 3:
+        return f"Write a {lang} program that {task}. Handle invalid input with a clear error message."
+    if t == 4:
+        return f"Write a clean, idiomatic {lang} implementation of a function that {task}, and list two edge cases that the tests must cover."
+    return f"Write a small {lang} command-line tool that {task}. Add a short usage message."
+
+
 def fill_templates(pool, rng, cat, gen, want):
     n = 0
     tries = 0
@@ -460,7 +571,8 @@ def main():
     fill_templates(pool, rng, "longform", tmpl_longform, int(target["longform"] * 0.15))
 
     # assemble per category: round-robin over the sources of that category, then top up from templates
-    gens = {"math": tmpl_math, "reasoning": tmpl_reasoning, "longform": tmpl_longform}
+    gens = {"math": tmpl_math, "reasoning": tmpl_reasoning, "chat": tmpl_chat, "code": tmpl_code,
+            "longform": tmpl_longform}
     out = []
     counts = {}
     for cat, want in target.items():
@@ -473,21 +585,28 @@ def main():
                 if srcs[s] and len(chosen) < want:
                     chosen.append((s, srcs[s].pop()))
         if len(chosen) < want:
-            if cat in gens:
-                fill_templates(pool, rng, cat, gens[cat], want - len(chosen))
-                extra = pool.by_source.get((cat, f"template_{cat}"), [])
-                used = {t for _, t in chosen}
-                for t in extra:
-                    if len(chosen) >= want:
-                        break
-                    if t not in used:
-                        chosen.append((f"template_{cat}", t))
-            else:
-                log(f"[warn] category {cat}: only {len(chosen)}/{want} (no template generator)")
+            fill_templates(pool, rng, cat, gens[cat], want - len(chosen))
+            extra = pool.by_source.get((cat, f"template_{cat}"), [])
+            used = {t for _, t in chosen}
+            for t in extra:
+                if len(chosen) >= want:
+                    break
+                if t not in used:
+                    chosen.append((f"template_{cat}", t))
+        if len(chosen) < want:
+            log(f"[warn] category {cat}: only {len(chosen)}/{want} after the template fallback")
         for s, t in chosen:
             out.append({"category": cat, "source": s, "text": t})
             counts.setdefault(cat, {}).setdefault(s, 0)
             counts[cat][s] += 1
+
+    # the corpus must match the requested mix exactly; a short category is an error
+    per_category = {c: sum(counts.get(c, {}).values()) for c in target}
+    short = {c: f"{per_category[c]}/{target[c]}" for c in target if per_category[c] != target[c]}
+    if short or len(out) != T:
+        log(f"[error] category counts do not match the target: {short} (total {len(out)}/{T}); "
+            f"no output written")
+        sys.exit(1)
 
     rng.shuffle(out)
     with open(args.out, "w") as f:

@@ -621,12 +621,27 @@ def run_forward_and_loss(
 # ---------------------------------------------------------------------------
 # Data: v2 feature files (BON2) and teacher tensors
 # ---------------------------------------------------------------------------
+def has_supervised_pair(loss_mask: np.ndarray) -> bool:
+    """True when the mask holds two consecutive supervised positions.
+
+    sample_anchor_positions needs one anchor whose clean token and first target are
+    both supervised. A sample without such a pair contributes no loss, and a batch made
+    only of such samples raises in sample_anchor_positions.
+    """
+    m = loss_mask > 0
+    return m.shape[0] >= 2 and bool(np.any(m[:-1] & m[1:]))
+
+
 class BON2Dataset(Dataset):
     """Reads v2 feature .bin files.
 
     header  : "BON2"(4) | embd u32 | n_taps u32 | tap_layers[5] u32
     sample  : n_tokens u32 | token_ids i32[n] | loss_mask u8[n] |
               taps f32[n*n_taps*embd] | final_hidden f32[n*embd]
+
+    __getitem__ keeps the first max_seq_len positions. A sample whose loss mask has no
+    two consecutive supervised positions inside that window is skipped at index time and
+    counted in n_skipped, so it never reaches a batch. A truncated file raises ValueError.
     """
 
     MAGIC = b"BON2"
@@ -635,10 +650,12 @@ class BON2Dataset(Dataset):
         self.paths = paths
         self.max_seq_len = max_seq_len
         self.index: List[Tuple[int, int, int]] = []  # (file_idx, byte_offset, n_tokens)
+        self.n_skipped = 0
         self.embd = None
         self.n_taps = None
         for fi, p in enumerate(paths):
             with open(p, "rb") as f:
+                size = os.fstat(f.fileno()).st_size
                 magic = f.read(4)
                 if magic != self.MAGIC:
                     raise ValueError(f"{p}: bad magic {magic!r}, expected BON2")
@@ -655,12 +672,24 @@ class BON2Dataset(Dataset):
                     if not b:
                         break
                     n = struct.unpack("<I", b)[0]
-                    # token_ids i32 + loss_mask u8 + taps f32 + final_hidden f32
-                    skip = n * 4 + n * 1 + n * tap_stride * 4 + n * embd * 4
-                    f.seek(skip, os.SEEK_CUR)
+                    # token_ids i32, then loss_mask u8, then taps f32 + final_hidden f32
+                    f.seek(n * 4, os.SEEK_CUR)
+                    loss_mask = np.frombuffer(f.read(n), dtype=np.uint8)
+                    f.seek(n * tap_stride * 4 + n * embd * 4, os.SEEK_CUR)
+                    if loss_mask.shape[0] != n or f.tell() > size:
+                        raise ValueError(f"{p}: truncated sample at byte offset {off} (n_tokens={n})")
+                    if not has_supervised_pair(loss_mask[: max_seq_len]):
+                        self.n_skipped += 1
+                        continue
                     self.index.append((fi, off, n))
         print(f"[data] indexed {len(self.index)} samples across {len(paths)} file(s); "
               f"embd={self.embd} n_taps={self.n_taps}")
+        if self.n_skipped:
+            print(f"[data] WARNING: skipped {self.n_skipped} sample(s) with fewer than two consecutive "
+                  f"supervised tokens inside max_seq_len={max_seq_len}")
+        if not self.index:
+            raise ValueError(f"no usable samples: every sample lacks a supervised pair inside "
+                             f"max_seq_len={max_seq_len}")
 
     def __len__(self):
         return len(self.index)
@@ -849,18 +878,24 @@ def train(args):
 # ---------------------------------------------------------------------------
 # Dry run on a synthetic fixture (tiny dims, CPU-friendly)
 # ---------------------------------------------------------------------------
-def write_synthetic_fixture(path: str, cfg: ModelConfig, n_samples=4, seq=16, seed=0):
+def write_synthetic_fixture(path: str, cfg: ModelConfig, n_samples=4, seq=16, seed=0,
+                            prompt_lens: Optional[List[int]] = None):
+    """Write a BON2 fixture. prompt_lens[i] positions of sample i are unsupervised
+    (loss_mask 0); the default supervises every position."""
     rng = np.random.default_rng(seed)
     embd, n_taps = cfg.hidden_size, cfg.n_taps
     with open(path, "wb") as f:
         f.write(b"BON2")
         f.write(struct.pack("<II", embd, n_taps))
         f.write(struct.pack("<5I", 6, 20, 34, 48, 62))
-        for _ in range(n_samples):
+        for i in range(n_samples):
             n = seq
+            n_prompt = prompt_lens[i] if prompt_lens is not None else 0
+            loss_mask = np.ones(n, dtype=np.uint8)
+            loss_mask[:n_prompt] = 0
             f.write(struct.pack("<I", n))
             f.write(rng.integers(0, cfg.vocab_size, size=n, dtype=np.int32).tobytes())
-            f.write(np.ones(n, dtype=np.uint8).tobytes())  # all supervised
+            f.write(loss_mask.tobytes())
             f.write((rng.standard_normal((n, n_taps * embd)).astype(np.float32) * 0.1).tobytes())
             f.write((rng.standard_normal((n, embd)).astype(np.float32) * 0.1).tobytes())
 
@@ -987,11 +1022,22 @@ def dry_run(steps: int = 12):
         print(f"[dry-run] MISSING converter keys: {sorted(missing)}")
     if extra:
         print(f"[dry-run] extra keys (not required by converter): {sorted(extra)}")
+    # Truncation check: with max_seq_len=8, only the sample with prompt length 4 keeps a
+    # supervised pair. Prompt length 7 keeps one supervised position, 12 keeps none inside
+    # the window, and 16 has no supervised position at all. All three must be skipped.
+    trunc_path = os.path.join(tmp, "trunc.bin")
+    write_synthetic_fixture(trunc_path, cfg, n_samples=4, seq=16, prompt_lens=[4, 7, 12, 16])
+    trunc_ds = BON2Dataset([trunc_path], max_seq_len=8)
+    trunc_ok = len(trunc_ds) == 1 and trunc_ds.n_skipped == 3
+    print(f"[dry-run] truncation skip: kept {len(trunc_ds)}/4 (expect 1), "
+          f"skipped {trunc_ds.n_skipped} (expect 3) -> {'ok' if trunc_ok else 'FAIL'}")
+
     down = losses[0] - losses[-1]
     print(f"[dry-run] loss[0]={losses[0]:.4f} -> loss[-1]={losses[-1]:.4f} (delta {down:+.4f})")
-    ok = (not missing) and (down > 0)
+    ok = (not missing) and (down > 0) and trunc_ok
     print(f"[dry-run] RESULT: {'PASS' if ok else 'CHECK'} "
-          f"(tensors flow, keys match converter, loss {'decreased' if down > 0 else 'did not decrease'})")
+          f"(tensors flow, keys match converter, loss {'decreased' if down > 0 else 'did not decrease'}, "
+          f"truncation skip {'ok' if trunc_ok else 'FAIL'})")
     return ok
 
 
