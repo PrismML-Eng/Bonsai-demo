@@ -39,8 +39,8 @@ directory and are ignored by git (`.gitignore` here). The feature files alone ar
   headers and the converters need its `gguf-py`. Clone it with
   `git clone -b prism https://github.com/PrismML-Eng/llama.cpp.git llama.cpp`.
 - To run the converted drafter, the runtime also needs the fix "dflash: apply the target's
-  Hadamard transforms to borrowed embeddings and head" (branch `fix/dflash-borrowed-hadamard`
-  on top of `1a07bfa5f`). Without it, every drafter that borrows the target's `token_embd`
+  Hadamard transforms to borrowed embeddings and head" (PrismML-Eng/llama.cpp PR #210,
+  branch `fix/dflash-borrowed-hadamard` on top of `1a07bfa5f`). Without it, every drafter that borrows the target's `token_embd`
   and `output` gets 0.4-2.0% acceptance on Bonsai 2, on the release binaries as well.
 - `g++` with OpenMP.
 - Python 3 with `datasets` (prompt building), `torch` with CUDA, `numpy` and `safetensors`
