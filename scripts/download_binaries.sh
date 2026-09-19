@@ -12,7 +12,7 @@ cd "$DEMO_DIR"
 
 # v7 binaries read the official group-64 Q2_0 files and PQ2_0; they do NOT read
 # the legacy *-Q2_0.gguf files that pre-v7 releases used.
-RELEASE_TAG="prism-b10685-7dffb15"
+RELEASE_TAG="prism-b10709-9a9394a"
 BASE_URL="https://github.com/PrismML-Eng/llama.cpp/releases/download/$RELEASE_TAG"
 
 OS="$(uname -s)"
