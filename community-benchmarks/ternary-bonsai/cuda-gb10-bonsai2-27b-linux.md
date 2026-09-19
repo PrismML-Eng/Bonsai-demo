@@ -32,6 +32,8 @@ The single-prompt DSpark speedups below use this 29.8 t/s figure as the no-draft
 ## PTQ1_0 Results
 
 ```bash
+# setup.sh downloads only the PQ2_0 file; fetch the PTQ1_0 file by hand
+hf download prism-ml/Ternary-Bonsai-2-27B-gguf Ternary-Bonsai-2-27B-PTQ1_0.gguf --local-dir models/bonsai2-gguf/27B
 LD_LIBRARY_PATH="$PWD/bin/cuda" bin/cuda/llama-bench -m models/bonsai2-gguf/27B/Ternary-Bonsai-2-27B-PTQ1_0.gguf -ngl 99 -fa on -r 3
 ```
 
@@ -60,7 +62,7 @@ PrismML ships no drafter for Bonsai 2: `scripts/download_models.sh` fetches none
 Notes for `BONSAI_SPECULATIVE=1 ./scripts/start_llama_server.sh`:
 
 - The launcher takes the first `*dspark-dflash*.gguf` in the model directory in glob order. `...-dspark-dflash-Q4_0.gguf` sorts before `...-dspark-dflash-v2-Q4_K_M.gguf`, so with both files present the launcher picks DSpark v1. Keep one drafter in the directory, or pass `-md` directly.
-- The launcher reads the draft length from the GGUF key `dspark.dspark.block_size` (`bonsai_dspark_block_size` in `scripts/common.sh`). A converted file carries `dflash.block_size` instead, so the launcher falls back to n-max 4. Set `BONSAI_SPEC_NMAX=5` for DSpark v2. The runtime accepts any n-max up to the block size and clamps larger values; n-max 5 gave the best rate for DSpark v2 in our sweeps.
+- The launcher reads the draft length from the GGUF key `dspark.dspark.block_size` (`bonsai_dspark_block_size` in `scripts/common.sh`). A converted file carries `dflash.block_size` instead, so the launcher falls back to n-max 4. Set `BONSAI_SPEC_NMAX=5` for DSpark v2 (the central environment reference still lists this variable as PowerShell-only; the Linux launcher reads it too). `scripts/common.sh` and [SPECULATIVE.md](../../SPECULATIVE.md) state that n-max must equal the block size and that a smaller value crashes; that rule reflects an earlier runtime. On prism `1a07bfa5f` plus the fix, DSpark v2 (block size 7) ran at n-max 5 through the whole benchmark. Every draft round drafted 5 tokens, and no run crashed. An n-max above the block size is clamped to the block size with a warning. n-max 5 gave the best rate for DSpark v2 in our sweeps.
 
 Three passes sent the same prompt to `POST /completion` in the ChatML template, at temperature 0 and seed 42, with a 256-token budget. The prompt: "Implement quicksort in Python with type hints, tests, and a concise complexity explanation".
 
@@ -257,6 +259,7 @@ Acceptance for a server run is `timings.draft_n_accepted / timings.draft_n` from
 To run through the demo launcher instead of step 4, copy the patched binaries over the release ones and set the draft length by hand:
 
 ```bash
+mkdir -p bin/cuda   # the setup installs CPU binaries on aarch64, so this directory may not exist
 cp llama.cpp/build-cuda/bin/llama-server llama.cpp/build-cuda/bin/llama-speculative-simple \
    llama.cpp/build-cuda/bin/llama-bench llama.cpp/build-cuda/bin/*.so* bin/cuda/
 LD_LIBRARY_PATH=bin/cuda bin/cuda/llama-server --version      # expect commit 1a07bfa5f
