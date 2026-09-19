@@ -197,7 +197,7 @@ DSpark v2 is a DSpark drafter trained for this target. It uses the standard `dfl
 
 - All layers offloaded; flash attention enabled; one server slot unless the Multi-slot section says otherwise; the server applied the model's chat template (`--jinja`)
 - llama-bench: PrismML-Eng/llama.cpp `prism` commit `5d80cff0b` (build 10687), built for CUDA architecture `121a`
-- DSpark runs: PrismML-Eng/llama.cpp `prism` commit `1a07bfa5f` (build 10706) plus the patch on branch `fix/dflash-borrowed-hadamard` (PR title "dflash: apply the target's Hadamard transforms to borrowed embeddings and head"), same build flags. `--version` prints `build 10706, commit 1a07bfa5f` for clean and patched binaries alike, so tell them apart by path. The patched build reproduces the acceptance counts and the output text of every 200-token probe above bit for bit (148/284, 137/319, 143/289). This compares the same fix on two builds on the same code path. It is not a claim that drafter output equals no-drafter output (see Exactness). The bare-loop speeds were recorded on build 10687 with an earlier form of the same fix.
+- DSpark runs: PrismML-Eng/llama.cpp `prism` commit `1a07bfa5f` (build 10706) plus the fix of [PrismML-Eng/llama.cpp#210](https://github.com/PrismML-Eng/llama.cpp/pull/210) ("dflash: apply the target's Hadamard transforms to borrowed embeddings and head", branch `fix/dflash-borrowed-hadamard`, commit `288859a96`), same build flags. `--version` prints `build 10706, commit 1a07bfa5f` for clean and patched binaries alike, so tell them apart by path. The patched build reproduces the acceptance counts and the output text of every 200-token probe above bit for bit (148/284, 137/319, 143/289). This compares the same fix on two builds on the same code path. It is not a claim that drafter output equals no-drafter output (see Exactness). The bare-loop speeds were recorded on build 10687 with an earlier form of the same fix.
 - Why the fix: both drafters borrow the token embedding and the output head from the target, and the `PQ2_0` target stores both in the Hadamard-rotated basis. Without the fix the draft graph skips the transforms. Clean `1a07bfa5f` and the release tag `prism-b10683-d8f26ee` that `setup.sh` installs give 0.4-2.0% acceptance for any borrowed-embedding drafter on this target, with no error and no warning. Exact-match verification keeps the output correct, so only the acceptance counter and the speed show the defect. Build from source with the fix.
 - Measured acceptance, `llama-speculative-simple`, 200 tokens, temperature 0, the three prompts of the 200-token table, clean `1a07bfa5f` against `1a07bfa5f` plus the fix:
 
@@ -221,10 +221,10 @@ Run these commands from the demo checkout after `BONSAI_FAMILY=bonsai2 BONSAI_MO
 # 1. drafter (1.03 GiB); keep it as the only *dspark-dflash*.gguf in the directory (see the launcher notes)
 hf download <HF-REPO> Ternary-Bonsai-2-27B-dspark-dflash-v2-Q4_K_M.gguf --local-dir models/bonsai2-gguf/27B
 
-# 2. runtime: prism 1a07bfa5f plus the fix, CUDA build for the GB10
+# 2. runtime: prism 1a07bfa5f plus the fix of PR #210, CUDA build for the GB10
 git clone https://github.com/PrismML-Eng/llama.cpp.git
-git -C llama.cpp checkout 1a07bfa5f
-git -C llama.cpp apply dflash-borrowed-hadamard.patch   # the patch of the fix PR; check out its merge commit instead once it exists
+git -C llama.cpp fetch https://github.com/usmaneth/llama.cpp fix/dflash-borrowed-hadamard
+git -C llama.cpp checkout 288859a96   # prism 1a07bfa5f plus the fix of PR #210; use the merge commit once the PR lands
 cmake -S llama.cpp -B llama.cpp/build-cuda -DGGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=121a \
   -DGGML_CUDA_FA=ON -DGGML_NATIVE=ON -DCMAKE_BUILD_TYPE=Release
 cmake --build llama.cpp/build-cuda -j 18 --target llama-speculative-simple llama-server llama-bench
