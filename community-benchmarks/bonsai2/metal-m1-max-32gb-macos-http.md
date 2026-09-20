@@ -259,7 +259,7 @@ up to 512 output tokens per model request and uses top-k 0, temperature 0,
 top-p 1, min-p 0, repetition penalty 1, presence/frequency penalties 0, seed 0,
 with thinking off. Its elapsed time includes model turns and file-tool execution.
 
-Both runs produced the same edited Rust source and the same final assistant text.
+Both runs produced the same edited Rust source.
 Output usage by request was 53 / 172 / 27 / 61 tokens for both. Input usage was
 2,633 / 2,871 / 3,093 / 3,252 for Ferrum and 2,631 / 2,869 / 3,091 / 3,250 for
 Prism. Unlike the random-prompt timing rows, these agent requests were not

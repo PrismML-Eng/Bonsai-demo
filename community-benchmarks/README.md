@@ -52,6 +52,7 @@ tables above.
 
 ## Model Families
 
+- **[Bonsai 2](bonsai2/)**: the current 27B generation in GGUF (`PQ2_0` and `PTQ1_0`) and MLX (2-bit) formats.
 - **[Bonsai (1-bit)](bonsai/)**: the 1-bit Bonsai family (27B, 8B, 4B, 1.7B) in GGUF and MLX 1-bit formats.
 - **[Ternary-Bonsai](ternary-bonsai/)**: the ternary Bonsai family (27B, 8B, 4B, 1.7B) in GGUF (`PQ2_0` and `Q2_0` group-64) and MLX (2-bit) formats.
 
@@ -59,8 +60,9 @@ Each subfolder has its own README with results, submission templates, and filena
 
 ## How to Submit
 
-1. Run `./setup.sh` to download models and binaries (`BONSAI_FAMILY=bonsai` for the 1-bit family; the default is ternary)
+1. Run `./setup.sh` to download models and binaries (the default is `bonsai2`; use `BONSAI_FAMILY=bonsai` for the 1-bit family or `BONSAI_FAMILY=ternary` for the previous ternary generation)
 2. Go into the subfolder for your model family and follow its `README.md`:
+   - [bonsai2/README.md](bonsai2/README.md)
    - [bonsai/README.md](bonsai/README.md)
    - [ternary-bonsai/README.md](ternary-bonsai/README.md)
 3. Open a PR to this repo with your filled-in file placed inside the appropriate subfolder.
