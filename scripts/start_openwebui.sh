@@ -336,6 +336,14 @@ export RAG_EMBEDDING_ENGINE=""
 export ENABLE_RAG_WEB_SEARCH=false
 export DATA_DIR="$DEMO_DIR/.openwebui"
 
+# Open WebUI persists rag.embedding_model in its DB and ignores RAG_EMBEDDING_ENGINE
+# after first boot. The default (sentence-transformers/all-MiniLM-L6-v2) is a BERT model
+# that neither mlx_lm nor mlx_vlm can load, so clear it every start to match RAG_EMBEDDING_ENGINE="".
+if [ -f "$DATA_DIR/webui.db" ]; then
+    sqlite3 "$DATA_DIR/webui.db" \
+        "UPDATE config SET value='\"\"' WHERE key='rag.embedding_model';" 2>/dev/null || true
+fi
+
 # Open WebUI fires background LLM calls after each reply (chat title, tags,
 # follow-up suggestions). Against a single heavy 27B each one is a slow extra
 # generation that keeps the UI spinning after the answer is done, so disable
