@@ -31,6 +31,18 @@ if [ "$BONSAI_FAMILY" = "bonsai2" ] && [ -n "${BONSAI_MLX_SERVE:-}" ]; then
         err "BONSAI_MLX_SERVE=$BONSAI_MLX_SERVE is not an executable."
         exit 1
     fi
+    # Gate on the version: mlx-serve < 26.9.5 knows nothing of the rotated basis and
+    # would load the same bytes and answer with garbage, so refuse it explicitly.
+    _msv=$("$BONSAI_MLX_SERVE" --version 2>/dev/null | sed -n 's/^mlx-serve \([0-9][0-9]*\)\.\([0-9][0-9]*\)\.\([0-9][0-9]*\).*/\1 \2 \3/p' | head -1)
+    if [ -z "$_msv" ]; then
+        err "Could not read a version from '$BONSAI_MLX_SERVE --version'; need mlx-serve 26.9.5 or newer."
+        exit 1
+    fi
+    set -- $_msv
+    if [ "$1" -lt 26 ] || { [ "$1" -eq 26 ] && [ "$2" -lt 9 ]; } || { [ "$1" -eq 26 ] && [ "$2" -eq 9 ] && [ "$3" -lt 5 ]; }; then
+        err "mlx-serve $1.$2.$3 is too old for Bonsai 2 (needs 26.9.5+, ddalcu/mlx-serve@89eeb24): it would serve wrong output with no error."
+        exit 1
+    fi
     echo ""
     echo "=== MLX server (mlx-serve) ==="
     echo "  Model: ${BONSAI_DISPLAY}-mlx"
