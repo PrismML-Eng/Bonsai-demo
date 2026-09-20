@@ -1,0 +1,11 @@
+--- a/runtime/runtime.py
++++ b/runtime/runtime.py
+@@ -17,6 +17,8 @@ def fwht(x, block, signs, inverse=False):
+     shape, dtype = x.shape, x.dtype
+     if shape[-1] % block:
+         raise ValueError("Hadamard block does not divide activation width")
++    if 0 in x.shape:
++        return x
+     x = x.astype(mx.float32)
+     if not inverse:
+         x = x * signs

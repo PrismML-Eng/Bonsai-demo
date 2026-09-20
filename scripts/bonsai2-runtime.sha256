@@ -9,5 +9,5 @@
 # and replace the lines below, keeping paths relative to runtime/.
 5279718d7671bd799e866f53099e82b0260117fec811f83011ba47a0abc7943e  artifact.py
 7f7fd67637a7d9363eab8ebf7db59771830b690330ffef772379a0169ddb9608  codec.py
-30ad3905775040a8167360a009168b9ede1436cb02dc43e9e743432482eafbbf  runtime.py
+53a62c9fcc06aaaec740191c8274e25ffadfd0fa89b2e861fc7395bf1cdd648e  runtime.py
 624e78d1fc7a0ddbaa637121ee823209c525b8e89f35fbc68d6d2f3f3fcfd87d  vision_artifact.py
