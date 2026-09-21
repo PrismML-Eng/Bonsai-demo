@@ -2,14 +2,24 @@ $ErrorActionPreference = "Stop"
 
 
 $BonsaiModel  = if ($env:BONSAI_MODEL)  { $env:BONSAI_MODEL.ToUpperInvariant() } else { "27B" }
-$BonsaiFamily = if ($env:BONSAI_FAMILY) { $env:BONSAI_FAMILY.ToLowerInvariant() } else { "ternary" }
+$BonsaiFamily = if ($env:BONSAI_FAMILY) { $env:BONSAI_FAMILY.ToLowerInvariant() } else { "bonsai2" }
 
 if ($BonsaiModel -notin @("27B", "8B", "4B", "1.7B")) {
     Write-Host "[ERR] Unknown BONSAI_MODEL='$BonsaiModel'. Valid values: 27B, 8B, 4B, 1.7B" -ForegroundColor Red
     exit 1
 }
-if ($BonsaiFamily -notin @("bonsai", "ternary")) {
-    Write-Host "[ERR] Unknown BONSAI_FAMILY='$BonsaiFamily'. Valid values: bonsai, ternary" -ForegroundColor Red
+if ($BonsaiFamily -notin @("bonsai2", "bonsai", "ternary")) {
+    Write-Host "[ERR] Unknown BONSAI_FAMILY='$BonsaiFamily'. Valid values: bonsai2, bonsai, ternary" -ForegroundColor Red
+    exit 1
+}
+# Bonsai 2 is 27B. Without this, another size walks into a directory that was
+# never going to exist and the error blames setup. Mirrors BONSAI2_SIZES in
+# scripts/common.sh.
+$Bonsai2Sizes = if ($env:BONSAI2_SIZES) { $env:BONSAI2_SIZES -split '\s+' } else { @("27B") }
+if ($BonsaiFamily -eq "bonsai2" -and $BonsaiModel -notin $Bonsai2Sizes) {
+    Write-Host "[ERR] Bonsai 2 is 27B." -ForegroundColor Red
+    Write-Host "      Bonsai 2:     `$env:BONSAI_MODEL='27B'; .\scripts\start_llama_server.ps1" -ForegroundColor Yellow
+    Write-Host "      Other sizes:  `$env:BONSAI_FAMILY='ternary'; .\scripts\start_llama_server.ps1" -ForegroundColor Yellow
     exit 1
 }
 
@@ -30,7 +40,10 @@ try {
 # launch, not just the ones where the KV4 bias block below sets it.
 $priorRotDisable = $env:LLAMA_ATTN_ROT_DISABLE
 
-if ($BonsaiFamily -eq "ternary") {
+if ($BonsaiFamily -eq "bonsai2") {
+    $ModelDir = Join-Path $DemoDir "models\bonsai2-gguf\$BonsaiModel"
+    $FamilyDisplay = "Bonsai-2"
+} elseif ($BonsaiFamily -eq "ternary") {
     $ModelDir = Join-Path $DemoDir "models\ternary-gguf\$BonsaiModel"
 
     $FamilyDisplay = "Ternary-Bonsai"
@@ -56,7 +69,10 @@ foreach ($cand in $BinCandidates) {
     if (Test-Path (Join-Path $DemoDir $cand)) { $BinRel = $cand; break }
 }
 $Pq2Ready = $BinRel -notlike "bin\vulkan\*"
-if ($BonsaiFamily -eq "ternary") {
+if ($BonsaiFamily -eq "bonsai2") {
+    # Every Bonsai 2 band needs the fork's kernels, so there is no group-64 fallback.
+    $tryPatterns = @("*-PQ2_0.gguf", "*-PTQ1_0.gguf")
+} elseif ($BonsaiFamily -eq "ternary") {
     # PQ2_0 where the backend has kernels (see MODEL-FORMATS.md); official group-64
     # otherwise (*g64 on pre-v7 repos, plain *-Q2_0 on newer repos).
     # BONSAI_FORCE_G64=1 skips PQ2_0 regardless of backend.
@@ -125,6 +141,14 @@ Write-Host "  Press Ctrl+C to stop."
 Write-Host ""
 
 $ChatTemplateKwargs = if ($PSVersionTable.PSEdition -eq 'Desktop') { '{\"enable_thinking\": false}' } else { '{"enable_thinking": false}' }
+
+# Sampling for the 27B path: Bonsai 2 uses the base model's own defaults, the
+# earlier families keep the profile they were tested on. Mirrors start_llama_server.sh.
+$SamplingArgs = if ($BonsaiFamily -eq "bonsai2") {
+    @("--temp", "1.0", "--top-p", "0.95", "--top-k", "20")
+} else {
+    @("--temp", "0.7", "--top-p", "0.95", "--top-k", "20", "--min-p", "0")
+}
 
 $ServerArgs = @(
     "-m", $Model.FullName,
@@ -196,13 +220,8 @@ if ($BonsaiModel -eq "27B") {
         "--host", $HostAddress,
         "--port", "$Port",
         "-ngl", $Ngl, "-fa", "on",
-        "-c", $Ctx,
-        "--temp", "0.7",
-        "--top-p", "0.95",
-        "--top-k", "20",
-        "--min-p", "0",
-        "--jinja"
-    )
+        "-c", $Ctx
+    ) + $SamplingArgs + @("--jinja")
     if ($Mmproj) {
         $ServerArgs += @("--mmproj", $Mmproj.FullName)
         # BONSAI_MMPROJ_CPU=1 keeps the vision projector in system RAM instead of

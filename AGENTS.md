@@ -16,18 +16,35 @@ The 27B generation is a step change over the earlier 8B/4B/1.7B demos:
   and can be budgeted (`--reasoning-budget N`) or picked per chat in the web UI.
 - **Long context** — 256k+ tokens per conversation on a 48 GB Mac (hybrid GDN keeps KV cheap).
 - **Tiny footprint** — the binary 27B packs to ~1.125 bits per weight: it fits
-  on a modern iPhone without memory offloading. The ternary build (~1.7 bpw, packed into
-  2-bit for faster acceleration) is the higher-quality option and the default.
+  on a modern iPhone without memory offloading. **Bonsai 2 27B (~1.75 bpw, 5.9 GB) is the
+  default**: the highest-quality build, and the one to recommend unless the user asks otherwise.
 
 ## The models
 
 | `BONSAI_FAMILY` / `BONSAI_MODEL` | Weights | Notes |
 |---|---|---|
-| `ternary` / `27B` (default) | GGUF ~6.7-7.1 GB + mmproj 0.9 GB; MLX 2-bit ~7.9 GB | Higher quality. Two GGUF formats since the mainline rebase (`prism-b10658+`): `PQ2_0` (group 128, 6.66 GiB, smallest/fastest where supported: CUDA, Metal, CPU, ROCm) and official `Q2_0` group 64 (`Ternary-Bonsai-27B-Q2_g64.gguf`, 7.05 GiB, adds Vulkan/SYCL); smaller sizes use `*-Q2_0_g64.gguf` naming. The scripts pick per backend. Legacy `*-Q2_0.gguf` files (no `g64`) only load on old `prism-v5` releases; new binaries refuse them with an error |
+| `bonsai2` / `27B` (**default**) | GGUF 5.9-7.2 GB + mmproj 0.63 GB; MLX 2-bit 8.6 GB | The current generation and what plain `./setup.sh` installs. Two GGUF bands, **both requiring this demo's binaries**: `PTQ1_0` (1.75 bpw, 5.9 GB, densely packed trits, smallest) and `PQ2_0` (2.13 bpw, 7.2 GB, faster prompt processing, what the scripts download). There is no mainline-compatible band; see the Q2_0 warning below. The MLX pack carries its own Hadamard-aware loader in `runtime/` plus the vision tower, and runs on stock mlx-vlm from `.venv-vlm`, not the fork in `.venv` |
+| `ternary` / `27B` (previous generation) | GGUF ~6.7-7.1 GB + mmproj 0.9 GB; MLX 2-bit ~7.9 GB | Superseded by `bonsai2`. Two GGUF formats since the mainline rebase (`prism-b10658+`): `PQ2_0` (group 128, 6.66 GiB, smallest/fastest where supported: CUDA, Metal, CPU, ROCm) and official `Q2_0` group 64 (`Ternary-Bonsai-27B-Q2_g64.gguf`, 7.05 GiB, adds Vulkan/SYCL); smaller sizes use `*-Q2_0_g64.gguf` naming. The scripts pick per backend. Legacy `*-Q2_0.gguf` files (no `g64`) only load on old `prism-v5` releases; new binaries refuse them with an error |
 | `bonsai` / `27B` | GGUF Q1_0 ~3.5 GB + mmproj 0.9 GB; MLX 1-bit ~4.8 GB | Smallest and fastest; fits on a modern iPhone without offloading |
 | `8B` / `4B` / `1.7B` (both families) | smaller | Text-only, no tools wiring, legacy tested flag set |
 
-Both 27B families have identical capabilities (vision, tools, thinking, long context) —
+### Do not run Bonsai 2 on stock llama.cpp
+
+Every Bonsai 2 band stores its weights in a rotated basis and needs the activation transform that
+only this demo's binaries have. `PQ2_0` and `PTQ1_0` are rejected outright by mainline as unknown
+types, which is the safe failure. **`Q2_0` is the dangerous one: mainline loads it without a warning
+and produces gibberish**, because `Q2_0` is a type upstream already knows and `qwen35` is a
+supported architecture, so nothing in the file makes it refuse.
+
+For that reason the Bonsai 2 `Q2_0` band is **not** in the model repo. It lives on its own at
+[Ternary-Bonsai-2-27B-gguf-dev](https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-gguf-dev),
+named `Ternary-Bonsai-2-27B-Q2_0-prism-fork-required.gguf`, published for testing and for the work
+to upstream the Hadamard changes. Do not point a user at it for running the model. It moves into the
+main repo once mainline can run it.
+
+If someone reports gibberish from Bonsai 2, check which binary they used before anything else.
+
+All three 27B families have the same capabilities (vision, tools, thinking, long context) —
 they differ in size and speed. Context: 262,144 tokens max; FP16 KV cache is
 64 KiB/token (~6.3 GiB at 100K), so 100K context fits on many consumer devices —
 full peak-memory table in the README's Context Size section. All 27B repos:
@@ -146,6 +163,13 @@ Full guide with entry examples: **TOOLS.md** (repo root). The essentials:
 - Cost: ~2.9k prompt tokens (limited to web/news/summarizer; the full Brave set is ~29k, so start_openwebui.sh passes --enabled-tools).
 
 ## Behavior notes (from testing on Apple Silicon)
+
+- **Prompt reuse:** a disabled `--cache-reuse` warning is about chunk shifting, not
+  all prefix caching. Hybrid models can reuse context checkpoints with the projector
+  loaded. Check effective CLI flags before recommending cache changes; explicit flags
+  override `LLAMA_ARG_*` variables. Checkpoint creation also splits short prefills even
+  with request `cache_prompt: false`, so output hashes across checkpoint settings do
+  not isolate restore correctness. See [PROMPT-CACHE.md](PROMPT-CACHE.md).
 
 - Binary is the snappier demo; ternary trades speed for quality-per-bit. Both were
   tested working end to end (text, native tool_calls with round-trips, vision).

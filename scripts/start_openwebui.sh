@@ -44,6 +44,16 @@ case "$BONSAI_HOST" in
         ;;
 esac
 
+# Bonsai 2 has no MLX server path yet: its pack needs the Hadamard-aware loader bundled in
+# runtime/, which neither mlx_lm.server nor mlx_vlm.server uses, so they would serve wrong
+# output with no error. Fail here rather than start something that looks fine and is not.
+if [ "$BONSAI_BACKEND" = "mlx" ] && [ "$BONSAI_FAMILY" = "bonsai2" ]; then
+    err "No MLX server for Bonsai 2 yet; use the llama.cpp backend."
+    echo "    BONSAI_BACKEND=llama ./scripts/start_openwebui.sh"
+    echo "  One-shot MLX still works: ./scripts/run_mlx.sh -p \"...\" [--image photo.jpg]"
+    exit 1
+fi
+
 # Assert the weights the selected backend actually needs (an MLX-only run must
 # not require the GGUF, and vice versa).
 if [ "$BONSAI_BACKEND" = "mlx" ]; then
@@ -168,6 +178,13 @@ else
         # 27B: --jinja enables native OpenAI-style tool calling; --mmproj
         # enables image input; reference-demo sampling. The 27B is a thinking
         # model and thinking stays on. Older sizes keep their tested flag set.
+        # Sampling matches start_llama_server.sh: Bonsai 2 uses the base model's
+        # own defaults, the earlier families keep the profile they were tested on.
+        if [ "$BONSAI_FAMILY" = "bonsai2" ]; then
+            _SAMPLING="--temp 1.0 --top-p 0.95 --top-k 20"
+        else
+            _SAMPLING="--temp 0.7 --top-p 0.95 --top-k 20 --min-p 0"
+        fi
         if [ "$BONSAI_MODEL" = "27B" ]; then
             _imt=$(bonsai_image_max_tokens)
             _mmproj_cpu=""
@@ -175,7 +192,7 @@ else
             # shellcheck disable=SC2086
             LD_LIBRARY_PATH="$_bin_dir${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
             "$_bin" -m "$_model" --host 127.0.0.1 --port "$LLAMA_PORT" -ngl "$_ngl" -fa on -c "$CTX_SIZE_DEFAULT" \
-                --temp 0.7 --top-p 0.95 --top-k 20 --min-p 0 \
+                $_SAMPLING \
                 --jinja \
                 ${MMPROJ:+--mmproj "$MMPROJ"} $_mmproj_cpu \
                 ${_imt:+--image-max-tokens "$_imt"} \

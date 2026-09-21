@@ -9,11 +9,11 @@ $VenvPy  = Join-Path $VenvDir "Scripts\python.exe"
 
 # v7 binaries read the official group-64 Q2_0 files and PQ2_0; they do NOT read
 # the legacy *-Q2_0.gguf files that pre-v7 releases used.
-$ReleaseTag = "prism-b10683-d8f26ee"
+$ReleaseTag = "prism-b10709-9a9394a"
 $BaseUrl = "https://github.com/PrismML-Eng/llama.cpp/releases/download/$ReleaseTag"
 
 $BonsaiModel  = if ($env:BONSAI_MODEL)  { $env:BONSAI_MODEL }  else { "27B" }
-$BonsaiFamily = if ($env:BONSAI_FAMILY) { $env:BONSAI_FAMILY } else { "ternary" }
+$BonsaiFamily = if ($env:BONSAI_FAMILY) { $env:BONSAI_FAMILY } else { "bonsai2" }
 
 $BonsaiModel = if ($BonsaiModel.ToLowerInvariant() -eq "all") { "all" } else { $BonsaiModel.ToUpperInvariant() }
 $BonsaiFamily = $BonsaiFamily.ToLowerInvariant()
@@ -22,8 +22,18 @@ if ($BonsaiModel -notin @("27B", "8B", "4B", "1.7B", "all")) {
     Write-Host "[ERR] Unknown BONSAI_MODEL='$BonsaiModel'. Valid values: 27B, 8B, 4B, 1.7B, all" -ForegroundColor Red
     exit 1
 }
-if ($BonsaiFamily -notin @("bonsai", "ternary", "all")) {
-    Write-Host "[ERR] Unknown BONSAI_FAMILY='$BonsaiFamily'. Valid values: bonsai, ternary, all" -ForegroundColor Red
+if ($BonsaiFamily -notin @("bonsai2", "bonsai", "ternary", "all")) {
+    Write-Host "[ERR] Unknown BONSAI_FAMILY='$BonsaiFamily'. Valid values: bonsai2, ternary, bonsai, all" -ForegroundColor Red
+    exit 1
+}
+# Bonsai 2 is 27B. Another concrete size would otherwise download nothing and
+# still report success, leaving no runnable model. "all" stays valid and fans
+# out to whatever each family has. Mirrors BONSAI2_SIZES in scripts/common.sh.
+$Bonsai2Sizes = if ($env:BONSAI2_SIZES) { $env:BONSAI2_SIZES -split '\s+' } else { @("27B") }
+if ($BonsaiFamily -eq "bonsai2" -and $BonsaiModel -ne "all" -and $BonsaiModel -notin $Bonsai2Sizes) {
+    Write-Host "[ERR] Bonsai 2 is 27B." -ForegroundColor Red
+    Write-Host "      Bonsai 2:     `$env:BONSAI_MODEL='27B'; .\setup.ps1" -ForegroundColor Yellow
+    Write-Host "      Other sizes:  `$env:BONSAI_FAMILY='ternary'; .\setup.ps1" -ForegroundColor Yellow
     exit 1
 }
 
@@ -167,7 +177,7 @@ foreach ($p in @(
     if ($p -and (Test-Path $p)) {
         try {
             $out = & $p 2>&1 | Out-String
-            if ($out -match 'CUDA Version:\s+(\d+)\.(\d+)') {
+            if ($out -match 'CUDA(?:\s+UMD)?\s+Version:\s+(\d+)\.(\d+)') {
                 $major = [int]$Matches[1]; $minor = [int]$Matches[2]
                 if ($major -gt 13 -or ($major -eq 13 -and $minor -ge 3)) {
                     $CudaTag = "13.3"
@@ -229,7 +239,18 @@ function Download-GgufModel($Family, $Size) {
     # Each GGUF repo ships multiple quants (e.g. F16 + Q2_0); only fetch the
     # quant the demo is built around so the directory deterministically holds
     # one .gguf and we skip multi-GB reference weights we don't need.
-    if ($Family -eq "ternary") {
+    if ($Family -eq "bonsai2") {
+        if ($Size -ne "27B") {
+            Write-Host "[INFO] Bonsai 2 is 27B; skipping $Size." -ForegroundColor Yellow
+            return
+        }
+        $repo = "prism-ml/Ternary-Bonsai-2-${Size}-gguf"
+        $dir = Join-Path $PSScriptRoot "models\bonsai2-gguf\$Size"
+        $display = "Bonsai-2-$Size"
+        # Every Bonsai 2 band needs the fork's kernels, so there is no group-64 option.
+        # Quant-only, so an orphaned projector can never stand in for the weights.
+        $patterns = @("*-PQ2_0.gguf")
+    } elseif ($Family -eq "ternary") {
         $repo = "prism-ml/Ternary-Bonsai-${Size}-gguf"
         $dir = Join-Path $PSScriptRoot "models\ternary-gguf\$Size"
         $display = "Ternary-Bonsai-$Size"
@@ -247,10 +268,17 @@ function Download-GgufModel($Family, $Size) {
 
     # 27B extras: the mmproj (multimodal projector) for image input, and the
     # paired dspark drafter for optional speculative decoding (BONSAI_SPECULATIVE=1).
-    $mmprojPattern = if ($Size -eq "27B") { "*mmproj*.gguf" } else { $null }
     # bf16 drafter = conversion input for speculative decoding (see SPECULATIVE.md);
-    # the legacy Q4_1 sidecar cannot load on v7 builds
-    $drafterPattern = if ($Size -eq "27B") { "*dspark-bf16*.gguf" } else { $null }
+    # the legacy Q4_1 sidecar cannot load on v7 builds. Bonsai 2 has no dspark
+    # drafter, so requiring one would keep every complete install off the fast path.
+    # Mirrors scripts/download_models.sh.
+    if ($Family -eq "bonsai2") {
+        $mmprojPattern = "*mmproj-Q8_0.gguf"
+        $drafterPattern = $null
+    } else {
+        $mmprojPattern = if ($Size -eq "27B") { "*mmproj*.gguf" } else { $null }
+        $drafterPattern = if ($Size -eq "27B") { "*dspark-bf16*.gguf" } else { $null }
+    }
 
     # Fast-path and post-download checks both filter on the target quant
     # pattern (not just any *.gguf) so a leftover F16 or other quant from an
@@ -338,7 +366,7 @@ function Download-GgufModel($Family, $Size) {
 }
 
 # Expand "all" for family and size into concrete lists, then iterate.
-$families = if ($BonsaiFamily -eq "all") { @("bonsai", "ternary") } else { @($BonsaiFamily) }
+$families = if ($BonsaiFamily -eq "all") { @("bonsai2", "bonsai", "ternary") } else { @($BonsaiFamily) }
 $sizes    = if ($BonsaiModel  -eq "all") { @("27B", "8B", "4B", "1.7B") } else { @($BonsaiModel) }
 foreach ($fam in $families) {
     foreach ($sz in $sizes) {

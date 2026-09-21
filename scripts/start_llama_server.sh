@@ -105,7 +105,13 @@ fi
 echo ""
 
 # 27B: --jinja enables native OpenAI-style tool calling; --mmproj enables
-# image input; sampling matches the 27B reference demo (temp 0.7, top-p 0.95).
+# image input. Sampling: Bonsai 2 uses the base model's own defaults (temp 1.0,
+# top-p 0.95, top-k 20); the earlier 27B keeps the reference demo's 0.7.
+if [ "$BONSAI_FAMILY" = "bonsai2" ]; then
+    SAMPLING="--temp 1.0 --top-p 0.95 --top-k 20"
+else
+    SAMPLING="--temp 0.7 --top-p 0.95 --top-k 20 --min-p 0"
+fi
 # The 27B is a thinking model and thinking stays on; use the web UI's
 # Reasoning-effort picker per chat, or pass llama-server flags (e.g.
 # --reasoning-budget N) as extra args to this script.
@@ -180,7 +186,7 @@ if [ "$_full_profile" = "1" ]; then
     [ -n "$_mmproj_cpu" ] && echo "  Vision:  projector on CPU/RAM (BONSAI_MMPROJ_CPU=1)"
     # shellcheck disable=SC2086
     exec "$BIN" -m "$MODEL" --host "$HOST" --port "$PORT" -ngl "$NGL" -fa on -c "$_ctx" \
-        --temp 0.7 --top-p 0.95 --top-k 20 --min-p 0 \
+        $SAMPLING \
         --jinja \
         ${MMPROJ:+--mmproj "$MMPROJ"} $_mmproj_cpu \
         ${_imt:+--image-max-tokens "$_imt"} \

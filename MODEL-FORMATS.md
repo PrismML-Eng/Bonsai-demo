@@ -1,6 +1,7 @@
 # Ternary model formats and the prism-v7 migration
 
-The ternary Bonsai GGUFs exist in three formats. This page says which file to
+Bonsai 2 has its own, stricter story: see the first section. The rest of this page covers the
+previous ternary generation, whose GGUFs exist in three formats. It says which file to
 use, what changed in the prism-v7 migration, and why the current HuggingFace repos are
 named the way they are.
 
@@ -27,6 +28,31 @@ named the way they are.
 The legacy format stored a group-128 layout under the same type id that mainline later
 standardized as group-64. prism-v7 follows mainline: type id 42 is read as group-64,
 and the fork's group-128 layout lives under its own name and id, PQ2_0 (142).
+
+## Bonsai 2: no mainline-compatible band
+
+Everything below this section describes the previous generation. Bonsai 2 is simpler and stricter.
+
+| band | bits/weight | size | where |
+|---|---|---|---|
+| `PTQ1_0` | 1.75 | 5.9 GB | [Ternary-Bonsai-2-27B-gguf](https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-gguf) |
+| `PQ2_0` | 2.13 | 7.2 GB | same repo; what the demo downloads, faster prompt processing |
+| `Q2_0` | 2.25 | 7.6 GB | [Ternary-Bonsai-2-27B-gguf-dev](https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-gguf-dev), **testing only** |
+
+All three store their weights in a rotated basis and need the activation transform that only this
+demo's binaries carry, from the [PrismML fork](https://github.com/PrismML-Eng/llama.cpp). There is no
+"works everywhere" option the way group-64 `Q2_0` is for the previous generation.
+
+`PQ2_0` and `PTQ1_0` fail safely on stock llama.cpp: their type ids sit past upstream's
+`GGML_TYPE_COUNT`, so it refuses them outright.
+
+**`Q2_0` does not fail safely.** Upstream already knows the `Q2_0` type and supports the `qwen35`
+architecture, so mainline loads the file without a warning and outputs gibberish.
+
+That is why the Bonsai 2 `Q2_0` band is kept out of the model repo and published separately as
+`Ternary-Bonsai-2-27B-Q2_0-prism-fork-required.gguf`, with the requirement in the filename so it
+survives being copied around. It exists for testing and for the work to upstream the Hadamard
+changes, and it moves into the main repo once mainline can run it.
 
 ## Exact file names on the current repos
 

@@ -4,10 +4,10 @@
 
 # ── Model selection ──
 # Set BONSAI_MODEL to choose size:   27B (default), 8B, 4B, 1.7B, or all
-# Set BONSAI_FAMILY to choose family: ternary (default), bonsai (1-bit), or all
+# Set BONSAI_FAMILY to choose family: bonsai2 (default), ternary, bonsai (1-bit), or all
 # "all" is only meaningful for setup/download — it expands to every size / every family.
 BONSAI_MODEL="${BONSAI_MODEL:-27B}"
-BONSAI_FAMILY="${BONSAI_FAMILY:-ternary}"
+BONSAI_FAMILY="${BONSAI_FAMILY:-bonsai2}"
 
 # Derived paths default to empty so an invalid family or "all" never produces
 # a stale/glob-able path (e.g. `ls /*.gguf`). Concrete paths are only set when
@@ -21,6 +21,12 @@ BONSAI_DISPLAY="(family=${BONSAI_FAMILY} size=${BONSAI_MODEL})"
 case "$BONSAI_MODEL" in
     27B|8B|4B|1.7B)
         case "$BONSAI_FAMILY" in
+            bonsai2)
+                GGUF_MODEL_DIR="models/bonsai2-gguf/${BONSAI_MODEL}"
+                MLX_MODEL_DIR="models/Ternary-Bonsai-2-${BONSAI_MODEL}-mlx-2bit"
+                GGUF_QUANT_PATTERN="*-PQ2_0.gguf"
+                BONSAI_DISPLAY="Bonsai-2-${BONSAI_MODEL}"
+                ;;
             bonsai)
                 GGUF_MODEL_DIR="models/gguf/${BONSAI_MODEL}"
                 MLX_MODEL_DIR="models/Bonsai-${BONSAI_MODEL}-mlx"
@@ -42,6 +48,16 @@ case "$BONSAI_MODEL" in
     # Anything else, including "all": paths stay empty until validated.
 esac
 
+# Sizes this family covers.
+BONSAI2_SIZES="${BONSAI2_SIZES:-27B}"
+bonsai2_size_available() {
+    [ "$1" = "all" ] && return 0
+    for _b2s in $BONSAI2_SIZES; do
+        [ "$1" = "$_b2s" ] && return 0
+    done
+    return 1
+}
+
 # Validate BONSAI_MODEL + BONSAI_FAMILY — call at the top of every run/server script
 assert_valid_model() {
     case "$BONSAI_MODEL" in
@@ -52,12 +68,18 @@ assert_valid_model() {
             exit 1 ;;
     esac
     case "$BONSAI_FAMILY" in
-        bonsai|ternary|all) ;;
+        bonsai2|bonsai|ternary|all) ;;
         *)
-            err "Unknown BONSAI_FAMILY='${BONSAI_FAMILY}'. Valid values: bonsai, ternary, all"
-            echo "  Example: export BONSAI_FAMILY=ternary"
+            err "Unknown BONSAI_FAMILY='${BONSAI_FAMILY}'. Valid values: bonsai2, ternary, bonsai, all"
+            echo "  Example: export BONSAI_FAMILY=bonsai2"
             exit 1 ;;
     esac
+    if [ "$BONSAI_FAMILY" = "bonsai2" ] && ! bonsai2_size_available "$BONSAI_MODEL"; then
+        err "Bonsai 2 is 27B."
+        echo "  Bonsai 2:              BONSAI_MODEL=27B ./scripts/run_llama.sh"
+        echo "  Other sizes:           BONSAI_FAMILY=ternary BONSAI_MODEL=${BONSAI_MODEL} ./scripts/run_llama.sh"
+        exit 1
+    fi
 }
 
 # Reject invalid values and the download-only "all" at runtime with a clear
@@ -108,7 +130,11 @@ backend_from_bin() {
 #                           reached there unless only the legacy file is on disk)
 select_model_gguf() {
     _smg_dir="$1"; _smg_backend="${2:-}"
-    if [ "$BONSAI_FAMILY" = "bonsai" ]; then
+    if [ "$BONSAI_FAMILY" = "bonsai2" ]; then
+        # Every Bonsai 2 band needs the fork's kernels, so there is no
+        # mainline-compatible fallback to prefer; PQ2_0 first, then dense PTQ1_0.
+        _smg_patterns="*-PQ2_0.gguf *-PTQ1_0.gguf"
+    elif [ "$BONSAI_FAMILY" = "bonsai" ]; then
         _smg_patterns="*-Q1_0.gguf"
     else
         _smg_patterns="*g64.gguf *-Q2_0.gguf"

@@ -2,21 +2,34 @@ $ErrorActionPreference = "Stop"
 
 
 $BonsaiModel  = if ($env:BONSAI_MODEL)  { $env:BONSAI_MODEL.ToUpperInvariant() } else { "27B" }
-$BonsaiFamily = if ($env:BONSAI_FAMILY) { $env:BONSAI_FAMILY.ToLowerInvariant() } else { "ternary" }
+$BonsaiFamily = if ($env:BONSAI_FAMILY) { $env:BONSAI_FAMILY.ToLowerInvariant() } else { "bonsai2" }
 
 if ($BonsaiModel -notin @("27B", "8B", "4B", "1.7B")) {
     Write-Host "[ERR] Unknown BONSAI_MODEL='$BonsaiModel'. Valid values: 27B, 8B, 4B, 1.7B" -ForegroundColor Red
     exit 1
 }
-if ($BonsaiFamily -notin @("bonsai", "ternary")) {
-    Write-Host "[ERR] Unknown BONSAI_FAMILY='$BonsaiFamily'. Valid values: bonsai, ternary" -ForegroundColor Red
+if ($BonsaiFamily -notin @("bonsai2", "bonsai", "ternary")) {
+    Write-Host "[ERR] Unknown BONSAI_FAMILY='$BonsaiFamily'. Valid values: bonsai2, bonsai, ternary" -ForegroundColor Red
+    exit 1
+}
+# Bonsai 2 is 27B. Without this, another size walks into a directory that was
+# never going to exist and the error blames setup. Mirrors BONSAI2_SIZES in
+# scripts/common.sh.
+$Bonsai2Sizes = if ($env:BONSAI2_SIZES) { $env:BONSAI2_SIZES -split '\s+' } else { @("27B") }
+if ($BonsaiFamily -eq "bonsai2" -and $BonsaiModel -notin $Bonsai2Sizes) {
+    Write-Host "[ERR] Bonsai 2 is 27B." -ForegroundColor Red
+    Write-Host "      Bonsai 2:     `$env:BONSAI_MODEL='27B'; .\scripts\run_llama.ps1" -ForegroundColor Yellow
+    Write-Host "      Other sizes:  `$env:BONSAI_FAMILY='ternary'; .\scripts\run_llama.ps1" -ForegroundColor Yellow
     exit 1
 }
 
 $DemoDir = Split-Path $PSScriptRoot -Parent
 Set-Location $DemoDir
 
-if ($BonsaiFamily -eq "ternary") {
+if ($BonsaiFamily -eq "bonsai2") {
+    $ModelDir = Join-Path $DemoDir "models\bonsai2-gguf\$BonsaiModel"
+    $FamilyDisplay = "Bonsai-2"
+} elseif ($BonsaiFamily -eq "ternary") {
     $ModelDir = Join-Path $DemoDir "models\ternary-gguf\$BonsaiModel"
 
     $FamilyDisplay = "Ternary-Bonsai"
@@ -41,7 +54,10 @@ foreach ($cand in $BinCandidates) {
     if (Test-Path (Join-Path $DemoDir $cand)) { $BinRel = $cand; break }
 }
 $Pq2Ready = $BinRel -notlike "bin\vulkan\*"
-if ($BonsaiFamily -eq "ternary") {
+if ($BonsaiFamily -eq "bonsai2") {
+    # Every Bonsai 2 band needs the fork's kernels, so there is no group-64 fallback.
+    $tryPatterns = @("*-PQ2_0.gguf", "*-PTQ1_0.gguf")
+} elseif ($BonsaiFamily -eq "ternary") {
     # PQ2_0 where the backend has kernels (see MODEL-FORMATS.md); official group-64
     # otherwise (*g64 on pre-v7 repos, plain *-Q2_0 on newer repos).
     # BONSAI_FORCE_G64=1 skips PQ2_0 regardless of backend.
@@ -82,9 +98,19 @@ $Ngl = if ($env:BONSAI_NGL) {
     "99"
 }
 
-# 27B: reference-demo sampling, thinking stays enabled (model default).
+# Bonsai 2: the base model's own sampling defaults, thinking stays enabled.
+# 27B of the earlier families: reference-demo sampling, thinking also stays on.
 # Older sizes keep the exact flag set they were tested with.
-if ($BonsaiModel -eq "27B") {
+if ($BonsaiFamily -eq "bonsai2") {
+    $CommonArgs = @(
+        "-m", $Model.FullName,
+        "-ngl", $Ngl, "-fa", "on",
+        "--log-disable",
+        "--temp", "1.0",
+        "--top-p", "0.95",
+        "--top-k", "20"
+    )
+} elseif ($BonsaiModel -eq "27B") {
     $CommonArgs = @(
         "-m", $Model.FullName,
         "-ngl", $Ngl, "-fa", "on",
@@ -120,6 +146,10 @@ Write-Host "[OK] Model:  $($Model.FullName)" -ForegroundColor Green
 Write-Host "[OK] Binary: $Bin" -ForegroundColor Green
 Write-Host "[OK] Using -ngl $Ngl, -c $CtxDefault (override with BONSAI_CTX, 0 = auto)" -ForegroundColor Green
 
-$RunArgs = $CommonArgs + @("-c", $CtxDefault) + $args
+# A prompt given with -p is a one-shot request, so finish and exit. Without -st,
+# llama-cli drops into an interactive session after answering and never returns.
+$OneShot = if ($args | Where-Object { $_ -in @("-p", "--prompt") }) { @("-st") } else { @() }
+
+$RunArgs = $CommonArgs + @("-c", $CtxDefault) + $OneShot + $args
 & $Bin @RunArgs
 exit $LASTEXITCODE

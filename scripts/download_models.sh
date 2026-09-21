@@ -2,13 +2,13 @@
 # Download Bonsai / Ternary-Bonsai models from HuggingFace.
 #
 # Usage:
-#   ./scripts/download_models.sh                                         # Ternary-Bonsai 27B (default)
-#   BONSAI_MODEL=4B ./scripts/download_models.sh                         # Ternary-Bonsai 4B
+#   ./scripts/download_models.sh                                         # Bonsai 2 27B (default)
+#   BONSAI_FAMILY=ternary BONSAI_MODEL=4B ./scripts/download_models.sh   # Ternary-Bonsai 4B
 #   BONSAI_FAMILY=bonsai ./scripts/download_models.sh                    # Bonsai (1-bit) 27B
 #   BONSAI_FAMILY=ternary BONSAI_MODEL=1.7B ./scripts/download_models.sh # Ternary-Bonsai 1.7B
-#   BONSAI_MODEL=all ./scripts/download_models.sh                        # All sizes of the selected family
-#   BONSAI_FAMILY=all ./scripts/download_models.sh                       # Both families, 27B size
-#   BONSAI_FAMILY=all BONSAI_MODEL=all ./scripts/download_models.sh      # Full matrix (8 downloads)
+#   BONSAI_FAMILY=ternary BONSAI_MODEL=all ./scripts/download_models.sh  # All sizes of that family
+#   BONSAI_FAMILY=all ./scripts/download_models.sh                       # Every family, 27B size
+#   BONSAI_FAMILY=all BONSAI_MODEL=all ./scripts/download_models.sh      # Full matrix (sizes without a build are skipped)
 #   BONSAI_SKIP_GGUF=1 ./scripts/download_models.sh                      # MLX only (macOS) — saves disk space
 #
 # Set BONSAI_TOKEN (a read-only HF token) if you need to pull a repo that is
@@ -89,6 +89,17 @@ download_one() {
     # Each GGUF repo ships multiple quants (e.g. F16 + Q2_0); we only want the
     # quant the demo is built around, so restrict the download via allow_patterns.
     case "$_family" in
+        bonsai2)
+            # Every Bonsai 2 band needs the fork's kernels, so there is no mainline-compatible
+            # variant to choose between: the PQ2_0 band plus the projector.
+            bonsai2_size_available "$_size" || { info "Bonsai 2 is 27B; skipping ${_size}."; return 0; }
+            _gguf_repo="prism-ml/Ternary-Bonsai-2-${_size}-gguf"
+            _mlx_repo="prism-ml/Ternary-Bonsai-2-${_size}-mlx-2bit"
+            _gguf_dir="models/bonsai2-gguf/${_size}"
+            _mlx_dir="models/Ternary-Bonsai-2-${_size}-mlx-2bit"
+            _display="Bonsai-2-${_size}"
+            _gguf_pattern="*-PQ2_0.gguf"
+            ;;
         bonsai)
             _gguf_repo="prism-ml/Bonsai-${_size}-gguf"
             _mlx_repo="prism-ml/Bonsai-${_size}-mlx-1bit"
@@ -129,7 +140,11 @@ download_one() {
     _dl_patterns="$_gguf_pattern"
     _mmproj_pattern=""
     _drafter_pattern=""
-    if [ "$_size" = "27B" ]; then
+    if [ "$_family" = "bonsai2" ]; then
+        # the projector ships in the same repo; Bonsai 2 has no dspark drafter
+        _mmproj_pattern="*mmproj-Q8_0.gguf"
+        _dl_patterns="$_gguf_pattern,$_mmproj_pattern"
+    elif [ "$_size" = "27B" ]; then
         _mmproj_pattern="*mmproj*.gguf"
         # the bf16 drafter is the input for the one-time gguf-dspark-to-dflash
         # conversion (see SPECULATIVE.md); the legacy Q4_1 sidecar cannot load on v7
@@ -208,7 +223,7 @@ mkdir -p models
 
 # Expand "all" for family and size into concrete lists, then iterate.
 case "$BONSAI_FAMILY" in
-    all) _families="bonsai ternary" ;;
+    all) _families="bonsai2 bonsai ternary" ;;
     *)   _families="$BONSAI_FAMILY" ;;
 esac
 case "$BONSAI_MODEL" in

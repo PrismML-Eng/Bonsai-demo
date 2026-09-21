@@ -36,6 +36,19 @@ echo ""
 # ternary 2-bit runs on stock mlx; binary 1-bit still needs the PrismML fork,
 # so it stays on text-only mlx_lm below. Disable with BONSAI_MLX_VLM=0.
 # The 27B is a thinking model and thinking stays on.
+# Bonsai 2 packs are rotated and need the Hadamard-aware loader they ship in runtime/.
+# Neither mlx_vlm.server nor mlx_lm.server knows about it: they would load the weights and
+# return wrong output with no error. Refuse until a server path exists.
+if [ "$BONSAI_FAMILY" = "bonsai2" ]; then
+    err "No MLX server for Bonsai 2 yet."
+    echo "  Its MLX pack needs the loader bundled in the pack, which mlx_lm.server and"
+    echo "  mlx_vlm.server do not use; serving through them would return wrong output."
+    echo ""
+    echo "  One-shot MLX instead:   ./scripts/run_mlx.sh -p \"...\" [--image photo.jpg]"
+    echo "  Or serve with llama.cpp: ./scripts/start_llama_server.sh"
+    exit 1
+fi
+
 VLM_PY="$DEMO_DIR/.venv-vlm/bin/python"
 if [ "$BONSAI_MODEL" = "27B" ] && [ "$BONSAI_FAMILY" = "ternary" ] \
     && [ "${BONSAI_MLX_VLM:-1}" != "0" ] && [ -x "$VLM_PY" ] \
