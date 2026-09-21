@@ -12,6 +12,7 @@ Benchmark results submitted by the community running [Bonsai](https://huggingfac
 | Apple M5 Max 48 GB | llama.cpp Metal | 796 | 63.9 | [link](metal-m5-max-48gb-macos.md) |
 | NVIDIA DGX Spark (GB10) | llama.cpp CUDA | 1,024 | 45.4 | [link](cuda-gb10-27b-linux.md) |
 | NVIDIA GeForce GTX 1080 Ti 11 GB | llama.cpp CUDA | 285 | 28.3 | [link](cuda-gtx1080ti-linux.md) |
+| NVIDIA RTX 2060 8 GB | llama.cpp CUDA | 493 | 32 | [link](cuda-rtx2060-linux.md) |
 
 ### 8B and smaller
 
@@ -24,6 +25,7 @@ Benchmark results submitted by the community running [Bonsai](https://huggingfac
 | AMD Strix Halo 128 GB | llama.cpp ROCm HIP | 1,325 | 96 | [link](rocm-hip-strix-halo-128gb-archlinux.md) |
 | AMD Strix Halo 128 GB | llama.cpp Vulkan | 831 | 64 | [link](vulkan-strix-halo-128gb-archlinux.md) |
 | NVIDIA RTX A2000 Laptop (4 GB) | llama.cpp CUDA | 1,387 | 63 | [link](cuda-rtxa2000-debian.md) |
+| NVIDIA RTX 2060 8 GB | llama.cpp CUDA | 1862 | 105 | [link](cuda-rtx2060-linux.md) |
 
 > Benchmarks for the **Ternary-Bonsai (1.58-bit)** family live in [../ternary-bonsai/](../ternary-bonsai/).
 
