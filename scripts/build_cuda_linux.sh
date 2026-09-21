@@ -117,30 +117,34 @@ cd - > /dev/null
 
 echo ""
 echo "=== Copying binaries to $DEST ==="
-mkdir -p "$DEST"
+mkdir -p "$(dirname "$DEST")"
+STAGE=$(mktemp -d "$(dirname "$DEST")/.llama-stage.XXXXXX")
+trap 'rm -rf "$STAGE"' EXIT
 
-# Ship every llama-* tool that was built (cli, server, quantize, bench, ...).
-for bin in "$REPO_DIR/$BUILD_DIR"/bin/llama-*; do
-    [ -f "$bin" ] && [ -x "$bin" ] || continue
-    cp "$bin" "$DEST/"
-    echo "  Copied $(basename "$bin")"
-done
-
-echo ""
-echo "=== Copying shared libraries ==="
-cp -a "$REPO_DIR/$BUILD_DIR"/bin/lib*.so* "$DEST/"
-echo "  Copied shared libraries (libllama, libggml, libllama-*-impl, libmtmd)"
+# Preserve the complete runtime output, including symlinks and future helpers.
+# Stage separately so a failed copy/patch leaves the existing install intact.
+cp -a "$REPO_DIR/$BUILD_DIR/bin/." "$STAGE/"
 
 echo ""
 echo "=== Patching RUNPATH for portability ==="
 if command -v patchelf &>/dev/null; then
-    for f in "$DEST"/llama-* "$DEST"/lib*.so.*.*; do
-        [ -f "$f" ] && patchelf --set-rpath '$ORIGIN' "$f"
-    done
+    command -v file >/dev/null || { echo "Error: install 'file' to identify ELF runtime files."; exit 1; }
+    while IFS= read -r -d '' f; do
+        # find skips symlinks; patch their real targets once, regardless of name.
+        kind=$(LC_ALL=C file -b "$f")
+        if [[ "$kind" == ELF* ]] && [[ "$kind" == *executable* || "$kind" == *"shared object"* ]]; then
+            patchelf --set-rpath '$ORIGIN' "$f"
+        fi
+    done < <(find "$STAGE" -type f -print0)
     echo "  Set RUNPATH to \$ORIGIN (binaries find bundled libs automatically)"
 else
     echo "  Warning: patchelf not found. Install it (apt install patchelf) or use LD_LIBRARY_PATH."
 fi
+
+# Replace rather than overlay, so removed runtime libraries do not linger.
+rm -rf "$DEST"
+mv "$STAGE" "$DEST"
+trap - EXIT
 
 echo ""
 echo "Done! CUDA $CUDA_VERSION Linux binaries are in: $DEST"
