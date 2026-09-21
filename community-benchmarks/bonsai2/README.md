@@ -17,6 +17,9 @@ Benchmark results submitted by the community running
 | `PTQ1_0` | NVIDIA Tesla V100-SXM2 16 GB | llama.cpp CUDA (Windows) | 852 | 34.3 | [link](cuda-tesla-v100-windows.md) |
 | `PQ2_0` | Apple M3 Max 36 GB | llama.cpp Metal | 162.2 | 24.3 | [link](metal-m3-max-36gb-macos.md) |
 | `PTQ1_0` | Apple M3 Max 36 GB | llama.cpp Metal | 136.8 | 21.9 | [link](metal-m3-max-36gb-macos.md) |
+| `PQ2_0` | Apple M4 Pro 64 GB | llama.cpp Metal | 126.9 | 20.5 | [link](metal-m4-pro-64gb-macos.md) |
+| `PTQ1_0` | Apple M4 Pro 64 GB | llama.cpp Metal | 98.6 | 17.3 | [link](metal-m4-pro-64gb-macos.md) |
+| `2-bit` | Apple M4 Pro 64 GB | MLX (mlx_lm 0.31.3) | 97.9 | 18.9 | [link](metal-m4-pro-64gb-macos.md) |
 
 ## How to Submit
 
