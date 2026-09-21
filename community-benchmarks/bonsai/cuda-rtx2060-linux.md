@@ -1,23 +1,20 @@
-# [Hardware Name] — [Backend]
-
-RTX 2060 - CUDA
+# RTX 2060 SUPER 8 GB — CUDA (Ubuntu / WSL)
 
 ## Summary
 
-RTX 2060 SUPER 8G + CUDA 13.3 on Ubuntu 22.04 (WSL)
+RTX 2060 SUPER 8 GB + CUDA 13.3 on Ubuntu 22.04 under WSL
 
 | Model | pp512 (t/s) | tg128 (t/s) |
 |-------|-------------|-------------|
-| Bonsai-27B | 493 | 32 |
-| Bonsai-8B | 1862 | 105 |
-| Bonsai-4B | 3081 | 175 |
-| Bonsai-1.7B | 6355 | 308 |
+| Bonsai-27B | 494 | 32.7 |
+| Bonsai-8B | 1,862 | 105.9 |
+| Bonsai-4B | 3,081 | 176.0 |
+| Bonsai-1.7B | 6,356 | 308.8 |
 
 ### Bonsai-27B
 
 ```bash
-# GPU (Metal / CUDA / Vulkan / ROCm) — adjust BENCH path (bin/mac, bin/cuda, bin/rocm, bin/vulkan, bin/cpu):
-BENCH=bin/mac/llama-bench
+BENCH=bin/cuda/llama-bench
 $BENCH -m models/gguf/27B/Bonsai-27B-Q1_0.gguf -ngl 99 -fa 1
 ```
 
