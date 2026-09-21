@@ -16,9 +16,8 @@ below). Bonsai 2 27B, llama.cpp CUDA from this demo's fork (build `7dffb158d`), 
 
 ### Bonsai-2-27B (PQ2_0)
 
-```bash
-BENCH=bin/cuda/llama-bench
-$BENCH -m models/bonsai2-gguf/27B/Ternary-Bonsai-2-27B-PQ2_0.gguf -ngl 99 -fa 1
+```powershell
+.\bin\cuda\llama-bench.exe -m models/bonsai2-gguf/27B/Ternary-Bonsai-2-27B-PQ2_0.gguf -ngl 99 -fa 1
 ```
 
 ggml_cuda_init: found 1 CUDA devices (Total VRAM: 24563 MiB):
@@ -34,10 +33,9 @@ build: 7dffb158d (10685)
 
 ### Bonsai-2-27B (PTQ1_0)
 
-```bash
-BENCH=bin/cuda/llama-bench
-# setup.sh only downloads PQ2_0; get PTQ1_0 from the model repo and point at it:
-$BENCH -m /path/to/Ternary-Bonsai-2-27B-PTQ1_0.gguf -ngl 99 -fa 1
+```powershell
+# Setup downloads PQ2_0; get PTQ1_0 from the model repo and set its path:
+.\bin\cuda\llama-bench.exe -m "C:\path\to\Ternary-Bonsai-2-27B-PTQ1_0.gguf" -ngl 99 -fa 1
 ```
 
 ggml_cuda_init: found 1 CUDA devices (Total VRAM: 24563 MiB):
@@ -59,14 +57,14 @@ build: 7dffb158d (10685)
 
 ## Notes
 
-- The GGUF paths above are this demo's layout. I measured from a copy under LM Studio's models
+- The commands above are PowerShell equivalents with example model paths; raw results are unchanged.
+  The PQ2_0 path uses this demo's layout. I measured from a copy under LM Studio's models
   directory (`~/.lmstudio/models/prism-ml/Ternary-Bonsai-2-27B-gguf/`), which is where the model
   ends up if you download it by hand for LM Studio; same files, same hashes.
 - For reference, the whitepaper lists this card model at 3,124 t/s pp512 and 81.2 t/s tg128 for
   `PQ2_0`, and 1,645 / 91.1 for `PTQ1_0`. Here `PQ2_0` came out slightly higher (3,285 / 84.9) and
-  `PTQ1_0` slightly lower on decode (1,597 / 86.0). That is the spread driver and clock differences
-  produce; the paper's ordering between the two bands still holds: `PTQ1_0` decodes no slower while
-  `PQ2_0` prefills about twice as fast.
+  `PTQ1_0` slightly lower on decode (1,597 / 86.0). These runs do not establish the cause of the differences. In this submission,
+  decode speeds overlap within the reported variation, while `PQ2_0` prefills about twice as fast.
 - Vision and thinking were checked separately on this machine, not through `llama-bench`: the model
   reads a test image correctly and returns `reasoning_content` as expected under `llama-server`.
 
