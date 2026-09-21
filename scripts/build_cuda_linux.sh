@@ -1,7 +1,7 @@
 #!/bin/bash
 # Build llama.cpp with CUDA on Linux (multi-arch)
 # Prerequisites: CUDA toolkit (nvcc), cmake, ninja-build
-# Run from the demo/ folder.
+# Output is always installed under this demo's bin/ folder.
 #
 # Usage:
 #   ./scripts/build_cuda_linux.sh [options] [path_to_llama_cpp_repo]
@@ -18,6 +18,9 @@
 
 set -e
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+DEMO_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd -P)"
+
 CUDA_PATH=""
 CUDA_ARCHS=""
 OUTPUT_DIR=""
@@ -32,7 +35,23 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-REPO_DIR="${REPO_DIR:-./llama.cpp}"
+OUTPUT_DIR="${OUTPUT_DIR:-cuda}"
+# --output names one child of bin/, never a path or a parent directory.
+if [[ ! "$OUTPUT_DIR" =~ ^[a-zA-Z0-9][a-zA-Z0-9_-]*$ ]]; then
+    echo "Error: --output must be a directory name containing only letters, digits, '_' or '-'."
+    exit 1
+fi
+DEST="$DEMO_DIR/bin/$OUTPUT_DIR"
+
+check_output_path() {
+    if [ -L "$DEMO_DIR/bin" ] || [ -L "$DEST" ]; then
+        echo "Error: refusing a symlinked output directory: $DEST"
+        exit 1
+    fi
+}
+check_output_path
+
+REPO_DIR="${REPO_DIR:-$DEMO_DIR/llama.cpp}"
 
 if [ ! -d "$REPO_DIR" ]; then
     echo "llama.cpp not found at $REPO_DIR — cloning from PrismML-Eng..."
@@ -69,9 +88,6 @@ if [ -z "$CUDA_ARCHS" ]; then
         CUDA_ARCHS="80;86;89;90;120a"
     fi
 fi
-
-OUTPUT_DIR="${OUTPUT_DIR:-cuda}"
-DEST="./bin/$OUTPUT_DIR"
 
 if [ ! -d "$REPO_DIR" ]; then
     echo "Error: llama.cpp repo not found at $REPO_DIR and clone failed."
@@ -117,8 +133,9 @@ cd - > /dev/null
 
 echo ""
 echo "=== Copying binaries to $DEST ==="
-mkdir -p "$(dirname "$DEST")"
-STAGE=$(mktemp -d "$(dirname "$DEST")/.llama-stage.XXXXXX")
+check_output_path
+mkdir -p "$DEMO_DIR/bin"
+STAGE=$(mktemp -d "$DEMO_DIR/bin/.llama-stage.XXXXXX")
 trap 'rm -rf "$STAGE"' EXIT
 
 # Preserve the complete runtime output, including symlinks and future helpers.
@@ -142,7 +159,8 @@ else
 fi
 
 # Replace rather than overlay, so removed runtime libraries do not linger.
-rm -rf "$DEST"
+check_output_path
+rm -rf -- "$DEMO_DIR/bin/$OUTPUT_DIR"
 mv "$STAGE" "$DEST"
 trap - EXIT
 
