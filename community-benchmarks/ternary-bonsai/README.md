@@ -9,6 +9,7 @@ Benchmark results submitted by the community running [Ternary-Bonsai](https://hu
 | Hardware | Backend | PP512 (t/s) | TG128 (t/s) | DSpark TG (t/s) | Details |
 |----------|---------|------------:|------------:|----------------:|---------|
 | NVIDIA RTX PRO 6000 Blackwell 96 GB | llama.cpp CUDA | 4,552 | 129.9 | | [link](cuda-rtx-pro-6000-blackwell-linux.md) |
+| NVIDIA RTX 3090 24 GB | llama.cpp CUDA | 1,478 | 80.5 | | [link](cuda-rtx3090-linux.md) |
 | NVIDIA L40S 48 GB | llama.cpp CUDA | 3,036 | 74.3 | ~133-175 (1.8-2.4x) | [link](cuda-l40s-linux.md) |
 | NVIDIA RTX 4070 Ti SUPER 16 GB | llama.cpp CUDA (Windows) | 1,717 | 69.6 | | [link](cuda-rtx4070tisuper-windows.md) |
 | NVIDIA RTX A5000 24 GB | llama.cpp CUDA | 1,036 | 48.2 | | [link](cuda-rtxa5000-ubuntu.md) |
@@ -29,6 +30,7 @@ Benchmark results submitted by the community running [Ternary-Bonsai](https://hu
 
 | Hardware | Backend | 8B PP512 (t/s) | 8B TG128 (t/s) | Details |
 |----------|---------|---------------:|---------------:|---------|
+| NVIDIA RTX 3090 24 GB | llama.cpp CUDA | 5,380 | 230.3 | [link](cuda-rtx3090-linux.md) |
 | NVIDIA RTX 4070 Ti SUPER 16 GB | llama.cpp CUDA (Windows) | 6,675 | 215.7 | [link](cuda-rtx4070tisuper-windows.md) |
 | NVIDIA GeForce GTX 1080 Ti 11 GB | llama.cpp CUDA | 985 | 68.8 | [link](cuda-gtx1080ti-linux.md) |
 | Apple M3 Pro 18 GB | llama.cpp Metal | 288 | 51.3 | [link](metal-m3-pro-macos.md) |

@@ -33,6 +33,8 @@ not directly comparable; each report should identify its harness and workload.
 |--------|----------|---------|------------:|------------:|----------------:|---------|
 | Ternary | NVIDIA RTX PRO 6000 Blackwell 96 GB | llama.cpp CUDA | 4,552 | 129.9 | | [link](ternary-bonsai/cuda-rtx-pro-6000-blackwell-linux.md) |
 | Bonsai (1-bit) | NVIDIA L40S 48 GB | llama.cpp CUDA | 2,937 | 107.5 | ~169 (1.60x) | [link](bonsai/cuda-l40s-27b-linux.md) |
+| Bonsai (1-bit) | NVIDIA RTX 3090 24 GB | llama.cpp CUDA | 1,480 | 89.2 | | [link](bonsai/cuda-rtx3090-linux.md) |
+| Ternary | NVIDIA RTX 3090 24 GB | llama.cpp CUDA | 1,478 | 80.5 | | [link](ternary-bonsai/cuda-rtx3090-linux.md) |
 | Ternary | NVIDIA L40S 48 GB | llama.cpp CUDA | 3,036 | 74.3 | ~150 (2.06x, 2.4x math) | [link](ternary-bonsai/cuda-l40s-linux.md) |
 | Ternary | NVIDIA RTX 4070 Ti SUPER 16 GB | llama.cpp CUDA (Windows) | 1,717 | 69.6 | | [link](ternary-bonsai/cuda-rtx4070tisuper-windows.md) |
 | Bonsai (1-bit) | Apple M5 Max 48 GB | llama.cpp Metal | 796 | 63.9 | slower on this HW | [link](bonsai/metal-m5-max-48gb-macos.md) |
@@ -54,6 +56,8 @@ not directly comparable; each report should identify its harness and workload.
 
 | Family | Hardware | Backend | 8B PP512 (t/s) | 8B TG128 (t/s) | Details |
 |--------|----------|---------|---------------:|---------------:|---------|
+| Bonsai (1-bit) | NVIDIA RTX 3090 24 GB | llama.cpp CUDA | 5,593 | 263.3 | [link](bonsai/cuda-rtx3090-linux.md) |
+| Ternary | NVIDIA RTX 3090 24 GB | llama.cpp CUDA | 5,380 | 230.3 | [link](ternary-bonsai/cuda-rtx3090-linux.md) |
 | Ternary | NVIDIA RTX 4070 Ti SUPER 16 GB | llama.cpp CUDA (Windows) | 6,675 | 215.7 | [link](ternary-bonsai/cuda-rtx4070tisuper-windows.md) |
 | Bonsai (1-bit) | NVIDIA GeForce RTX 3080 10 GB | llama.cpp CUDA | 4,770 | 197 | [link](bonsai/cuda-rtx3080-linux.md) |
 | Bonsai (1-bit) | NVIDIA DGX Spark (GB10) | llama.cpp CUDA | 3,978 | 159 | [link](bonsai/cuda-gb10-linux.md) |

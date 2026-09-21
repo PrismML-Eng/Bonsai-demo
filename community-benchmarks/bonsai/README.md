@@ -9,6 +9,7 @@ Benchmark results submitted by the community running [Bonsai](https://huggingfac
 | Hardware | Backend | PP512 (t/s) | TG128 (t/s) | Details |
 |----------|---------|------------:|------------:|---------|
 | NVIDIA L40S 48 GB | llama.cpp CUDA | 2,937 | 107.5 | [link](cuda-l40s-27b-linux.md) |
+| NVIDIA RTX 3090 24 GB | llama.cpp CUDA | 1,480 | 89.2 | [link](cuda-rtx3090-linux.md) |
 | Apple M5 Max 48 GB | llama.cpp Metal | 796 | 63.9 | [link](metal-m5-max-48gb-macos.md) |
 | NVIDIA DGX Spark (GB10) | llama.cpp CUDA | 1,024 | 45.4 | [link](cuda-gb10-27b-linux.md) |
 | NVIDIA GeForce GTX 1080 Ti 11 GB | llama.cpp CUDA | 285 | 28.3 | [link](cuda-gtx1080ti-linux.md) |
@@ -18,6 +19,7 @@ Benchmark results submitted by the community running [Bonsai](https://huggingfac
 
 | Hardware | Backend | 8B PP512 (t/s) | 8B TG128 (t/s) | Details |
 |----------|---------|---------------:|---------------:|---------|
+| NVIDIA RTX 3090 24 GB | llama.cpp CUDA | 5,593 | 263.3 | [link](cuda-rtx3090-linux.md) |
 | NVIDIA GeForce RTX 3080 10 GB | llama.cpp CUDA | 4,770 | 197 | [link](cuda-rtx3080-linux.md) |
 | NVIDIA DGX Spark (GB10) | llama.cpp CUDA | 3,978 | 159 | [link](cuda-gb10-linux.md) |
 | Apple M4 Pro 48 GB | llama.cpp Metal | 487 | 117 | [link](metal-m4-pro-48gb-macos.md) |

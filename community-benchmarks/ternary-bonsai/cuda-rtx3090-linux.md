@@ -2,35 +2,28 @@
 
 ## Summary
 
-Benchmarked Ternary-Bonsai model family on CachyOS with: 
+Benchmarked Ternary-Bonsai model family on CachyOS with:
 - AMD Ryzen 7 3800X
 - RTX 3090 (24 GB)
 - 32 GB RAM
 - Kernel: Linux 7.2.2-1-cachyos
 
-Benchmarked all model sizes, here's the brief results
+Summary from the detailed results below:
 
-`llama-bench` pp512:
-
-| Model | tokens/second   |
-| ----- | ------------ |
-| 27B   | 1477.96 tok/s  |
-| 8B    | 1505.82 tok/s |
-| 4B    | 5380.10 tok/s |
-| 1.7B  | 9283.78 tok/s |
-
-
-`llama-bench` tg128:
-
-| Model | tokens/second   |
-| ----- | ------------ |
-| 27B   | 62.98 tok/s  |
-| 8B    | 77.75 tok/s |
-| 4B    | 230.27 tok/s |
-| 1.7B  | 349.25 tok/s |
-
+| Model | Format | PP512 (t/s) | TG128 (t/s) |
+|---|---|---:|---:|
+| 27B | `PQ2_0` | 1477.96 | 80.49 |
+| 27B | `Q2_0` | 1505.82 | 77.75 |
+| 8B | `PQ2_0` | 5380.10 | 230.27 |
+| 8B | `Q2_0` | 5888.74 | 242.47 |
+| 4B | `PQ2_0` | 9283.78 | 349.25 |
+| 4B | `Q2_0` | 8813.77 | 345.48 |
+| 1.7B | `PQ2_0` | 18599.66 | 574.72 |
+| 1.7B | `Q2_0` | 19091.64 | 566.00 |
 
 ## llama-bench Results
+
+Run `BONSAI_FAMILY=ternary BONSAI_MODEL=all ./setup.sh` to download this family.
 
 ### Ternary-Bonsai-27B
 
@@ -65,7 +58,7 @@ build: 9a9394a89 (10709)
 # GPU (Metal / CUDA / Vulkan / ROCm) — adjust BENCH path:
 BENCH=bin/cuda/llama-bench
 $BENCH -m models/ternary-gguf/8B/Ternary-Bonsai-8B-PQ2_0.gguf -ngl 99 -fa 1
-hf download prism-ml/Ternary-Bonsai-8B-GGUF --include "*Q2*" --local-dir models/ternary-gguf/8B
+hf download prism-ml/Ternary-Bonsai-8B-GGUF --include "*PQ2_0*" --include "*g64*" --local-dir models/ternary-gguf/8B
 $BENCH -m models/ternary-gguf/8B/Ternary-Bonsai-8B-Q2_0_g64.gguf -ngl 99 -fa 1
 
 ```
@@ -88,7 +81,7 @@ build: 9a9394a89 (10709)
 ### Ternary-Bonsai-4B
 
 ```bash
-hf download prism-ml/Ternary-Bonsai-4B-GGUF --include "*Q2*" --local-dir models/ternary-gguf/4B
+hf download prism-ml/Ternary-Bonsai-4B-GGUF --include "*PQ2_0*" --include "*g64*" --local-dir models/ternary-gguf/4B
 $BENCH -m models/ternary-gguf/4B/Ternary-Bonsai-4B-PQ2_0.gguf -ngl 99 -fa 1
 $BENCH -m models/ternary-gguf/4B/Ternary-Bonsai-4B-Q2_0_g64.gguf -ngl 99 -fa 1
 ```
@@ -111,7 +104,7 @@ build: 9a9394a89 (10709)
 ### Ternary-Bonsai-1.7B
 
 ```bash
-hf download prism-ml/Ternary-Bonsai-1.7B-GGUF --include "*Q2*" --local-dir models/ternary-gguf/1.7B
+hf download prism-ml/Ternary-Bonsai-1.7B-GGUF --include "*PQ2_0*" --include "*g64*" --local-dir models/ternary-gguf/1.7B
 $BENCH -m models/ternary-gguf/1.7B/Ternary-Bonsai-1.7B-PQ2_0.gguf -ngl 99 -fa 1
 $BENCH -m models/ternary-gguf/1.7B/Ternary-Bonsai-1.7B-Q2_0_g64.gguf -ngl 99 -fa 1
 ```
@@ -137,11 +130,12 @@ build: 9a9394a89 (10709)
 My CachyOS gaming and home desktop. Nothing tweaked with thermals or power draw.
 - Single GPU
 - Air cooled CPU
-- CUDA 13.3 (no special binaries or downloads needed to run any models in report)
+- CUDA 13.3; PrismML fork build `9a9394a89` (10709).
 
 ## Notes
 
-Nothing of note
+`PQ2_0` requires the PrismML fork binaries. The official group-64 `Q2_0` format
+for this previous-generation family is also supported by mainline llama.cpp.
 
 ## Hardware
 

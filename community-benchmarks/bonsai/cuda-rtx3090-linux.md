@@ -2,36 +2,24 @@
 
 ## Summary
 
-Benchmarked Ternary-Bonsai model family on CachyOS with: 
+Benchmarked Bonsai 1-bit model family on CachyOS with:
 - AMD Ryzen 7 3800X
 - RTX 3090 (24 GB)
 - 32 GB RAM
 - Kernel: Linux 7.2.2-1-cachyos
 
-Benchmarked all model sizes, here's the brief results
+Summary from the detailed results below:
 
-`llama-bench` pp512:
-
-| Model | tokens/second   |
-| ----- | ------------ |
-| 27B   | 1479.97 tok/s  |
-| 8B    | 5593.02 tok/s |
-| 4B    | 8358.98 tok/s |
-| 1.7B  | 15407.02 tok/s |
-
-
-`llama-bench` tg128:
-
-| Model | tokens/second   |
-| ----- | ------------ |
-| 27B   | 89.23 tok/s  |
-| 8B    | 263.32 tok/s |
-| 4B    | 358.08 tok/s |
-| 1.7B  | 598.58 tok/s |
+| Model | Format | PP512 (t/s) | TG128 (t/s) |
+|---|---|---:|---:|
+| 27B | `Q1_0` | 1479.97 | 89.23 |
+| 8B | `Q1_0` | 5593.02 | 263.32 |
+| 4B | `Q1_0` | 8358.98 | 358.08 |
+| 1.7B | `Q1_0` | 15407.02 | 598.58 |
 
 ## llama-bench Results
 
-Run `./setup.sh` first, then find your `llama-bench` binary:
+Run `BONSAI_FAMILY=bonsai BONSAI_MODEL=all ./setup.sh` first, then find your `llama-bench` binary:
 ```bash
 find bin/ llama.cpp/ -name "llama-bench" -type f 2>/dev/null
 ```
@@ -99,7 +87,7 @@ build: 9a9394a89 (10709)
 My CachyOS gaming and home desktop. Nothing tweaked with thermals or power draw.
 - Single GPU
 - Air cooled CPU
-- CUDA 13.3 (no special binaries or downloads needed to run any models in report)
+- CUDA 13.3; PrismML fork build `9a9394a89` (10709).
 
 ## Notes
 
