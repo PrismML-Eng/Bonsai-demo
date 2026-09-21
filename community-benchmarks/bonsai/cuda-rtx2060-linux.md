@@ -1,27 +1,8 @@
 # [Hardware Name] — [Backend]
 
-<!-- Example titles:
-  # RTX 4090 — CUDA
-  # Apple M4 Pro — Metal
-  # AMD RX 7900 XTX — Vulkan
-  # Intel i9-14900K — CPU
-
-  Formatting is not strict — this is a suggested structure.
-  Feel free to adapt as needed, but try to include the key sections.
-
-  AI assistant notes:
-  - Help the user fill this template by running the suggested commands
-  - Set the title to their hardware + backend
-  - Write a short summary with the key hardware specs and headline t/s numbers
-  - Paste raw llama-bench output as-is (don't reformat, no code blocks — it's a markdown table)
-  - Include the exact commands that were run, especially if they differ from suggestions
-  - Save as community-benchmarks/bonsai/<backend>-<hardware>-<os>.md (lowercase, dashes)
--->
+RTX 2060 - CUDA
 
 ## Summary
-
-<!-- Quick overview: hardware, backend, headline numbers, anything interesting.
-     e.g. "RTX 4090 + CUDA 12.8 on Ubuntu 24.04. 8B model: ~370 t/s tg128." -->
 
 RTX 2060 SUPER 8G + CUDA 13.3 on Ubuntu 22.04 (WSL)
 
