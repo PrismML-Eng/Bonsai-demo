@@ -38,9 +38,10 @@ if [ "$BONSAI_FAMILY" = "bonsai2" ] && [ -n "${BONSAI_MLX_SERVE:-}" ]; then
         err "Could not read a version from '$BONSAI_MLX_SERVE --version'; need mlx-serve 26.9.5 or newer."
         exit 1
     fi
-    set -- $_msv
-    if [ "$1" -lt 26 ] || { [ "$1" -eq 26 ] && [ "$2" -lt 9 ]; } || { [ "$1" -eq 26 ] && [ "$2" -eq 9 ] && [ "$3" -lt 5 ]; }; then
-        err "mlx-serve $1.$2.$3 is too old for Bonsai 2 (needs 26.9.5+, ddalcu/mlx-serve@89eeb24): it would serve wrong output with no error."
+    _msv_major=${_msv%% *}; _msv_rest=${_msv#* }; _msv_minor=${_msv_rest%% *}; _msv_patch=${_msv_rest#* }
+    if [ "$_msv_major" -lt 26 ] || { [ "$_msv_major" -eq 26 ] && [ "$_msv_minor" -lt 9 ]; } \
+        || { [ "$_msv_major" -eq 26 ] && [ "$_msv_minor" -eq 9 ] && [ "$_msv_patch" -lt 5 ]; }; then
+        err "mlx-serve $_msv_major.$_msv_minor.$_msv_patch is too old for Bonsai 2 (needs 26.9.5+, ddalcu/mlx-serve@89eeb24): it would serve wrong output with no error."
         exit 1
     fi
     echo ""
@@ -75,7 +76,7 @@ echo ""
 # Neither mlx_vlm.server nor mlx_lm.server knows about it: they would load the weights and
 # return wrong output with no error. Refuse until a server path exists.
 if [ "$BONSAI_FAMILY" = "bonsai2" ]; then
-    err "No MLX server for Bonsai 2 yet."
+    err "The bundled MLX servers cannot serve Bonsai 2."
     echo "  Its MLX pack needs the loader bundled in the pack, which mlx_lm.server and"
     echo "  mlx_vlm.server do not use; serving through them would return wrong output."
     echo ""
