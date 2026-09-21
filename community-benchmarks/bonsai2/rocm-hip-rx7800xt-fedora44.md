@@ -1,9 +1,6 @@
 # Bonsai 2 27B — community report: RX 7800 XT (gfx1101) — ROCm/HIP
-<!-- Staged for submission to PrismML-Eng/Bonsai-demo.
-     Option A (PR): community-benchmarks/bonsai2/rocm-hip-rx7800xt-fedora44.md
-     Option B (issue): paste body into a new issue on PrismML-Eng/Bonsai-demo
-                       (section 3 is a kernel performance question for maintainers).
-     All numbers below were measured 2026-09-19 on the machine described in §Hardware.
+<!-- Community benchmark for PrismML-Eng/Bonsai-demo.
+     All numbers measured 2026-09-19 (standard + cold-prefill bench runs 2026-09-21) on the machine described in §Hardware.
      No numbers are estimated; every figure comes from a logged command output. -->
 
 # AMD RX 7800 XT (16 GB, gfx1101) — ROCm/HIP — Bonsai 2 27B PQ2_0
@@ -14,16 +11,18 @@ Fedora 44 + ROCm 7.1.1 userspace running the prebuilt **ROCm 7.2** fork binary
 (`prism-b10709-9a9394a`). Bonsai 2 27B PQ2_0 runs well at short context:
 **pp64 153 t/s, tg4 41.9 t/s** (llama-bench, ngl 99), ~50 t/s decode in server use,
 and **262,144-token context loads and works on a 16 GB card** with
-`BONSAI_KV4=1 BONSAI_MMPROJ_CPU=1 --parallel 1` (weights 6.7 GiB + KV4 ≈ 4.6 GiB).
+`BONSAI_KV4=1 BONSAI_MMPROJ_CPU=1 --parallel 1` (weights 6.7 GiB + KV4 ≈ 4.6 GiB;
+q4_0 KV, no bias).
 Needle-recall verified at 64K and 98K depth.
 
-**Main finding (requesting maintainer attention):** decode speed collapses linearly
-with context depth — **~0.55 µs per cached token ≈ the q4_0 KV cache is streamed at
-~33 GB/s, about 5% of this card's 624 GB/s peak bandwidth** (98K depth → 11.4 t/s).
-Ruled out by controlled A/B: thermals (sclk/mclk at max throughout), system load
-(0.00 after closing all other processes; identical 11.4 t/s), VRAM oversubscription.
-Suspected: unoptimized quantized-KV flash-attention path for RDNA3/gfx1101 in the
-ROCm backend. Same file on the same card via the **Vulkan** build is far worse
+**Main observation → hypothesis (requesting maintainer attention):** decode speed
+falls roughly linearly with context depth — ~0.55 µs per cached token. Our working
+hypothesis: the q4_0 KV cache is streamed at ~33 GB/s, about 5% of this card's
+624 GB/s peak bandwidth (98K depth → 11.4 t/s). Controlled A/B ruled out: thermals
+(sclk/mclk at max throughout), system load (0.00 after closing all other processes;
+identical 11.4 t/s), VRAM oversubscription. Hypothesised cause — offered for
+maintainer confirmation, not an established finding: an unoptimized quantized-KV
+flash-attention path for RDNA3/gfx1101 in the ROCm backend. Same file on the same card via the **Vulkan** build is far worse
 (§Configuration), so ROCm is the usable backend here — it just loses ~3× at deep
 context to what the bandwidth math predicts.
 
@@ -36,24 +35,32 @@ prompt processing), and a successful 256K-context recipe on 16 GB.
 
 ```bash
 BENCH=bin/rocm/llama-bench
-$BENCH -m models/bonsai2-gguf/27B/Ternary-Bonsai-2-27B-PQ2_0.gguf -ngl 99 -p 64 -n 4
+$BENCH -m models/bonsai2-gguf/27B/Ternary-Bonsai-2-27B-PQ2_0.gguf -ngl 99 -p 512 -n 128   # standard run
+$BENCH -m models/bonsai2-gguf/27B/Ternary-Bonsai-2-27B-PQ2_0.gguf -ngl 99 -p 64 -n 4      # short-ctx reference
+$BENCH -m models/bonsai2-gguf/27B/Ternary-Bonsai-2-27B-PQ2_0.gguf -ngl 99 -p 11200 -n 0   # cold 11.2K prefill
 ```
 
 | model                          |       size |     params | backend    | ngl |            test |                  t/s |
 | ------------------------------ | ---------: | ---------: | ---------- | --: | --------------: | -------------------: |
 | qwen35 27B PQ2_0 - 2.13 bpw (group 128) |   6.70 GiB |    26.90 B | ROCm       |  99 |            pp64 |        153.30 ± 2.99 |
 | qwen35 27B PQ2_0 - 2.13 bpw (group 128) |   6.70 GiB |    26.90 B | ROCm       |  99 |             tg4 |         41.92 ± 1.42 |
+| qwen35 27B PQ2_0 - 2.13 bpw (group 128) |   6.70 GiB |    26.90 B | ROCm       |  99 |           pp512 |        316.29 ± 1.70 |
+| qwen35 27B PQ2_0 - 2.13 bpw (group 128) |   6.70 GiB |    26.90 B | ROCm       |  99 |           tg128 |         46.75 ± 0.04 |
+| qwen35 27B PQ2_0 - 2.13 bpw (group 128) |   6.70 GiB |    26.90 B | ROCm       |  99 |         pp11200 |        295.85 ± 0.14 |
 
 build: 9a9394a89 (10709)
 
-(Skipped: Q2_0_g64 for Bonsai 2 — not present in the repo; gen-1 Ternary/Bonsai families — not tested on this card. The legacy dev-repo file `Ternary-Bonsai-2-27B-Q2_0-prism-fork-required.gguf` is refused by `prism-b10709+` binaries as documented.)
+(Skipped: Q2_0_g64 for Bonsai 2 — not present in the repo; gen-1 Ternary/Bonsai families — not tested on this card. The dev-repo file `Ternary-Bonsai-2-27B-Q2_0-prism-fork-required.gguf` is, per the
+maintainers, a **current testing format requiring the PrismML fork** (not a
+deprecated legacy file); it is refused by the `prism-b10709+` demo binaries as
+documented.)
 
 ### Server-mode numbers (llama-server, same machine)
 
 | Config | Measured |
 |---|---|
-| 32K ctx, KV4, 4 slots, mmproj on GPU | 11.2K-token pi agent prompt prefill ≈ 0.4 s; 150 tok generated in 2.98 s (≈ 50 t/s decode) |
-| 262,144 ctx (256K), KV4, `--parallel 1`, mmproj on CPU | loads, healthy, effective n_ctx = 262,144 (per `/props`) |
+| 32K ctx, KV4 (no bias), 4 slots, mmproj on GPU | 11.2K-token pi agent prompt prefill ≈ 0.4 s (**warm cache** — shared prefix reused across turns; cold prefill measured separately: pp11200 = 295.85 t/s → ≈ 37.9 s for 11.2K); 150 tok generated in 2.98 s (≈ 50 t/s decode) |
+| 262,144 ctx (256K), KV4 (no bias), `--parallel 1`, mmproj on CPU | loads, healthy, effective n_ctx = 262,144 (per `/props`) |
 | 64,405-tok prompt prefill (256K mode) | 294 s → **219 tok/s** sustained |
 | 98,504-tok prompt prefill (256K mode) | 516 s → **191 tok/s** sustained |
 | Needle recall at 64K and 98K depth | PASS (exact string retrieved from midpoint of filler) |
@@ -80,13 +87,15 @@ BONSAI_HOST=0.0.0.0 BONSAI_CTX=262144 BONSAI_KV4=1 BONSAI_MMPROJ_CPU=1 \
 ```
 
 - Loads and serves; `/props` reports effective n_ctx 262,144.
-- FP16 KV at 256K does **not** fit 16 GB (16 GiB KV alone); KV4 is required.
+- FP16 KV at 256K does **not** fit 16 GB (16 GiB KV alone); KV4 is required
+  (uncorrected q4_0, "no bias", in this report — the maintainers' calibrated
+  mean-centering bias is recommended for quality; see Notes).
 - Long-prefill throughput at depth: 191–256 tok/s (see server-mode table).
 - A ~214K-token prompt needs ≈ 21 min prefill at these speeds.
 
-### 3. q4_0 KV attention: decode speed vs context depth (the finding)
+### 3. q4_0 KV attention: decode speed vs context depth (hypothesis)
 
-Depth ladder on the live 256K server (thinking off, 24–32 gen tokens, same machine,
+Depth ladder on the live 256K server (q4_0 KV, no bias; thinking off, 24–32 gen tokens, same machine,
 controlled A/B with every other GPU-capable process closed — ollama service stopped,
 CPU-only VL server stopped, load average 0.00):
 
@@ -96,8 +105,9 @@ CPU-only VL server stopped, load average 0.00):
 | ~30K | 23.3 t/s | 42.9 ms |
 | ~98K (real workload) | 11.4–11.8 t/s | 84.7 ms |
 
-- Linear fit: **~0.55 µs per cached token** → effective KV stream rate ≈ **33 GB/s**
-  vs 624 GB/s peak (≈ 5%). The FP16-KV shallow case (41.9 t/s bench) shows the card
+- Linear fit: **~0.55 µs per cached token** → implying, if the dominant cost is KV
+  streaming, an effective rate of ≈ **33 GB/s** vs 624 GB/s peak (≈ 5%) — a
+  hypothesis from timing extrapolation, not a profiled measurement. The FP16-KV shallow case (41.9 t/s bench) shows the card
   and weights path are fine; the cost is specific to the quantized-KV attention read.
 - Isolation checks during the deep probe: sclk 2493–2538 MHz and mclk at max level
   (no power/clock throttle), zero memory-allocation errors in logs, results
@@ -127,8 +137,14 @@ candidate for kernel work / a call for RDNA3 ROCm testers?
   binary runs against it without issues for llama-bench and llama-server.
 - The Ubuntu-built ROCm binary needs no additional runtime setup on Fedora beyond
   `LD_LIBRARY_PATH` (handled by the start script).
-- No mean-centering KV bias was built (`make_kv_bias.sh` not run); KV4 quality
-  caveat applies to the long-context numbers.
+- All KV4 timings in this report are **uncorrected q4_0 ("no bias")** —
+  `make_kv_bias.sh` was not run. Per maintainer guidance, the recommended workflow
+  is the model-specific **calibrated mean-centering bias**: build once with
+  `scripts/make_kv_bias.sh` (→ `*kv-bias*.gguf`); with `BONSAI_KV4=1` the start
+  script auto-applies it (`--kv-mean-center` + `LLAMA_ATTN_ROT_DISABLE=1`) at
+  **zero decode-time cost**, giving near-FP16 quality vs the slight degradation of
+  plain q4_0. Existing timings are retained as the "no bias" baseline; the
+  long-context suite was not re-run.
 - Vision: mmproj-Q8_0 loads (`BONSAI_MMPROJ_CPU=1` in 256K mode → CPU projector);
   image inference not benchmarked.
 
