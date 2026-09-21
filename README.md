@@ -58,6 +58,9 @@ The earlier Bonsai families are still here, in smaller sizes too. See [Models](#
 
 ## Quick Start
 
+For repeated conversations and prompt-cache troubleshooting, see
+[Prompt reuse and context checkpoints](PROMPT-CACHE.md).
+
 Setting things up with an AI coding agent? Point it at [AGENTS.md](AGENTS.md), a guide written for agents (hardware-specific knobs, defaults, and what to ask the user).
 
 ### macOS / Linux
@@ -260,7 +263,7 @@ The setup script handles everything for you, even on a fresh machine:
 2. **Installs [uv](https://docs.astral.sh/uv/):** fast Python package manager (user-local, not global)
 3. **Creates a Python venv** and runs `uv sync` — installs cmake, ninja, huggingface-cli from `pyproject.toml`
 4. **Downloads models** from HuggingFace (all model repos are public; no token needed)
-5. **Downloads pre-built binaries** from the pinned [GitHub Release](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b10685-7dffb15) (or builds from source if you prefer)
+5. **Downloads pre-built binaries** from the pinned [GitHub Release](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b10709-9a9394a) (or builds from source if you prefer)
 6. **Builds MLX from source** (macOS only): clones our fork, builds it into the venv, installs the ML stack (mlx-lm, torch, transformers)
 7. **Installs Open WebUI** into the venv for the agentic demo (skip with `BONSAI_OPENWEBUI=0`)
 8. **Builds the code-interpreter venv** (`.venv-jupyter`): Jupyter + matplotlib / pandas / numpy / scipy / sympy / yfinance for the Open WebUI code interpreter (skip with `BONSAI_CODE_INTERPRETER=0`)
@@ -485,7 +488,7 @@ Requires Visual Studio Build Tools or full Visual Studio with C++ workload.
 
 ## llama.cpp Pre-built Binary Downloads
 
-All binaries are available from the pinned [GitHub Release](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b10685-7dffb15), also used by both setup scripts. The latest release may still be missing platform binaries while builds finish.
+All binaries are available from the pinned [GitHub Release](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b10709-9a9394a), also used by both setup scripts. The latest release may still be missing platform binaries while builds finish.
 
 | Platform                          |
 |-----------------------------------|
@@ -585,13 +588,13 @@ GGML_METAL_TENSOR_DISABLE=1 ./scripts/run_llama.sh -p "Hello"
 ```
 
 
-### setup.ps1 picks Vulkan/CPU instead of CUDA on an NVIDIA GPU
+### Windows setup selects Vulkan or CPU instead of CUDA
 
-**Symptom:** `setup.ps1` reports `[INFO] No GPU toolchain detected. Will use CPU build.` or falls back to Vulkan, even though `nvidia-smi` runs fine and shows the GPU.
+**Symptom:** `setup.ps1` reports `[INFO] No GPU toolchain detected. Will use CPU build.` or selects Vulkan, even though `nvidia-smi` runs successfully and detects your NVIDIA GPU.
 
-**Cause:** GPU detection greps `nvidia-smi`'s output for the literal string `CUDA Version:`. Some newer driver builds (observed on driver 610.88, CUDA 13.3) instead print `CUDA UMD Version:` — the extra `UMD` breaks the match, so `$GpuType` never becomes `cuda` and detection falls through to Vulkan or CPU. Worse for `bonsai2`: the family has no Vulkan-tuned kernels, so a simple prompt can sit with 0 prompt tokens processed for minutes instead of erroring out.
+**Cause:** Older versions of the setup script expected the header `CUDA Version:`. Some newer NVIDIA drivers instead report `CUDA UMD Version:`. The extra `UMD` prevented CUDA detection, causing setup to select another backend.
 
-**Fix:** widen the regex to accept the optional `UMD` token (`CUDA (?:UMD )?Version:\s+(\d+)\.(\d+)`), fixed in this version of `setup.ps1`. If you're on an older copy of the script, apply that change to the `-match` line in the GPU-detection block, then re-run `.\setup.ps1`.
+This can leave you with binaries under `bin\vulkan` or `bin\cpu` rather than `bin\cuda`. On affected Bonsai 2 setups, users reported prompts stalling without processing any tokens instead of producing a clear error.
 
 ### CUDA source build runs out of memory or freezes
 
