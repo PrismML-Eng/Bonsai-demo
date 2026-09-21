@@ -9,7 +9,7 @@ $VenvPy  = Join-Path $VenvDir "Scripts\python.exe"
 
 # v7 binaries read the official group-64 Q2_0 files and PQ2_0; they do NOT read
 # the legacy *-Q2_0.gguf files that pre-v7 releases used.
-$ReleaseTag = "prism-b10683-d8f26ee"
+$ReleaseTag = "prism-b10709-9a9394a"
 $BaseUrl = "https://github.com/PrismML-Eng/llama.cpp/releases/download/$ReleaseTag"
 
 $BonsaiModel  = if ($env:BONSAI_MODEL)  { $env:BONSAI_MODEL }  else { "27B" }
@@ -177,7 +177,7 @@ foreach ($p in @(
     if ($p -and (Test-Path $p)) {
         try {
             $out = & $p 2>&1 | Out-String
-            if ($out -match 'CUDA Version:\s+(\d+)\.(\d+)') {
+            if ($out -match 'CUDA(?:\s+UMD)?\s+Version:\s+(\d+)\.(\d+)') {
                 $major = [int]$Matches[1]; $minor = [int]$Matches[2]
                 if ($major -gt 13 -or ($major -eq 13 -and $minor -ge 3)) {
                     $CudaTag = "13.3"

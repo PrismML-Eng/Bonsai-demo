@@ -164,6 +164,13 @@ Full guide with entry examples: **TOOLS.md** (repo root). The essentials:
 
 ## Behavior notes (from testing)
 
+- **Prompt reuse:** a disabled `--cache-reuse` warning is about chunk shifting, not
+  all prefix caching. Hybrid models can reuse context checkpoints with the projector
+  loaded. Check effective CLI flags before recommending cache changes; explicit flags
+  override `LLAMA_ARG_*` variables. Checkpoint creation also splits short prefills even
+  with request `cache_prompt: false`, so output hashes across checkpoint settings do
+  not isolate restore correctness. See [PROMPT-CACHE.md](PROMPT-CACHE.md).
+
 - Binary is the snappier demo; ternary trades speed for quality-per-bit. Both were
   tested working end to end (text, native tool_calls with round-trips, vision).
 - With thinking on, most of a "slow answer" is reasoning tokens, not vision or prefill —
