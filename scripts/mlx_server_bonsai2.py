@@ -61,6 +61,24 @@ def reload_flag(passthrough):
     return None
 
 
+def resolve_model_id(requested, pack):
+    """Map a client-supplied "model" field to the pack path this server actually serves.
+
+    OpenAI/Anthropic clients send whatever they have configured for "model": a
+    remembered default like "gpt-4o", a short name like "bonsai2", or nothing
+    meaningful at all, and llama-server ignores the field outright, so users expect
+    the same here. mlx_vlm instead treats the string as a filesystem path:
+    `get_cached_model` clears its cache and calls stock `load` on it whenever it does
+    not match the currently loaded path, and stock `load` then tries to resolve it
+    against Hugging Face and raises. Since this server only ever serves the one pack
+    given on the command line, any requested id that is not itself an existing
+    directory is just an alias for that pack.
+    """
+    if requested and Path(requested).is_dir():
+        return requested
+    return str(pack)
+
+
 def eval_arrays(raw_inputs):
     """Force evaluation of every mx.array nested in raw_inputs, in place.
 
@@ -157,6 +175,39 @@ def main():
         return model, processor
 
     generation.load = load_bonsai2_pack
+
+    # --- Alias any requested model id to this pack -------------------------------------------
+    #
+    # The server's other loading seam is `get_cached_model`, called directly with the
+    # request's raw "model" field by app.py's own lifespan preload and by every OpenAI/
+    # Anthropic endpoint in openai.py and anthropic.py. Each of those three modules holds
+    # its own module-level `get_cached_model` global: app.py defines it, and openai.py/
+    # anthropic.py each got a reference to it once, at import time, when the package's
+    # __init__ wired the routes together, so patching only one of them leaves the other
+    # two calling the original. All three are replaced here with a wrapper that resolves
+    # the request's model id to this pack before delegating, so "bonsai2", a client's
+    # default model name, or no override at all all resolve to the one pack this process
+    # serves, instead of mlx_vlm clearing its cache and trying (and failing) to fetch that
+    # name from Hugging Face.
+    # `mlx_vlm.server`'s __init__ copies every non-dunder name from app.py into the
+    # package's own namespace, including app.py's `app` (the FastAPI instance) under
+    # the name "app", so `from mlx_vlm.server import app` (or `import
+    # mlx_vlm.server.app`) resolves to that FastAPI instance, not the app.py submodule,
+    # once the package has finished importing. Pull the submodule straight out of
+    # sys.modules instead, which is unambiguous.
+    import mlx_vlm.server.anthropic as server_anthropic  # noqa: E402
+    import mlx_vlm.server.openai as server_openai  # noqa: E402
+
+    server_app = sys.modules["mlx_vlm.server.app"]
+
+    _stock_get_cached_model = server_app.get_cached_model
+
+    def get_cached_model_alias(model_path, *args, **kwargs):
+        return _stock_get_cached_model(resolve_model_id(model_path, pack), *args, **kwargs)
+
+    server_app.get_cached_model = get_cached_model_alias
+    server_openai.get_cached_model = get_cached_model_alias
+    server_anthropic.get_cached_model = get_cached_model_alias
 
     # --- Workaround for an mlx 0.32 cross-thread stream bug -----------------------------------
     #

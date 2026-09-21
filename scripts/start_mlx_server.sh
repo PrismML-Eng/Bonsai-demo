@@ -31,8 +31,8 @@ if [ "$BONSAI_FAMILY" = "bonsai2" ]; then
         warn "BONSAI_MLX_VLM=0 is ignored for bonsai2: it has no text-only mlx_lm path to fall back to."
     fi
     _vlm_py="$DEMO_DIR/.venv-vlm/bin/python"
-    if [ ! -x "$_vlm_py" ]; then
-        err "Python venv not found. Run ./setup.sh first."
+    if [ ! -x "$_vlm_py" ] || ! "$_vlm_py" -c "import mlx_vlm" 2>/dev/null; then
+        err "mlx-vlm venv not found or incomplete. Run ./setup.sh first."
         exit 1
     fi
     export HF_HOME="$DEMO_DIR/.hf_cache"

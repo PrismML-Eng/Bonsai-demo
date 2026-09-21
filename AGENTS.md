@@ -183,7 +183,7 @@ Full guide with entry examples: **TOOLS.md** (repo root). The essentials:
   same way through `mlx_server_bonsai2.py` (its own Hadamard-aware loader swapped
   into mlx-vlm's loading seam; `BONSAI_MLX_VLM=0` is ignored here, since Bonsai 2
   has no text-only mlx_lm path to fall back to). The binary 27B MLX should support
-  vision the same way (the vision tower is full precision in both packs) — it just
+  vision the same way (the vision tower is full precision in both packs); it just
   hasn't been wired through / verified in these scripts yet.
 - MLX has **no cross-request prompt cache** (mlx-vlm re-prefills the full
   conversation, image tokens included, on every turn), so follow-ups are much

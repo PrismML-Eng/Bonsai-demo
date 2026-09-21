@@ -43,3 +43,5 @@ BONSAI_IMAGE_MAX_TOKENS=0 ./scripts/start_llama_server.sh
 ## MLX backend
 
 The ternary 27B also serves images on the MLX backend via `mlx-vlm` (installed into `.venv-vlm` by `setup.sh`; `start_mlx_server.sh` and `BONSAI_BACKEND=mlx ./scripts/start_openwebui.sh` use it automatically). The binary (1-bit) 27B is text-only on MLX for now.
+
+Bonsai 2 also serves images on MLX, through `scripts/mlx_server_bonsai2.py`: its pack ships its own Hadamard-aware loader, swapped into `mlx-vlm`'s loading seam in place of the stock one, then served by the same `mlx-vlm` server and the same launchers as the ternary 27B. Bonsai 2 has no text-only MLX path, so `BONSAI_MLX_VLM=0` is ignored for it.

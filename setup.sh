@@ -366,8 +366,17 @@ raise SystemExit(0 if v >= (0, 31) else 1)
     # which conflicts with the PrismML fork in .venv (fork = 1-bit kernels), so
     # it gets its own venv. Ternary (2-bit) runs on stock mlx -> vision works;
     # binary (1-bit) still needs the fork -> text-only mlx_lm for now.
-    # Skip with BONSAI_MLX_VLM=0.
-    if [ "${BONSAI_MLX_VLM:-1}" != "0" ]; then
+    # Skip with BONSAI_MLX_VLM=0. Bonsai 2 is the exception: it has no text-only MLX
+    # path (scripts/mlx_server_bonsai2.py is its only MLX server) and needs
+    # this venv regardless.
+    _bonsai2_forces_vlm=false
+    case "$BONSAI_FAMILY" in
+        bonsai2|all) _bonsai2_forces_vlm=true ;;
+    esac
+    if [ "${BONSAI_MLX_VLM:-1}" != "0" ] || [ "$_bonsai2_forces_vlm" = "true" ]; then
+        if [ "${BONSAI_MLX_VLM:-1}" = "0" ]; then
+            warn "BONSAI_MLX_VLM=0 is ignored for BONSAI_FAMILY=${BONSAI_FAMILY}: Bonsai 2 has no text-only MLX path."
+        fi
         step "Setting up mlx-vlm venv (MLX image input for the 27B) ..."
         VLM_VENV="$SCRIPT_DIR/.venv-vlm"
         if [ -x "$VLM_VENV/bin/python" ] && "$VLM_VENV/bin/python" -c "import mlx_vlm" 2>/dev/null \

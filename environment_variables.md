@@ -27,7 +27,7 @@ Every script in this repo is driven by environment variables — model selection
 | `BONSAI_KV4` | `0` | `1` | 4-bit (Q4_0) KV cache, ~3.5x less KV memory for very long contexts; decode slightly slower than F16. Optional calibration bias via `./scripts/make_kv_bias.sh`. [KV-CACHE.md](KV-CACHE.md) |
 | **MLX server** | | | |
 | `BONSAI_BACKEND` | `llama` | `llama`, `mlx` | Which backend `start_openwebui.sh` serves (`mlx` is Apple Silicon-only). It does **not** change `run_llama.sh` / `run_llama.ps1` / `run_mlx.sh` — those pick their backend by which script you invoke. |
-| `BONSAI_MLX_VLM` | `1` | `0` | Use mlx-vlm for MLX image input (27B ternary; needs the `.venv-vlm` from setup.sh). |
+| `BONSAI_MLX_VLM` | `1` | `0` | Use mlx-vlm for MLX image input (27B ternary; needs the `.venv-vlm` from setup.sh). Ignored for Bonsai 2, which has no text-only MLX path and always needs `.venv-vlm`. |
 | `BONSAI_MLX_VISION` | `0` | `1` | Force MLX vision for a pre-existing MLX server whose implementation isn't known (set it explicitly if you started it with mlx-vlm). |
 | **Open WebUI** | | | |
 | `BONSAI_ALLOW_REMOTE` | `0` | `1` | Allow binding Open WebUI to a non-loopback `BONSAI_HOST`. Auth is disabled + a code interpreter may be enabled, so this is trusted-networks-only. |

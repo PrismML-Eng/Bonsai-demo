@@ -233,13 +233,13 @@ if [ "$BONSAI_BACKEND" = "mlx" ]; then
         # Bonsai 2 packs are rotated and need the Hadamard-aware loader they ship in
         # runtime/. mlx_server_bonsai2.py swaps that loader into mlx_vlm.server's
         # loading seam before handing off to the stock server, so this only needs
-        # .venv-vlm — never plain mlx_lm, which would silently serve wrong output.
+        # .venv-vlm, never plain mlx_lm, which would silently serve wrong output.
         if [ "$BONSAI_FAMILY" = "bonsai2" ]; then
             if [ "${BONSAI_MLX_VLM:-1}" = "0" ]; then
                 warn "BONSAI_MLX_VLM=0 is ignored for bonsai2: it has no text-only mlx_lm path to fall back to."
             fi
-            if [ ! -x "$_VLM_PY" ]; then
-                err "Python venv not found. Run ./setup.sh first."
+            if [ ! -x "$_VLM_PY" ] || ! "$_VLM_PY" -c "import mlx_vlm" 2>/dev/null; then
+                err "mlx-vlm venv not found or incomplete. Run ./setup.sh first."
                 exit 1
             fi
             _MLX_VISION=true

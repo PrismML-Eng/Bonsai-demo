@@ -1,4 +1,5 @@
 import importlib.util
+import tempfile
 import threading
 import unittest
 from pathlib import Path
@@ -16,6 +17,13 @@ try:
     HAS_MLX = True
 except ImportError:
     HAS_MLX = False
+
+# Per-thread default GPU streams arrived in mlx 0.32 (the version the Bonsai 2 pack pins).
+# Earlier releases evaluate a lazy array from any thread, so the control test that
+# reproduces the bug has nothing to reproduce there and is skipped.
+MLX_HAS_THREAD_LOCAL_STREAMS = HAS_MLX and tuple(
+    int(part) for part in mx.__version__.split(".")[:2]
+) >= (0, 32)
 
 
 class ReloadFlagTests(unittest.TestCase):
@@ -35,6 +43,36 @@ class ReloadFlagTests(unittest.TestCase):
 
     def test_empty_passthrough_passes(self):
         self.assertIsNone(mlx_server_bonsai2.reload_flag([]))
+
+
+class ResolveModelIdTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.pack = Path(self._tmp.name) / "pack"
+        self.pack.mkdir()
+
+    def test_nonexistent_name_aliases_to_pack(self):
+        for requested in ("bonsai2", "gpt-4o", "", None):
+            with self.subTest(requested=requested):
+                self.assertEqual(
+                    mlx_server_bonsai2.resolve_model_id(requested, self.pack),
+                    str(self.pack),
+                )
+
+    def test_existing_directory_is_left_unchanged(self):
+        other_dir = Path(self._tmp.name) / "some-other-model"
+        other_dir.mkdir()
+        self.assertEqual(
+            mlx_server_bonsai2.resolve_model_id(str(other_dir), self.pack),
+            str(other_dir),
+        )
+
+    def test_pack_path_itself_is_unchanged(self):
+        self.assertEqual(
+            mlx_server_bonsai2.resolve_model_id(str(self.pack), self.pack),
+            str(self.pack),
+        )
 
 
 @unittest.skipUnless(HAS_MLX, "requires mlx.core")
@@ -73,6 +111,7 @@ class EvalArraysTests(unittest.TestCase):
             ],
         )
 
+    @unittest.skipUnless(MLX_HAS_THREAD_LOCAL_STREAMS, "cross-thread stream error needs mlx >= 0.32")
     def test_control_without_eval_arrays_cross_thread_read_raises(self):
         # Control: prove the test actually detects the bug it is meant to catch.
         # A lazy array built on this thread and read from a different thread, with
