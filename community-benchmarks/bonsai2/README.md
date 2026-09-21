@@ -18,11 +18,14 @@ Benchmark results submitted by the community running
    The default family is Bonsai 2; setup downloads `PQ2_0` and the required fork binaries.
    For `PTQ1_0`, download it from the model repository above and pass its path to
    `llama-bench -m` (`BONSAI_MODEL` selects a size, not a file path).
+   The development [Q2_0 file](https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-gguf-dev/blob/main/Ternary-Bonsai-2-27B-Q2_0-prism-fork-required.gguf) is also welcome for benchmarking via `-m`.
+   It uses the official llama.cpp `Q2_0` format but **currently requires our fork**
+   for Bonsai 2's Hadamard transform support. Upstream support is pending our PRs.
 2. Copy [TEMPLATE-llama-cpp.md](TEMPLATE-llama-cpp.md) to
-   `<backend>-<hardware>-<os>.md` here (lowercase, dashes). Keep both packings in
+   `<backend>-<hardware>-<os>.md` here (lowercase, dashes). Keep tested formats in
    the same machine report, with separate commands and raw results for each.
 3. Include the exact model filename, binary release or commit, hardware, OS,
-   driver/backend version, and benchmark command. Both packings are welcome;
+   driver/backend version, and benchmark command. `PQ2_0`, `PTQ1_0`, and development `Q2_0` results are welcome;
    one is enough if that is what you tested. Note any skipped or unsupported runs.
 4. Add a row per tested packing to the table above and the
    [Bonsai 2 table in the main index](../README.md#bonsai-2-27b), then open a PR.

@@ -11,6 +11,7 @@ Bonsai 2 27B on [hardware, VRAM/system RAM, OS], using [release tag / commit].
 |--------|------------:|------------:|
 | PQ2_0 | | |
 | PTQ1_0 | | |
+| Q2_0 (development) | | |
 
 ## Configuration
 
@@ -52,6 +53,17 @@ and pass its path to `-m`. `BONSAI_MODEL` is a size selector, not a file path.
 Use the same settings when comparing packings, and list any differences.
 
 (Paste the exact command and raw results, or state that this packing was not tested.)
+
+### Q2_0 (optional, development)
+
+Use [Ternary-Bonsai-2-27B-Q2_0-prism-fork-required.gguf](https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-gguf-dev/blob/main/Ternary-Bonsai-2-27B-Q2_0-prism-fork-required.gguf)
+and pass its path to `-m` with the same benchmark settings.
+This is the official llama.cpp `Q2_0` format, but Bonsai 2 currently requires our
+fork's Hadamard transform support. Upstream support is pending our PRs; stock
+llama.cpp may load the file but produce incorrect output without those changes.
+Record the exact fork build and model revision or hash.
+
+(Paste the exact command and raw results, or state that this format was not tested.)
 
 ## Additional observations (optional)
 
