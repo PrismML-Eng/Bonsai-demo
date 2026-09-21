@@ -1,10 +1,29 @@
 # Community Benchmarks
 
-Benchmark results submitted by the community, organized by model. **We are especially looking for Bonsai-27B numbers right now**: any hardware, any backend, five minutes with `llama-bench`. See [How to Submit](#how-to-submit).
+Benchmark results submitted by the community, organized by model. **We are especially looking for Bonsai 2 27B numbers right now**: any hardware, any backend, five minutes with `llama-bench`. See [How to Submit](#how-to-submit).
 
-## Bonsai-27B
+## Bonsai 2 27B
 
-Sorted by decode speed (TG128). The 27B models come in two families: Bonsai (1-bit, `Q1_0`) and Ternary-Bonsai (2-bit). Since the fork's rebase onto current mainline llama.cpp (releases `prism-b10658` and newer), the ternary GGUFs come in **two formats**: `PQ2_0` (our group-128 packing, smallest and usually fastest where supported) and `Q2_0` (the official upstream group-64 format, widest backend coverage). Ternary submissions on new builds should include **both** where possible; the table's ternary numbers use `PQ2_0` unless noted. Optional column: decode speed with the paired DSpark drafter, where the submitter measured it (llama-server via `BONSAI_SPECULATIVE=1 ./scripts/start_llama_server.sh`; on MLX via community harnesses such as dspark-mlx). Plain `llama-bench` does not exercise the drafter. DSpark numbers measured via `llama-server` with the chat template read lower than single-prompt bare-loop tools (`llama-speculative-simple`) on the same hardware — server per-token overhead plus a harder-to-draft token distribution — so compare like with like; the entry files state which harness was used.
+The current generation (`bonsai2`, the setup default). Results are sorted by TG128;
+keep each packing on its own row. These are community measurements on the stated
+hardware and build, not controlled comparisons across machines. See the linked reports
+for commands, raw output, memory use, and configuration.
+
+| Format | Hardware | Backend | PP512 (t/s) | TG128 (t/s) | Details |
+|--------|----------|---------|------------:|------------:|---------|
+| `PTQ1_0` | NVIDIA RTX 4090 24 GB | llama.cpp CUDA (Windows) | 1,597 | 86.0 | [link](bonsai2/cuda-rtx4090-windows.md) |
+| `PQ2_0` | NVIDIA RTX 4090 24 GB | llama.cpp CUDA (Windows) | 3,285 | 84.9 | [link](bonsai2/cuda-rtx4090-windows.md) |
+
+## Earlier 27B families
+
+Bonsai (1-bit, `Q1_0`) and Ternary-Bonsai (previous generation) results are sorted by
+TG128. Ternary rows use `PQ2_0` unless noted; see the
+[ternary format guide](ternary-bonsai/README.md#available-formats) for `PQ2_0` and
+upstream-format `Q2_0` group-64 submissions.
+
+The optional DSpark column records speculative decoding with a paired drafter.
+Plain `llama-bench` does not exercise it. Server and standalone harness results are
+not directly comparable; each report should identify its harness and workload.
 
 | Family | Hardware | Backend | PP512 (t/s) | TG128 (t/s) | DSpark TG (t/s) | Details |
 |--------|----------|---------|------------:|------------:|----------------:|---------|
@@ -44,6 +63,7 @@ Sorted by decode speed (TG128). The 27B models come in two families: Bonsai (1-b
 
 ## Model Families
 
+- **[Bonsai 2](bonsai2/)**: the current generation (27B) in GGUF (`PTQ1_0` and `PQ2_0`) and MLX 2-bit. The GGUF formats require this demo's llama.cpp fork; MLX uses the model's Hadamard-aware runtime.
 - **[Bonsai (1-bit)](bonsai/)**: the 1-bit Bonsai family (27B, 8B, 4B, 1.7B) in GGUF and MLX 1-bit formats.
 - **[Ternary-Bonsai](ternary-bonsai/)**: the ternary Bonsai family (27B, 8B, 4B, 1.7B) in GGUF (`PQ2_0` and `Q2_0` group-64) and MLX (2-bit) formats.
 
@@ -51,8 +71,9 @@ Each subfolder has its own README with results, submission templates, and filena
 
 ## How to Submit
 
-1. Run `./setup.sh` to download models and binaries (`BONSAI_FAMILY=bonsai` for the 1-bit family; the default is ternary)
+1. Run `./setup.sh` on macOS/Linux or `.\setup.ps1` in Windows PowerShell to download models and binaries (the default family is Bonsai 2; `BONSAI_FAMILY=ternary` or `BONSAI_FAMILY=bonsai` for the older families)
 2. Go into the subfolder for your model family and follow its `README.md`:
+   - [bonsai2/README.md](bonsai2/README.md)
    - [bonsai/README.md](bonsai/README.md)
    - [ternary-bonsai/README.md](ternary-bonsai/README.md)
 3. Open a PR to this repo with your filled-in file placed inside the appropriate subfolder.
