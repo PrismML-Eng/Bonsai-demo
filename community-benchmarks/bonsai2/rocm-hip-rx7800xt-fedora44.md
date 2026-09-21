@@ -121,6 +121,26 @@ KV4 as "slightly slower than FP16"; here it costs ~3× at depth. Any knob we mis
 (e.g. different `-ub`, FA variants, a gfx1101-specific build flag), or is this a
 candidate for kernel work / a call for RDNA3 ROCm testers?
 
+### 3b. Controlled A/B: FP16 KV vs q4_0 KV decode at ~94K depth (2026-09-21)
+
+Identical 93,906-token prompt, same machine, same build (`9a9394a89`), only the KV
+cache dtype varied (fresh server instance per run, `ngl 99`, `-fa on`, ctx 98304).
+
+| KV cache | KV VRAM @ 94K | Prefill | **Decode @ 93.9K depth** |
+|---|---|---|---|
+| **FP16** | ~5.7 GiB | 199.9 t/s | **29.79 t/s** |
+| **q4_0** | ~1.7 GiB | 193.8 t/s | **12.03 t/s** |
+
+- Decode with q4_0 KV is **2.48× slower** at identical depth; prefill is unaffected
+  (~194–200 t/s both ways). The q4_0 baseline reproduces the §3 depth ladder
+  (11.4–11.8 t/s at 98K on the live server), so the two methodologies agree.
+- This isolates the deep-context cost to the **q4_0-KV attention read path during
+  decode** — consistent with the §3 hypothesis — rather than deep-context attention
+  in general.
+- Practical note for 16 GB owners: FP16 KV is the speed option at moderate depth
+  (weights + FP16 KV fit to roughly ~120K ctx); q4_0 KV remains the only way to
+  reach 256K on this card.
+
 ### 4. Small notes
 
 - The Qwen3.8-template thinking toggle works per-request via
