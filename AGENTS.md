@@ -207,6 +207,10 @@ Reported with Bonsai 2 27B `PTQ1_0` and release `prism-b10685-7dffb15`:
 - If startup reports missing `libcudart` or `libcublas`, check that the installed CUDA
   runtime matches the binary's CUDA major version; the driver alone may not provide it.
 - On an 8 GB card, start with a smaller context and `-np 1`; lower `-b`/`-ub` if needed.
+  FP16 KV remains the default. If KV memory is still limiting, use our experimental
+  [mean-centered Q4_0 KV-cache workflow](KV-CACHE.md#better-quality-the-mean-centering-bias):
+  run `./scripts/make_kv_bias.sh` for the selected model, then launch with `BONSAI_KV4=1`
+  so the server loads the calibrated bias. Do not recommend plain Q4_0 cache flags alone.
   For image input with limited VRAM, try `BONSAI_MMPROJ_CPU=1` to offload the projector
   to system RAM. Vision was not tested in this submission.
 
