@@ -198,33 +198,17 @@ Full guide with entry examples: **TOOLS.md** (repo root). The essentials:
   details). Keep `-ngl` on GPU; don't reach for `BONSAI_NGL=0`.
 - Windows and CPU-only Linux: not tested yet — extend these notes after testing.
 
-## Behavior notes (Linux CUDA, tested on a 20-series / 8 GB card)
+## Linux CUDA setup notes (RTX 2080, 8 GB)
 
-Tested on an RTX 2080 (Turing, sm_75, 8 GB), Ryzen 9 5900X, 62 GB RAM, Arch, driver 610.57,
-CUDA 13.3.1, `prism-b10685` binaries, Bonsai 2 27B `PTQ1_0`.
+Reported with Bonsai 2 27B `PTQ1_0` and release `prism-b10685-7dffb15`:
 
-- **Turing works, through PTX JIT.** The prebuilt CUDA binaries carry cubins only for sm_86/89
-  (+120a/121a) but **PTX for sm_50/61/70/75/80/90**, so a 20-series card JIT-compiles on first run
-  rather than failing with "no kernel image". That first run pays for it (a `llama-bench` pass took
-  ~67 s vs ~22 s warm) and is cached afterwards. Check a build with `cuobjdump --list-ptx`:
-  `--list-elf` lists cubins only and makes a Turing-capable binary look unsupported.
-- **The CUDA builds need the matching CUDA runtime, not just the driver.** The `-linux-cuda-13.3-`
-  asset links `libcudart.so.13`/`libcublas.so.13`, the 12.8 asset `…so.12`. On a driver-only machine
-  the binary fails to load (`libcudart.so.12 => not found`) regardless of the GPU. On Arch,
-  `pacman -S cuda` installs 13.3, so pair it with the 13.3 asset.
-- **On Turing use CUDA, not Vulkan.** Same card, same model: 25.7 t/s tg on CUDA against 2.6 t/s on
-  the Vulkan build. The PTQ1_0 Vulkan pipelines run, they are simply ~10x slower on this architecture.
-- **8 GB cards need `PTQ1_0` + a quantized KV cache + `-np 1`.** Weights are 5.53 GiB, so FP16 KV runs
-  out almost immediately: 16k context failed to allocate (the ~150 MiB rs-cache buffer had no room
-  left). What fits is `-ctk q4_0 -ctv q4_0 -ub 128 -b 256 -np 1 -c 32768` — 32k works, 64k does not.
-  The server's default `-np 4` multiplies the rs cache and OOMs at 32k; single-slot is what makes 32k fit.
-- **Measured** (`-ngl 99`): PP256 270–296 t/s, TG64 25.3–25.7 t/s; through `llama-server`, ~74–114 t/s
-  prompt and ~25 t/s generation. Vision untested: no VRAM headroom for the 0.63 GB projector at 32k
-  context — `BONSAI_MMPROJ_CPU=1` is the knob to reach for.
-- Coding sanity check, so it does not need re-running: fixing a function against its failing unit tests
-  worked first try (6/6 tests, 18 s); a cold spec with hidden tests failed 4/7 and needed a repair round
-  against the failure output to reach 6/7; the same kind of spec with worked examples passed 5/5 first
-  try. Prefer failing tests or examples over prose-only specs.
+- The tested CUDA build ran on Turing via PTX JIT; the first launch can take longer.
+  To inspect PTX support, use `cuobjdump --list-ptx`; `--list-elf` only lists cubins.
+- If startup reports missing `libcudart` or `libcublas`, check that the installed CUDA
+  runtime matches the binary's CUDA major version; the driver alone may not provide it.
+- On an 8 GB card, start with a smaller context and `-np 1`; lower `-b`/`-ub` if needed.
+  For image input with limited VRAM, try `BONSAI_MMPROJ_CPU=1` to offload the projector
+  to system RAM. Vision was not tested in this submission.
 
 ## Quick verification commands
 
