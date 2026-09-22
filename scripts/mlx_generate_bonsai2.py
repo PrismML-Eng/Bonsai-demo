@@ -35,7 +35,9 @@ def read_manifest():
         if not line or line.startswith("#"):
             continue
         digest, name = line.split(None, 1)
-        entries[name.strip()] = digest
+        # a file may list more than one reviewed revision, so a re-pin does not break packs
+        # downloaded before it
+        entries.setdefault(name.strip(), set()).add(digest)
     return entries
 
 
@@ -65,8 +67,8 @@ def verify_runtime(runtime):
             problems.append(f"  {name}: in the manifest but missing from the pack")
         else:
             digest = hashlib.sha256((runtime / name).read_bytes()).hexdigest()
-            if digest != expected[name]:
-                problems.append(f"  {name}: {digest} does not match {expected[name]}")
+            if digest not in expected[name]:
+                problems.append(f"  {name}: {digest} does not match {' or '.join(sorted(expected[name]))}")
     if problems:
         sys.exit(
             "The pack's loader code does not match the revision this demo pinned, so it "
