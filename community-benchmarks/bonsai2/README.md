@@ -21,6 +21,8 @@ Benchmark results submitted by the community running
 | `PQ2_0` | Apple M4 Pro 64 GB | llama.cpp Metal | 126.9 | 20.5 | [link](metal-m4-pro-64gb-macos.md) |
 | `PTQ1_0` | Apple M4 Pro 64 GB | llama.cpp Metal | 98.6 | 17.3 | [link](metal-m4-pro-64gb-macos.md) |
 | `2-bit` | Apple M4 Pro 64 GB | MLX (mlx_lm 0.31.3) | 97.9 | 18.9 | [link](metal-m4-pro-64gb-macos.md) |
+| `PQ2_0` | NVIDIA RTX 5080 16 GB | llama.cpp CUDA (Windows) | 1,688 | 86.3 | [link](cuda-rtx5080-16gb-windows.md) |
+| `PTQ1_0` | NVIDIA RTX 5080 16 GB | llama.cpp CUDA (Windows) | 896 | 84.6 | [link](cuda-rtx5080-16gb-windows.md) |
 
 ## How to Submit
 
