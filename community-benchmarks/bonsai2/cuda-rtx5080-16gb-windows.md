@@ -72,5 +72,8 @@ build: 9a9394a89 (10709)
 
 ## Additional observations
 
-On CUDA, decode throughput (tg128) is nearly identical for both packings
-(~85–86 t/s), while prompt processing is ~1.9x faster on PQ2_0 than on PTQ1_0.
+In these runs, decode throughput (tg128) is similar for both packings
+(~85–86 t/s), while average prompt processing is ~1.9x faster on PQ2_0 than on PTQ1_0.
+PQ2_0 prefill has substantial run-to-run variation (±272.06 t/s, about 16% of
+its mean across three repetitions), so the prefill ratio is an observed average,
+not a precise speedup. The measurements above are reported unchanged.
