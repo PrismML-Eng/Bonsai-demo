@@ -7,6 +7,9 @@ named the way they are.
 
 ## TL;DR
 
+For Bonsai 2, start with the [backend and format support table](BACKEND-SUPPORT.md).
+The bullets below apply to the previous ternary generation.
+
 - On prism-v7 (and newer) builds, the demo picks the right file automatically:
   **PQ2_0** where the backend has optimized kernels, otherwise the official
   **group-64 Q2_0**.
@@ -31,7 +34,8 @@ and the fork's group-128 layout lives under its own name and id, PQ2_0 (142).
 
 ## Bonsai 2: no mainline-compatible band
 
-Everything below this section describes the previous generation. Bonsai 2 is simpler and stricter.
+See [BACKEND-SUPPORT.md](BACKEND-SUPPORT.md) for the release-specific Bonsai 2 backend matrix
+and the temporary development Q2_0 model location. Later sections describe the previous generation.
 
 | band | bits/weight | size | where |
 |---|---|---|---|
