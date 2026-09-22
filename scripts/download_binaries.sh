@@ -39,12 +39,17 @@ case "$OS" in
         # ── Detect GPU: NVIDIA (CUDA), AMD (ROCm), or Vulkan ──
         _gpu_type=""
         _cuda_ver=""
+        _cuda_source=""
 
-        # Check for NVIDIA first
-        if command -v nvcc >/dev/null 2>&1; then
-            _cuda_ver=$(nvcc --version 2>/dev/null | sed -n 's/.*release \([0-9]*\.[0-9]*\).*/\1/p')
-        elif command -v nvidia-smi >/dev/null 2>&1; then
+        # Prebuilt binaries depend on the driver, not the installed toolkit.
+        if command -v nvidia-smi >/dev/null 2>&1; then
             _cuda_ver=$(nvidia-smi 2>/dev/null | sed -n 's/.*CUDA[ A-Z]*Version:[[:space:]]*\([0-9]*\.[0-9]*\).*/\1/p')
+            [ -z "$_cuda_ver" ] || _cuda_source="nvidia-smi"
+        fi
+        # Keep toolkit detection for hosts where the driver version is unavailable.
+        if [ -z "$_cuda_ver" ] && command -v nvcc >/dev/null 2>&1; then
+            _cuda_ver=$(nvcc --version 2>/dev/null | sed -n 's/.*release \([0-9]*\.[0-9]*\).*/\1/p')
+            [ -z "$_cuda_ver" ] || _cuda_source="nvcc fallback"
         fi
 
         if [ -n "$_cuda_ver" ]; then
@@ -75,7 +80,7 @@ case "$OS" in
                 warn "Detected CUDA $_cuda_ver — no matching build, falling back to CUDA 12.4"
                 _cuda_tag="12.4"
             fi
-            info "Detected CUDA $_cuda_ver → using build for CUDA $_cuda_tag"
+            info "Detected CUDA $_cuda_ver ($_cuda_source) → using build for CUDA $_cuda_tag"
         fi
 
         # Select asset

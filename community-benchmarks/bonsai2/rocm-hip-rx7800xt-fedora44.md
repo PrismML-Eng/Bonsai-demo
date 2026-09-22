@@ -52,8 +52,7 @@ build: 9a9394a89 (10709)
 
 (Skipped: Q2_0_g64 for Bonsai 2 — not present in the repo; gen-1 Ternary/Bonsai families — not tested on this card. The dev-repo file `Ternary-Bonsai-2-27B-Q2_0-prism-fork-required.gguf` is, per the
 maintainers, a **current testing format requiring the PrismML fork** (not a
-deprecated legacy file); it is refused by the `prism-b10709+` demo binaries as
-documented.)
+deprecated legacy file). It was not benchmarked here.)
 
 ### Server-mode numbers (llama-server, same machine)
 
@@ -91,7 +90,8 @@ BONSAI_HOST=0.0.0.0 BONSAI_CTX=262144 BONSAI_KV4=1 BONSAI_MMPROJ_CPU=1 \
   (uncorrected q4_0, "no bias", in this report — the maintainers' calibrated
   mean-centering bias is recommended for quality; see Notes).
 - Long-prefill throughput at depth: 191–256 tok/s (see server-mode table).
-- A ~214K-token prompt needs ≈ 21 min prefill at these speeds.
+- At 191–256 tok/s, a ~214K-token prompt would take approximately 14–19 minutes
+  to prefill (an estimate from the reported throughput, not a separate measurement).
 
 ### 3. q4_0 KV attention: decode speed vs context depth (hypothesis)
 
@@ -161,10 +161,11 @@ cache dtype varied (fresh server instance per run, `ngl 99`, `-fa on`, ctx 98304
   `make_kv_bias.sh` was not run. Per maintainer guidance, the recommended workflow
   is the model-specific **calibrated mean-centering bias**: build once with
   `scripts/make_kv_bias.sh` (→ `*kv-bias*.gguf`); with `BONSAI_KV4=1` the start
-  script auto-applies it (`--kv-mean-center` + `LLAMA_ATTN_ROT_DISABLE=1`) at
-  **zero decode-time cost**, giving near-FP16 quality vs the slight degradation of
-  plain q4_0. Existing timings are retained as the "no bias" baseline; the
-  long-context suite was not re-run.
+  script auto-applies it (`--kv-mean-center` + `LLAMA_ATTN_ROT_DISABLE=1`), with
+  matching calibration and inference settings. See the experimental
+  [KV-cache guide](../../KV-CACHE.md) for the recommended quality-correction workflow.
+  Its quality and performance effects were not measured in this report. Existing
+  timings are retained as the "no bias" baseline; the long-context suite was not re-run.
 - Vision: mmproj-Q8_0 loads (`BONSAI_MMPROJ_CPU=1` in 256K mode → CPU projector);
   image inference not benchmarked.
 

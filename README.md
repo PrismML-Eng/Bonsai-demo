@@ -58,6 +58,9 @@ The earlier Bonsai families are still here, in smaller sizes too. See [Models](#
 
 ## Quick Start
 
+For repeated conversations and prompt-cache troubleshooting, see
+[Prompt reuse and context checkpoints](PROMPT-CACHE.md).
+
 Setting things up with an AI coding agent? Point it at [AGENTS.md](AGENTS.md), a guide written for agents (hardware-specific knobs, defaults, and what to ask the user).
 
 ### macOS / Linux
@@ -584,6 +587,14 @@ On M5 devices with certain macOS 26 point releases, the Metal tensor-API probe f
 GGML_METAL_TENSOR_DISABLE=1 ./scripts/run_llama.sh -p "Hello"
 ```
 
+
+### Windows setup selects Vulkan or CPU instead of CUDA
+
+**Symptom:** `setup.ps1` reports `[INFO] No GPU toolchain detected. Will use CPU build.` or selects Vulkan, even though `nvidia-smi` runs successfully and detects your NVIDIA GPU.
+
+**Cause:** Older versions of the setup script expected the header `CUDA Version:`. Some newer NVIDIA drivers instead report `CUDA UMD Version:`. The extra `UMD` prevented CUDA detection, causing setup to select another backend.
+
+This can leave you with binaries under `bin\vulkan` or `bin\cpu` rather than `bin\cuda`. On affected Bonsai 2 setups, users reported prompts stalling without processing any tokens instead of producing a clear error.
 
 ### CUDA source build runs out of memory or freezes
 
