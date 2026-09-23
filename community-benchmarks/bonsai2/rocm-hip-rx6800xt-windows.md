@@ -13,14 +13,15 @@ Prebuilt Windows HIP archive from this demo's fork (`prism-b10709-9a9394a`), run
 | PTQ1_0 | not tested | not tested |
 | Q2_0 (development) | not tested | not tested |
 
-Flash attention makes no measurable difference on this card.
+Explicit flash attention on and the default (`auto`) produced similar results in these
+runs. This is not an on/off comparison; auto may select the same flash-attention path.
 
-**Runtime note:** the AMD HIP SDK 7.2 for Windows does not support gfx1030. With it, llama-server
-logs `ggml_cuda_init: failed to initialize ROCm: no ROCm-capable device is detected` and falls back
-to CPU (~1.7 t/s prompt processing). AMD lists the RX 6800 XT as unsupported in the HIP SDK 7.2
-Windows system requirements, and the same failure is reported for HIP SDK 7.1.1 in
-[ROCm/hip#3899](https://github.com/ROCm/hip/issues/3899). The TheRock runtime detects the card and
-runs the fork's HIP build at the speeds above.
+**Runtime note:** with AMD HIP SDK 7.2 for Windows on this machine, llama-server
+logged `ggml_cuda_init: failed to initialize ROCm: no ROCm-capable device is detected`
+and fell back to CPU (~1.7 t/s prompt processing). A similar detection failure is
+reported for HIP SDK 7.1.1 in [ROCm/hip#3899](https://github.com/ROCm/hip/issues/3899).
+The tested TheRock 7.14.0 runtime detected the card and ran the fork's HIP build
+at the speeds above; these observations are specific to the tested versions.
 
 ## Configuration
 
@@ -37,8 +38,15 @@ runs the fork's HIP build at the speeds above.
 
 ### PQ2_0 — flash attention on
 
+Replace the example venv path below with the Python venv containing the tested
+TheRock runtime. See [AMD's ROCm 7.14.0 installation guide](https://rocm.docs.amd.com/en/docs-7.14.0/install/rocm.html)
+for installation options.
+
 ```powershell
-$rocmBin = (Get-ChildItem <venv> -Recurse -Filter amdhip64_7.dll | Select-Object -First 1).DirectoryName
+$rocmVenv = "C:\path\to\rocm-venv"
+$hipDll = Get-ChildItem -LiteralPath $rocmVenv -Recurse -Filter amdhip64_7.dll -File | Select-Object -First 1
+if (-not $hipDll) { throw "TheRock HIP runtime DLL not found in $rocmVenv" }
+$rocmBin = $hipDll.DirectoryName
 $env:Path = "$rocmBin;$env:Path"
 .\bin\hip\llama-bench.exe -m models\bonsai2-gguf\27B\Ternary-Bonsai-2-27B-PQ2_0.gguf -ngl 99 -p 512 -n 128 -fa 1
 ```
@@ -77,8 +85,8 @@ PTQ1_0 and development Q2_0 were not tested.
 ## Additional observations
 
 - **Vulkan:** the prebuilt Vulkan archive of the same release loads `PQ2_0` but prompt processing
-  runs at ~0.9 t/s (llama-server log), consistent with `PQ2_0` having no Vulkan kernels yet and with
-  the RX 7800 XT report.
+  runs at ~0.9 t/s (llama-server log), consistent with `PQ2_0` having no Vulkan kernels in this
+  tested release and with the RX 7800 XT report.
 - **Server:** `llama-server` via `start_llama_server.ps1`, 32K context, 4 slots: 62-token prompt at
   97 t/s, 213 generated tokens at 43.5 t/s.
 - **Setup detection:** `setup.ps1` chooses the HIP archive only when `HIP_PATH` (or `hipcc`) is
