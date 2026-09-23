@@ -51,7 +51,7 @@ done
 if [ "$BONSAI_FAMILY" = "bonsai2" ]; then
     # shellcheck disable=SC2086
     exec "$BIN" -m "$MODEL" -ngl "$NGL" -fa on -c "$CTX_SIZE_DEFAULT" --log-disable \
-        --temp 1.0 --top-p 0.95 --top-k 20 \
+        --temp 1.0 --top-p 0.95 --top-k 20 --min-p 0 \
         $_ONESHOT "$@"
 fi
 

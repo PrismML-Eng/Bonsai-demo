@@ -23,8 +23,11 @@ if curl -s --max-time 2 "http://localhost:$PORT/health" >/dev/null 2>&1; then
 fi
 
 # ── Find binary first (its backend decides the ternary quant; see common.sh) ──
+# BONSAI_LLAMA_BIN=/path/to/dir overrides the search (a prebuilt PrismML-fork build elsewhere on disk).
 BIN=""
+[ -n "${BONSAI_LLAMA_BIN:-}" ] && [ -f "$BONSAI_LLAMA_BIN/llama-server" ] && BIN="$BONSAI_LLAMA_BIN/llama-server"
 for _d in bin/mac bin/cuda bin/rocm bin/hip bin/vulkan bin/cpu llama.cpp/build/bin llama.cpp/build-mac/bin llama.cpp/build-cuda/bin; do
+    [ -n "$BIN" ] && break
     [ -f "$DEMO_DIR/$_d/llama-server" ] && BIN="$DEMO_DIR/$_d/llama-server" && break
 done
 if [ -z "$BIN" ]; then
@@ -108,7 +111,8 @@ echo ""
 # image input. Sampling: Bonsai 2 uses the base model's own defaults (temp 1.0,
 # top-p 0.95, top-k 20); the earlier 27B keeps the reference demo's 0.7.
 if [ "$BONSAI_FAMILY" = "bonsai2" ]; then
-    SAMPLING="--temp 1.0 --top-p 0.95 --top-k 20"
+    # model card, thinking mode: temp 1.0, top-p 0.95, top-k 20, min-p 0 (llama.cpp's default min-p is 0.05)
+    SAMPLING="--temp 1.0 --top-p 0.95 --top-k 20 --min-p 0"
 else
     SAMPLING="--temp 0.7 --top-p 0.95 --top-k 20 --min-p 0"
 fi

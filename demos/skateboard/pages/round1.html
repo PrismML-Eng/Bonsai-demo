@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Skate Runner</title>
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #87ceeb; }
+  canvas { display: block; }
+  #hud {
+    position: fixed; top: 14px; left: 14px; color: #fff;
+    font-family: system-ui, sans-serif; pointer-events: none; user-select: none;
+    text-shadow: 0 2px 6px rgba(0,0,0,.55);
+  }
+  #hudScore { font-size: 24px; font-weight: 700; }
+  #hudBest  { font-size: 13px; font-weight: 400; opacity: .85; margin-top: 2px; }
+  #hudCoin  { font-size: 16px; font-weight: 700; color: #ffd166; margin-top: 4px; }
+  #hudTrick { font-size: 14px; font-weight: 600; opacity: .92; margin-top: 1px; }
+  #pop {
+    position: fixed; top: 40%; left: 50%;
+    transform: translate(-50%, 0);
+    font-family: system-ui, sans-serif; font-size: 30px; font-weight: 700;
+    color: #fff; text-align: center; white-space: nowrap;
+    pointer-events: none; opacity: 0;
+    text-shadow: 0 2px 10px rgba(0,0,0,.6);
+    z-index: 5;
+  }
+  #pop.pop { animation: popRise .8s ease-out forwards; }
+  @keyframes popRise {
+    0%   { opacity: 1; transform: translate(-50%, 0) scale(.9); }
+    35%  { opacity: 1; transform: translate(-50%, -24px) scale(1.12); }
+    100% { opacity: 0; transform: translate(-50%, -70px) scale(1); }
+  }
+  #overlay {
+    position: fixed; inset: 0; background: rgba(15,25,40,.55);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: #fff; font-family: system-ui, sans-serif; cursor: pointer; text-align: center;
+  }
+  #title { font-size: 54px; margin: 0 0 6px; letter-spacing: 6px; color: #ffd166; }
+  #detail { font-size: 20px; margin: 8px 0 2px; line-height: 1.9; }
+  kbd {
+    display: inline-block; border: 1px solid #fff; border-radius: 4px;
+    padding: 1px 7px; margin: 0 4px; font: inherit;
+  }
+  .hint { margin-top: 20px; font-size: 13px; opacity: .55; }
+</style>
+</head>
+<body>
+<div id="hud">
+  <div id="hudScore">0 m</div>
+  <div id="hudBest"></div>
+  <div id="hudCoin">🪙 0</div>
+  <div id="hudTrick">tricks +0</div>
+</div>
+<div id="pop"></div>
+<div id="overlay">
+  <h1 id="title">SKATE RUNNER</h1>
+  <p id="detail">
+    <kbd>A</kbd>/<kbd>D</kbd> or <kbd>&larr;</kbd>/<kbd>&rarr;</kbd> &nbsp;&mdash;&nbsp; steer<br />
+    <kbd>Space</kbd> / <kbd>W</kbd> &nbsp;&mdash;&nbsp; jump<br />
+    <kbd>F</kbd> &nbsp;&mdash;&nbsp; front flip in the air (+50)<br />
+    <kbd>R</kbd> &nbsp;&mdash;&nbsp; spin in the air (+50)<br />
+    Grab the 🪙 coins along the way (+10 each).
+  </p>
+  <div class="hint">Click or press Enter to start</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const hudScore = $( "hudScore" ), hudBest = $( "hudBest" );
+const hudCoin  = $( "hudCoin" ), hudTrick = $( "hudTrick" );
+const popEl = $( "pop" );
+const overlay = $( "overlay" ), oTitle = $( "title" ), oDetail = $( "detail" );
+
+/* ---------- three setup ---------- */
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87ceeb);
+scene.fog = new THREE.Fog(0x87ceeb, 90, 240);
+
+const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 500);
+camera.position.set(0, 4.5, -9);
+
+window.addEventListener("resize", () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+/* ---------- lights, ground, road ---------- */
+scene.add(new THREE.HemisphereLight(0xbfd9ff, 0x7ba564, 1.15));
+const sun = new THREE.DirectionalLight(0xffffff, 0.9);
+sun.position.set(30, 60, -20);
+scene.add(sun);
+
+const mat = (c) => new THREE.MeshLambertMaterial({ color: c });
+function addMesh(parent, geo, c, x, y, z) {
+  const m = new THREE.Mesh(geo, mat(c));
+  m.position.set(x, y, z);
+  parent.add(m);
+  return m;
+}
+
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(300, 600), mat(0x5faa5f));
+ground.rotation.x = -Math.PI / 2;
+ground.position.set(0, -0.15, 250);
+scene.add(ground);
+
+const road = new THREE.Mesh(new THREE.BoxGeometry(8, 0.2, 600), mat(0x555566));
+road.position.set(0, -0.1, 250);
+scene.add(road);
+
+const lineGeo = new THREE.BoxGeometry(0.14, 0.02, 1.6);
+for (let z = -30; z < 420; z += 12) {
+  const l = new THREE.Mesh(lineGeo, mat(0xffffff));
+  l.position.set(0, 0.01, z);
+  scene.add(l);
+}
+
+/* trees along the edge */
+for (let i = 0; i < 90; i++) {
+  const g = new THREE.Group();
+  const s = 0.8 + Math.random() * 1.3;
+  addMesh(g, new THREE.CylinderGeometry(0.13 * s, 0.18 * s, 1.3 * s), 0x6b4423, 0, 0.65 * s, 0);
+  addMesh(g, new THREE.ConeGeometry(0.95 * s, 2.4 * s, 6), 0x3a8a3a, 0, 1.3 * s + 1.2 * s, 0);
+  g.position.x = (Math.random() < 0.5 ? -1 : 1) * (6 + Math.random() * 45);
+  g.position.z = -20 + Math.random() * 480;
+  scene.add(g);
+}
+
+/* ---------- coins ---------- */
+const coinGeo = new THREE.CylinderGeometry(0.34, 0.34, 0.09, 18);
+const coinMat = mat(0xffd166);
+const coins = [];
+let nextCoinZ = 30;
+const COIN_MIN_Z = 30;
+
+function makeCoin(z) {
+  const g = new THREE.Group();
+  const m = new THREE.Mesh(coinGeo, coinMat);
+  m.rotation.x = Math.PI / 2;   /* flat side faces the camera */
+  g.add(m);
+  let x = (Math.random() * 5) - 2.5;
+  /* don't place a coin sitting on an obstacle */
+  for (let a = 0; a < 8; a++) {
+    let blocked = false;
+    for (const o of obstacles) {
+      if (Math.abs(o.mesh.position.z - z) < 1.3 &&
+          Math.abs(o.mesh.position.x - x) < o.halfW + 1.0) { blocked = true; break; }
+    }
+    if (!blocked) break;
+    x = (Math.random() * 5) - 2.5;
+  }
+  g.position.set(x, 0.85 + Math.random() * 0.75, z);  /* some low, some need a hop */
+  return g;
+}
+
+function spawnCoins() {
+  while (nextCoinZ < pz + 200) {
+    const g = makeCoin(nextCoinZ);
+    scene.add(g);
+    coins.push(g);
+    nextCoinZ += 22 + Math.random() * 22;
+  }
+  for (let i = coins.length - 1; i >= 0; i--) {
+    if (coins[i].position.z < pz - 40) {
+      scene.remove(coins[i]);
+      coins.splice(i, 1);
+    }
+  }
+}
+
+/* ---------- skater ---------- */
+const skater = new THREE.Group();
+addMesh(skater, new THREE.BoxGeometry(0.55, 0.08, 1.5), 0x33415c, 0, 0.04, 0);   /* deck */
+addMesh(skater, new THREE.BoxGeometry(0.2, 0.09, 1.4), 0xe74c3c, 0, 0.045, 0);  /* stripe */
+addMesh(skater, new THREE.CylinderGeometry(0.09, 0.09, 0.5), 0x1f2937, -0.14, 0.3, 0.22);  /* legs */
+addMesh(skater, new THREE.CylinderGeometry(0.09, 0.09, 0.5), 0x1f2937, 0.14, 0.3, -0.22);
+addMesh(skater, new THREE.CylinderGeometry(0.21, 0.2, 0.5), 0x2563eb, 0, 0.8, 0);          /* torso */
+const armL = addMesh(skater, new THREE.CylinderGeometry(0.085, 0.085, 0.55), 0xf5f5f5, -0.3, 0.85, 0);
+armL.rotation.z = -0.35;
+const armR = addMesh(skater, new THREE.CylinderGeometry(0.085, 0.085, 0.55), 0xf5f5f5, 0.3, 0.85, 0);
+armR.rotation.z = 0.35;
+addMesh(skater, new THREE.SphereGeometry(0.22), 0xf2c48a, 0, 1.42, 0);                        /* head */
+addMesh(skater, new THREE.CylinderGeometry(0.23, 0.23, 0.14), 0x9b59b6, 0, 1.5, 0);          /* helmet band */
+skater.rotation.z = -Math.PI / 180;
+skater.position.set(0, 0, 0);
+scene.add(skater);
+
+/* ---------- obstacles ---------- */
+const obstacles = [];
+const OBSTACLE_COLORS = [0xd35400, 0xf1c40f, 0x9b59b6, 0x2c3e50, 0x27ae60];
+function makeObstacle(z) {
+  const c = OBSTACLE_COLORS[Math.floor(Math.random() * OBSTACLE_COLORS.length)];
+  let mesh, topY, halfW;
+  const t = Math.random();
+  if (t < 0.5) {
+    const w = 1.2 + Math.random() * 1.4;
+    const h = 0.45 + Math.random() * 0.8;
+    mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.9), mat(c));
+    mesh.position.y = h / 2;
+    topY = h;
+    halfW = w / 2;
+  } else if (t < 0.8) {
+    mesh = new THREE.Mesh(new THREE.ConeGeometry(0.9, 0.85, 8), mat(c));
+    mesh.position.y = 0.425;
+    topY = 0.85;
+    halfW = 0.9;
+  } else {
+    mesh = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.5, 0.7), mat(c));
+    mesh.position.y = 0.25;
+    topY = 0.5;
+    halfW = 1.3;
+  }
+  mesh.position.x = -3.3 + Math.random() * 6.6;
+  mesh.position.z = z;
+  return { mesh, topY, halfW };
+}
+
+/* ---------- game state ---------- */
+const keys = {};
+let state = "ready";
+let px = 0, py = 0, pz = 0, vy = 0, pxv = 0, onGround = true;
+let nextSpawnZ = 60, score = 0;
+let coinCount = 0, trickPoints = 0;
+/* in-air tricks */
+let flipX = 0, flipY = 0, flipXOn = false, flipYOn = false;
+let prevF = false, prevR = false;
+const FLIP_SPEED = Math.PI * 2 / 0.85;   /* one full rotation every 0.85 s */
+const FLIP_BONUS = 50;
+const COIN_BONUS = 10;
+
+let high = parseInt(localStorage.getItem("skateHigh") || "0", 10);
+hudBest.textContent = "Best " + high + " m";
+
+function startGame() {
+  obstacles.forEach((o) => scene.remove(o.mesh));
+  obstacles.length = 0;
+  coins.forEach((g) => scene.remove(g));
+  coins.length = 0;
+  nextSpawnZ = 60;
+  nextCoinZ = COIN_MIN_Z;
+  px = 0; py = 0; pz = 0; vy = 0; pxv = 0; onGround = true;
+  score = 0; coinCount = 0; trickPoints = 0;
+  flipX = 0; flipY = 0; flipXOn = false; flipYOn = false;
+  prevF = false; prevR = false;
+  skater.rotation.set(0, 0, -Math.PI / 180);
+  skater.position.set(0, 0, 0);
+  state = "running";
+  overlay.style.display = "none";
+  hudScore.textContent = "0 m";
+  hudCoin.textContent = "🪙 0";
+  hudTrick.textContent = "tricks +0";
+}
+
+function gameOver() {
+  state = "over";
+  score = Math.floor(score);
+  if (score > high) {
+    high = score;
+    localStorage.setItem("skateHigh", String(high));
+  }
+  oTitle.textContent = "GAME OVER";
+  oDetail.textContent =
+    "You rolled " + score + " m before the pavement got you.\n\n" +
+    "Coins " + coinCount + " \u00b7 Trick points " + trickPoints +
+    " \u00b7 Total " + (score + coinCount * 10 + trickPoints) + "\n\n" +
+    "Click or press Enter to roll again.";
+  overlay.style.display = "flex";
+  hudScore.textContent = score + " m";
+  hudBest.textContent = "Best " + high + " m";
+}
+
+function spawn() {
+  while (nextSpawnZ < pz + 200) {
+    const o = makeObstacle(nextSpawnZ);
+    scene.add(o.mesh);
+    obstacles.push(o);
+    nextSpawnZ += 12 + Math.random() * 14;
+  }
+  for (let i = obstacles.length - 1; i >= 0; i--) {
+    if (obstacles[i].mesh.position.z < pz - 40) {
+      scene.remove(obstacles[i].mesh);
+      obstacles.splice(i, 1);
+    }
+  }
+}
+
+function popTrick(text, gold) {
+  popEl.textContent = text;
+  popEl.style.color = gold ? "#ffd166" : "#ffffff";
+  popEl.classList.remove("pop");
+  void popEl.offsetWidth;            /* restart the animation */
+  popEl.classList.add("pop");
+}
+
+window.addEventListener("keydown", (e) => {
+  keys[e.code] = true;
+  const starterKeys = ["Space", "Enter", "ArrowUp", "ArrowDown",
+    "ArrowLeft", "ArrowRight", "KeyA", "KeyW", "KeyD", "KeyS"];
+  if (state !== "running" && starterKeys.includes(e.code)) startGame();
+  if (starterKeys.includes(e.code)) e.preventDefault();
+});
+window.addEventListener("keyup", (e) => { keys[e.code] = false; });
+overlay.addEventListener("click", () => { if (state !== "running") startGame(); });
+
+/* ---------- main loop ---------- */
+let last = performance.now();
+function frame(now) {
+  requestAnimationFrame(frame);
+  let dt = (now - last) / 1000;
+  last = now;
+  dt = Math.min(dt, 0.05);
+
+  if (state === "running") {
+    /* steer */
+    const input = ((keys["ArrowLeft"] || keys["KeyA"] ? 1 : 0)
+                 - (keys["ArrowRight"] || keys["KeyD"] ? 1 : 0));
+    pxv += (input * 5.5 - pxv) * Math.min(1, 14 * dt);
+    px += pxv * dt;
+    px = Math.max(-3.3, Math.min(3.3, px));
+    skater.rotation.z = -Math.PI / 180 - pxv * 0.05;
+
+    /* jump + gravity */
+    if ((keys["Space"] || keys["ArrowUp"] || keys["KeyW"]) && onGround) {
+      vy = 11.5;
+      onGround = false;
+    }
+    vy -= 20 * dt;
+    py += vy * dt;
+    if (py <= 0) {
+      py = 0; vy = 0; onGround = true;
+      flipX = 0; flipY = 0; flipXOn = flipYOn = false;   /* landing resets the trick */
+    }
+
+    /* in-air tricks: F = front flip, R = spin */
+    if (!onGround) {
+      const fDown = !!keys["KeyF"], rDown = !!keys["KeyR"];
+      if (fDown && !prevF && !flipXOn) flipXOn = true;
+      if (rDown && !prevR && !flipYOn) flipYOn = true;
+      if (flipXOn) {
+        flipX += FLIP_SPEED * dt;
+        if (flipX >= Math.PI * 2) {
+          flipX = 0; flipXOn = false;
+          trickPoints += FLIP_BONUS;
+          popTrick("FRONT FLIP +" + FLIP_BONUS);
+        }
+      }
+      if (flipYOn) {
+        flipY += FLIP_SPEED * dt;
+        if (flipY >= Math.PI * 2) {
+          flipY = 0; flipYOn = false;
+          trickPoints += FLIP_BONUS;
+          popTrick("SPIN +" + FLIP_BONUS);
+        }
+      }
+      prevF = fDown; prevR = rDown;
+    } else {
+      prevF = false; prevR = false;
+    }
+
+    /* forward */
+    const speed = 7 + pz * 0.008;
+    pz += speed * dt;
+    score = pz;
+
+    /* obstacles */
+    spawn();
+    for (const o of obstacles) {
+      if (Math.abs(o.mesh.position.z - pz) > 1.1) continue;
+      if (Math.abs(o.mesh.position.x - px) > o.halfW + 0.35) continue;
+      if (py > o.topY + 0.05) continue;        /* jumped cleanly over it */
+      gameOver();
+      break;
+    }
+
+    /* coins: spin, then collect */
+    spawnCoins();
+    for (const g of coins) {
+      g.children[0].rotation.y += 3.2 * dt;
+    }
+    for (let i = coins.length - 1; i >= 0; i--) {
+      const g = coins[i];
+      if (Math.abs(g.position.z - pz) < 1.0 &&
+          Math.abs(g.position.x - px) < 0.95 &&
+          Math.abs(py - g.position.y) < 1.15) {
+        scene.remove(g);
+        coins.splice(i, 1);
+        coinCount++;
+        popTrick("+" + COIN_BONUS, true);
+      }
+    }
+  }
+
+  /* flips are applied to the skater every frame */
+  skater.rotation.x = flipX;
+  skater.rotation.y = flipY;
+  skater.position.set(px, py, pz);
+
+  /* camera follows, slightly behind and to the side of the road */
+  const cx = px * 0.85;
+  const cy = py + 4.5;
+  const cz = pz - 9;
+  camera.position.set(
+    THREE.MathUtils.lerp(camera.position.x, cx, 0.1),
+    THREE.MathUtils.lerp(camera.position.y, cy, 0.1),
+    THREE.MathUtils.lerp(camera.position.z, cz, 0.1)
+  );
+  camera.lookAt(px * 0.4, py + 1.2, pz + 4);
+
+  if (hudScore.textContent !== Math.floor(score) + " m" || state === "over") {
+    hudScore.textContent = Math.floor(score) + " m";
+  }
+  if (hudCoin.textContent !== "🪙 " + coinCount) hudCoin.textContent = "🪙 " + coinCount;
+  if (hudTrick.textContent !== "tricks +" + trickPoints) hudTrick.textContent = "tricks +" + trickPoints;
+
+  renderer.render(scene, camera);
+}
+frame(performance.now());
+</script>
+</body>
+</html>

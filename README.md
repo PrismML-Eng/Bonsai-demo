@@ -347,6 +347,12 @@ On slower hardware, thinking is usually the bulk of the wait; pick a lower effor
 
 The 27B does native OpenAI-style tool calling over the API, and the chat UI has an MCP client with Hugging Face + DeepWiki preconfigured (per-chat opt-in from the MCP selector in the message box, no prompt cost until you turn one on). Details, costs, and how to add your own servers: [TOOLS.md](TOOLS.md).
 
+#### Agentic demo
+
+Bonsai 2 driving the Hermes agent end to end: from a two-line brief to a playable 3D skateboard game it
+verified in its own browser, then a round of plain-English feedback, all run with a fixed seed.
+Clip, pages, prompts, settings and the two scripts that run it: [AGENT-DEMO.md](AGENT-DEMO.md).
+
 #### Vision
 
 Upload images in the chat UI (`+` in the message box) or send `image_url` parts over the API; the scripts load the vision projector automatically and downscale very large images on slower backends. Costs, the image-token cap, and OCR tips: [VISION.md](VISION.md).

@@ -226,3 +226,9 @@ mlx/
 # Internal launch working notes — never commit
 TODOS.md
 llama.cpp
+
+# ── Bonsai agentic demo (AGENT-DEMO.md): local Hermes install and run output ──
+.hermes-agent/
+.venv-hermes/
+.agent-browser/
+agent-runs/
