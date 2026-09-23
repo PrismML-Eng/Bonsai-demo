@@ -87,11 +87,6 @@ PTQ1_0 and development Q2_0 were not tested.
 
 ## Hardware
 
-```powershell
-PS> (Get-CimInstance Win32_Processor).Name
-AMD Ryzen 9 5900X 12-Core Processor
-```
-
 ```
 GPU    : AMD Radeon RX 6800 XT 16 GB (Navi 21, gfx1030)
 Driver : AMD Adrenalin 26.7.1
