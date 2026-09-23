@@ -1,9 +1,22 @@
 # Speculative decoding (experimental)
 
-> Note (prism-v7): the published 27B dspark drafter GGUFs for OLDER model releases
+**Bonsai 2 27B (the default) has no official DSpark drafter released yet.**
+`BONSAI_SPECULATIVE=1` warns and runs without speculation when using the demo's
+`bonsai2` family, even if a drafter file is present in its model directory.
+The paired drafters and speed measurements below apply to the previous-generation
+`ternary` and `bonsai` 27B families.
+
+Community experiments are described in [#188](https://github.com/PrismML-Eng/Bonsai-demo/pull/188)
+and [#189](https://github.com/PrismML-Eng/Bonsai-demo/pull/189); these have not yet been
+fully reviewed or validated by the maintainers and require their documented runtime
+changes. Converting an older drafter alone does not establish Bonsai 2 compatibility.
+For those experiments, follow the contributor's manual launch instructions. The shell
+launcher's explicit `BONSAI_GGUF` custom-model path also retains drafter discovery;
+it does not validate that the drafter matches the target.
+
+> Note (prism-v7): the published previous-generation 27B DSpark drafter GGUFs
 > predate the v7 format convergence and do not load on v7 builds as-is. Convert
-> them once with the two commands below; newer model releases ship ready-to-use
-> drafters and need no conversion.
+> them once with the two commands below.
 
 ## Converting the published drafter (older models)
 
@@ -27,19 +40,21 @@ and lm head (the runtime borrows the target's), shrinking the drafter to about
 
 As of prism-v7, dspark rides on mainline llama.cpp's own DSpark implementation (upstream `draft-dspark`, [#25173](https://github.com/ggml-org/llama.cpp/pull/25173)) with a few fork-side patches on top (log-SNR conditioning, layout auto-detection from the model, the drafter converter; some of these will be proposed upstream). It is a supported path on both CUDA and Apple Silicon: at temperature 0 output is identical to normal decoding. Measured decode gains on the 27B are strongly workload-dependent (code and math draft best, casual chat worst). On an L40S (CUDA): 1.8-2.4x for the ternary 27B (2.06x blended) and 1.4-1.75x for the 1-bit 27B (1.60x blended). On an M5 Max (Metal) only ternary code/math workloads gain (~1.2x); chat/reasoning and the 1-bit family come out slower, so it is not recommended on Apple Silicon. Full per-workload tables: [community-benchmarks](community-benchmarks/README.md).
 
-The 27B models ship with a paired **dspark drafter**: a small companion GGUF that drafts blocks of tokens for the target model to verify. The downloader fetches the bf16 drafter automatically with the 27B weights; for older model releases run the one-time conversion above to produce the loadable file, while newer releases ship ready-to-use drafters. On code and math workloads this gives roughly **1.75-2.4x faster decode** on CUDA; acceptance is workload-dependent, so casual chat gains less. Output at temperature 0 is identical to normal decoding.
+The previous-generation `ternary` and `bonsai` 27B models ship with a paired **dspark drafter**: a small companion GGUF that drafts blocks of tokens for the target model to verify. The downloader fetches the bf16 drafter automatically with the 27B weights; run the one-time conversion above to produce the loadable file. On code and math workloads this gives roughly **1.75-2.4x faster decode** on CUDA; acceptance is workload-dependent, so casual chat gains less. Output at temperature 0 is identical to normal decoding.
 
-Drafters are **target-specific**: each one only accelerates the exact model it is paired with. The demo downloads the matching drafter for whichever 27B family you use.
+Drafters are **target-specific**: each one only accelerates the exact model it is paired with. The demo downloads the matching drafter for the `ternary` or `bonsai` 27B family you select.
 
 ## Enable it
 
 ```bash
-BONSAI_SPECULATIVE=1 ./scripts/start_llama_server.sh
+BONSAI_FAMILY=ternary BONSAI_MODEL=27B BONSAI_SPECULATIVE=1 ./scripts/start_llama_server.sh
 ```
 
 Windows:
 
 ```powershell
+$env:BONSAI_FAMILY = "ternary"
+$env:BONSAI_MODEL = "27B"
 $env:BONSAI_SPECULATIVE = "1"
 .\scripts\start_llama_server.ps1
 ```

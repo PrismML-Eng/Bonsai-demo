@@ -17,6 +17,7 @@ for commands, raw output, memory use, and configuration.
 | `PTQ1_0` | NVIDIA RTX 5080 16 GB | llama.cpp CUDA (Windows) | 896 | 84.6 | [link](bonsai2/cuda-rtx5080-16gb-windows.md) |
 | `PQ2_0` | AMD Radeon RX 7800 XT 16 GB | llama.cpp ROCm/HIP | 316.3 | 46.8 | [link](bonsai2/rocm-hip-rx7800xt-fedora44.md) |
 | `PQ2_0` | NVIDIA Tesla V100-SXM2 16 GB | llama.cpp CUDA (Windows) | 798 | 46.0 | [link](bonsai2/cuda-tesla-v100-windows.md) |
+| `PQ2_0` | AMD Radeon RX 6800 XT 16 GB | llama.cpp ROCm/HIP (Windows) | 266.4 | 44.9 | [link](bonsai2/rocm-hip-rx6800xt-windows.md) |
 | `PQ2_0` | NVIDIA RTX 3070 8 GB | llama.cpp CUDA (Windows) | 838.9 | 43.7 | [link](bonsai2/cuda-rtx3070-8gb-windows.md) |
 | `PTQ1_0` | NVIDIA Tesla V100-SXM2 16 GB | llama.cpp CUDA (Windows) | 852 | 34.3 | [link](bonsai2/cuda-tesla-v100-windows.md) |
 | `PQ2_0` | Apple M3 Max 36 GB | llama.cpp Metal | 162.2 | 24.3 | [link](bonsai2/metal-m3-max-36gb-macos.md) |
