@@ -1,0 +1,9 @@
+{
+  "name": "bonsai-2-27b",
+  "version": "1.0.0",
+  "description": "LM Studio generator plugin for Bonsai 2 27B served by this demo's llama-server",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@lmstudio/sdk": "^1.5.0"
+  }
+}
