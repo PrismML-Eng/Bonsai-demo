@@ -44,15 +44,38 @@ if [ "$BONSAI_FAMILY" = "bonsai2" ] && [ -n "${BONSAI_MLX_SERVE:-}" ]; then
         err "mlx-serve $_msv_major.$_msv_minor.$_msv_patch is too old for Bonsai 2 (needs 26.9.5+, ddalcu/mlx-serve@89eeb24): it would serve wrong output with no error."
         exit 1
     fi
+    # MTP is OFF unless asked for. Bonsai 2 ships no draft head, and mlx-serve's
+    # answer is to GRAFT one: it fetches ~314 MB from the community checkpoint
+    # ddalcu/Qwen3.8-27B-MLX-Serve-4bit and writes mtp.safetensors INTO the model
+    # directory beside the pack. A launcher should not download a third-party
+    # checkpoint or modify the user's model directory as a side effect of starting
+    # a server, so opt in with BONSAI_MLX_SERVE_MTP=1 and be told what it does.
+    _mtp_flag="--no-mtp"
+    if [ "${BONSAI_MLX_SERVE_MTP:-0}" = "1" ]; then
+        _mtp_flag="--mtp"
+        echo ""
+        echo "  BONSAI_MLX_SERVE_MTP=1: speculative decoding via a GRAFTED draft head."
+        echo "    Bonsai 2 ships no draft head. mlx-serve supplies one from the community"
+        echo "    checkpoint ddalcu/Qwen3.8-27B-MLX-Serve-4bit (~314 MB, downloaded once)"
+        echo "    and WRITES it as mtp.safetensors into:"
+        echo "      $MODEL"
+        echo "    Not a Prism ML artefact and not covered by the model's own evaluation."
+    fi
+
     echo ""
     echo "=== MLX server (mlx-serve) ==="
     echo "  Model: ${BONSAI_DISPLAY}-mlx"
     echo "  Port:  $PORT"
     echo "  Needs an mlx-serve build with Prism Hadamard support (mlx-serve v26.9.5+, ddalcu/mlx-serve@89eeb24)."
-    echo "  Thinking is on by default; pass reasoning_effort per request (xhigh|medium|low)."
+    echo "  Third-party runtime: NOT mlx_lm.server or mlx_vlm.server. Text only on this path;"
+    echo "  vision is untested here — use ./scripts/run_mlx.sh --image for images."
+    echo "  Thinking is on by default. A thinking request that does not set reasoning_effort"
+    echo "  gets a 2048-token thinking budget from this runtime, which the bundled servers"
+    echo "  do not apply; set reasoning_effort (xhigh|medium|low) per request to control it."
+    echo "  Draft head (MTP): ${BONSAI_MLX_SERVE_MTP:-0} — see BONSAI_MLX_SERVE_MTP."
     echo ""
     exec "$BONSAI_MLX_SERVE" --model "$MODEL" --serve --host 127.0.0.1 --port "$PORT" \
-        --temp 0.7 --top-p 0.95 --top-k 20 \
+        --temp 0.7 --top-p 0.95 --top-k 20 "$_mtp_flag" \
         "$@"
 fi
 
