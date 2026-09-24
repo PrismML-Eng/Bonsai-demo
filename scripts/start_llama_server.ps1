@@ -127,13 +127,15 @@ $Ngl = if ($env:BONSAI_NGL) {
 $CtxDefault = if ($env:BONSAI_CTX -and $env:BONSAI_CTX -ne "0") { $env:BONSAI_CTX } else {
     $MemGB = [math]::Floor((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB)
     $Ctx0 = if ($MemGB -le 11) { 8192 } elseif ($MemGB -le 23) { 16384 } elseif ($MemGB -le 35) { 32768 } elseif ($MemGB -le 71) { 65536 } elseif ($BonsaiModel -eq "27B") { 131072 } else { 65536 }
-    # With full GPU offload the KV cache lives in VRAM, so also cap by the first
-    # NVIDIA GPU's memory (27B: ~8.3 GiB fixed + 0.5 GiB FP16 KV per 8192 tokens).
-    # Mirrors bonsai_ctx_default in common.sh.
-    if ($Ngl -ne "0" -and (Get-Command nvidia-smi -ErrorAction SilentlyContinue)) {
+    # Best-effort VRAM cap (not a fit guarantee; BONSAI_CTX overrides it). With
+    # full GPU offload the KV cache lives in VRAM (27B: ~8.3 GiB fixed + 0.5 GiB
+    # FP16 KV per 8192 tokens). Only for a bundled CUDA build with offload on, and
+    # only when exactly one NVIDIA GPU is listed. Mirrors bonsai_ctx_default in
+    # common.sh.
+    if ($BinRel -like "bin\cuda\*" -and $Ngl -ne "0" -and (Get-Command nvidia-smi -ErrorAction SilentlyContinue)) {
         $VramMiB = 0
-        $VramLine = & nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>$null | Select-Object -First 1
-        if ([int]::TryParse("$VramLine".Trim(), [ref]$VramMiB) -and $VramMiB -gt 0) {
+        $VramLines = @(& nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>$null)
+        if ($VramLines.Count -eq 1 -and [int]::TryParse("$($VramLines[0])".Trim(), [ref]$VramMiB) -and $VramMiB -gt 0) {
             $VCap = if ($VramMiB -lt 10000) { 8192 } elseif ($VramMiB -lt 12000) { 16384 } elseif ($VramMiB -lt 16000) { 32768 } elseif ($VramMiB -lt 24000) { 65536 } else { 0 }
             if ($VCap -gt 0 -and $VCap -lt $Ctx0) { $Ctx0 = $VCap }
         }

@@ -97,6 +97,7 @@ echo "  Press Ctrl+C to stop."
 echo ""
 
 NGL=$(bonsai_llama_ngl)
+CTX_SIZE_DEFAULT=$(bonsai_ctx_default "$BACKEND" "$NGL")
 if [ -n "${BONSAI_NGL:-}" ]; then
     echo "  GPU:     -ngl $NGL (set via BONSAI_NGL)"
 else

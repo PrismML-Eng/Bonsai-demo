@@ -274,16 +274,21 @@ bonsai_ctx_default() {
     else
         _ctx=65536  # older sizes are documented up to 65536
     fi
+    # Best-effort VRAM cap, not a guarantee that the model fits (total VRAM says
+    # nothing about what other applications are using; BONSAI_CTX overrides it).
     # With full GPU offload the KV cache lives in VRAM, not system RAM, so a
     # big-RAM box with a mid-size card can land on a tier that does not fit
-    # (64 GB RAM + 12 GB card -> 65536 -> ~12.3 GiB for the 27B). Cap by VRAM
-    # too: the 27B needs ~8.3 GiB for weights + mmproj + buffers, plus 0.5 GiB
-    # of FP16 KV per 8192 tokens. NVIDIA only (nvidia-smi); the first GPU is
-    # used, which under-sizes multi-GPU splits rather than overflowing them.
-    if [ "${BONSAI_NGL:-99}" != "0" ] && command -v nvidia-smi >/dev/null 2>&1; then
-        _vram_mib=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null | head -n 1 | tr -d '[:space:]')
-        # Anything but a bare integer (error text, N/A) means "unknown": keep the RAM tier.
-        case "$_vram_mib" in *[!0-9]*) _vram_mib="" ;; esac
+    # (64 GB RAM + 12 GB card -> 65536 -> ~12.3 GiB for the 27B). The 27B needs
+    # ~8.3 GiB for weights + mmproj + buffers, plus 0.5 GiB of FP16 KV per 8192
+    # tokens. It applies only when the caller passes the resolved backend ($1) and
+    # -ngl ($2) and they are a bundled CUDA build with offload on (so CPU-only
+    # launches keep the RAM tier), and only when exactly one NVIDIA GPU is listed
+    # (with several there is no telling which one llama.cpp will use).
+    if [ "${1:-}" = "cuda" ] && [ "${2:-0}" != "0" ] && command -v nvidia-smi >/dev/null 2>&1; then
+        # One line per GPU. Keeping the newline between lines makes a multi-GPU
+        # answer non-numeric below, like error text or N/A: all mean "unknown".
+        _vram_mib=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null | tr -d ' \r')
+        case "$_vram_mib" in *[!0-9]*|0*) _vram_mib="" ;; esac
         _vcap=""
         if [ -n "$_vram_mib" ]; then
             if [ "$_vram_mib" -lt 10000 ]; then _vcap=8192
@@ -296,6 +301,8 @@ bonsai_ctx_default() {
     fi
     echo "$_ctx"
 }
+# Sourcing has no backend/-ngl yet, so this is the RAM tier only; the launchers
+# recompute it with bonsai_ctx_default "$BACKEND" "$NGL" once those are resolved.
 CTX_SIZE_DEFAULT=$(bonsai_ctx_default)
 
 # Vision projector placement (27B VLM only). By default the mmproj is offloaded
