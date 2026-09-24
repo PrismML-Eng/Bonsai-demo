@@ -6,6 +6,7 @@ loads it in a headless browser, plays it, looks at a screenshot, and ships it. T
 plain-English feedback. Everything here is what the model produced, unedited, and everything needed to
 run it again is in this folder.
 
+- Separate RTX PRO 6000 run: [Skatepark: from first draft to rider and controls](demos/skatepark-iteration/README.md), four rounds with recorded traces, playable results and a video.
 - 59-second clip: [`demos/skateboard/demo_clip_seed42_59s.mp4`](demos/skateboard/demo_clip_seed42_59s.mp4)
 - Skateboard, five rounds: [demos/skateboard_feedback/pages/](demos/skateboard_feedback/pages/) round0 to round4 · the brief and the four feedback lines: [demos/skateboard_feedback/prompts/](demos/skateboard_feedback/prompts/) · 75-second cut: [`demos/skateboard_feedback/skateboard_feedback_75s.mp4`](demos/skateboard_feedback/skateboard_feedback_75s.mp4)
 - Skateboard, one shot plus a flips round: [demos/skateboard_oneshot/pages/](demos/skateboard_oneshot/pages/) round0 and round1 · prompts: [demos/skateboard_oneshot/prompts/](demos/skateboard_oneshot/prompts/)

@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Skate City 3D</title>
+<style>
+  html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #10121f; }
+  canvas { display: block; }
+  #hud { position: absolute; inset: 0; pointer-events: none; color: #fff; user-select: none; font-family: "Segoe UI", Arial, sans-serif; }
+  .score-box { position: absolute; top: 20px; left: 24px; }
+  .score-label { font-size: 13px; letter-spacing: 3px; opacity: .65; }
+  .score-value { font-size: 52px; font-weight: 900; line-height: 1.05; text-shadow: 0 0 14px rgba(0, 255, 200, .5); }
+  #combo { position: absolute; top: 92px; left: 24px; font-size: 26px; font-weight: 900; color: #ff57c4; opacity: 0; transition: opacity .25s; text-shadow: 0 0 10px rgba(255, 87, 196, .6); }
+  #combo.show { opacity: 1; }
+  #title { position: absolute; top: 20px; right: 24px; text-align: right; }
+  #title h1 { font-size: 32px; font-weight: 900; letter-spacing: 2px; margin: 0; background: linear-gradient(90deg, #4ecdc4, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  #title p { font-size: 12px; opacity: .55; margin: 4px 0 0; }
+  .controls { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); display: flex; gap: 16px; font-size: 13px; background: rgba(0, 0, 0, .45); padding: 9px 20px; border-radius: 999px; letter-spacing: .5px; }
+  .controls kbd { background: #1d2435; padding: 2px 8px; border-radius: 6px; border: 1px solid #3b4461; font-family: inherit; font-size: 12px; }
+  .pop { position: absolute; font-weight: 900; font-size: 26px; pointer-events: none; transform: translate(-50%, -50%); animation: pop .9s ease-out forwards; text-shadow: 0 3px 12px rgba(0, 0, 0, .6); }
+  @keyframes pop {
+    0%   { opacity: 1; transform: translate(-50%, -50%) scale(.4); }
+    15%  { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+    100% { opacity: 0; transform: translate(-50%, -150%) scale(1); }
+  }
+  #err { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; color: #ff9999; font-size: 18px; text-align: center; padding: 40px; }
+</style>
+</head>
+<body>
+<div id="hud">
+  <div class="score-box">
+    <div class="score-label">SCORE</div>
+    <div class="score-value" id="score">0</div>
+  </div>
+  <div id="combo"></div>
+  <div id="title">
+    <h1>SKATE CITY 3D</h1>
+    <p>roll &middot; ollie &middot; flip &middot; land</p>
+  </div>
+  <div class="controls">
+    <span><kbd>&larr;</kbd><kbd>&rarr;</kbd> roll</span>
+    <span><kbd>SPACE</kbd> ollie</span>
+    <span><kbd>J</kbd> backflip</span>
+    <span><kbd>K</kbd> kickflip</span>
+  </div>
+</div>
+<div id="err"></div>
+
+<script src="vendor/three.min.js"></script>
+<script>
+(function () {
+  var THREE = window.THREE;
+  if (!THREE) {
+    document.getElementById('err').style.display = 'flex';
+    document.getElementById('err').textContent =
+      'Could not load Three.js from the CDN. Open this file in a browser with an internet connection.';
+    return;
+  }
+
+  // ---------------------------------------------------------------- constants
+  var G      = 24;    // gravity
+  var JUMP   = 10;    // ollie velocity (peak ~2.1 m, ~0.8 s airtime)
+  var MAXV   = 10;    // max roll speed
+  var LIFT   = 0.30;  // deck centre height above ground (wheel clearance)
+  var FLIP_W = 13.5;  // rad/s -> one full flip takes ~0.48 s
+  var TWO_PI = Math.PI * 2;
+  var X_LIMIT = 30;
+
+  // ---------------------------------------------------------------- profile
+  // Ground height as a function of x.
+  // A dome is 0 at its edges and h at its centre; a valley is the negation.
+  // Both have zero slope at the edges, so they blend smoothly into the ground.
+  function profile(x) {
+    function dome(cx, hw, h) {
+      var t = (x - cx) / hw;
+      if (Math.abs(t) > 1) return 0;
+      return h * 0.5 * (1 + Math.cos(Math.PI * t));
+    }
+    function valley(cx, hw, h) {
+      var t = (x - cx) / hw;
+      if (Math.abs(t) > 1) return 0;
+      return -h * 0.5 * (1 + Math.cos(Math.PI * t));
+    }
+    return valley(-15, 9, 4.5)   // the big bowl
+         + dome(-1,     2.5, 2.2)  // small kicker
+         + dome(12,     3.5, 2.8)  // big kicker
+         + dome(21,     2.5, 1.6); // mini kicker
+  }
+  function slopeAt(x) {
+    var e = 0.02;
+    return (profile(x + e) - profile(x - e)) / (2 * e);
+  }
+
+  // ---------------------------------------------------------------- scene
+  var scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x15142a);
+  scene.fog = new THREE.FogExp2(0x15142a, 0.016);
+
+  var camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.1, 300);
+  var camTarget = new THREE.Vector3();
+
+  var renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  document.body.appendChild(renderer.domElement);
+
+  scene.add(new THREE.HemisphereLight(0x7a90ff, 0x2b2b3e, 0.75));
+  var sun = new THREE.DirectionalLight(0xfff1cf, 1.35);
+  sun.position.set(30, 50, 40);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(1024, 1024);
+  sun.shadow.camera.left = -40; sun.shadow.camera.right = 40;
+  sun.shadow.camera.top = 30;   sun.shadow.camera.bottom = -10;
+  sun.shadow.camera.near = 1;   sun.shadow.camera.far = 150;
+  sun.shadow.bias = -0.0015;
+  scene.add(sun);
+
+  // ---------------------------------------------------------------- ramp
+  function buildRamp() {
+    var X0 = -32, X1 = 32, Z0 = -3.2, Z1 = 3.2, N = 512;
+    var pos = [], norm = [], uv = [], idx = [];
+    for (var i = 0; i <= N; i++) {
+      var x = X0 + (X1 - X0) * i / N;
+      var y = profile(x);
+      var s = slopeAt(x), nl = Math.hypot(s, 1);
+      for (var k = 0; k < 2; k++) {
+        pos.push(x, y, k === 0 ? Z0 : Z1);
+        norm.push(-s / nl, 1 / nl, 0);
+        uv.push((x - X0) / (X1 - X0), 0);
+      }
+    }
+    for (var j = 0; j < N; j++) {
+      idx.push(j * 2, j * 2 + 2, j * 2 + 1,
+               j * 2, j * 2 + 1, j * 2 + 2);
+    }
+    var geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    geo.setIndex(idx);
+    var mat = new THREE.MeshStandardMaterial({ color: 0x4c4e60, roughness: 0.9 });
+    var mesh = new THREE.Mesh(geo, mat);
+    mesh.receiveShadow = true;
+    scene.add(mesh);
+
+    // painted neon stripes
+    var stripes = [
+      { x: -15,  c: 0xff5470 }, { x: -4.8, c: 0xff9f43 },
+      { x: 5,    c: 0x4ecdc4 }, { x: 17.5, c: 0xa78bfa }, { x: 27, c: 0xffd93d }
+    ];
+    var stripeGeo = new THREE.PlaneGeometry(6.5, 0.5);
+    for (var si = 0; si < stripes.length; si++) {
+      var sm = new THREE.MeshBasicMaterial({ color: stripes[si].c, side: THREE.DoubleSide });
+      var sM = new THREE.Mesh(stripeGeo, sm);
+      sM.rotation.x = -Math.PI / 2;
+      sM.position.set(stripes[si].x, profile(stripes[si].x) + 0.01, 0);
+      scene.add(sM);
+    }
+  }
+  buildRamp();
+
+  // ---------------------------------------------------------------- board
+  var board = new THREE.Group();
+  board.add(new THREE.Mesh(
+    new THREE.BoxGeometry(2.6, 0.05, 0.55),
+    new THREE.MeshStandardMaterial({ color: 0xff4d6d, roughness: 0.35 })
+  ));
+  var wheelGeo = new THREE.SphereGeometry(0.13, 10, 10);
+  var wheelMat = new THREE.MeshStandardMaterial({ color: 0xffe29a, roughness: 0.55 });
+  var wheels = [
+    [-1.05,  0.22], [1.05,  0.22], [-1.05, -0.22], [1.05, -0.22]
+  ];
+  for (var wi = 0; wi < wheels.length; wi++) {
+    var w = new THREE.Mesh(wheelGeo, wheelMat);
+    w.position.set(wheels[wi][0], -0.16, wheels[wi][1]);
+    board.add(w);
+  }
+  board.traverse(function (o) { o.castShadow = true; });
+  scene.add(board);
+
+  // ---------------------------------------------------------------- game state
+  var state = {
+    x: 1, y: profile(1) + LIFT, vx: 0, vy: 0, grounded: true,
+    rotX: 0, rotY: 0,
+    flipX: { active: false, t: 0 },   // kickflip   (spins about the deck's long axis)
+    flipY: { active: false, t: 0 },   // backflip   (nose over tail)
+    combo: 0, score: 0
+  };
+
+  var keys = {};
+  window.addEventListener('keydown', function (e) {
+    if (['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].indexOf(e.code) >= 0)
+      e.preventDefault();
+    keys[e.code] = true;
+  });
+  window.addEventListener('keyup', function (e) { keys[e.code] = false; });
+
+  // ---------------------------------------------------------------- feedback
+  var audioCtx = null;
+  function beep(freq, dur, vol, sweepUp) {
+    try {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      var t0 = audioCtx.currentTime;
+      var o = audioCtx.createOscillator();
+      var g = audioCtx.createGain();
+      o.type = 'triangle';
+      o.frequency.setValueAtTime(freq, t0);
+      if (sweepUp) o.frequency.exponentialRampToValueAtTime(freq * 2.4, t0 + dur);
+      g.gain.setValueAtTime(vol, t0);
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(t0); o.stop(t0 + dur + 0.05);
+    } catch (err) { /* audio unavailable - keep playing silently */ }
+  }
+
+  var hud     = document.getElementById('hud');
+  var scoreEl = document.getElementById('score');
+  var comboEl = document.getElementById('combo');
+
+  function updateHUD() {
+    scoreEl.textContent = state.score;
+    if (state.combo > 1) {
+      comboEl.textContent = state.combo + '\u00d7 COMBO';
+      comboEl.classList.add('show');
+    } else {
+      comboEl.classList.remove('show');
+    }
+  }
+
+  function popup(text, color) {
+    var el = document.createElement('div');
+    el.className = 'pop';
+    el.style.color = color;
+    el.textContent = text;
+    var p = new THREE.Vector3(state.x, state.y + 1.5, 0).project(camera);
+    el.style.left = (p.x * 0.5 + 0.5) * innerWidth + 'px';
+    el.style.top  = (1 - p.y * 0.5) * innerHeight + 'px';
+    hud.appendChild(el);
+    setTimeout(function () { el.remove(); }, 900);
+  }
+
+  function completeFlip(name, color, freq) {
+    state.combo++;
+    var pts = 100 + state.combo * 50;
+    state.score += pts;
+    popup(name + '  +' + pts, color);
+    beep(freq, 0.22, 0.25, true);
+    updateHUD();
+  }
+
+  function bust() {
+    state.combo = 0;
+    popup('BUST!', '#ff465f');
+    beep(85, 0.25, 0.3, false);
+    updateHUD();
+  }
+
+  // ---------------------------------------------------------------- physics
+  // Start a flip, advance it, and score it the moment it completes (one
+  // full 360 degrees). A flip still in the air at landing counts as a bust.
+  function handleFlip(obj, dt, key, name, color, freq) {
+    if (state.grounded) {
+      if (obj.active) { obj.active = false; obj.t = 0; }
+      return;
+    }
+    if (key && !obj.active) {
+      obj.active = true;
+      obj.t = 0;
+    }
+    if (obj.active) {
+      obj.t += FLIP_W * dt;
+      if (obj.t >= TWO_PI) {
+        obj.active = false;
+        obj.t = 0;
+        completeFlip(name, color, freq);
+      }
+    }
+  }
+
+  var dtLast = 0;
+  var rotXv = new THREE.Vector3(1, 0, 0);
+  var rotYv = new THREE.Vector3(0, 1, 0);
+  var rotZv = new THREE.Vector3(0, 0, 1);
+  var tmpQ  = new THREE.Quaternion();
+
+  function update(dt) {
+    dtLast = dt;
+    var left  = keys['ArrowLeft'] || keys['KeyA'];
+    var right = keys['ArrowRight'] || keys['KeyD'];
+    var space = keys['Space'];
+    var back  = keys['KeyJ'];
+    var kick  = keys['KeyK'];
+
+    if (state.grounded) {
+      // --- rolling ---
+      var target = ((right ? 1 : 0) - (left ? 1 : 0)) * MAXV;
+      state.vx += (target - state.vx) * Math.min(1, 14 * dt);
+      state.x   = Math.max(-X_LIMIT, Math.min(X_LIMIT, state.x + state.vx * dt));
+      if (Math.abs(state.x) >= X_LIMIT - 0.01) state.vx = 0;
+      state.y   = profile(state.x) + LIFT;
+      state.vy  = 0;
+      // settle the deck back onto the surface
+      state.rotX = THREE.MathUtils.lerp(state.rotX, 0, Math.min(1, 10 * dt));
+      state.rotY = THREE.MathUtils.lerp(state.rotY, 0, Math.min(1, 10 * dt));
+      // --- ollie ---
+      if (space) {
+        state.vy = JUMP;
+        state.grounded = false;
+        state.rotX = state.rotY = 0;
+        state.flipX.active = state.flipX.t = 0;
+        state.flipY.active = state.flipY.t = 0;
+        beep(170, 0.16, 0.22, false);
+      }
+    } else {
+      // --- airborne ---
+      state.vy -= G * dt;
+      state.y  += state.vy * dt;
+      state.x  = Math.max(-X_LIMIT, Math.min(X_LIMIT, state.x + state.vx * dt));
+      state.vx *= Math.exp(-0.25 * dt);
+      handleFlip(state.flipY, dt, back, 'BACKFLIP', '#a78bfa', 640);
+      handleFlip(state.flipX, dt, kick, 'KICKFLIP', '#4ecdc4', 520);
+      // --- landing ---
+      if (state.vy < 0 && state.y - LIFT <= profile(state.x)) {
+        state.y = profile(state.x) + LIFT;
+        state.vy = 0;
+        state.grounded = true;
+        state.rotX = state.rotY = 0;
+        if (state.flipX.active || state.flipY.active) {
+          bust();   // landed with a spin still in the air
+        }
+      }
+    }
+
+    // --- board transform ---
+    state.rotX = state.flipX.active ? state.flipX.t : 0;
+    state.rotY = state.flipY.active ? state.flipY.t : 0;
+    board.position.set(state.x, state.y, 0);
+    var tilt = Math.atan(slopeAt(state.x));
+    tmpQ.setFromAxisAngle(rotXv, state.rotX);                                  // kickflip   (applied last)
+    tmpQ.multiply(new THREE.Quaternion().setFromAxisAngle(rotYv, state.rotY)); // backflip
+    tmpQ.multiply(new THREE.Quaternion().setFromAxisAngle(rotZv, tilt));       // match the surface tilt
+    board.quaternion.copy(tmpQ);
+
+    // --- camera follows the rider ---
+    var camX = THREE.MathUtils.clamp(state.x * 0.55, -18, 18);
+    camera.position.set(camX + 8, 7.5, -14);
+    camTarget.set(state.x * 0.55, THREE.MathUtils.clamp(state.y * 0.35, -2, 4), 0);
+    camera.lookAt(camTarget);
+    updateHUD();
+  }
+
+  // ---------------------------------------------------------------- loop
+  var clock = new THREE.Clock();
+  (function frame() {
+    requestAnimationFrame(frame);
+    var dt = Math.min(clock.getDelta(), 0.05);
+    if (dt > 0) update(dt);
+    renderer.render(scene, camera);
+  })();
+
+  window.addEventListener('resize', function () {
+    camera.aspect = innerWidth / innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+  });
+})();
+</script>
+</body>
+</html>
