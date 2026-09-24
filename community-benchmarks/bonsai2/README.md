@@ -13,6 +13,8 @@ Benchmark results submitted by the community running
 | `PTQ1_0` | NVIDIA RTX 4090 24 GB | llama.cpp CUDA (Windows) | 1,597 | 86.0 | [link](cuda-rtx4090-windows.md) |
 | `PQ2_0` | NVIDIA RTX 4090 24 GB | llama.cpp CUDA (Windows) | 3,285 | 84.9 | [link](cuda-rtx4090-windows.md) |
 | `PTQ1_0` | NVIDIA RTX 5080 16 GB | llama.cpp CUDA (Windows) | 896 | 84.6 | [link](cuda-rtx5080-16gb-windows.md) |
+| `PQ2_0` | NVIDIA RTX 3090 Ti 24 GB | llama.cpp CUDA (Linux) | 1,552 | 81.6 | [link](cuda-rtx3090ti-linux.md) |
+| `PTQ1_0` | NVIDIA RTX 3090 Ti 24 GB | llama.cpp CUDA (Linux) | 805 | 67.7 | [link](cuda-rtx3090ti-linux.md) |
 | `PQ2_0` (community MTP file, plain inference) | NVIDIA RTX 5070 Ti Laptop 12 GB | llama.cpp CUDA (Windows) | 1,135 | 49.0 | [link](cuda-rtx5070ti-laptop-windows.md) |
 | `PTQ1_0` | NVIDIA RTX 5070 Ti Laptop 12 GB | llama.cpp CUDA (Windows) | 527 | 49.0 | [link](cuda-rtx5070ti-laptop-windows.md) |
 | `PQ2_0` | AMD Radeon RX 7800 XT 16 GB | llama.cpp ROCm/HIP | 316.3 | 46.8 | [link](rocm-hip-rx7800xt-fedora44.md) |

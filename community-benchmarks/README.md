@@ -15,6 +15,8 @@ for commands, raw output, memory use, and configuration.
 | `PTQ1_0` | NVIDIA RTX 4090 24 GB | llama.cpp CUDA (Windows) | 1,597 | 86.0 | [link](bonsai2/cuda-rtx4090-windows.md) |
 | `PQ2_0` | NVIDIA RTX 4090 24 GB | llama.cpp CUDA (Windows) | 3,285 | 84.9 | [link](bonsai2/cuda-rtx4090-windows.md) |
 | `PTQ1_0` | NVIDIA RTX 5080 16 GB | llama.cpp CUDA (Windows) | 896 | 84.6 | [link](bonsai2/cuda-rtx5080-16gb-windows.md) |
+| `PQ2_0` | NVIDIA RTX 3090 Ti 24 GB | llama.cpp CUDA (Linux) | 1,552 | 81.6 | [link](bonsai2/cuda-rtx3090ti-linux.md) |
+| `PTQ1_0` | NVIDIA RTX 3090 Ti 24 GB | llama.cpp CUDA (Linux) | 805 | 67.7 | [link](bonsai2/cuda-rtx3090ti-linux.md) |
 | `PQ2_0` | AMD Radeon RX 7800 XT 16 GB | llama.cpp ROCm/HIP | 316.3 | 46.8 | [link](bonsai2/rocm-hip-rx7800xt-fedora44.md) |
 | `PQ2_0` | NVIDIA Tesla V100-SXM2 16 GB | llama.cpp CUDA (Windows) | 798 | 46.0 | [link](bonsai2/cuda-tesla-v100-windows.md) |
 | `PQ2_0` | AMD Radeon RX 6800 XT 16 GB | llama.cpp ROCm/HIP (Windows) | 266.4 | 44.9 | [link](bonsai2/rocm-hip-rx6800xt-windows.md) |
