@@ -8,7 +8,7 @@ run it again is in this folder.
 
 - 59-second clip: [`demos/skateboard/demo_clip_seed42_59s.mp4`](demos/skateboard/demo_clip_seed42_59s.mp4)
 - Skateboard, five rounds: [demos/skateboard_feedback/pages/](demos/skateboard_feedback/pages/) round0 to round4 · the brief and the four feedback lines: [demos/skateboard_feedback/prompts/](demos/skateboard_feedback/prompts/) · 75-second cut: [`demos/skateboard_feedback/skateboard_feedback_75s.mp4`](demos/skateboard_feedback/skateboard_feedback_75s.mp4)
-- Skateboard, one shot plus a flips round: [demos/skateboard_oneshot/pages/](demos/skateboard_oneshot/pages/) round0 and round1 · prompts: [demos/skateboard_oneshot/prompts/](demos/skateboard_oneshot/prompts/) · 45-second clip: [`demos/skateboard_oneshot/skateboard_oneshot_45s.mp4`](demos/skateboard_oneshot/skateboard_oneshot_45s.mp4)
+- Skateboard, another draw, round 0 and a flips round: [demos/skateboard_flips/pages/](demos/skateboard_flips/pages/) round0 and round1 · prompts: [demos/skateboard_flips/prompts/](demos/skateboard_flips/prompts/) · 45-second clip: [`demos/skateboard_flips/skateboard_flips_45s.mp4`](demos/skateboard_flips/skateboard_flips_45s.mp4)
 - Playable pages: [round 0](demos/skateboard/pages/round0.html) · [round 1, flips and coins](demos/skateboard/pages/round1.html)
 - Replay page with the model's trace beside the game: [`demos/skateboard/replay/index.html`](demos/skateboard/replay/index.html) (open it from a clone; it embeds the trace and loads the pages above)
 
@@ -97,10 +97,10 @@ What it does not show: that a fresh round 0 lands every time. At these defaults 
 round-0 draws on this machine produced a game, and open-ended asks ("make it visually impressive") are where the
 write runaways cluster. Bug reports land far more reliably than taste requests.
 
-## The skateboard, one shot plus a flips round
+## The skateboard, another draw: round 0 and a flips round
 
 A separate draw of the same brief at the same defaults (16k thinking budget, ctx 131,072, min-p 0.05, seed 42, no
-proxy). Round 0 produced a playable game on the first try; one line of feedback added tricks.
+proxy). This draw happened to produce a playable game in round 0; one line of feedback added tricks.
 
 | round | words sent to the agent | what came back | calls | wall |
 |---|---|---|---|---|
