@@ -1,9 +1,22 @@
 # Speculative decoding (experimental)
 
-> Note (prism-v7): the published 27B dspark drafter GGUFs for OLDER model releases
+**Bonsai 2 27B (the default) has no official DSpark drafter released yet.**
+`BONSAI_SPECULATIVE=1` warns and runs without speculation when using the demo's
+`bonsai2` family, even if a drafter file is present in its model directory.
+The paired drafters and speed measurements below apply to the previous-generation
+`ternary` and `bonsai` 27B families.
+
+Community experiments are described in [#188](https://github.com/PrismML-Eng/Bonsai-demo/pull/188)
+and [#189](https://github.com/PrismML-Eng/Bonsai-demo/pull/189); these have not yet been
+fully reviewed or validated by the maintainers and require their documented runtime
+changes. Converting an older drafter alone does not establish Bonsai 2 compatibility.
+For those experiments, follow the contributor's manual launch instructions. The shell
+launcher's explicit `BONSAI_GGUF` custom-model path also retains drafter discovery;
+it does not validate that the drafter matches the target.
+
+> Note (prism-v7): the published previous-generation 27B DSpark drafter GGUFs
 > predate the v7 format convergence and do not load on v7 builds as-is. Convert
-> them once with the two commands below; newer model releases ship ready-to-use
-> drafters and need no conversion.
+> them once with the two commands below.
 
 ## Converting the published drafter (older models)
 
@@ -29,19 +42,21 @@ As of prism-v7, dspark rides on mainline llama.cpp's own DSpark implementation (
 
 The Bonsai-27B and Ternary-Bonsai-27B models ship with a paired **dspark drafter**: a small companion GGUF that drafts blocks of tokens for the target model to verify. The downloader fetches the bf16 drafter automatically with the 27B weights; for older model releases run the one-time conversion above to produce the loadable file, while newer releases ship ready-to-use drafters. On code and math workloads this gives roughly **1.75-2.4x faster decode** on CUDA; acceptance is workload-dependent, so casual chat gains less. Acceptance is an exact match against the target's batched verify logits, and on most prompts the output at temperature 0 is identical to plain decoding. The batched verify pass can round differently from single-row decode at a near-tie token, so byte-identical output is not guaranteed. The [GB10 Bonsai 2 entry](community-benchmarks/ternary-bonsai/cuda-gb10-bonsai2-27b-linux.md) measured 37 of 65 temperature-0 outputs identical for each of two drafters, with the same divergence positions for both.
 
-Drafters are **target-specific**: each one only accelerates the exact model it is paired with. The demo downloads the matching drafter for whichever 27B family you use.
+Drafters are **target-specific**: each one only accelerates the exact model it is paired with. The demo downloads the matching drafter for the `ternary` or `bonsai` 27B family you select.
 
 Ternary-Bonsai-2-27B ships no drafter. The downloader fetches none for the Bonsai 2 family, and `BONSAI_SPECULATIVE=1` then warns and runs without speculation. The [GB10 Bonsai 2 entry](community-benchmarks/ternary-bonsai/cuda-gb10-bonsai2-27b-linux.md) documents a drafter for this target and the runtime fix that it needs.
 
 ## Enable it
 
 ```bash
-BONSAI_SPECULATIVE=1 ./scripts/start_llama_server.sh
+BONSAI_FAMILY=ternary BONSAI_MODEL=27B BONSAI_SPECULATIVE=1 ./scripts/start_llama_server.sh
 ```
 
 Windows:
 
 ```powershell
+$env:BONSAI_FAMILY = "ternary"
+$env:BONSAI_MODEL = "27B"
 $env:BONSAI_SPECULATIVE = "1"
 .\scripts\start_llama_server.ps1
 ```

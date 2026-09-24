@@ -176,7 +176,10 @@ if ($BonsaiModel -eq "27B") {
     # lives on this standalone server, not the agentic Open WebUI path.
     $Ctx = $CtxDefault
     $SpecArgs = @()
-    if ($env:BONSAI_SPECULATIVE -eq "1") {
+    if ($env:BONSAI_SPECULATIVE -eq "1" -and $BonsaiFamily -eq "bonsai2") {
+        Write-Host "[WARN] Bonsai 2 27B has no official DSpark drafter released yet; running without speculation." -ForegroundColor Yellow
+        Write-Host "       Unset BONSAI_SPECULATIVE to hide this warning. See SPECULATIVE.md for availability." -ForegroundColor Yellow
+    } elseif ($env:BONSAI_SPECULATIVE -eq "1") {
         # v7 builds read only converted (arch=dflash) drafters; convert the downloaded
         # bf16 sidecar once with gguf-dspark-to-dflash (see SPECULATIVE.md)
         $Drafter = Get-ChildItem -Path $ModelDir -Filter *dspark-dflash*.gguf -File -ErrorAction SilentlyContinue | Select-Object -First 1

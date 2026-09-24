@@ -1,5 +1,7 @@
 # Bonsai Demo
 
+Backend and model format compatibility: [BACKEND-SUPPORT.md](BACKEND-SUPPORT.md).
+
 <p align="center">
   <img src="./assets/bonsai-logo.svg" width="280" alt="Bonsai">
 </p>
@@ -57,6 +59,9 @@ Quick Start below gets you there in two commands: `./setup.sh` downloads Bonsai 
 The earlier Bonsai families are still here, in smaller sizes too. See [Models](#models).
 
 ## Quick Start
+
+For repeated conversations and prompt-cache troubleshooting, see
+[Prompt reuse and context checkpoints](PROMPT-CACHE.md).
 
 Setting things up with an AI coding agent? Point it at [AGENTS.md](AGENTS.md), a guide written for agents (hardware-specific knobs, defaults, and what to ask the user).
 
@@ -175,7 +180,7 @@ Every launcher is configured through environment variables. The most common ones
 | `BONSAI_NGL` | auto-detect | int; `0` = CPU-only | GPU layer offload. |
 | `BONSAI_CTX` | auto (RAM-tiered) | `0`, or ≤ `262144` | Context length (`0`/unset = automatic safe size). |
 | `BONSAI_HOST` | `127.0.0.1` | any bind address | Server bind address. A non-loopback value exposes the server — see the security note in the full reference. |
-| `BONSAI_SPECULATIVE` | `0` | `1` | Speculative decoding with the dspark drafter ([SPECULATIVE.md](SPECULATIVE.md)). |
+| `BONSAI_SPECULATIVE` | `0` | `1` | DSpark for previous-generation `ternary`/`bonsai` 27B only. No official Bonsai 2 drafter yet; warns and runs without speculation ([SPECULATIVE.md](SPECULATIVE.md)). |
 | `BONSAI_KV4` | `0` | `1` | 4-bit KV cache for long contexts ([KV-CACHE.md](KV-CACHE.md)). |
 
 **Full reference** — all 24 variables (model/setup, server, MLX, Open WebUI, tools, and platform coverage): **[environment_variables.md](environment_variables.md)**.
@@ -236,7 +241,7 @@ Future releases drop the transitional suffix. The demo's setup scripts download 
 backend is optimized for it and the group-64 file otherwise (details:
 [community-benchmarks/ternary-bonsai/README.md](community-benchmarks/ternary-bonsai/README.md#available-formats)).
 
-**Speculative decoding: use this demo's binaries.** Since the rebase, dspark rides on mainline llama.cpp's own DSpark implementation ([ggml-org/llama.cpp#25173](https://github.com/ggml-org/llama.cpp/pull/25173)) with fork-side patches on top, and the drafter is the converted `*dspark-dflash*` sidecar (~0.6 GB; the old `*dspark-Q4_1*.gguf` files are the pre-migration packing). Use `BONSAI_SPECULATIVE=1` with this demo's binaries — see [SPECULATIVE.md](SPECULATIVE.md).
+**Speculative decoding: use this demo's binaries.** Bonsai 2 27B has no official DSpark drafter released yet; the following applies to the previous-generation `ternary` and `bonsai` 27B models. Since the rebase, dspark rides on mainline llama.cpp's own DSpark implementation ([ggml-org/llama.cpp#25173](https://github.com/ggml-org/llama.cpp/pull/25173)) with fork-side patches on top, and the drafter is the converted `*dspark-dflash*` sidecar (~0.6 GB; the old `*dspark-Q4_1*.gguf` files are the pre-migration packing). Use `BONSAI_SPECULATIVE=1` with this demo's binaries — see [SPECULATIVE.md](SPECULATIVE.md).
 
 To run the smaller ternary models directly on stock `ggml-org/llama.cpp`, use the group-64 files:
 
@@ -260,7 +265,7 @@ The setup script handles everything for you, even on a fresh machine:
 2. **Installs [uv](https://docs.astral.sh/uv/):** fast Python package manager (user-local, not global)
 3. **Creates a Python venv** and runs `uv sync` — installs cmake, ninja, huggingface-cli from `pyproject.toml`
 4. **Downloads models** from HuggingFace (all model repos are public; no token needed)
-5. **Downloads pre-built binaries** from [GitHub Release](https://github.com/PrismML-Eng/llama.cpp/releases/latest) (or builds from source if you prefer)
+5. **Downloads pre-built binaries** from the pinned [GitHub Release](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b10709-9a9394a) (or builds from source if you prefer)
 6. **Builds MLX from source** (macOS only): clones our fork, builds it into the venv, installs the ML stack (mlx-lm, torch, transformers)
 7. **Installs Open WebUI** into the venv for the agentic demo (skip with `BONSAI_OPENWEBUI=0`)
 8. **Builds the code-interpreter venv** (`.venv-jupyter`): Jupyter + matplotlib / pandas / numpy / scipy / sympy / yfinance for the Open WebUI code interpreter (skip with `BONSAI_CODE_INTERPRETER=0`)
@@ -350,7 +355,7 @@ Upload images in the chat UI (`+` in the message box) or send `image_url` parts 
 
 Two experimental, off-by-default features for the llama.cpp chat server:
 
-- **Speculative decoding**: `BONSAI_SPECULATIVE=1` pairs the 27B with its dspark drafter. Measured on an L40S (CUDA): 1.8-2.4x faster decode for the ternary 27B and 1.4-1.75x for the 1-bit 27B, workload-dependent (code/math best). On Apple Silicon (Metal) it only pays off for ternary code/math (~1.2x) and is a net slowdown otherwise, so leave it off on Macs. Needs this demo's binaries. Trade-offs and verification: [SPECULATIVE.md](SPECULATIVE.md).
+- **Speculative decoding**: `BONSAI_SPECULATIVE=1` pairs the previous-generation `ternary` or `bonsai` 27B with its DSpark drafter. **Bonsai 2 27B has no official drafter yet**; the launcher warns and runs without speculation for that family. Measured on an L40S (CUDA): 1.8-2.4x faster decode for the ternary 27B and 1.4-1.75x for the 1-bit 27B, workload-dependent (code/math best). On Apple Silicon (Metal) it only pays off for ternary code/math (~1.2x) and is a net slowdown otherwise, so leave it off on Macs. Needs this demo's binaries. Trade-offs and verification: [SPECULATIVE.md](SPECULATIVE.md).
 - **4-bit KV cache**: `BONSAI_KV4=1` cuts KV-cache memory roughly 3.5x for very long contexts, with an optional calibration bias for better quality (`./scripts/make_kv_bias.sh`). Details: [KV-CACHE.md](KV-CACHE.md).
 - **Vision projector in RAM**: `BONSAI_MMPROJ_CPU=1` keeps the 27B's vision projector in system RAM instead of VRAM (`--no-mmproj-offload`), freeing ~0.9 GiB of VRAM for KV/context on tight cards. The cost is a slower image prompt (the projector runs on CPU); text-only chat is unaffected.
 
@@ -485,7 +490,7 @@ Requires Visual Studio Build Tools or full Visual Studio with C++ workload.
 
 ## llama.cpp Pre-built Binary Downloads
 
-All binaries are available from the [GitHub Release](https://github.com/PrismML-Eng/llama.cpp/releases/latest):
+All binaries are available from the pinned [GitHub Release](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b10709-9a9394a), also used by both setup scripts. The latest release may still be missing platform binaries while builds finish.
 
 | Platform                          |
 |-----------------------------------|
@@ -584,6 +589,14 @@ On M5 devices with certain macOS 26 point releases, the Metal tensor-API probe f
 GGML_METAL_TENSOR_DISABLE=1 ./scripts/run_llama.sh -p "Hello"
 ```
 
+
+### Windows setup selects Vulkan or CPU instead of CUDA
+
+**Symptom:** `setup.ps1` reports `[INFO] No GPU toolchain detected. Will use CPU build.` or selects Vulkan, even though `nvidia-smi` runs successfully and detects your NVIDIA GPU.
+
+**Cause:** Older versions of the setup script expected the header `CUDA Version:`. Some newer NVIDIA drivers instead report `CUDA UMD Version:`. The extra `UMD` prevented CUDA detection, causing setup to select another backend.
+
+This can leave you with binaries under `bin\vulkan` or `bin\cpu` rather than `bin\cuda`. On affected Bonsai 2 setups, users reported prompts stalling without processing any tokens instead of producing a clear error.
 
 ### CUDA source build runs out of memory or freezes
 

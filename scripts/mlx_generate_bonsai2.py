@@ -35,7 +35,9 @@ def read_manifest():
         if not line or line.startswith("#"):
             continue
         digest, name = line.split(None, 1)
-        entries[name.strip()] = digest
+        # a file may list more than one reviewed revision, so a re-pin does not break packs
+        # downloaded before it
+        entries.setdefault(name.strip(), set()).add(digest)
     return entries
 
 
@@ -65,8 +67,8 @@ def verify_runtime(runtime):
             problems.append(f"  {name}: in the manifest but missing from the pack")
         else:
             digest = hashlib.sha256((runtime / name).read_bytes()).hexdigest()
-            if digest != expected[name]:
-                problems.append(f"  {name}: {digest} does not match {expected[name]}")
+            if digest not in expected[name]:
+                problems.append(f"  {name}: {digest} does not match {' or '.join(sorted(expected[name]))}")
     if problems:
         sys.exit(
             "The pack's loader code does not match the revision this demo pinned, so it "
@@ -87,6 +89,7 @@ def main():
     parser.add_argument("--top-p", type=float, default=DEFAULTS["top_p"])
     parser.add_argument("--top-k", type=int, default=DEFAULTS["top_k"])
     parser.add_argument("--no-think", action="store_true", help="skip the thinking phase")
+    parser.add_argument("--stats", action="store_true", help="show prompt and generation tokens/sec")
     args = parser.parse_args()
 
     pack = Path(args.model).resolve()
@@ -150,6 +153,16 @@ def main():
     text = out if isinstance(out, str) else getattr(out, "text", str(out))
     print(text.strip())
     print(f"\n{DIM}{time.time() - started:.1f}s{RESET}", file=sys.stderr)
+    if args.stats and not isinstance(out, str):
+        print(
+            f"{DIM}Prompt: {out.prompt_tokens} tokens @ {out.prompt_tps:.2f} t/s{RESET}",
+            file=sys.stderr,
+        )
+        print(
+            f"{DIM}Generation: {out.generation_tokens} tokens @ {out.generation_tps:.2f} t/s{RESET}",
+            file=sys.stderr,
+        )
+        print(f"{DIM}Peak memory: {out.peak_memory:.2f} GB{RESET}", file=sys.stderr)
 
 
 if __name__ == "__main__":

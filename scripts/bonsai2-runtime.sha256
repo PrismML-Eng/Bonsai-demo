@@ -6,8 +6,10 @@
 #
 # Re-pin after a deliberate runtime/ change, from the demo root:
 #   shasum -a 256 models/Ternary-Bonsai-2-27B-mlx-2bit/runtime/*.py
-# and replace the lines below, keeping paths relative to runtime/.
+# and replace the lines below, keeping paths relative to runtime/. A file may keep more than
+# one line: every listed hash is accepted, so packs downloaded before a re-pin still load.
 5279718d7671bd799e866f53099e82b0260117fec811f83011ba47a0abc7943e  artifact.py
 7f7fd67637a7d9363eab8ebf7db59771830b690330ffef772379a0169ddb9608  codec.py
 30ad3905775040a8167360a009168b9ede1436cb02dc43e9e743432482eafbbf  runtime.py
 624e78d1fc7a0ddbaa637121ee823209c525b8e89f35fbc68d6d2f3f3fcfd87d  vision_artifact.py
+b3d9645300d913cc09abff04bf25f31621daac4d507e7e1a8b00a64442a05a3e  vision_artifact.py

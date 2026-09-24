@@ -58,7 +58,7 @@ All extra args pass straight through the start scripts, e.g.
 
 | Knob | What it does | Trade-off |
 |---|---|---|
-| `BONSAI_SPECULATIVE=1` (env, `start_llama_server.sh` only) | **Experimental.** Loads the paired DSpark drafter for speculative decoding (`--spec-type draft-dspark`). Post-migration (`prism-b10658+`) the drafter is the converted `*dspark-dflash*` sidecar (~0.6 GiB; embedding/lm_head shared with the target — one-time conversion documented in SPECULATIVE.md). Measured on an L40S: ternary 27B 1.8-2.4x decode (2.06x blended), 1-bit 27B 1.4-1.75x (1.60x blended). Off by default. | The drafter path is stable and fast on CUDA. On Apple Silicon (Metal) it only pays off for ternary code/math (~1.2x) and is a net slowdown on chat/reasoning and for the 1-bit family, so do not recommend it on Macs. Disables cross-request prompt-cache reuse (every turn re-prefills) and forces single-slot (`-np 1`); worse for multi-turn and the agentic Open WebUI path, which is why it is server-only and opt-in. The prebuilt binaries include both the dspark-capable `llama-server` and the CLI one-shot `llama-speculative-simple`. Details: SPECULATIVE.md. |
+| `BONSAI_SPECULATIVE=1` (env, `start_llama_server.sh` / `start_llama_server.ps1`) | **Experimental; previous-generation `ternary`/`bonsai` 27B only.** Bonsai 2 has no official DSpark drafter yet; its family launcher warns and runs without speculation. Loads the paired DSpark drafter for speculative decoding (`--spec-type draft-dspark`). Post-migration (`prism-b10658+`) the drafter is the converted `*dspark-dflash*` sidecar (~0.6 GiB; embedding/lm_head shared with the target — one-time conversion documented in SPECULATIVE.md). Measured on an L40S: ternary 27B 1.8-2.4x decode (2.06x blended), 1-bit 27B 1.4-1.75x (1.60x blended). Off by default. | The drafter path is stable and fast on CUDA. On Apple Silicon (Metal) it only pays off for ternary code/math (~1.2x) and is a net slowdown on chat/reasoning and for the 1-bit family, so do not recommend it on Macs. Disables cross-request prompt-cache reuse (every turn re-prefills) and forces single-slot (`-np 1`); worse for multi-turn and the agentic Open WebUI path, which is why it is server-only and opt-in. The prebuilt binaries include both the dspark-capable `llama-server` and the CLI one-shot `llama-speculative-simple`. Details: SPECULATIVE.md. |
 | `BONSAI_KV4=1` (env, `start_llama_server.sh` only) | **Experimental.** Q4_0 (4-bit) KV cache, ~3.5x smaller KV memory. Optional quality booster: `./scripts/make_kv_bias.sh` builds a model-specific mean-centering bias (tiny calibration corpus is enough; users can pass their own text) that the server picks up automatically. | Memory tool, not a speed tool: decode is slightly slower than F16 KV. The 27B's hybrid attention already keeps KV small, so only reach for this at very long contexts on tight machines. The bias is calibrated with K-rotation off and the script/server handle the matching flags automatically; llama.cpp backend only. Details: KV-CACHE.md. |
 | `--reasoning-budget N` | Caps thinking at N tokens (default -1 = unlimited) | Middle ground; pair with `--reasoning-budget-message` |
 | `--image-max-tokens N` | Downscales images to ~N vision tokens (1 token ~ 32x32 px). Model allows ~4096 (=4.2 MP) | The scripts default this to **1024 on Metal / Vulkan / CPU** and leave CUDA/ROCm uncapped; override with `BONSAI_IMAGE_MAX_TOKENS` (0 = uncapped). Loses fine detail (small text / OCR) on large images; images under the cap are unaffected |
@@ -164,6 +164,13 @@ Full guide with entry examples: **TOOLS.md** (repo root). The essentials:
 
 ## Behavior notes (from testing on Apple Silicon)
 
+- **Prompt reuse:** a disabled `--cache-reuse` warning is about chunk shifting, not
+  all prefix caching. Hybrid models can reuse context checkpoints with the projector
+  loaded. Check effective CLI flags before recommending cache changes; explicit flags
+  override `LLAMA_ARG_*` variables. Checkpoint creation also splits short prefills even
+  with request `cache_prompt: false`, so output hashes across checkpoint settings do
+  not isolate restore correctness. See [PROMPT-CACHE.md](PROMPT-CACHE.md).
+
 - Binary is the snappier demo; ternary trades speed for quality-per-bit. Both were
   tested working end to end (text, native tool_calls with round-trips, vision).
 - With thinking on, most of a "slow answer" is reasoning tokens, not vision or prefill —
@@ -189,7 +196,23 @@ Full guide with entry examples: **TOOLS.md** (repo root). The essentials:
 - **M5 Macs on macOS 26.2–26.4:** if Metal init fails with `error compiling source` /
   command-buffer status 5, set `GGML_METAL_TENSOR_DISABLE=1` (README Appendix — FAQ has
   details). Keep `-ngl` on GPU; don't reach for `BONSAI_NGL=0`.
-- Linux CUDA / Windows / CPU-only: not tested yet — extend these notes after testing.
+- Windows and CPU-only Linux: not tested yet — extend these notes after testing.
+
+## Linux CUDA setup notes (RTX 2080, 8 GB)
+
+Reported with Bonsai 2 27B `PTQ1_0` and release `prism-b10685-7dffb15`:
+
+- The tested CUDA build ran on Turing via PTX JIT; the first launch can take longer.
+  To inspect PTX support, use `cuobjdump --list-ptx`; `--list-elf` only lists cubins.
+- If startup reports missing `libcudart` or `libcublas`, check that the installed CUDA
+  runtime matches the binary's CUDA major version; the driver alone may not provide it.
+- On an 8 GB card, start with a smaller context and `-np 1`; lower `-b`/`-ub` if needed.
+  FP16 KV remains the default. If KV memory is still limiting, use our experimental
+  [mean-centered Q4_0 KV-cache workflow](KV-CACHE.md#better-quality-the-mean-centering-bias):
+  run `./scripts/make_kv_bias.sh` for the selected model, then launch with `BONSAI_KV4=1`
+  so the server loads the calibrated bias. Do not recommend plain Q4_0 cache flags alone.
+  For image input with limited VRAM, try `BONSAI_MMPROJ_CPU=1` to offload the projector
+  to system RAM. Vision was not tested in this submission.
 
 ## Quick verification commands
 

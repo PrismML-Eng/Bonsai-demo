@@ -130,7 +130,10 @@ if [ "$_full_profile" = "1" ]; then
     MD=""
     _spec_flags=""
     _ctx="$CTX_SIZE_DEFAULT"
-    if [ "${BONSAI_SPECULATIVE:-0}" = "1" ]; then
+    if [ "${BONSAI_SPECULATIVE:-0}" = "1" ] && [ "$BONSAI_FAMILY" = "bonsai2" ] && [ -z "${BONSAI_GGUF:-}" ]; then
+        warn "Bonsai 2 27B has no official DSpark drafter released yet; running without speculation."
+        echo "  Unset BONSAI_SPECULATIVE to hide this warning. See SPECULATIVE.md for availability."
+    elif [ "${BONSAI_SPECULATIVE:-0}" = "1" ]; then
         # v7 builds read only converted (arch=dflash) drafters; the published legacy
         # *dspark-Q4_1/bf16 files must be run through gguf-dspark-to-dflash first.
         # See SPECULATIVE.md for the two commands. Converted files keep "dspark-dflash"
