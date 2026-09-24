@@ -58,6 +58,33 @@ Quick Start below gets you there in two commands: `./setup.sh` downloads Bonsai 
 
 The earlier Bonsai families are still here, in smaller sizes too. See [Models](#models).
 
+## Best Practices (Bonsai 2 27B)
+
+These match the [model card](https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-gguf#best-practices). The start scripts already apply the thinking-mode sampling, so you only need these when calling the model from your own client.
+
+### Generation Parameters
+
+| | Thinking mode (default) | Instruct / non-thinking |
+|---|---|---|
+| `temperature` | 1.0 | 0.7 |
+| `top_p` | 0.95 | 0.80 |
+| `top_k` | 20 | 20 |
+| `min_p` | 0.05 | 0.0 |
+| `presence_penalty` | 0.0 | 1.5 |
+| `repetition_penalty` | 1.0 | 1.0 |
+
+`min_p=0.05` drops tokens far less likely than the top choice; in our tests it scored at least as well as `min_p=0.0` and followed instructions more reliably. It is also llama.cpp's default. Give the model a generous output limit (`-n 16384` or more, `max_tokens` for the API): it reasons before it answers, and a small cap ends generation mid-thought.
+
+**The model uses `xhigh` reasoning effort by default; use `medium` for shorter responses and a balance of speed and accuracy. `low` reasoning effort is not supported and when selected the model will behave close to `xhigh`.**
+
+### System Prompt
+
+A simple system prompt works well:
+
+```
+You are a helpful assistant
+```
+
 ## Quick Start
 
 For repeated conversations and prompt-cache troubleshooting, see
