@@ -39,7 +39,7 @@ A="$(cd "$(dirname "$0")" && pwd)"; DEMO_DIR="$(cd "$A/../.." && pwd)"
 VENV="$DEMO_DIR/.venv-hermes"; [ -x "$VENV/bin/python" ] || { echo "run ./scripts/agent/install_hermes.sh first"; exit 1; }
 UP="${AGENT_UPSTREAM:-127.0.0.1:8080}"; UPH=${UP%:*}; UPP=${UP##*:}
 case "$MODE" in
-  round0)   TASK="$DEMO_DIR/demos/skateboard/prompts/round0.md"; NAME=${2:-sk16_skateboard_1}; SEED_DIR=""; CFG_DEFAULT=hermes-config-round0.yaml ;;
+  round0)   TASK="$DEMO_DIR/demos/skateboard/recorded/prompts/round0.md"; NAME=${2:-sk16_skateboard_1}; SEED_DIR=""; CFG_DEFAULT=hermes-config-round0.yaml ;;
   feedback) PREV=${2:?previous run dir}; TASK=${3:?feedback .md}; NAME=${4:-$(basename "$PREV")_fb}; SEED_DIR="$PREV/workspace"; CFG_DEFAULT=hermes-config-feedback.yaml ;;
   task)     TASK=${2:?task .md}; NAME=${3:-task_$(date +%Y%m%dT%H%M%S)}; SEED_DIR=""; CFG_DEFAULT=hermes-config-round0.yaml ;;
   *) echo "unknown mode $MODE"; exit 1 ;;

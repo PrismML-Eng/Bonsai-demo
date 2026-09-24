@@ -6,19 +6,19 @@ loads it in a headless browser, plays it, looks at a screenshot, and ships it. T
 plain-English feedback. Everything here is what the model produced, unedited, and everything needed to
 run it again is in this folder.
 
-- Separate RTX PRO 6000 run: [Skatepark: from first draft to rider and controls](demos/skatepark-iteration/README.md), four rounds with recorded traces, playable results and a video.
-- 59-second clip: [`demos/skateboard/demo_clip_seed42_59s.mp4`](demos/skateboard/demo_clip_seed42_59s.mp4)
-- Skateboard, five rounds: [demos/skateboard_feedback/pages/](demos/skateboard_feedback/pages/) round0 to round4 · the brief and the four feedback lines: [demos/skateboard_feedback/prompts/](demos/skateboard_feedback/prompts/) · 75-second cut: [`demos/skateboard_feedback/skateboard_feedback_75s.mp4`](demos/skateboard_feedback/skateboard_feedback_75s.mp4)
-- Skateboard, one shot plus a flips round: [demos/skateboard_oneshot/pages/](demos/skateboard_oneshot/pages/) round0 and round1 · prompts: [demos/skateboard_oneshot/prompts/](demos/skateboard_oneshot/prompts/)
-- Playable pages: [round 0](demos/skateboard/pages/round0.html) · [round 1, flips and coins](demos/skateboard/pages/round1.html)
-- Replay page with the model's trace beside the game: [`demos/skateboard/replay/index.html`](demos/skateboard/replay/index.html) (open it from a clone; it embeds the trace and loads the pages above)
+- Separate RTX PRO 6000 run: [Skatepark: from first draft to rider and controls](demos/skateboard/skatepark-iteration/README.md), four rounds with recorded traces, playable results and a video.
+- 59-second clip: [`demos/skateboard/recorded/demo_clip_seed42_59s.mp4`](demos/skateboard/recorded/demo_clip_seed42_59s.mp4)
+- Skateboard, five rounds: [demos/skateboard/five_rounds/pages/](demos/skateboard/five_rounds/pages/) round0 to round4 · the brief and the four feedback lines: [demos/skateboard/five_rounds/prompts/](demos/skateboard/five_rounds/prompts/) · 75-second cut: [`demos/skateboard/five_rounds/skateboard_feedback_75s.mp4`](demos/skateboard/five_rounds/skateboard_feedback_75s.mp4)
+- Skateboard, another draw, round 0 and a flips round: [demos/skateboard/flips/pages/](demos/skateboard/flips/pages/) round0 and round1 · prompts: [demos/skateboard/flips/prompts/](demos/skateboard/flips/prompts/) · 45-second clip: [`demos/skateboard/flips/skateboard_flips_45s.mp4`](demos/skateboard/flips/skateboard_flips_45s.mp4)
+- Playable pages: [round 0](demos/skateboard/recorded/pages/round0.html) · [round 1, flips and coins](demos/skateboard/recorded/pages/round1.html)
+- Replay page with the model's trace beside the game: [`demos/skateboard/recorded/replay/index.html`](demos/skateboard/recorded/replay/index.html) (open it from a clone; it embeds the trace and loads the pages above)
 
 | round | prompt (verbatim) | result | calls | tokens | wall |
 |---|---|---|---|---|---|
 | 0 | `Make a simple 3d skateboard game in a single html file.` + `(Name the file skateboard.html in the current directory.)` | road, visible skater, trees, obstacles, distance HUD, game over and restart; the model verified it in its own browser | 8 | 23,239 | 4 min 8 s |
 | 1 | `can you make it so that we do flips/tricks in the air? also would be nice to have some coins to collect` | F front flip, R spin, coins with a counter, trick HUD | 17 | 40,919 | 7 min 45 s |
 
-The prompts are in [`demos/skateboard/prompts/`](demos/skateboard/prompts/). Feedback rounds hand the
+The prompts are in [`demos/skateboard/recorded/prompts/`](demos/skateboard/recorded/prompts/). Feedback rounds hand the
 model the previous round's `skateboard.html` in its working directory plus one sentence saying whose file it is.
 
 ## Run it
@@ -33,7 +33,7 @@ Node package that declares Node >= 24; the installer pins that version in `.agen
 
 ./scripts/start_agent_server.sh         # terminal 1: llama-server with the agent profile (below)
 ./scripts/agent/run_agent_demo.sh round0                                                        # terminal 2
-./scripts/agent/run_agent_demo.sh feedback agent-runs/sk16_skateboard_1     demos/skateboard/prompts/round1-feedback.md sk16_skateboard_1_fb1
+./scripts/agent/run_agent_demo.sh feedback agent-runs/sk16_skateboard_1     demos/skateboard/recorded/prompts/round1-feedback.md sk16_skateboard_1_fb1
 ```
 
 Hermes talks to llama-server directly; nothing sits in between and nothing in Hermes or llama.cpp is modified.
@@ -62,7 +62,7 @@ llama-server -m Ternary-Bonsai-2-27B-PQ2_0.gguf --mmproj Ternary-Bonsai-2-27B-mm
 
 | setting | value | why |
 |---|---|---|
-| sampling | temp 1.0 · top_p 0.95 · top_k 20 · min_p 0 · presence 0 · repeat 1.0 | the recorded values. The model card now recommends min_p 0.05 (llama.cpp's default); the agent profile keeps 0 to match the recording |
+| sampling | temp 1.0 · top_p 0.95 · top_k 20 · min_p 0 · presence 0 · repeat 1.0 | the recorded values. The launcher now defaults to min_p 0.05 (the model card's value, `AGENT_MIN_P`); start it with `AGENT_MIN_P=0` to match this recording |
 | reasoning | template default (`xhigh`), `--reasoning-format deepseek`, budget 16,384 thinking tokens per turn | thinking arrives in `reasoning_content`; Hermes sends only the visible answer back, so each turn thinks afresh. The budget caps runaway thinking |
 | context | 131,072 for the exact recording; `BONSAI_CTX=262144` recommended | at 131k Hermes compresses the history on long runs; at 262k it never did in our tests |
 | output | Hermes `max_tokens 32768` | the planning turn writes the whole page in one go and must fit |
@@ -79,7 +79,7 @@ settings, no proxy.
 
 | setting | value |
 |---|---|
-| server | `./scripts/start_agent_server.sh` defaults: 16k thinking budget, ctx 131,072, min-p 0.05, seed 42, one slot |
+| server | `./scripts/start_agent_server.sh` defaults: 16k thinking budget, ctx 131,072, min-p 0.05 (`AGENT_MIN_P`), seed 42, one slot |
 | runner | round 0 with `hermes-config-round0.yaml`, rounds 1-4 with `hermes-config-feedback.yaml` (max_tokens 32,768, xhigh) |
 
 | round | words sent to the agent | what came back | calls | wall |
@@ -98,17 +98,18 @@ What it does not show: that a fresh round 0 lands every time. At these defaults 
 round-0 draws on this machine produced a game, and open-ended asks ("make it visually impressive") are where the
 write runaways cluster. Bug reports land far more reliably than taste requests.
 
-## The skateboard, one shot plus a flips round
+## The skateboard, another draw: round 0 and a flips round
 
 A separate draw of the same brief at the same defaults (16k thinking budget, ctx 131,072, min-p 0.05, seed 42, no
-proxy). Round 0 produced a playable game on the first try; one line of feedback added tricks.
+proxy). This draw happened to produce a playable game in round 0; one line of feedback added tricks.
 
 | round | words sent to the agent | what came back | calls | wall |
 |---|---|---|---|---|
 | 0 | Make a simple 3d skateboard game in a single html file. | A playable three.js skateboard game with coins and obstacles, one self-contained file. | 55 | 22 min |
 | 1 | can you make it so that we can do flips/tricks in the air? | Rewritten with Space to ollie, Space held in the air to flip, Shift for a 360 spin, trick pop-ups and a combo multiplier, coins kept. The page was written at 7 minutes; the run then looped on capped turns and was stopped. | 7 to the page | 6 min |
 
-The same feedback reworded as "looks good. can we also do flips/tricks in the air?" on this same page produced a
+The clip is the brief, 31 seconds of round 0 played by hand, the feedback line, and 7 seconds of round 1 captured
+headless with a double flip. The same feedback reworded as "looks good. can we also do flips/tricks in the air?" on this same page produced a
 runaway and no change. Two words of difference in the prompt is a different draw.
 
 ## What to expect

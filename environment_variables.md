@@ -28,6 +28,7 @@ Every script in this repo is driven by environment variables — model selection
 | `BONSAI_KV4` | `0` | `1` | 4-bit (Q4_0) KV cache, ~3.5x less KV memory for very long contexts; decode slightly slower than F16. Optional calibration bias via `./scripts/make_kv_bias.sh`. [KV-CACHE.md](KV-CACHE.md) |
 | **Agentic demo (`start_agent_server.sh`, AGENT-DEMO.md)** | | | |
 | `AGENT_REASONING_BUDGET` | `16384` | tokens, `-1` = unlimited | Thinking budget per turn (`--reasoning-budget`); the server force-closes thinking at this count. |
+| `AGENT_MIN_P` | `0.05` | `0` to `1` | Sampler min-p for the agent profile; the model card's thinking-mode value. The skateboard recording used `0`. |
 | `AGENT_MODEL_ALIAS` | `bonsai2-27b-pq2-v16_2` | any id | Model id the server reports (`--alias`); part of the system prompt Hermes builds. |
 | `AGENT_SERVER_SEED` | `42` | integer, empty = none | Server-side sampler seed (`-s`). The demo runner expects it to equal `AGENT_SEED` unless it runs with `AGENT_TRACE=1`. |
 | `AGENT_UPSTREAM` | `127.0.0.1:8080` | `host:port` | (`run_agent_demo.sh`) The llama-server to drive; may be on another machine. |
