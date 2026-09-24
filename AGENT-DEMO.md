@@ -8,7 +8,7 @@ run it again is in this folder.
 
 - 59-second clip: [`demos/skateboard/demo_clip_seed42_59s.mp4`](demos/skateboard/demo_clip_seed42_59s.mp4)
 - Skateboard, five rounds: [demos/skateboard_feedback/pages/](demos/skateboard_feedback/pages/) round0 to round4 · the brief and the four feedback lines: [demos/skateboard_feedback/prompts/](demos/skateboard_feedback/prompts/) · 75-second cut: [`demos/skateboard_feedback/skateboard_feedback_75s.mp4`](demos/skateboard_feedback/skateboard_feedback_75s.mp4)
-- Skateboard, one shot plus a flips round: [demos/skateboard_oneshot/pages/](demos/skateboard_oneshot/pages/) round0 and round1 · prompts: [demos/skateboard_oneshot/prompts/](demos/skateboard_oneshot/prompts/)
+- Skateboard, another draw, round 0 and a flips round: [demos/skateboard_flips/pages/](demos/skateboard_flips/pages/) round0 and round1 · prompts: [demos/skateboard_flips/prompts/](demos/skateboard_flips/prompts/) · 45-second clip: [`demos/skateboard_flips/skateboard_flips_45s.mp4`](demos/skateboard_flips/skateboard_flips_45s.mp4)
 - Playable pages: [round 0](demos/skateboard/pages/round0.html) · [round 1, flips and coins](demos/skateboard/pages/round1.html)
 - Replay page with the model's trace beside the game: [`demos/skateboard/replay/index.html`](demos/skateboard/replay/index.html) (open it from a clone; it embeds the trace and loads the pages above)
 
@@ -78,7 +78,7 @@ settings, no proxy.
 
 | setting | value |
 |---|---|
-| server | `./scripts/start_agent_server.sh` defaults: 16k thinking budget, ctx 131,072, min-p 0.05, seed 42, one slot |
+| server | `./scripts/start_agent_server.sh --min-p 0.05`: 16k thinking budget, ctx 131,072, seed 42, one slot. The launcher itself still passes `--min-p 0` to match the recording; the trailing flag overrides it, and the runner records the server's props at launch |
 | runner | round 0 with `hermes-config-round0.yaml`, rounds 1-4 with `hermes-config-feedback.yaml` (max_tokens 32,768, xhigh) |
 
 | round | words sent to the agent | what came back | calls | wall |
@@ -93,21 +93,26 @@ What this shows: plain words are enough, specific complaints get fixed fast, vag
 and the loop still closes with a real game on a 2-bit model. The clip is rounds 0 to 3 captured from the saved pages
 and round 4 as a screen recording of the game being played.
 
+Known defect, kept as the agent wrote it: in rounds 3 and 4 the road mesh's index buffer is a `Float32Array`, which
+WebGL rejects, so the asphalt road is never drawn and the game plays on the tiled ground beside it. The pages in this
+repo are what the model produced, defects included; fixing that line by hand would make them something else.
+
 What it does not show: that a fresh round 0 lands every time. At these defaults roughly half of the skateboard
 round-0 draws on this machine produced a game, and open-ended asks ("make it visually impressive") are where the
 write runaways cluster. Bug reports land far more reliably than taste requests.
 
-## The skateboard, one shot plus a flips round
+## The skateboard, another draw: round 0 and a flips round
 
-A separate draw of the same brief at the same defaults (16k thinking budget, ctx 131,072, min-p 0.05, seed 42, no
-proxy). Round 0 produced a playable game on the first try; one line of feedback added tricks.
+A separate draw of the same brief at the same settings (16k thinking budget, ctx 131,072, `--min-p 0.05` passed to the
+launcher, seed 42, no proxy). This draw happened to produce a playable game in round 0; one line of feedback added tricks.
 
 | round | words sent to the agent | what came back | calls | wall |
 |---|---|---|---|---|
 | 0 | Make a simple 3d skateboard game in a single html file. | A playable three.js skateboard game with coins and obstacles, one self-contained file. | 55 | 22 min |
 | 1 | can you make it so that we can do flips/tricks in the air? | Rewritten with Space to ollie, Space held in the air to flip, Shift for a 360 spin, trick pop-ups and a combo multiplier, coins kept. The page was written at 7 minutes; the run then looped on capped turns and was stopped. | 7 to the page | 6 min |
 
-The same feedback reworded as "looks good. can we also do flips/tricks in the air?" on this same page produced a
+The clip is the brief, 31 seconds of round 0 played by hand, the feedback line, and 7 seconds of round 1 captured
+headless with a double flip. The same feedback reworded as "looks good. can we also do flips/tricks in the air?" on this same page produced a
 runaway and no change. Two words of difference in the prompt is a different draw.
 
 ## What to expect
