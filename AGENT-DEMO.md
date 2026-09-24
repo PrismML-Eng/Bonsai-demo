@@ -6,19 +6,19 @@ loads it in a headless browser, plays it, looks at a screenshot, and ships it. T
 plain-English feedback. Everything here is what the model produced, unedited, and everything needed to
 run it again is in this folder.
 
-- Separate RTX PRO 6000 run: [Skatepark: from first draft to rider and controls](demos/skateboard/skatepark-iteration/README.md), four rounds with recorded traces, playable results and a video.
-- 59-second clip: [`demos/skateboard/recorded/demo_clip_seed42_59s.mp4`](demos/skateboard/recorded/demo_clip_seed42_59s.mp4)
-- Skateboard, five rounds: [demos/skateboard/five_rounds/pages/](demos/skateboard/five_rounds/pages/) round0 to round4 · the brief and the four feedback lines: [demos/skateboard/five_rounds/prompts/](demos/skateboard/five_rounds/prompts/) · 75-second cut: [`demos/skateboard/five_rounds/skateboard_feedback_75s.mp4`](demos/skateboard/five_rounds/skateboard_feedback_75s.mp4)
-- Skateboard, another draw, round 0 and a flips round: [demos/skateboard/flips/pages/](demos/skateboard/flips/pages/) round0 and round1 · prompts: [demos/skateboard/flips/prompts/](demos/skateboard/flips/prompts/) · 45-second clip: [`demos/skateboard/flips/skateboard_flips_45s.mp4`](demos/skateboard/flips/skateboard_flips_45s.mp4)
-- Playable pages: [round 0](demos/skateboard/recorded/pages/round0.html) · [round 1, flips and coins](demos/skateboard/recorded/pages/round1.html)
-- Replay page with the model's trace beside the game: [`demos/skateboard/recorded/replay/index.html`](demos/skateboard/recorded/replay/index.html) (open it from a clone; it embeds the trace and loads the pages above)
+- Separate RTX PRO 6000 run: [Skatepark: from first draft to rider and controls](demos/skateboard/night-skatepark/README.md), four rounds with recorded traces, playable results and a video.
+- 59-second clip: [`demos/skateboard/skate-runner/demo_clip_seed42_59s.mp4`](demos/skateboard/skate-runner/demo_clip_seed42_59s.mp4)
+- Skateboard, five rounds: [demos/skateboard/skate-city/pages/](demos/skateboard/skate-city/pages/) round0 to round4 · the brief and the four feedback lines: [demos/skateboard/skate-city/prompts/](demos/skateboard/skate-city/prompts/) · 75-second cut: [`demos/skateboard/skate-city/skateboard_feedback_75s.mp4`](demos/skateboard/skate-city/skateboard_feedback_75s.mp4)
+- Skateboard, another draw, round 0 and a flips round: [demos/skateboard/skate-rush/pages/](demos/skateboard/skate-rush/pages/) round0 and round1 · prompts: [demos/skateboard/skate-rush/prompts/](demos/skateboard/skate-rush/prompts/) · 45-second clip: [`demos/skateboard/skate-rush/skateboard_flips_45s.mp4`](demos/skateboard/skate-rush/skateboard_flips_45s.mp4)
+- Playable pages: [round 0](demos/skateboard/skate-runner/pages/round0.html) · [round 1, flips and coins](demos/skateboard/skate-runner/pages/round1.html)
+- Replay page with the model's trace beside the game: [`demos/skateboard/skate-runner/replay/index.html`](demos/skateboard/skate-runner/replay/index.html) (open it from a clone; it embeds the trace and loads the pages above)
 
 | round | prompt (verbatim) | result | calls | tokens | wall |
 |---|---|---|---|---|---|
 | 0 | `Make a simple 3d skateboard game in a single html file.` + `(Name the file skateboard.html in the current directory.)` | road, visible skater, trees, obstacles, distance HUD, game over and restart; the model verified it in its own browser | 8 | 23,239 | 4 min 8 s |
 | 1 | `can you make it so that we do flips/tricks in the air? also would be nice to have some coins to collect` | F front flip, R spin, coins with a counter, trick HUD | 17 | 40,919 | 7 min 45 s |
 
-The prompts are in [`demos/skateboard/recorded/prompts/`](demos/skateboard/recorded/prompts/). Feedback rounds hand the
+The prompts are in [`demos/skateboard/skate-runner/prompts/`](demos/skateboard/skate-runner/prompts/). Feedback rounds hand the
 model the previous round's `skateboard.html` in its working directory plus one sentence saying whose file it is.
 
 ## Run it
@@ -33,7 +33,7 @@ Node package that declares Node >= 24; the installer pins that version in `.agen
 
 ./scripts/start_agent_server.sh         # terminal 1: llama-server with the agent profile (below)
 ./scripts/agent/run_agent_demo.sh round0                                                        # terminal 2
-./scripts/agent/run_agent_demo.sh feedback agent-runs/sk16_skateboard_1     demos/skateboard/recorded/prompts/round1-feedback.md sk16_skateboard_1_fb1
+./scripts/agent/run_agent_demo.sh feedback agent-runs/sk16_skateboard_1     demos/skateboard/skate-runner/prompts/round1-feedback.md sk16_skateboard_1_fb1
 ```
 
 Hermes talks to llama-server directly; nothing sits in between and nothing in Hermes or llama.cpp is modified.
