@@ -1,0 +1,171 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FIFA World Cup 2026 — Knockout Bracket</title><style>
+:root{--bg:#050c0a;--card:#101f1b;--line:rgba(110,235,185,.16);--line2:rgba(110,235,185,.5);
+--txt:#dceae4;--dim:#7f988e;--gold:#ffd34a;--green:#3dd87f}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{background:radial-gradient(1100px 650px at 50% -12%,#123a2e,#050c0a 60%);color:var(--txt);
+font-family:'Segoe UI',system-ui,-apple-system,Helvetica,sans-serif;overflow:hidden}
+header{position:fixed;top:0;left:0;right:0;z-index:50;background:linear-gradient(180deg,rgba(5,12,10,.92),rgba(5,12,10,.35));
+padding:12px 20px 16px;display:flex;flex-wrap:wrap;align-items:center;gap:8px;justify-content:center}
+h1{font-size:1.35rem;font-weight:800;letter-spacing:.02em;text-shadow:0 0 18px rgba(61,216,127,.35)}
+h1 .sub{color:var(--gold);font-weight:700}
+.champ{margin-left:8px;font-weight:700;color:var(--gold);border:1px solid rgba(255,211,74,.5);
+padding:3px 12px;border-radius:999px;background:rgba(255,211,74,.08);font-size:.85rem}
+.legend{color:var(--dim);font-size:.78rem}
+.wrap{position:absolute;inset:0;overflow:auto}
+#stage{position:relative;margin:64px auto 80px;width:2560px;min-height:1340px}
+.col{position:absolute;z-index:1;transform:translateX(-50%);font-size:.7rem;font-weight:800;
+letter-spacing:.1em;color:var(--gold);text-transform:uppercase;white-space:nowrap;padding-bottom:6px}
+.col.spread{letter-spacing:.3em}
+.card{position:absolute;z-index:2;width:190px;height:60px;border-radius:11px;
+background:linear-gradient(160deg,rgba(255,255,255,.05),transparent);border:1px solid var(--line);
+cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+font-size:.82rem;font-weight:700;transition:transform .18s,box-shadow .18s,border-color .18s;overflow:hidden}
+.card:hover{transform:translateY(-3px);border-color:var(--line2);
+box-shadow:0 10px 28px rgba(0,0,0,.5),0 0 0 1px rgba(110,235,185,.35)}
+.card.win{border-color:var(--green);box-shadow:0 0 0 1px var(--green),0 0 22px rgba(61,216,127,.25)}
+.card.final{width:190px;height:74px;font-size:.9rem;border-color:var(--gold);
+background:linear-gradient(160deg,rgba(255,211,74,.14),transparent);
+box-shadow:0 0 0 2px var(--gold),0 0 40px rgba(255,211,74,.3)}
+.card.final:hover{transform:translateY(-3px)}
+.teams{display:flex;flex-direction:column;align-items:stretch;width:100%;justify-content:center}
+.team{display:flex;justify-content:space-between;align-items:center;font-weight:700;letter-spacing:.02em}
+.team .flag{margin-right:7px;font-size:1.15rem}
+.team .score{font-variant-numeric:tabular-nums;color:#fff;min-width:2ch;text-align:right}
+.team.away .score{color:var(--dim)}
+.team.winner{color:var(--gold)}
+.team.winner .score{color:var(--gold)}
+.note{font-size:.62rem;letter-spacing:.05em;color:var(--gold);font-weight:700}
+.venue{position:absolute;left:8px;bottom:1px;font-size:.58rem;color:var(--dim);max-width:128px;
+overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+svg{position:absolute;z-index:1;left:0;top:0;pointer-events:none}
+path{fill:none;stroke:rgba(110,235,185,.35);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.path3{stroke:rgba(255,211,74,.5);stroke-dasharray:3 5}
+#overlay{position:fixed;inset:0;z-index:100;background:rgba(2,8,7,.84);backdrop-filter:blur(6px);
+display:none;align-items:center;justify-content:center}
+#overlay.open{display:flex;animation:fade .2s}
+@keyframes fade{from{opacity:0}}
+#modal{position:relative;background:linear-gradient(160deg,#142721,#0a1512);border:1px solid var(--line2);
+border-radius:18px;padding:26px 30px;max-width:420px;width:92vw;box-shadow:0 24px 70px rgba(0,0,0,.7)}
+#modal h2{font-size:.7rem;color:var(--gold);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;display:flex;justify-content:space-between}
+#modal .roundname{font-size:1.08rem;font-weight:800;margin-bottom:14px}
+#modal .pair{display:flex;flex-direction:column;gap:10px}
+#modal .row{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:10px;
+background:rgba(255,255,255,.04);border:1px solid var(--line)}
+#modal .row.winner{border-color:var(--green);background:rgba(61,216,127,.1)}
+#modal .flag{margin-right:8px}
+#modal .nm{font-weight:700;font-size:.95rem}
+#modal .sc{font-weight:800;color:var(--gold);font-variant-numeric:tabular-nums;font-size:1.1rem}
+#modal .winner{color:var(--gold);font-size:.7rem;font-weight:700;letter-spacing:.06em;margin:8px 0 4px}
+#modal .meta{color:var(--dim);font-size:.8rem;margin-top:12px;display:flex;gap:14px;flex-wrap:wrap}
+#modal .meta b{color:var(--txt)}
+#close{position:absolute;top:14px;right:14px;font-size:1.4rem;color:var(--dim);cursor:pointer;background:none;border:0}
+#close:hover{color:var(--gold)}
+footer{position:fixed;bottom:0;left:0;right:0;z-index:50;background:linear-gradient(0deg,rgba(5,12,10,.9));
+padding:8px;color:var(--dim);font-size:.72rem;text-align:center}
+footer b{color:var(--green)}
+@media(max-width:900px){body{overflow:auto}#stage{transform:scale(.45);transform-origin:top center;position:absolute;top:70px;left:0}
+header{font-size:.85rem}h1{font-size:.95rem}.champ{display:none}}
+</style></head><body>
+<header>
+  <h1>⚽ FIFA World Cup 2026 <span class="sub">Knockout Stage</span></h1>
+  <span class="champ">🏆 Spain champions · Argentina runners-up</span>
+  <span class="legend">Click a match card · <b>green</b> = winner · <b>gold</b> = final</span>
+</header>
+<div class="wrap"><div id="stage"></div><svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg></div>
+<footer>Source: Wikipedia — 2026 FIFA World Cup knockout stage · <b>data/worldcup2026.json</b> · 48-team tournament</footer>
+
+<div id="overlay"><div id="modal">
+  <button id="close" aria-label="Close">×</button>
+  <h2><span class="rnd" id="rnd"></span><span id="mdate"></span></h2>
+  <div class="roundname" id="roundname"></div>
+  <div id="mbody"></div>
+  <div class="meta"><span id="mvenue"></span></div>
+</div></div>
+
+<script>
+(function(){
+ var D = {"matches":[{"id":"R32-01","round":"R32","short":"R32","label":"Round of 32","kids":[],"side":"U","row":0,"home":"GER","away":"PAR","hs":1,"as":1,"pk":{"h":3,"a":4},"note":"PK","winner":"PAR","date":"2026-06-29","venue":"Foxborough, Massachusetts"},{"id":"R32-02","round":"R32","short":"R32","label":"Round of 32","kids":[],"side":"U","row":1,"home":"FRA","away":"SWE","hs":3,"as":0,"pk":null,"note":null,"winner":"FRA","date":"2026-06-30","venue":"East Rutherford, New Jersey"},{"id":"R32-03","round":"R32","short":"R32","label":"Round of 32","kids":[],"side":"U","row":2,"home":"RSA","away":"CAN","hs":0,"as":1,"pk":null,"note":null,"winner":"CAN","date":"2026-06-28","venue":"Inglewood, California"},{"id":"R32-04","round":"R32","short":"R32","label":"Round of 32","kids":[],"side":"U","row":3,"home":"NED","away":"MAR","hs":1,"as":1,"pk":{"h":2,"a":3},"note":"PK","winner":"MAR","date":"2026-06-29","venue":"Guadalupe, Nuevo Leon"},{"id":"R32-05","round":"R32","short":"R32","label":"Round of 32","kids":[],"side":"U","row":4,"home":"POR","away":"CRO","hs":2,"as":1,"pk":null,"note":null,"winner":"POR","date":"2026-07-02","venue":"Toronto"},{"id":"R32-06","round":"R32","short":"R32","label":"Round of 32","kids":[],"side":"U","row":5,"home":"ESP","away":"AUT","hs":3,"as":0,"pk":null,"note":null,"winner":"ESP","date":"2026-07-02","venue":"Inglewood, California"},{"id":"R32-07","round":"R32","short":"R32","label":"Round of 32","kids":[],"side":"U","row":6,"home":"USA","away":"BIH","hs":2,"as":0,"pk":null,"note":null,"winner":"USA","date":"2026-07-01","venue":"Santa Clara, California"},{"id":"R32-08","round":"R32","short":"R32","label":"Round of 32","kids":[],"side":"U","row":7,"home":"BEL","away":"SEN","hs":3,"as":2,"pk":null,"note":"AET","winner":"BEL","date":"2026-07-01","venue":"Seattle"},{"id":"R32-09","round":"R32","short":"R32","label":"Round of 32","kids":[],"side":"L","row":8,"home":"BRA","away":"JPN","hs":2,"as":1,"pk":null,"note":null,"winner":"BRA","date":"2026-06-29","venue":"Houston"},{"id":"R32-10","round":"R32","short":"R32","label":"Round of 32","kids":[],"side":"L","row":9,"home":"CIV","away":"NOR","hs":1,"as":2,"pk":null,"note":null,"winner":"NOR","date":"2026-06-30","venue":"Arlington, Texas"},{"id":"R32-11","round":"R32","short":"R32","label":"Round of 32","kids":[],"side":"L","row":10,"home":"MEX","away":"ECU","hs":2,"as":0,"pk":null,"note":null,"winner":"MEX","date":"2026-06-30","venue":"Mexico City"},{"id":"R32-12","round":"R32","short":"R32","label":"Round of 32","kids":[],"side":"L","row":11,"home":"ENG","away":"COD","hs":2,"as":1,"pk":null,"note":null,"winner":"ENG","date":"2026-07-01","venue":"Atlanta"},{"id":"R32-13","round":"R32","short":"R32","label":"Round of 32","kids":[],"side":"L","row":12,"home":"ARG","away":"CPV","hs":3,"as":2,"pk":null,"note":"AET","winner":"ARG","date":"2026-07-03","venue":"Miami Gardens, Florida"},{"id":"R32-14","round":"R32","short":"R32","label":"Round of 32","kids":[],"side":"L","row":13,"home":"AUS","away":"EGY","hs":1,"as":1,"pk":{"h":2,"a":4},"note":"PK","winner":"EGY","date":"2026-07-03","venue":"Arlington, Texas"},{"id":"R32-15","round":"R32","short":"R32","label":"Round of 32","kids":[],"side":"L","row":14,"home":"SUI","away":"ALG","hs":2,"as":0,"pk":null,"note":null,"winner":"SUI","date":"2026-07-02","venue":"Vancouver"},{"id":"R32-16","round":"R32","short":"R32","label":"Round of 32","kids":[],"side":"L","row":15,"home":"COL","away":"GHA","hs":1,"as":0,"pk":null,"note":null,"winner":"COL","date":"2026-07-03","venue":"Kansas City, Missouri"},{"id":"R16-01","round":"R16","short":"R16","label":"Round of 16","kids":["R32-01","R32-02"],"side":"U","row":0.5,"home":"PAR","away":"FRA","hs":0,"as":1,"pk":null,"note":null,"winner":"FRA","date":"2026-07-04","venue":"Philadelphia"},{"id":"R16-02","round":"R16","short":"R16","label":"Round of 16","kids":["R32-03","R32-04"],"side":"U","row":2.5,"home":"CAN","away":"MAR","hs":0,"as":3,"pk":null,"note":null,"winner":"MAR","date":"2026-07-04","venue":"Houston"},{"id":"R16-03","round":"R16","short":"R16","label":"Round of 16","kids":["R32-05","R32-06"],"side":"U","row":4.5,"home":"POR","away":"ESP","hs":0,"as":1,"pk":null,"note":null,"winner":"ESP","date":"2026-07-06","venue":"Arlington, Texas"},{"id":"R16-04","round":"R16","short":"R16","label":"Round of 16","kids":["R32-07","R32-08"],"side":"U","row":6.5,"home":"USA","away":"BEL","hs":1,"as":4,"pk":null,"note":null,"winner":"BEL","date":"2026-07-06","venue":"Seattle"},{"id":"R16-05","round":"R16","short":"R16","label":"Round of 16","kids":["R32-09","R32-10"],"side":"L","row":8.5,"home":"BRA","away":"NOR","hs":1,"as":2,"pk":null,"note":null,"winner":"NOR","date":"2026-07-05","venue":"East Rutherford, New Jersey"},{"id":"R16-06","round":"R16","short":"R16","label":"Round of 16","kids":["R32-11","R32-12"],"side":"L","row":10.5,"home":"MEX","away":"ENG","hs":2,"as":3,"pk":null,"note":null,"winner":"ENG","date":"2026-07-05","venue":"Mexico City"},{"id":"R16-07","round":"R16","short":"R16","label":"Round of 16","kids":["R32-13","R32-14"],"side":"L","row":12.5,"home":"ARG","away":"EGY","hs":3,"as":2,"pk":null,"note":null,"winner":"ARG","date":"2026-07-07","venue":"Atlanta"},{"id":"R16-08","round":"R16","short":"R16","label":"Round of 16","kids":["R32-15","R32-16"],"side":"L","row":14.5,"home":"SUI","away":"COL","hs":0,"as":0,"pk":{"h":4,"a":3},"note":"PK","winner":"SUI","date":"2026-07-07","venue":"Vancouver"},{"id":"QF-01","round":"QF","short":"QF","label":"Quarterfinals","kids":["R16-01","R16-02"],"side":"U","row":1.5,"home":"FRA","away":"MAR","hs":2,"as":0,"pk":null,"note":null,"winner":"FRA","date":"2026-07-09","venue":"Foxborough, Massachusetts"},{"id":"QF-02","round":"QF","short":"QF","label":"Quarterfinals","kids":["R16-03","R16-04"],"side":"U","row":5.5,"home":"ESP","away":"BEL","hs":2,"as":1,"pk":null,"note":null,"winner":"ESP","date":"2026-07-10","venue":"Inglewood, California"},{"id":"QF-03","round":"QF","short":"QF","label":"Quarterfinals","kids":["R16-05","R16-06"],"side":"L","row":9.5,"home":"NOR","away":"ENG","hs":1,"as":2,"pk":null,"note":"AET","winner":"ENG","date":"2026-07-11","venue":"Miami Gardens, Florida"},{"id":"QF-04","round":"QF","short":"QF","label":"Quarterfinals","kids":["R16-07","R16-08"],"side":"L","row":13.5,"home":"ARG","away":"SUI","hs":3,"as":1,"pk":null,"note":"AET","winner":"ARG","date":"2026-07-11","venue":"Kansas City, Missouri"},{"id":"SF-01","round":"SF","short":"SF","label":"Semifinals","kids":["QF-01","QF-02"],"side":"U","row":3.5,"home":"FRA","away":"ESP","hs":0,"as":2,"pk":null,"note":null,"winner":"ESP","date":"2026-07-14","venue":"Arlington, Texas"},{"id":"SF-02","round":"SF","short":"SF","label":"Semifinals","kids":["QF-03","QF-04"],"side":"L","row":11.5,"home":"ENG","away":"ARG","hs":1,"as":2,"pk":null,"note":null,"winner":"ARG","date":"2026-07-15","venue":"Atlanta"},{"id":"3P-01","round":"3P","short":"3rd","label":"Third place","kids":[],"side":null,"row":null,"home":"FRA","away":"ENG","hs":4,"as":6,"pk":null,"note":null,"winner":"ENG","date":"2026-07-18","venue":"Miami Gardens, Florida"},{"id":"FINAL-01","round":"FINAL","short":"FINAL","label":"Final","kids":["SF-01","SF-02"],"side":null,"row":7.5,"home":"ESP","away":"ARG","hs":1,"as":0,"pk":null,"note":"AET","winner":"ESP","date":"2026-07-19","venue":"East Rutherford, New Jersey"}],"flags":{"GER":"🇩🇪","FRA":"🇫🇷","RSA":"🇿🇦","CAN":"🇨🇦","NED":"🇳🇱","MAR":"🇲🇦","POR":"🇵🇹","CRO":"🇭🇷","ESP":"🇪🇸","AUT":"🇦🇹","USA":"🇺🇸","BIH":"🇧🇦","BEL":"🇧🇪","SEN":"🇸🇳","BRA":"🇧🇷","JPN":"🇯🇵","CIV":"🇨🇮","NOR":"🇳🇴","MEX":"🇲🇽","ECU":"🇪🇨","ENG":"🇬🇧","COD":"🇨🇩","ARG":"🇦🇷","CPV":"🇨🇻","AUS":"🇦🇺","EGY":"🇪🇬","SUI":"🇨🇭","ALG":"🇩🇿","COL":"🇨🇴","GHA":"🇬🇭","SWE":"🇸🇪"},"roundLabel":{"R32":"Round of 32","R16":"Round of 16","QF":"Quarterfinals","SF":"Semifinals","3P":"Third place","FINAL":"Final"},"teams":{"GER":"Germany","FRA":"France","RSA":"South Africa","CAN":"Canada","NED":"Netherlands","MAR":"Morocco","POR":"Portugal","CRO":"Croatia","ESP":"Spain","AUT":"Austria","USA":"United States","BIH":"Bosnia & Herzegovina","BEL":"Belgium","SEN":"Senegal","BRA":"Brazil","JPN":"Japan","CIV":"Cote dIvoire","NOR":"Norway","MEX":"Mexico","ECU":"Ecuador","ENG":"England","COD":"DR Congo","ARG":"Argentina","CPV":"Cape Verde","AUS":"Australia","EGY":"Egypt","SUI":"Switzerland","ALG":"Algeria","COL":"Colombia","GHA":"Ghana","SWE":"Sweden"}};
+ var stage = document.getElementById('stage'), svg = document.getElementById('svg');
+ var H = 76, CW = 190, CH = 60, FX = 1160;
+ var COL = {"R32":{"U":36,"L":2280},"R16":{"U":416,"L":1920},"QF":{"U":566,"L":1670},"SF":{"U":716,"L":1520}};
+ var byId = {}; D.matches.forEach(function(m){byId[m.id]=m;});
+ function rowY(row){return (row+0.5)*H - CH/2;}
+ function dateNice(s){var d=new Date(s+'T12:00:00');return d.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});}
+ function rowTpl(m,code,sc,isWin){
+   var flag = D.flags[code]||''; var nm = D.teams[code]||code;
+   return '<div class="row '+(isWin?'winner':'')+'><span><span class="flag">'+flag+'</span><span class="nm">'+nm+'</span></span><span class="sc">'+sc+'</span></div>';
+ }
+ D.matches.forEach(function(m){
+   var isFinal = m.round==='FINAL', is3P = m.round==='3P';
+   var x, y;
+   if(is3P){ x = FX; y = 8*H + 40; }
+   else if(isFinal){ x = FX; y = 3.5*H - 14; }
+   else { x = COL[m.round][m.side]; y = rowY(m.row); }
+   var c = document.createElement('div');
+   c.className = 'card'+(isFinal?' final':'')+(m.winner?' win':'');
+   c.id = 'card-'+m.id; c.setAttribute('tabindex','0');
+   c.innerHTML =
+     '<div class="teams">' +
+       '<div class="team '+(m.winner===m.home?'winner':'')+'"><span><span class="flag">'+(D.flags[m.home]||'')+'</span>'+(D.teams[m.home]||m.home)+'</span><span class="score">'+m.hs+'</span></div>' +
+       '<div class="team away '+(m.winner===m.away?'winner':'')+'"><span><span class="flag">'+(D.flags[m.away]||'')+'</span>'+(D.teams[m.away]||m.away)+'</span><span class="score">'+m.as+'</span></div>' +
+     '</div>' +
+     '<div class="note">'+(m.note?m.note:'')+'</div>' +
+     '<span class="venue">'+(is3P?'':(m.venue||''))+'</span>';
+   stage.appendChild(c); c.style.left = x+'px'; c.style.top = y+'px';
+   var kids = m.kids;
+   var myCY = (isFinal)? y+37 : (is3P)? y+CH/2 : y+CH/2;
+   if(kids.length===2){
+     var a = byId[kids[0]], b = byId[kids[1]];
+     var ay = rowY(a.row), by = rowY(b.row);
+     var ax = COL[a.round][a.side] + CW;
+     var bx = COL[b.round][b.side] + CW;
+     var join = (a.side==='L') ? x+CW-4 : x+4;
+     var d = 'M'+ax+' '+ay+' L'+join+' '+ay +
+             'M'+bx+' '+by+' L'+join+' '+by +
+             'M'+join+' '+Math.min(ay,by)+' L'+join+' '+Math.max(ay,by) +
+             'M'+join+' '+myCY+' L'+(a.side==='L'?x+CW-6:x+6)+' '+myCY;
+     var p = document.createElementNS('http://www.w3.org/2000/svg','path');
+     p.setAttribute('d',d); if(is3P) p.classList.add('path3'); svg.appendChild(p);
+   }
+   function open(){ showModal(m); }
+   c.addEventListener('click', open);
+   c.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); open(); } });
+ });
+ var lab = {R32:[36,2280],R16:[416,1920],QF:[566,1670],SF:[716,1520]};
+ Object.keys(lab).forEach(function(r){
+   ['U','L'].forEach(function(s){
+     var idx = ['U','L'].indexOf(s);
+     var x = lab[r][idx];
+     var e = document.createElement('div'); e.className='col';
+     e.textContent = D.roundLabel[r];
+     e.style.left = (x+CW/2)+'px'; e.style.top='0px';
+     stage.appendChild(e);
+   });
+ });
+ var ef = document.createElement('div'); ef.className='col spread'; ef.textContent = 'FINAL';
+ ef.style.left = (FX+CW/2)+'px'; ef.style.top='0px'; stage.appendChild(ef);
+ stage.appendChild(svg); svg.setAttribute('viewBox','0 0 2560 1400');
+ svg.setAttribute('width','2560'); svg.setAttribute('height','1400');
+ var overlay = document.getElementById('overlay'), close = document.getElementById('close');
+ function showModal(m){
+   document.querySelector('#modal .roundname').textContent = m.label;
+   document.querySelector('#modal h2 .rnd').textContent = m.short;
+   document.getElementById('mdate').textContent = dateNice(m.date);
+   document.getElementById('mvenue').textContent = (m.venue || (m.round==='FINAL'?'MetLife Stadium · East Rutherford, NJ':''));
+   var winRow = m.winner===m.home ? rowTpl(m,m.home,m.hs,true) + rowTpl(m,m.away,m.as,false)
+                                   : rowTpl(m,m.home,m.hs,false) + rowTpl(m,m.away,m.as,true);
+   var wLine = m.winner ? '<div class="winner">WINNER&nbsp;·&nbsp;'+(D.teams[m.winner]||m.winner)+' '+(D.flags[m.winner]||'')+'</div>' : '';
+   var pk = m.pk ? ' <b>Penalty shoot-out '+m.pk.h+'–'+m.pk.a+'</b>' : '';
+   document.getElementById('mbody').innerHTML = '<div class="pair">'+winRow+'</div>'+wLine+pk;
+   overlay.classList.add('open');
+ }
+ function closeM(){ overlay.classList.remove('open'); }
+ close.addEventListener('click',closeM);
+ overlay.addEventListener('click',function(e){ if(e.target===overlay) closeM(); });
+ document.addEventListener('keydown',function(e){ if(e.key==='Escape') closeM(); });
+ var fin = document.getElementById('card-FINAL-01');
+ if(fin) setTimeout(function(){ fin.scrollIntoView({block:'center'}); },300);
+})();
+</script></body></html>

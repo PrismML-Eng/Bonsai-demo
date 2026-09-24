@@ -1,13 +1,15 @@
 # Agentic demo: Bonsai 2 builds a skateboard game
 
 Bonsai 2 27B, running as a 2-bit GGUF on one GPU through this repo's llama.cpp fork, driving the
-[Hermes](https://github.com/NousResearch/hermes-agent) agent: it writes a 3D game from a two-line brief,
-loads it in a headless browser, plays it, looks at a screenshot, and ships it. Then it takes a round of
-plain-English feedback. Everything here is what the model produced, unedited, and everything needed to
+[Hermes](https://github.com/NousResearch/hermes-agent) agent. Two examples: a 3D skateboard game from a two-line brief
+plus a round of plain-English feedback, and a FIFA World Cup 2026 knockout bracket for which the agent fetches the
+results from the web itself. In both it loads its page in a headless browser, checks it, and ships it. Everything here is what the model produced, unedited, and everything needed to
 run it again is in this folder.
 
 - 59-second clip: [`demos/skateboard/demo_clip_seed42_59s.mp4`](demos/skateboard/demo_clip_seed42_59s.mp4)
 - Playable pages: [round 0](demos/skateboard/pages/round0.html) · [round 1, flips and coins](demos/skateboard/pages/round1.html)
+- World Cup bracket: [demos/worldcup/pages/round0.html](demos/worldcup/pages/round0.html) · its trace: [demos/worldcup/replay/index.html](demos/worldcup/replay/index.html) · data the agent saved: [demos/worldcup/data/](demos/worldcup/data/)
+- 31-second World Cup clip (the trace at 24x, then three match cards opened): [`demos/worldcup/demo_clip_worldcup_31s.mp4`](demos/worldcup/demo_clip_worldcup_31s.mp4)
 - Replay page with the model's trace beside the game: [`demos/skateboard/replay/index.html`](demos/skateboard/replay/index.html) (open it from a clone; it embeds the trace and loads the pages above)
 
 | round | prompt (verbatim) | result | calls | tokens | wall |
@@ -31,6 +33,10 @@ Node package that declares Node >= 24; the installer pins that version in `.agen
 ./scripts/start_agent_server.sh         # terminal 1: llama-server with the agent profile (below)
 ./scripts/agent/run_agent_demo.sh round0                                                        # terminal 2
 ./scripts/agent/run_agent_demo.sh feedback agent-runs/sk16_skateboard_1     demos/skateboard/prompts/round1-feedback.md sk16_skateboard_1_fb1
+
+# World Cup bracket (needs the full context; start the server with BONSAI_CTX=262144 and pass AGENT_CTX=262144)
+BONSAI_CTX=262144 AGENT_REASONING_BUDGET=20480 ./scripts/start_agent_server.sh                                 # terminal 1
+AGENT_CTX=262144 ./scripts/agent/run_agent_demo.sh task demos/worldcup/prompts/round0.md worldcup_round0        # terminal 2
 ```
 
 Hermes talks to llama-server directly; nothing sits in between and nothing in Hermes or llama.cpp is modified.
@@ -53,19 +59,44 @@ Server, from `scripts/start_agent_server.sh` on top of `start_llama_server.sh`:
 ```
 llama-server -m Ternary-Bonsai-2-27B-PQ2_0.gguf --mmproj Ternary-Bonsai-2-27B-mmproj-Q8_0.gguf \
   -ngl 99 -fa on -c 131072 --jinja \
-  --temp 1.0 --top-p 0.95 --top-k 20 --min-p 0 \
+  --temp 1.0 --top-p 0.95 --top-k 20 --min-p 0.05 \
   --reasoning-format deepseek --reasoning-budget 16384 --parallel 1 --alias bonsai2-27b-pq2-v16_2 -s 42
 ```
 
 | setting | value | why |
 |---|---|---|
-| sampling | temp 1.0 · top_p 0.95 · top_k 20 · min_p 0 · presence 0 · repeat 1.0 | the recorded values. The model card now recommends min_p 0.05 (llama.cpp's default); the agent profile keeps 0 to match the recording |
+| sampling | temp 1.0 · top_p 0.95 · top_k 20 · min_p 0.05 · presence 0 · repeat 1.0 | the model card's thinking-mode values (`AGENT_MIN_P` to change). The skateboard rounds were recorded with min_p 0 before the card changed; the World Cup example and the default profile use 0.05. In our runs 0.05 produced pages at budgets where 0 ran into the output cap |
 | reasoning | template default (`xhigh`), `--reasoning-format deepseek`, budget 16,384 thinking tokens per turn | thinking arrives in `reasoning_content`; Hermes sends only the visible answer back, so each turn thinks afresh. The budget caps runaway thinking |
 | context | 131,072 for the exact recording; `BONSAI_CTX=262144` recommended | at 131k Hermes compresses the history on long runs; at 262k it never did in our tests |
 | output | Hermes `max_tokens 32768` | the planning turn writes the whole page in one go and must fit |
 | seed | 42, the server's `-s 42` (`AGENT_SERVER_SEED`, default 42); the runner refuses to start against a server whose seed differs from `AGENT_SEED` | a fixed seed keeps the sampler repeatable; one slot, so a server seed equals a per-request seed. The recording injected 42 per request through the trace proxy, same effect |
 | Hermes | 0.18.2 at commit `c387be0`, browser tool `agent-browser` 0.38.1 (pinned in `.agent-browser/` by the installer, first on PATH at run time); `scripts/agent/hermes-config-round0.yaml` (context 131,072, max_tokens 32,768, coding mode off, verify-on-stop off, tools file · terminal · coding · web · search · browser); feedback rounds use `hermes-config-feedback.yaml` (8-turn limit) | the recorded configuration, verbatim; the workspace lives outside any git repo because Hermes changes profile inside one |
 | model | `Ternary-Bonsai-2-27B-PQ2_0.gguf` 7,206,168,928 bytes, sha256 `3907dc1658db1f78a9826bf8d5bcb8dc65db0d466388937af57f2294fae62ec1` · `Ternary-Bonsai-2-27B-mmproj-Q8_0.gguf` 629,246,976 bytes, sha256 `6807ede61d570bb86ba34b756a0fa109edc33668604de867c6ea6d8f1d631903` | |
+
+## The World Cup example
+
+Brief: `demos/worldcup/prompts/round0.md`. The agent has no data; it fetches the 2026 knockout results from the web,
+saves what it used as JSON in `./data/` (with `null` for anything it could not source), and writes one self-contained
+page: two mirrored halves, one column per round, the final in the centre, clickable match cards.
+
+| setting | value |
+|---|---|
+| server | `BONSAI_CTX=262144 AGENT_REASONING_BUDGET=20480 ./scripts/start_agent_server.sh` (min-p 0.05, seed 42, one slot) |
+| runner | `AGENT_CTX=262144 ./scripts/agent/run_agent_demo.sh task demos/worldcup/prompts/round0.md worldcup_round0`, no proxy |
+| Hermes | `hermes-config-round0.yaml` (max_tokens 32,768, xhigh), context 262,144 |
+| result | `demos/worldcup/pages/round0.html`: all 30 knockout results and both finals correct against the official bracket, penalty shootouts included; 94 model calls, 116k generated tokens, page written 20 min after launch, run finished at 22 min. Trace beside the page: `demos/worldcup/replay/index.html` |
+
+Why 262k context: this brief makes the agent read web pages, and at 131k Hermes starts compressing the
+conversation mid-run, which broke every bracket we tried. Why 20k thinking budget: at 16k the same brief
+produced pages whose scripts died on load; at 20k it produced this one. This brief is also the one where
+runs differ most from each other, because the web pages the agent reads change between runs: of five runs at
+this exact setting on the same day, two produced a correct interactive bracket, one a correct bracket whose
+click handler was broken by a syntax error, and two no usable page. Run it more than once.
+
+Two behaviours to expect. The page is finished when it appears in the workspace; the agent may keep
+verifying for several more turns, and on some runs those turns degenerate into repeated 32k-token generations
+until Hermes gives up. Kill the run once the page is there if you do not want to wait. And the data the agent
+could not find is `null` in `data/`, not invented: the page shows scores, dates and venues, no scorers.
 
 ## What to expect
 
@@ -78,8 +109,10 @@ Hermes builds (model id, working directory, skill list). The scripts pin the mod
 directory is a fresh per-user path and the shipped skill text was tidied after the recording, so a run here is its own
 sample, not a replay of the video.
 
-On this brief without a seed, the same setting produced a good page in 2 to 4 of every 9 attempts in our runs.
-The video is one attempt with seed 42.
+On the skateboard brief without a seed, the recorded setting produced a good page in 2 to 4 of every 9 attempts in
+our runs, and fresh seeded runs from a clone fail as often as they succeed: a run that thinks to the budget and then
+never stops writing hits the 32,768 output cap and Hermes retries it. If that happens, run again. The video is one
+attempt with seed 42 and min_p 0; the World Cup page is one attempt with seed 42 and min_p 0.05.
 
 ## Knobs
 

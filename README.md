@@ -358,7 +358,8 @@ The 27B does native OpenAI-style tool calling over the API, and the chat UI has 
 #### Agentic demo
 
 Bonsai 2 driving the Hermes agent end to end: from a two-line brief to a playable 3D skateboard game it
-verified in its own browser, then a round of plain-English feedback, all run with a fixed seed.
+verified in its own browser, then a round of plain-English feedback; and a FIFA World Cup 2026 knockout bracket
+for which the agent fetched the results itself. All run with a fixed seed.
 Clip, pages, prompts, settings and the two scripts that run it: [AGENT-DEMO.md](AGENT-DEMO.md).
 
 #### Vision

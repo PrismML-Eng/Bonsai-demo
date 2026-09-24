@@ -9,8 +9,8 @@
 #   AGENT_MODEL_ALIAS=my-bonsai ./scripts/start_agent_server.sh   # model id (default = the recorded one)
 #
 # What the profile pins and why:
-#   --min-p 0                    the value the demo was recorded with (overrides the 0.05 that
-#                                start_llama_server.sh passes; the model card now recommends 0.05)
+#   --min-p 0.05                 the model card's thinking-mode value (AGENT_MIN_P). The skateboard rounds were
+#                                recorded with 0 before the card changed; the worldcup example uses 0.05
 #   --temp 1.0 --top-p 0.95 --top-k 20   model card; start_llama_server.sh sets these for Bonsai 2
 #   presence 0 / repeat 1.0      model card values == llama.cpp defaults, nothing to pass
 #   --reasoning-format deepseek  thinking is returned in message.reasoning_content and never echoed
@@ -29,7 +29,8 @@ BUDGET="${AGENT_REASONING_BUDGET:-16384}"
 AGENT_SERVER_SEED="${AGENT_SERVER_SEED-42}"; SEED_FLAG=""; [ -n "$AGENT_SERVER_SEED" ] && SEED_FLAG="-s $AGENT_SERVER_SEED"
 # the model id is part of the agent's system prompt; the recorded one is the default so a rerun matches
 ALIAS="${AGENT_MODEL_ALIAS:-bonsai2-27b-pq2-v16_2}"
-echo "=== agent profile: ctx $BONSAI_CTX, thinking budget $BUDGET, min-p 0, reasoning-format deepseek, 1 slot${AGENT_SERVER_SEED:+, seed $AGENT_SERVER_SEED} ==="
+MINP="${AGENT_MIN_P:-0.05}"
+echo "=== agent profile: ctx $BONSAI_CTX, thinking budget $BUDGET, min-p $MINP, reasoning-format deepseek, 1 slot${AGENT_SERVER_SEED:+, seed $AGENT_SERVER_SEED} ==="
 # shellcheck disable=SC2086
 exec sh "$SCRIPT_DIR/start_llama_server.sh" \
-    --min-p 0 --reasoning-format deepseek --reasoning-budget "$BUDGET" --parallel 1 --alias "$ALIAS" $SEED_FLAG "$@"
+    --min-p "$MINP" --reasoning-format deepseek --reasoning-budget "$BUDGET" --parallel 1 --alias "$ALIAS" $SEED_FLAG "$@"
