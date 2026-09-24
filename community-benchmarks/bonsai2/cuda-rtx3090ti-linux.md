@@ -12,10 +12,11 @@ kernel 7.2.7), driver 615.71.09, using the demo's pinned fork release `prism-b10
 | PTQ1_0 | 804.9 | 67.7 |
 | Q2_0 (development) | not tested | not tested |
 
-`PQ2_0` token generation on this card sits within ~4 % of the RTX 4090 reports (memory-bandwidth bound), while
-prompt processing is about half of the 4090's `PQ2_0` figure (compute bound). Unlike the 4090 report, `PTQ1_0`
-does **not** decode at the same speed as `PQ2_0` here: it is ~17 % slower in tg128 and ~48 % slower in pp512, so
-on Ampere the denser packing costs more to unpack than it saves in bytes moved.
+`PQ2_0` token generation on this setup is within ~4 % of the RTX 4090 report, while
+prompt processing is about half of that report's `PQ2_0` figure. Unlike the 4090 report,
+`PTQ1_0` is ~17 % slower than `PQ2_0` in tg128 and ~48 % slower in pp512 here.
+These measurements do not isolate the cause of the difference; hardware, builds, and
+runtime settings differ between submissions.
 
 ## Configuration
 
@@ -59,7 +60,7 @@ Peak GPU memory during the run (`nvidia-smi`, whole GPU including the desktop): 
 
 An earlier run of the same command on the same build gave `pp512 1561.34 ± 28.62`, `tg128 81.67 ± 0.56`; a run
 without flash attention (`-fa 0`, 2 repetitions) gave `pp512 1563.05 ± 33.49`, `tg128 82.18 ± 0.69`, so `-fa`
-makes no measurable difference on this card.
+showed no measurable benefit in these short pp512/tg128 runs.
 
 ### PTQ1_0
 
@@ -90,7 +91,8 @@ Not tested.
 
 - CPU-only (`-ngl 0`, 12 threads, same PQ2_0 file, 2 repetitions): `pp512 585.70 ± 40.72` (prompt still routed
   through CUDA by the CUDA build), `tg128 1.06 ± 0.00`. Token generation on the x86 CPU path is not usable with this
-  build; the release ships no Linux CPU-only asset, so a pure CPU build was not tested.
+  build. A separate CPU build was not tested; the release includes the Linux CPU asset
+  `llama-prism-b10709-9a9394a-bin-ubuntu-x64.tar.gz`.
 - Server workload (`llama-server` from the same asset, `-c 65536 -np 2 --reasoning-budget 4096 --jinja -fa on`,
   PQ2_0, vision projector loaded): a 58,587-token prompt (own documentation) was processed at ~1,180 t/s with
   generation at ~60 t/s at that context; short prompts generate at 78–82 t/s. Steady-state VRAM with that
