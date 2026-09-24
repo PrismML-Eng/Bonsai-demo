@@ -65,7 +65,7 @@ llama-server -m Ternary-Bonsai-2-27B-PQ2_0.gguf --mmproj Ternary-Bonsai-2-27B-mm
 
 | setting | value | why |
 |---|---|---|
-| sampling | temp 1.0 · top_p 0.95 · top_k 20 · min_p 0.05 · presence 0 · repeat 1.0 | the model card's thinking-mode values (`AGENT_MIN_P` to change). The skateboard rounds were recorded with min_p 0 before the card changed; the World Cup example and the default profile use 0.05. In our runs 0.05 produced pages at budgets where 0 ran into the output cap |
+| sampling | temp 1.0 · top_p 0.95 · top_k 20 · min_p 0.05 · presence 0 · repeat 1.0 | the model card's thinking-mode values (`AGENT_MIN_P` to change). The skateboard rounds were recorded with min_p 0 before the card changed; the World Cup example and the default profile use 0.05. |
 | reasoning | template default (`xhigh`), `--reasoning-format deepseek`, budget 16,384 thinking tokens per turn | thinking arrives in `reasoning_content`; Hermes sends only the visible answer back, so each turn thinks afresh. The budget caps runaway thinking |
 | context | 131,072 for the exact recording; `BONSAI_CTX=262144` recommended | at 131k Hermes compresses the history on long runs; at 262k it never did in our tests |
 | output | Hermes `max_tokens 32768` | the planning turn writes the whole page in one go and must fit |
