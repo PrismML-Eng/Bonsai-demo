@@ -178,7 +178,11 @@ Full guide with entry examples: **TOOLS.md** (repo root). The essentials:
   **capping** over disabling: `./scripts/start_llama_server.sh --reasoning-budget 2048`
   keeps most of the quality while bounding latency; the web UI's Reasoning-effort
   picker (Off ... Max) does the same per chat. (Default stays uncapped; these are
-  user choices, not shipped defaults.)
+  user choices, not shipped defaults.) For API clients, the chat template's own
+  `reasoning_effort: "medium"` is usually better than a hard cap: it thinks noticeably
+  less than the default `xhigh` at about the same accuracy under moderate output limits.
+  Server-wide: `--chat-template-kwargs '{"reasoning_effort":"medium"}'`. The UI picker's
+  "Medium" is a 2,048-token budget, not this setting.
 - Image cost scales with resolution and is mostly a first-turn cost: the prompt cache
   makes follow-up questions about the same image near-instant.
 - **Check macOS Low Power Mode** when speeds look far off — it throttles inference hard

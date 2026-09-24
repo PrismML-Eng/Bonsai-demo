@@ -343,6 +343,14 @@ On slower hardware, thinking is usually the bulk of the wait; pick a lower effor
 ./scripts/start_llama_server.sh --reasoning-budget 2048
 ```
 
+For API clients, the model's own `reasoning_effort: "medium"` is usually the better way to shorten thinking. At moderate output limits it thinks noticeably less than the default `xhigh` and is about as accurate, and it rarely runs out of budget mid-reasoning. Send it per request, or make it the server-wide default (a request can still ask for `xhigh`):
+
+```bash
+./scripts/start_llama_server.sh --chat-template-kwargs '{"reasoning_effort":"medium"}'
+```
+
+The chat UI's Reasoning effort levels are different: they are fixed thinking budgets (Medium is 2,048 tokens), which cut thinking off at that length rather than asking the model to think less.
+
 #### Tool calling & MCP
 
 The 27B does native OpenAI-style tool calling over the API, and the chat UI has an MCP client with Hugging Face + DeepWiki preconfigured (per-chat opt-in from the MCP selector in the message box, no prompt cost until you turn one on). Details, costs, and how to add your own servers: [TOOLS.md](TOOLS.md).
