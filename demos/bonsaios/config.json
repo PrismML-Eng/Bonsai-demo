@@ -1,0 +1,40 @@
+{
+  "model_alias": "bonsai-2-27b",
+  "seed": 42,
+  "temperature": 1.0,
+  "top_p": 0.95,
+  "top_k": 20,
+  "min_p": 0.0,
+  "presence_penalty": 0.0,
+  "repeat_penalty": 1.0,
+  "frequency_penalty": 0.0,
+  "reasoning_effort": "xhigh",
+  "reasoning_budget_tokens": 16384,
+  "max_tokens": 32768,
+  "context_tokens": 131072,
+  "stage_turns": [
+    16,
+    8,
+    8,
+    8,
+    8,
+    16
+  ],
+  "server_restarts_before_stages": [
+    4,
+    5
+  ],
+  "server_batch": 2048,
+  "server_ubatch": 128,
+  "server_threads": 8,
+  "stage_timeout_seconds": 3600,
+  "feedback_timeout_seconds": 14400,
+  "compression": {
+    "enabled": true,
+    "threshold": 0.5,
+    "target_ratio": 0.2,
+    "protect_last_n": 20,
+    "protect_first_n": 3
+  },
+  "pin_environment": true
+}

@@ -1,5 +1,54 @@
 # Bonsai Demo
 
+## BonsaiOS: reproduce the browser OS demo
+
+This branch, **`agent-demo-bonsaios`**, contains a complete local workflow for
+Bonsai 2 27B to create `os.html` from scratch through Hermes. It runs the initial
+prompt and five saved feedback messages in the same conversation, using seed 42
+and pinned model, PrismML llama.cpp, Hermes, and Python dependency versions.
+
+**Requirements:** Linux x86_64, one idle NVIDIA GPU, Git, Python 3.11+,
+[uv](https://docs.astral.sh/uv/getting-started/installation/), internet access for
+setup, and about 12 GB of free disk space. Byte-identical reproduction has been
+verified on an **H200 with NVIDIA driver 570.172.08**, including a fresh clone with
+fresh dependency downloads. Other hardware or drivers can change the generated
+output even with the same seed.
+
+### Generate the OS
+
+```bash
+git clone --branch agent-demo-bonsaios https://github.com/PrismML-Eng/Bonsai-demo.git
+cd Bonsai-demo
+python3 demos/bonsaios/setup.py
+./scripts/run_bonsaios.sh --output bonsaios-runs/my-os
+```
+
+Setup downloads and verifies the pinned dependencies. The launcher starts the
+local inference server, runs all six phases, and saves the final page to
+**`bonsaios-runs/my-os/os.html`**. Leave it running until all phases finish; each
+new run needs a new output directory. It uses GPU 0 by default; prefix the launch
+command with `CUDA_VISIBLE_DEVICES=1` to select GPU 1 instead. No Slurm, hosted API
+key, or separate server launch is needed.
+
+### Open the generated OS
+
+Open `bonsaios-runs/my-os/os.html` in a browser, or serve it locally:
+
+```bash
+python3 -m http.server 8000 --bind 127.0.0.1 --directory bonsaios-runs/my-os
+```
+
+Then open <http://127.0.0.1:8000/os.html>. To explore the included result without
+running generation, open **`demos/bonsaios/os.html`**, or use the same server command
+with `--directory demos/bonsaios`. Viewing the saved HTML needs no GPU.
+
+See the **[full reproduction guide](AGENT-DEMO.md)** for generation settings,
+version pins, exact prompts, custom feedback, and saved run output.
+The included `os.html` is for viewing; generation starts with an empty workspace
+and does not load it as model input.
+
+---
+
 Backend and model format compatibility: [BACKEND-SUPPORT.md](BACKEND-SUPPORT.md).
 
 <p align="center">
@@ -346,6 +395,13 @@ On slower hardware, thinking is usually the bulk of the wait; pick a lower effor
 #### Tool calling & MCP
 
 The 27B does native OpenAI-style tool calling over the API, and the chat UI has an MCP client with Hugging Face + DeepWiki preconfigured (per-chat opt-in from the MCP selector in the message box, no prompt cost until you turn one on). Details, costs, and how to add your own servers: [TOOLS.md](TOOLS.md).
+
+#### Agentic demo: BonsaiOS
+
+Bonsai 2 drives Hermes to create a self-contained browser desktop, then applies five
+rounds of feedback. The pinned H200 recipe reproduced the final HTML byte-for-byte
+in two fresh runs. [Open the page](demos/bonsaios/os.html) or follow
+[the setup and reproduction guide](AGENT-DEMO.md).
 
 #### Vision
 

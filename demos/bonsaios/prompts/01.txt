@@ -1,0 +1,1 @@
+I opened os.html in Chrome. I see the Nova bar and NOVAOS logo, but clicking Nova/Start and pressing Enter do nothing; no desktop apps appear. The browser console reports "Unexpected token +" when the page loads. Please fix startup so I can open and use the apps, while keeping the current design.
