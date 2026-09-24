@@ -359,26 +359,21 @@ raise SystemExit(0 if v >= (0, 31) else 1)
         info "MLX installed."
     fi
 
-    # mlx-vlm serves the 27B MLX packs WITH image input (the published packs
-    # ship the FP16 vision tower in mlx-vlm-native layout). Bonsai 2 runs here too:
-    # its pack carries a Hadamard-aware loader that sits on stock mlx-vlm. Pin
-    # mlx==0.32.0; 0.32.2 breaks mlx-vlm's vision path. It needs stock mlx,
-    # which conflicts with the PrismML fork in .venv (fork = 1-bit kernels), so
-    # it gets its own venv. Ternary (2-bit) runs on stock mlx -> vision works;
-    # binary (1-bit) still needs the fork -> text-only mlx_lm for now.
+    # Native Bonsai 2 text/vision support is included in mlx-vlm 0.7.2.
+    # Keep stock MLX separate from the 1-bit fork installed in .venv.
     # Skip with BONSAI_MLX_VLM=0.
     if [ "${BONSAI_MLX_VLM:-1}" != "0" ]; then
         step "Setting up mlx-vlm venv (MLX image input for the 27B) ..."
         VLM_VENV="$SCRIPT_DIR/.venv-vlm"
         if [ -x "$VLM_VENV/bin/python" ] && "$VLM_VENV/bin/python" -c "import mlx_vlm" 2>/dev/null \
-            && [ "$("$VLM_VENV/bin/python" -c 'import mlx.core as mx; print(mx.__version__)' 2>/dev/null)" = "0.32.0" ]; then
+            && "$VLM_VENV/bin/python" "$SCRIPT_DIR/scripts/check_mlx_vlm.py" >/dev/null 2>&1; then
             info "mlx-vlm venv already present."
-        elif uv venv "$VLM_VENV" --python "$PYTHON_VERSION" >/dev/null 2>&1 \
-            && uv pip install --python "$VLM_VENV/bin/python" "mlx==0.32.0" "mlx-vlm==0.6.3" "transformers==5.5.0" \
+        elif { [ -x "$VLM_VENV/bin/python" ] || uv venv "$VLM_VENV" --python "$PYTHON_VERSION" >/dev/null 2>&1; } \
+            && uv pip install --python "$VLM_VENV/bin/python" -r "$SCRIPT_DIR/scripts/requirements-mlx-vlm.txt" \
             && "$VLM_VENV/bin/python" -c "import mlx_vlm" 2>/dev/null; then
             info "mlx-vlm venv ready (.venv-vlm)."
         else
-            warn "mlx-vlm venv setup failed — MLX will run text-only (no image input)."
+            warn "mlx-vlm setup failed; Bonsai 2 MLX requires this environment. Use llama.cpp or retry setup."
         fi
     fi
 fi

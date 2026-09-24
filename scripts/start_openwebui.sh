@@ -44,14 +44,8 @@ case "$BONSAI_HOST" in
         ;;
 esac
 
-# Bonsai 2 has no MLX server path yet: its pack needs the Hadamard-aware loader bundled in
-# runtime/, which neither mlx_lm.server nor mlx_vlm.server uses, so they would serve wrong
-# output with no error. Fail here rather than start something that looks fine and is not.
 if [ "$BONSAI_BACKEND" = "mlx" ] && [ "$BONSAI_FAMILY" = "bonsai2" ]; then
-    err "No MLX server for Bonsai 2 yet; use the llama.cpp backend."
-    echo "    BONSAI_BACKEND=llama ./scripts/start_openwebui.sh"
-    echo "  One-shot MLX still works: ./scripts/run_mlx.sh -p \"...\" [--image photo.jpg]"
-    exit 1
+    require_bonsai2_mlx_vlm "$(resolve_demo_dir)"
 fi
 
 # Assert the weights the selected backend actually needs (an MLX-only run must
@@ -229,22 +223,22 @@ if [ "$BONSAI_BACKEND" = "mlx" ]; then
     if curl -fsS --max-time 2 "http://localhost:$MLX_PORT/v1/models" >/dev/null 2>&1; then
         _MLX_PREEXISTING=true
         info "MLX server already running on port $MLX_PORT"
-    elif [ -d "$DEMO_DIR/$MLX_MODEL_DIR" ] && python -c "import mlx_lm" 2>/dev/null; then
+    elif [ -d "$DEMO_DIR/$MLX_MODEL_DIR" ] && { [ "$BONSAI_FAMILY" = "bonsai2" ] || python -c "import mlx_lm" 2>/dev/null; }; then
         step "Starting MLX server on port $MLX_PORT (${BONSAI_DISPLAY}) ..."
         export HF_HOME="$DEMO_DIR/.hf_cache"
         mkdir -p "$HF_HOME/hub"
-        # 27B ternary: mlx-vlm gives the MLX backend image input (stock-mlx
+        # Bonsai 2 and ternary 27B: mlx-vlm gives the MLX backend image input (stock-mlx
         # .venv-vlm from setup.sh). Binary 1-bit needs the fork -> text-only.
         # Disable with BONSAI_MLX_VLM=0.
         _VLM_PY="$DEMO_DIR/.venv-vlm/bin/python"
         # The 27B is a thinking model and thinking stays on.
-        if [ "$BONSAI_MODEL" = "27B" ] && [ "$BONSAI_FAMILY" = "ternary" ] \
+        if [ "$BONSAI_MODEL" = "27B" ] && { [ "$BONSAI_FAMILY" = "ternary" ] || [ "$BONSAI_FAMILY" = "bonsai2" ]; } \
             && [ "${BONSAI_MLX_VLM:-1}" != "0" ] && [ -x "$_VLM_PY" ] \
             && "$_VLM_PY" -c "import mlx_vlm" 2>/dev/null; then
             _MLX_VISION=true
             "$_VLM_PY" -m mlx_vlm.server \
                 --model "$DEMO_DIR/$MLX_MODEL_DIR" \
-                --port "$MLX_PORT" \
+                --host 127.0.0.1 --port "$MLX_PORT" \
                 --enable-thinking \
                 > "$_MLX_LOG" 2>&1 &
         elif [ "$BONSAI_MODEL" = "27B" ]; then

@@ -53,16 +53,10 @@ if [ -z "$PROMPT" ]; then
     PROMPT="What is Capital of France?"
 fi
 
-# Bonsai 2 packs carry their own Hadamard-aware loader and run on stock MLX through
-# mlx-vlm, which lives in .venv-vlm; the fork in .venv is for the 1-bit family.
+# Native Bonsai 2 support uses stock MLX in .venv-vlm; .venv is for 1-bit.
 if [ "$BONSAI_FAMILY" = "bonsai2" ]; then
+    require_bonsai2_mlx_vlm "$DEMO_DIR"
     _vlm_py="$DEMO_DIR/.venv-vlm/bin/python"
-    if [ ! -x "$_vlm_py" ]; then
-        err "Bonsai 2 on MLX needs the mlx-vlm venv (.venv-vlm)."
-        echo "  Create it with:  ./setup.sh"
-        echo "  Or by hand:      uv venv .venv-vlm && uv pip install --python .venv-vlm/bin/python -r \"$MODEL/runtime/requirements.txt\""
-        exit 1
-    fi
     exec "$_vlm_py" "$SCRIPT_DIR/mlx_generate_bonsai2.py" \
         --model "$MODEL" \
         -p "$PROMPT" \

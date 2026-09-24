@@ -1,22 +1,12 @@
-"""MLX generate for Bonsai 2 packs, text and images.
-
-Bonsai 2 stores its language weights in a rotated basis, so the matching transform has to be applied
-to activations at run time. Stock MLX loaders skip it and return wrong output rather than an error,
-which is why the pack ships its own loader in `runtime/` and this script uses it. The vision tower is
-the stock Qwen tower and needs no transform.
-"""
+"""Generate text and images using native Bonsai 2 support in mlx-vlm."""
 import argparse
-import hashlib
 import json
 import os
 import sys
 import time
 from pathlib import Path
 
-# transformers does not recognise `prism_hadamard_qwen35` and says so loudly, and its tokenizer
-# prints a Mistral regex note. Neither applies: the pack's loader builds the model itself and the
-# tokenizer is the base model's own. Both read as errors to a first-time user, so quiet them before
-# transformers is imported, which is when it reads this.
+# Keep tokenizer diagnostics out of normal generated output.
 os.environ.setdefault("TRANSFORMERS_VERBOSITY", "error")
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
@@ -25,59 +15,6 @@ CYAN, DIM, RESET = "\033[36m", "\033[2m", "\033[0m"
 # Matches the model card. The template reasons at xhigh effort by default, so a short token cap ends
 # generation mid-thought with no answer; mlx-vlm samples with min_p 0.0 unless told otherwise.
 DEFAULTS = {"temp": 1.0, "top_p": 0.95, "top_k": 20, "min_p": 0.05, "max_tokens": 16384}
-
-
-MANIFEST = Path(__file__).resolve().parent / "bonsai2-runtime.sha256"
-
-
-def read_manifest():
-    entries = {}
-    for line in MANIFEST.read_text().splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        digest, name = line.split(None, 1)
-        # a file may list more than one reviewed revision, so a re-pin does not break packs
-        # downloaded before it
-        entries.setdefault(name.strip(), set()).add(digest)
-    return entries
-
-
-def verify_runtime(runtime):
-    """Refuse to import loader code that is not the reviewed revision.
-
-    The pack ships executable Python and this script imports it, so whatever is in
-    runtime/ runs as the user. The model repo is a separate trust domain from this
-    one; pinning the hashes here means a change over there cannot quietly become
-    code execution here. BONSAI_SKIP_RUNTIME_CHECK=1 is the escape hatch for anyone
-    editing the loader in place.
-    """
-    if os.environ.get("BONSAI_SKIP_RUNTIME_CHECK") == "1":
-        print(f"{DIM}runtime checksum check skipped (BONSAI_SKIP_RUNTIME_CHECK=1){RESET}",
-              file=sys.stderr)
-        return
-    if not MANIFEST.is_file():
-        sys.exit(f"{MANIFEST} is missing; cannot verify the pack's loader code.")
-
-    expected = read_manifest()
-    found = {f.name for f in runtime.glob("*.py")}
-    problems = []
-    for name in sorted(set(expected) | found):
-        if name not in expected:
-            problems.append(f"  {name}: not in the manifest")
-        elif name not in found:
-            problems.append(f"  {name}: in the manifest but missing from the pack")
-        else:
-            digest = hashlib.sha256((runtime / name).read_bytes()).hexdigest()
-            if digest not in expected[name]:
-                problems.append(f"  {name}: {digest} does not match {' or '.join(sorted(expected[name]))}")
-    if problems:
-        sys.exit(
-            "The pack's loader code does not match the revision this demo pinned, so it "
-            "will not be imported.\n" + "\n".join(problems) + "\n\n"
-            f"Re-download the pack, or if the change is expected, re-pin {MANIFEST.name}\n"
-            f"  shasum -a 256 {runtime}/*.py"
-        )
 
 
 def main():
@@ -105,15 +42,6 @@ def main():
             f"{pack} is not a Bonsai 2 MLX pack (model_type={config.get('model_type')!r}).\n"
             "Use scripts/mlx_generate.py for the earlier families."
         )
-    runtime = pack / "runtime"
-    if not (runtime / "vision_artifact.py").is_file():
-        sys.exit(
-            f"{runtime}/vision_artifact.py is missing. This pack predates vision support;\n"
-            "re-download with ./scripts/download_models.sh."
-        )
-    verify_runtime(runtime)
-    sys.path.insert(0, str(runtime))
-
     import warnings
 
     warnings.filterwarnings("ignore")
@@ -121,8 +49,7 @@ def main():
     import mlx.core as mx
 
     mx.set_default_device(mx.gpu)
-    from vision_artifact import load_vl_model, chat_config  # noqa: E402
-    from mlx_vlm import generate  # noqa: E402
+    from mlx_vlm import generate, load  # noqa: E402
     from mlx_vlm.prompt_utils import apply_chat_template  # noqa: E402
 
     if args.image:
@@ -131,14 +58,13 @@ def main():
             sys.exit(f"Image not found: {missing[0]}")
 
     started = time.time()
-    model, processor, config = load_vl_model(str(pack))
+    model, processor = load(str(pack))
     print(f"{DIM}loaded {pack.name} in {time.time() - started:.0f}s{RESET}", file=sys.stderr)
 
     prompt = apply_chat_template(
-        processor, chat_config(config), args.prompt, num_images=len(args.image)
+        processor, model.config, args.prompt, num_images=len(args.image),
+        enable_thinking=not args.no_think
     )
-    if args.no_think:
-        prompt += "<think>\n\n</think>\n\n"
 
     print(f"{CYAN}{args.prompt}{RESET}\n")
     started = time.time()

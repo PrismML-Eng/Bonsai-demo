@@ -129,6 +129,16 @@ Available in GGUF (llama.cpp) and MLX 2-bit formats. Both bands need our
 | Bonsai-2-27B           | GGUF          | [prism-ml/Ternary-Bonsai-2-27B-gguf](https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-gguf)         |
 | Bonsai-2-27B           | MLX (2-bit)   | [prism-ml/Ternary-Bonsai-2-27B-mlx-2bit](https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-mlx-2bit) |
 
+On Apple Silicon, Bonsai 2 text, images, and tool calls are supported by native
+`mlx-vlm==0.7.2` in `.venv-vlm`. Re-run `./setup.sh` to upgrade an older environment,
+then use `./scripts/start_mlx_server.sh` or
+`BONSAI_BACKEND=mlx ./scripts/start_openwebui.sh`. The server keeps thinking enabled;
+pass `--thinking-budget 8192 --max-tokens 32768` to the standalone launcher for an
+example bounded run. API clients use `thinking_budget` (MLX), not llama-server's
+`thinking_budget_tokens`. Use the model-card sampling settings in API requests:
+`temperature: 1.0`, `top_p: 0.95`, `top_k: 20`, `min_p: 0.05`.
+This does not update LM Studio's separately bundled MLX runtime.
+
 Set `BONSAI_FAMILY=ternary` or `BONSAI_FAMILY=bonsai` for the earlier families
 and their smaller sizes.
 

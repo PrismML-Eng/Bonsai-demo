@@ -23,7 +23,7 @@ The 27B generation is a step change over the earlier 8B/4B/1.7B demos:
 
 | `BONSAI_FAMILY` / `BONSAI_MODEL` | Weights | Notes |
 |---|---|---|
-| `bonsai2` / `27B` (**default**) | GGUF 5.9-7.2 GB + mmproj 0.63 GB; MLX 2-bit 8.6 GB | The current generation and what plain `./setup.sh` installs. Two GGUF bands, **both requiring this demo's binaries**: `PTQ1_0` (1.75 bpw, 5.9 GB, densely packed trits, smallest) and `PQ2_0` (2.13 bpw, 7.2 GB, faster prompt processing, what the scripts download). There is no mainline-compatible band; see the Q2_0 warning below. The MLX pack carries its own Hadamard-aware loader in `runtime/` plus the vision tower, and runs on stock mlx-vlm from `.venv-vlm`, not the fork in `.venv` |
+| `bonsai2` / `27B` (**default**) | GGUF 5.9-7.2 GB + mmproj 0.63 GB; MLX 2-bit 8.6 GB | The current generation and what plain `./setup.sh` installs. Two GGUF bands, **both requiring this demo's binaries**: `PTQ1_0` (1.75 bpw, 5.9 GB, densely packed trits, smallest) and `PQ2_0` (2.13 bpw, 7.2 GB, faster prompt processing, what the scripts download). There is no mainline-compatible band; see the Q2_0 warning below. MLX uses native Hadamard-aware mlx-vlm 0.7.2 from `.venv-vlm` for one-shot generation and serving, not the fork in `.venv` |
 | `ternary` / `27B` (previous generation) | GGUF ~6.7-7.1 GB + mmproj 0.9 GB; MLX 2-bit ~7.9 GB | Superseded by `bonsai2`. Two GGUF formats since the mainline rebase (`prism-b10658+`): `PQ2_0` (group 128, 6.66 GiB, smallest/fastest where supported: CUDA, Metal, CPU, ROCm) and official `Q2_0` group 64 (`Ternary-Bonsai-27B-Q2_g64.gguf`, 7.05 GiB, adds Vulkan/SYCL); smaller sizes use `*-Q2_0_g64.gguf` naming. The scripts pick per backend. Legacy `*-Q2_0.gguf` files (no `g64`) only load on old `prism-v5` releases; new binaries refuse them with an error |
 | `bonsai` / `27B` | GGUF Q1_0 ~3.5 GB + mmproj 0.9 GB; MLX 1-bit ~4.8 GB | Smallest and fastest; fits on a modern iPhone without offloading |
 | `8B` / `4B` / `1.7B` (both families) | smaller | Text-only, no tools wiring, legacy tested flag set |
@@ -188,19 +188,15 @@ Full guide with entry examples: **TOOLS.md** (repo root). The essentials:
 - **Check macOS Low Power Mode** when speeds look far off — it throttles inference hard
   (System Settings -> Battery).
 - Vision encode runs on GPU by default (`--mmproj-offload`).
-- MLX: the **ternary 27B gets full vision + native tool calls** via mlx-vlm
+- MLX: the **Bonsai 2 and ternary 27B get vision + native tool calls** via mlx-vlm
   (`start_mlx_server.sh` uses the stock-mlx `.venv-vlm` that setup.sh creates;
-  `BONSAI_MLX_VLM=0` opts out). The binary 27B MLX should support vision the same
+  `BONSAI_MLX_VLM=0` opts out for the older ternary family; Bonsai 2 refuses
+  to fall back to the generic loader). The binary 27B MLX should support vision the same
   way (the vision tower is full precision in both packs) — it just hasn't been
   wired through / verified in these scripts yet.
-- MLX has **no cross-request prompt cache** (mlx-vlm re-prefills the full
-  conversation, image tokens included, on every turn), so follow-ups are much
-  slower than llama.cpp (which caches the KV prefix). Steer multi-turn users to
-  the llama.cpp backend; the image encoder itself is cached, it's the LM prefill.
-- **M5 Macs on macOS 26.2–26.4:** if Metal init fails with `error compiling source` /
-  command-buffer status 5, set `GGML_METAL_TENSOR_DISABLE=1` (README Appendix — FAQ has
-  details). Keep `-ngl` on GPU; don't reach for `BONSAI_NGL=0`.
-- Windows and CPU-only Linux: not tested yet — extend these notes after testing.
+- MLX cache behavior depends on the runtime version and request type. For the native
+  mlx-vlm server, inspect response timings/cache counts instead of assuming every
+  request fully re-prefills.
 
 ## Linux CUDA setup notes (RTX 2080, 8 GB)
 

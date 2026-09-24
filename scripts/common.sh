@@ -390,3 +390,17 @@ ensure_venv() {
         exit 1
     fi
 }
+
+# Bonsai 2 needs native Hadamard-aware mlx-vlm, not the older generic loader.
+require_bonsai2_mlx_vlm() {
+    _vlm_py="$1/.venv-vlm/bin/python"
+    if [ "${BONSAI_MLX_VLM:-1}" = "0" ] || [ ! -x "$_vlm_py" ]; then
+        err "Bonsai 2 requires .venv-vlm with native model support. Run ./setup.sh with BONSAI_MLX_VLM=1."
+        exit 1
+    fi
+    "$_vlm_py" "$1/scripts/check_mlx_vlm.py" || exit 1
+    if ! "$_vlm_py" -c "from mlx_vlm.models.prism_hadamard_qwen35 import Model"; then
+        err "Native Bonsai 2 MLX loader unavailable. Re-run ./setup.sh."
+        exit 1
+    fi
+}
