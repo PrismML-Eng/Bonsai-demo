@@ -1,0 +1,50 @@
+[
+  {
+    "problem": 1,
+    "finish_reason": "stop",
+    "completion_tokens": 13721,
+    "prompt_tokens": 220,
+    "generation_seconds": 87.4,
+    "answer_sha256": "8fd3c4bd341622561b82cd4e946cf37fbf8e43c9093c92ef1fc69eeeea3322a0"
+  },
+  {
+    "problem": 2,
+    "finish_reason": "stop",
+    "completion_tokens": 31147,
+    "prompt_tokens": 146,
+    "generation_seconds": 202.6,
+    "answer_sha256": "8f23614927f1ec0f048ff5c15dc7d5631425b15f2121860ac8b1424e0f0e69bc"
+  },
+  {
+    "problem": 3,
+    "finish_reason": "stop",
+    "completion_tokens": 40730,
+    "prompt_tokens": 181,
+    "generation_seconds": 267.5,
+    "answer_sha256": "b7b1b7e371951d728053aa64fcd6ee91fd43a29ac9be7d9f7298c01a565d6f75"
+  },
+  {
+    "problem": 4,
+    "finish_reason": "stop",
+    "completion_tokens": 132122,
+    "prompt_tokens": 215,
+    "generation_seconds": 918.6,
+    "answer_sha256": "479fa3025a2f7ff77f120326b6d4644c278d4ceff2580c8dc7344dc46b06e242"
+  },
+  {
+    "problem": 5,
+    "finish_reason": "stop",
+    "completion_tokens": 132806,
+    "prompt_tokens": 123,
+    "generation_seconds": 922.3,
+    "answer_sha256": "8e525097e03af20ca1f34e758a97ed0caa1ce65eb6c7dcb51a9490c1d420483d"
+  },
+  {
+    "problem": 6,
+    "finish_reason": "stop",
+    "completion_tokens": 19539,
+    "prompt_tokens": 175,
+    "generation_seconds": 125.5,
+    "answer_sha256": "b358b52ac5721a40e02ee33dde2b58f03ea927fac8b305cb395be151660d823f"
+  }
+]
