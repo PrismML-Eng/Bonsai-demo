@@ -221,6 +221,7 @@ fi
 # ── Start MLX server if selected (BONSAI_BACKEND=mlx, macOS only) ──
 if [ "$BONSAI_BACKEND" = "mlx" ]; then
     if curl -fsS --max-time 2 "http://localhost:$MLX_PORT/v1/models" >/dev/null 2>&1; then
+        reject_unverified_bonsai2_mlx_server "$MLX_PORT"
         _MLX_PREEXISTING=true
         info "MLX server already running on port $MLX_PORT"
     elif [ -d "$DEMO_DIR/$MLX_MODEL_DIR" ] && { [ "$BONSAI_FAMILY" = "bonsai2" ] || python -c "import mlx_lm" 2>/dev/null; }; then

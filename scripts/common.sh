@@ -404,3 +404,12 @@ require_bonsai2_mlx_vlm() {
         exit 1
     fi
 }
+
+# /v1/models identifies models, not the loader or its transform support.
+reject_unverified_bonsai2_mlx_server() {
+    if [ "$BONSAI_FAMILY" = "bonsai2" ]; then
+        err "A server already answers on MLX port $1; its Bonsai 2 loader cannot be verified."
+        echo "  Stop that server and retry so this launcher can start the tested native mlx-vlm runtime." >&2
+        exit 1
+    fi
+}

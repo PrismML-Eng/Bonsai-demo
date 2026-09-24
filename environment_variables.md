@@ -41,7 +41,7 @@ Every script in this repo is driven by environment variables — model selection
 | `AGENT_TRACE` | `0` | `0`, `1` | (`run_agent_demo.sh`) `1` records every request/response to `agent-runs/<run>/wire.jsonl` through a local logging proxy and injects `AGENT_SEED`/`AGENT_EFFORT` per request. |
 | **MLX server** | | | |
 | `BONSAI_BACKEND` | `llama` | `llama`, `mlx` | Which backend `start_openwebui.sh` serves (`mlx` is Apple Silicon-only). It does **not** change `run_llama.sh` / `run_llama.ps1` / `run_mlx.sh` — those pick their backend by which script you invoke. |
-| `BONSAI_MLX_VLM` | `1` | `0` | Use mlx-vlm for MLX image input (27B ternary; needs the `.venv-vlm` from setup.sh). |
+| `BONSAI_MLX_VLM` | `1` | `0`, `1` | Set up/use the native mlx-vlm environment for Bonsai 2 and the older ternary 27B. Required for Bonsai 2: setting `0` skips setup and its MLX launchers refuse to run, rather than fall back to an incompatible loader. For the older ternary family, `0` selects text-only mlx_lm. |
 | `BONSAI_MLX_VISION` | `0` | `1` | Force MLX vision for a pre-existing MLX server whose implementation isn't known (set it explicitly if you started it with mlx-vlm). |
 | **Open WebUI** | | | |
 | `BONSAI_ALLOW_REMOTE` | `0` | `1` | Allow binding Open WebUI to a non-loopback `BONSAI_HOST`. Auth is disabled + a code interpreter may be enabled, so this is trusted-networks-only. |
