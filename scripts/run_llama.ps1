@@ -143,7 +143,7 @@ $CtxDefault = if ($env:BONSAI_CTX -and $env:BONSAI_CTX -ne "0") { $env:BONSAI_CT
     # With full GPU offload the KV cache lives in VRAM, so also cap by the first
     # NVIDIA GPU's memory (27B: ~8.3 GiB fixed + 0.5 GiB FP16 KV per 8192 tokens).
     # Mirrors bonsai_ctx_default in common.sh.
-    if ($env:BONSAI_NGL -ne "0" -and (Get-Command nvidia-smi -ErrorAction SilentlyContinue)) {
+    if ($Ngl -ne "0" -and (Get-Command nvidia-smi -ErrorAction SilentlyContinue)) {
         $VramMiB = 0
         $VramLine = & nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>$null | Select-Object -First 1
         if ([int]::TryParse("$VramLine".Trim(), [ref]$VramMiB) -and $VramMiB -gt 0) {

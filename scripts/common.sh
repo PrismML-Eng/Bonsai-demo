@@ -276,12 +276,14 @@ bonsai_ctx_default() {
     fi
     # With full GPU offload the KV cache lives in VRAM, not system RAM, so a
     # big-RAM box with a mid-size card can land on a tier that does not fit
-    # (32 GB RAM + 12 GB card -> 65536 -> ~12.3 GiB for the 27B). Cap by VRAM
+    # (64 GB RAM + 12 GB card -> 65536 -> ~12.3 GiB for the 27B). Cap by VRAM
     # too: the 27B needs ~8.3 GiB for weights + mmproj + buffers, plus 0.5 GiB
     # of FP16 KV per 8192 tokens. NVIDIA only (nvidia-smi); the first GPU is
     # used, which under-sizes multi-GPU splits rather than overflowing them.
     if [ "${BONSAI_NGL:-99}" != "0" ] && command -v nvidia-smi >/dev/null 2>&1; then
-        _vram_mib=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null | head -n 1 | tr -dc '0-9')
+        _vram_mib=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null | head -n 1 | tr -d '[:space:]')
+        # Anything but a bare integer (error text, N/A) means "unknown": keep the RAM tier.
+        case "$_vram_mib" in *[!0-9]*) _vram_mib="" ;; esac
         _vcap=""
         if [ -n "$_vram_mib" ]; then
             if [ "$_vram_mib" -lt 10000 ]; then _vcap=8192
