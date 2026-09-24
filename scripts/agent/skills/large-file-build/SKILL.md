@@ -23,7 +23,7 @@ Build large self-contained files (typically HTML dashboards, > 10KB) by splittin
 
 ### 2. First Write — Skeleton + CSS + First Section
 ```bash
-write_file(path=/tmp/file.html)
+write_file(path=./draft.html)
 # Include: <html>, <head>, <style>, <body>, <header>
 # First content section (e.g., the bracket/tournament)
 # Target: < 8KB payload
@@ -31,7 +31,7 @@ write_file(path=/tmp/file.html)
 
 ### 3. Subsequent Patches — One Section Each
 ```bash
-patch(path=/tmp/file.html)
+patch(path=./draft.html)
 # Match surrounding context exactly:
 # old_string: closing tags from previous section
 # new_string: next section's full HTML
@@ -46,7 +46,7 @@ Sections to chunk (example for a World Cup dashboard):
 
 ### 4. Copy to Final Location
 ```bash
-cp /tmp/file.html ./file.html   # the deliverable goes in the working directory
+cp ./draft.html ./file.html   # the deliverable goes in the working directory
 ```
 
 ### 5. Verify with Browser

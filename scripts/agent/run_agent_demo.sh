@@ -18,14 +18,12 @@
 #   AGENT_CONFIG     Hermes config to use                  (default: round0 -> hermes-config-round0.yaml,
 #                                                                    feedback -> hermes-config-feedback.yaml)
 #   AGENT_CTX        declared context in the Hermes config (default 131072; must be <= the server's -c)
-#   AGENT_WORKSPACE_ROOT  where the agent's working directory is created (default /private/tmp/collect, the
-#                    recorded path; falls back to $TMPDIR/bonsai-agent if that is not writable)
+#   AGENT_WORKSPACE_ROOT  absolute workspace root (default: bonsai-agent under the system temp directory)
 #   AGENT_HOME_ROOT  where the run's private HERMES_HOME is created (default: agent-runs/, i.e. <run>/home)
 #
-# The working directory path, the model id and the skill list are part of the system prompt Hermes builds, so the
-# defaults match the recording: run name sk16_skateboard_1 under /private/tmp/collect, model id
-# bonsai2-27b-pq2-v16_2 (start_agent_server.sh's default alias), and the one extra skill shipped in
-# scripts/agent/skills/. Change any of them and the run is still valid, just a different sample.
+# The working directory path, model id and skill list are part of the system prompt Hermes builds.
+# The workspace is portable rather than tied to the recording machine. The run name, model alias
+# and extra skill retain their recorded defaults. A different working directory can change the sample.
 #
 # What it does, in order: verifies the server answers with the expected model id (a stale or foreign
 # server on the port is the classic silent failure), checks the server's sampler seed (or, with
@@ -46,10 +44,19 @@ case "$MODE" in
   *) echo "unknown mode $MODE"; exit 1 ;;
 esac
 CFG="${AGENT_CONFIG:-$A/$CFG_DEFAULT}"
-# the run name becomes a directory under agent-runs/ and under the workspace root and is removed there first,
-# so it must be a plain name: no slashes, no leading dot
+# The run name becomes a directory under agent-runs/ and the workspace root.
+# Require a plain name; existing directories are never reused or deleted.
 [[ "$NAME" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]] || { echo "ABORT: run name '$NAME' must match [A-Za-z0-9][A-Za-z0-9._-]*"; exit 1; }
-RUN="$DEMO_DIR/agent-runs/$NAME"; [ -e "$RUN" ] && { echo "$RUN exists; pick another name"; exit 1; }
+RUN="$DEMO_DIR/agent-runs/$NAME"; { [ -e "$RUN" ] || [ -L "$RUN" ]; } && { echo "$RUN exists; pick another name"; exit 1; }
+
+# Validate all input paths before starting a proxy or creating run state.
+[ -f "$TASK" ] && [ -r "$TASK" ] || { echo "ABORT: task is not a readable file: $TASK"; exit 1; }
+[ -f "$CFG" ] && [ -r "$CFG" ] || { echo "ABORT: config is not a readable file: $CFG"; exit 1; }
+[ -z "$SEED_DIR" ] || [ -d "$SEED_DIR" ] || { echo "ABORT: previous workspace is missing: $SEED_DIR"; exit 1; }
+ROOT="${AGENT_WORKSPACE_ROOT:-$(python3 -c 'import os,tempfile; print(os.path.join(tempfile.gettempdir(), "bonsai-agent"))')}"
+case "$ROOT" in /*) ;; *) echo "ABORT: AGENT_WORKSPACE_ROOT must be an absolute path"; exit 1 ;; esac
+WORK_PARENT="$ROOT/$NAME"
+{ [ -e "$WORK_PARENT" ] || [ -L "$WORK_PARENT" ]; } && { echo "ABORT: $WORK_PARENT exists; pick another name or workspace root"; exit 1; }
 
 # 1. the server must be ours (checked before anything is created, so a failed check leaves nothing behind)
 TMPM=$(mktemp); trap 'rm -f "$TMPM"' EXIT
@@ -59,7 +66,10 @@ grep -q "\"$MODEL\"" "$TMPM" || { echo "ABORT: $UP does not serve '$MODEL' (it s
 SERVED=$(curl -sf --max-time 10 "http://$UP/props" | python3 -c 'import json,sys; d=json.load(sys.stdin); g=d.get("default_generation_settings") or {}; n=int(g.get("n_ctx") or d.get("n_ctx") or 0); print(n//max(1,int(d.get("total_slots") or 1)))' 2>/dev/null || echo 0)
 CTX="${AGENT_CTX:-131072}"
 [ "$SERVED" -ge "$CTX" ] || { echo "ABORT: server slot context $SERVED < declared $CTX (start the server with BONSAI_CTX>=$CTX or lower AGENT_CTX)"; exit 2; }
-mkdir -p "$RUN"; mv "$TMPM" "$RUN/models.json"
+mkdir -p "$DEMO_DIR/agent-runs"
+# Atomic creation prevents another invocation from claiming the same run between checks.
+mkdir "$RUN" || { echo "ABORT: cannot create $RUN; pick another name"; exit 1; }
+mv "$TMPM" "$RUN/models.json"
 # until Hermes is launched, any failure removes the run directory and stops the proxy
 LAUNCHED=0; cleanup(){ [ "$LAUNCHED" = 1 ] && return 0; { [ -f "$RUN/proxy.pid" ] && kill "$(cat "$RUN/proxy.pid")" 2>/dev/null; } || true; rm -rf -- "$RUN" || true; echo "launch failed; $RUN removed" >&2; }
 trap cleanup EXIT
@@ -74,7 +84,7 @@ for p in range(10000+random.randint(0,1500),13000):
     s=socket.socket()
     try: s.bind(("127.0.0.1",p)); s.close(); print(p); break
     except OSError: pass')
-  INJECT=$(python3 -c "import json,os; d={}; s=os.environ.get('SEED',''); e=os.environ.get('EFFORT','');
+  INJECT=$(SEED="$SEED" EFFORT="$EFFORT" python3 -c "import json,os; d={}; s=os.environ.get('SEED',''); e=os.environ.get('EFFORT','');
 d.update({'seed':int(s)} if s else {}); d.update({'chat_template_kwargs':{'reasoning_effort':e}} if e else {}); print(json.dumps(d))")
   SEED="$SEED" EFFORT="$EFFORT" INJECT_BODY="$INJECT" python3 "$A/logproxy.py" "$PROXY_PORT" "$UPH" "$UPP" "$RUN/wire.jsonl" > "$RUN/proxy.log" 2>&1 &
   echo $! > "$RUN/proxy.pid"; sleep 2
@@ -92,16 +102,17 @@ fi
 # 3. a private HERMES_HOME with the recorded config; stock skills from the pinned checkout plus the one
 #    extra skill that was present when the demo was recorded (it is named in the system prompt)
 HR="${AGENT_HOME_ROOT:-$DEMO_DIR/agent-runs}"; case "$HR" in /*) ;; *) HR="$PWD/$HR" ;; esac   # Hermes gets this path after a cd, so make it absolute here
-HH="$HR/$NAME/home"; mkdir -p "$HH"; [ "$HH" = "$RUN/home" ] || ln -sfn "$HH" "$RUN/home"
+HH="$HR/$NAME/home"; mkdir -p "$HR/$NAME"
+mkdir "$HH" || { echo "ABORT: cannot create private Hermes home $HH; choose a fresh name"; exit 1; }
+[ "$HH" = "$RUN/home" ] || ln -s "$HH" "$RUN/home"
 [ -d "$DEMO_DIR/.hermes-agent/skills" ] && cp -a "$DEMO_DIR/.hermes-agent/skills" "$HH/skills"
 [ -d "$A/skills" ] && cp -a "$A/skills"/. "$HH/skills"/
 sed -e "s/^  default: .*/  default: ${MODEL}/" -e "s#base_url: http://localhost:[0-9]*/v1#base_url: ${BASE}#" -e "s/^  context_length: .*/  context_length: ${CTX}/" "$CFG" > "$HH/config.yaml"
 
-# 4. workspace outside any git repo, at the recorded path when possible
-ROOT="${AGENT_WORKSPACE_ROOT:-/private/tmp/collect}"
-if ! mkdir -p "$ROOT" 2>/dev/null; then ROOT="${TMPDIR:-/tmp}/bonsai-agent"; echo "NOTE: cannot create the recorded workspace root; using $ROOT instead. The working directory is part of the system prompt, so this run is a different sample from the recording."; fi
-case "$ROOT" in /*) ;; *) echo "ABORT: AGENT_WORKSPACE_ROOT must be an absolute path"; exit 1 ;; esac
-WORK="$ROOT/$NAME/workspace"; [ -d "$ROOT/$NAME" ] && rm -rf -- "$ROOT/$NAME"; mkdir -p "$WORK"; ln -sfn "$WORK" "$RUN/workspace"
+# 4. Claim a fresh workspace atomically; never remove or reuse existing work.
+mkdir -p "$ROOT"
+mkdir "$WORK_PARENT" || { echo "ABORT: cannot create $WORK_PARENT; pick another name or workspace root"; exit 1; }
+WORK="$WORK_PARENT/workspace"; mkdir "$WORK"; ln -s "$WORK" "$RUN/workspace"
 [ -n "$SEED_DIR" ] && cp -a "$SEED_DIR"/. "$WORK"/ && rm -f "$WORK/TASK.md"
 cp "$TASK" "$WORK/TASK.md"
 { echo "model=$MODEL"; echo "upstream=$UP"; echo "base_url=$BASE"; echo "trace=$TRACE"; echo "seed=${SEED:-none} ($([ "$TRACE" = 1 ] && echo injected-per-request || echo server -s))"; echo "inject=$INJECT"; echo "config=$(basename "$CFG")"; echo "declared_ctx=$CTX"; echo "server_ctx_per_slot=$SERVED"; echo "task=$TASK"; [ -n "$SEED_DIR" ] && echo "seeded_from=$SEED_DIR"; echo "hermes=$(git -C "$DEMO_DIR/.hermes-agent" rev-parse --short HEAD 2>/dev/null)"; echo "hermes_home=$HH"; echo "workspace=$WORK"; echo "agent_browser=$( { [ -x "$DEMO_DIR/.agent-browser/node_modules/.bin/agent-browser" ] && "$DEMO_DIR/.agent-browser/node_modules/.bin/agent-browser" --version; } 2>/dev/null || echo unpinned-npx)"; echo "started=$(date -u +%FT%TZ)"; } > "$RUN/run.txt"
