@@ -135,7 +135,7 @@ HERMES_HOME="$HH" "$VENV/bin/python" "$A/daemonize.py" "$RUN/hermes.pid" "$RUN/s
 HPID=""; for _ in $(seq 1 50); do [ -s "$RUN/hermes.pid" ] && HPID=$(cat "$RUN/hermes.pid") && break; sleep 0.2; done
 sleep 4
 if [ -z "$HPID" ] || ! kill -0 "$HPID" 2>/dev/null; then
-  echo "ABORT: Hermes did not start or exited within 4 s. stderr tail:" >&2; tail -n 20 "$RUN/stderr.log" >&2 2>/dev/null; exit 4
+  echo "ABORT: Hermes did not start or exited within 4 s. stderr tail:" >&2; { tail -n 20 "$RUN/stderr.log" >&2; } 2>/dev/null || true; exit 4
 fi
 LAUNCHED=1; trap - EXIT
 # trace mode: the proxy must not outlive Hermes; a detached reaper stops it once the Hermes pid is gone
