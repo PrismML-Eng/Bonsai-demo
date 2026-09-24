@@ -1,49 +1,46 @@
-# NVIDIA GeForce RTX 4070 Laptop GPU 8 GB — CUDA / Windows
+# NVIDIA GeForce RTX 4070 Laptop GPU - CUDA / Windows 11
 
 ## Summary
 
-Bonsai 2 27B PTQ1_0 benchmark on an NVIDIA GeForce RTX 4070 Laptop GPU with 8 GB VRAM.
+Bonsai 2 27B on an HP Victus 16-s1xxx laptop with an NVIDIA GeForce RTX 4070 Laptop GPU (8 GB VRAM), 32 GB system RAM, and Windows 11 Home, using llama.cpp build `d8f26eec7 (10683)`.
 
-The PTQ1_0 model runs fully GPU-offloaded and achieves approximately **32.4 tokens/second** in the standardized TG128 benchmark.
+| Format | PP512 (t/s) | TG128 (t/s) |
+|--------|------------:|------------:|
+| PQ2_0 | Not tested | Not tested |
+| PTQ1_0 | 435.60 ± 3.89 | 32.44 ± 0.17 |
+| Q2_0 (development) | Not tested | Not tested |
 
-In normal interactive use with a configured **64K context window** and **Q4_0 KV-cache quantization**, generation is approximately **22 tokens/second** without MTP or speculative decoding.
+## Configuration
 
-| Format | PP512 | TG128 |
-| --- | ---: | ---: |
-| PTQ1_0 | 435.60 ± 3.89 t/s | 32.44 ± 0.17 t/s |
-
-## Model
-
-- Model: `prism-ml/Ternary-Bonsai-2-27B-gguf`
-- Quantization: `PTQ1_0`
-- Reported architecture: `qwen35 27B`
-- Parameters: 26.90B
-- Model size: 5.53 GiB
-- Quantization density: 1.75 bpw ternary, group size 128
-
-## Hardware
-
-- System: HP Victus by HP Gaming Laptop 16-s1xxx
-- CPU: AMD Ryzen 7 8845HS w/ Radeon 780M Graphics
-- GPU: NVIDIA GeForce RTX 4070 Laptop GPU
-- GPU VRAM: 8187 MiB
-- GPU power limit: 90 W
-- GPU compute capability: 8.9
-- System RAM: 32 GB
-
-## Software
-
-- OS: Microsoft Windows 11 Home
-- Windows version: 10.0.26100
-- Windows build: 26100
-- NVIDIA driver: 592.82
-- CUDA version reported by `nvidia-smi`: 13.1
+- Model repository: `prism-ml/Ternary-Bonsai-2-27B-gguf`
+- Model packing: `PTQ1_0`
+- Exact model filename: `Ternary-Bonsai-2-27B-PTQ1_0.gguf`
+- Model revision/hash: Not recorded
 - llama.cpp build: `d8f26eec7 (10683)`
 - Backend: CUDA
+- OS: Microsoft Windows 11 Home, version `10.0.26100`, build `26100`
+- NVIDIA driver: `592.82`
+- CUDA version reported by `nvidia-smi`: `13.1`
+- GPU: NVIDIA GeForce RTX 4070 Laptop GPU
+- GPU compute capability: 8.9
+- GPU VRAM: 8187 MiB
+- CPU: AMD Ryzen 7 8845HS w/ Radeon 780M Graphics
+- System RAM: 32 GB
 - GPU offload: `-ngl 99`
-- Flash attention: enabled
+- Flash attention: enabled (`-fa 1`)
+- Benchmark KV cache types: defaults
+- Benchmark batch sizes / threads: defaults unless set internally by `llama-bench`
+- GPU power limit: 90 W hardware power cap reported by `nvidia-smi`; no manual power-limit or overclock tuning was applied
 
-## Standard Benchmark Command
+## llama-bench results
+
+### PQ2_0
+
+Not tested.
+
+### PTQ1_0
+
+Exact PowerShell command:
 
 ```powershell
 .\bin\cuda\llama-bench.exe `
@@ -54,7 +51,7 @@ In normal interactive use with a configured **64K context window** and **Q4_0 KV
   -fa 1
 ```
 
-## llama-bench Results
+Raw result:
 
 ```text
 ggml_cuda_init: found 1 CUDA devices (Total VRAM: 8187 MiB):
@@ -68,11 +65,17 @@ Device 0: NVIDIA GeForce RTX 4070 Laptop GPU, compute capability 8.9, VMM: yes, 
 build: d8f26eec7 (10683)
 ```
 
-## Additional Real-World Long-Context Result
+### Q2_0
 
-### 64K Context Configuration
+Not tested.
 
-For normal model usage, the server is configured with a **65,536-token context window** and both K and V KV caches quantized to **Q4_0**.
+## Additional observations
+
+### 64K-context interactive use
+
+For normal interactive use, Bonsai 2 27B PTQ1_0 is run with a configured 65,536-token context window and Q4_0 quantization for both the K and V KV caches.
+
+Server command:
 
 ```powershell
 .\bin\cuda\llama-server.exe `
@@ -91,26 +94,21 @@ For normal model usage, the server is configured with a **65,536-token context w
   --reasoning-budget 500
 ```
 
-With this configuration, observed generation speed during normal interactive use is approximately:
+Observed generation throughput during normal interactive use is approximately:
 
 **22 tokens/second**
 
-This result uses:
+Relevant settings:
 
-- 65,536-token configured context window
-- Q4_0 K-cache quantization
-- Q4_0 V-cache quantization
-- Full GPU offload with `-ngl 99`
-- Flash attention enabled
-- Batch size 512
-- Micro-batch size 256
-- Single parallel sequence
+- Configured context window: 65,536 tokens
+- K-cache: `q4_0`
+- V-cache: `q4_0`
+- GPU offload: `-ngl 99`
+- Flash attention: enabled
+- Batch size: 512
+- Micro-batch size: 256
+- Parallel sequences: 1
+- Reasoning budget: 500
 - No MTP or speculative decoding
 
-The long-context figure is an informal real-world observation rather than a standardized `llama-bench` result, so it should not be directly compared with TG128.
-
-## Notes
-
-This benchmark demonstrates that Bonsai 2 27B PTQ1_0 can run effectively on an 8 GB consumer laptop GPU while remaining fully GPU-offloaded.
-
-The model itself occupies approximately 5.53 GiB. Quantizing the KV cache to Q4_0 substantially reduces long-context memory requirements and helps make a 64K context configuration practical within the GPU's 8 GB VRAM limit.
+This is an informal real-world observation rather than a standardized `llama-bench` result. The configured 64K context window does not necessarily mean 64K tokens were resident during every observed generation, so this result should not be directly compared with PP512 or TG128.
