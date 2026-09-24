@@ -7,6 +7,7 @@ plain-English feedback. Everything here is what the model produced, unedited, an
 run it again is in this folder.
 
 - 59-second clip: [`demos/skateboard/demo_clip_seed42_59s.mp4`](demos/skateboard/demo_clip_seed42_59s.mp4)
+- Skateboard, five rounds: [demos/skateboard_feedback/pages/](demos/skateboard_feedback/pages/) round0 to round4 · the brief and the four feedback lines: [demos/skateboard_feedback/prompts/](demos/skateboard_feedback/prompts/) · 75-second cut: [`demos/skateboard_feedback/skateboard_feedback_75s.mp4`](demos/skateboard_feedback/skateboard_feedback_75s.mp4)
 - Playable pages: [round 0](demos/skateboard/pages/round0.html) · [round 1, flips and coins](demos/skateboard/pages/round1.html)
 - Replay page with the model's trace beside the game: [`demos/skateboard/replay/index.html`](demos/skateboard/replay/index.html) (open it from a clone; it embeds the trace and loads the pages above)
 
@@ -66,6 +67,34 @@ llama-server -m Ternary-Bonsai-2-27B-PQ2_0.gguf --mmproj Ternary-Bonsai-2-27B-mm
 | seed | 42, the server's `-s 42` (`AGENT_SERVER_SEED`, default 42); the runner refuses to start against a server whose seed differs from `AGENT_SEED` | a fixed seed keeps the sampler repeatable; one slot, so a server seed equals a per-request seed. The recording injected 42 per request through the trace proxy, same effect |
 | Hermes | 0.18.2 at commit `c387be0`, browser tool `agent-browser` 0.38.1 (pinned in `.agent-browser/` by the installer, first on PATH at run time); `scripts/agent/hermes-config-round0.yaml` (context 131,072, max_tokens 32,768, coding mode off, verify-on-stop off, tools file · terminal · coding · web · search · browser); feedback rounds use `hermes-config-feedback.yaml` (8-turn limit) | the recorded configuration, verbatim; the workspace lives outside any git repo because Hermes changes profile inside one |
 | model | `Ternary-Bonsai-2-27B-PQ2_0.gguf` 7,206,168,928 bytes, sha256 `3907dc1658db1f78a9826bf8d5bcb8dc65db0d466388937af57f2294fae62ec1` · `Ternary-Bonsai-2-27B-mmproj-Q8_0.gguf` 629,246,976 bytes, sha256 `6807ede61d570bb86ba34b756a0fa109edc33668604de867c6ea6d8f1d631903` | |
+
+## The skateboard, five rounds
+
+The same three-line skateboard brief, then four rounds of feedback written the way a user writes them. Every round
+starts from the previous round's page, copied into a fresh workspace with the feedback as the task
+(`run_agent_demo.sh feedback <previous run> <feedback.md>`). Nothing else changes between rounds: same server, same
+settings, no proxy.
+
+| setting | value |
+|---|---|
+| server | `./scripts/start_agent_server.sh` defaults: 16k thinking budget, ctx 131,072, min-p 0.05, seed 42, one slot |
+| runner | round 0 with `hermes-config-round0.yaml`, rounds 1-4 with `hermes-config-feedback.yaml` (max_tokens 32,768, xhigh) |
+
+| round | words sent to the agent | what came back | calls | wall |
+|---|---|---|---|---|
+| 0 | Make a simple 3d skateboard game in a single html file. | "Skate City": three.js from cdnjs, steering, brake, ollie, rail grind, HUD. The RIDE overlay never cleared and the scene drew nothing. | 15 | 10 min |
+| 1 | i cannot enter the game | One CSS rule: the overlay toggled a `hidden` class that had no style. Overlay clears; scene still black. | 16 | 90 s |
+| 2 | the screen is dark | Palette changed from night to day and the agent reported "the scene is now bright". Still nothing drawn. The agent did not look at its own render. | 10 | 4 min |
+| 3 | there is no skater no road no gameplay. make sure it works | Scene rebuilt: skater on the deck, tiled ground, tower blocks, the orange rail, playable. | 25 | 10 min |
+| 4 | more details/better rendering on buildings would be nice. can we also do flips/tricks when jumping. | Windowed procedural towers, lamps, trees, billboards; eight tricks on the ollie paid out on a clean landing. | 51 | 17 min |
+
+What this shows: plain words are enough, specific complaints get fixed fast, vague ones can get a confident non-fix,
+and the loop still closes with a real game on a 2-bit model. The clip is rounds 0 to 3 captured from the saved pages
+and round 4 as a screen recording of the game being played.
+
+What it does not show: that a fresh round 0 lands every time. At these defaults roughly half of the skateboard
+round-0 draws on this machine produced a game, and open-ended asks ("make it visually impressive") are where the
+write runaways cluster. Bug reports land far more reliably than taste requests.
 
 ## What to expect
 
