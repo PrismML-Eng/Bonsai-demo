@@ -12,8 +12,8 @@ run it again is in this folder.
 
 | round | prompt (verbatim) | result | calls | tokens | wall |
 |---|---|---|---|---|---|
-| 0 | `Make a simple 3d skateboard game in a single html file.` + `(Name the file skateboard.html in the current directory.)` | road, visible skater, trees, obstacles, distance HUD, game over and restart; the model verified it in its own browser | 8 | 23,239 | 42 s |
-| 1 | `can you make it so that we do flips/tricks in the air? also would be nice to have some coins to collect` | F front flip, R spin, coins with a counter, trick HUD | 17 | 40,919 | 7.5 min |
+| 0 | `Make a simple 3d skateboard game in a single html file.` + `(Name the file skateboard.html in the current directory.)` | road, visible skater, trees, obstacles, distance HUD, game over and restart; the model verified it in its own browser | 8 | 23,239 | 4 min 8 s |
+| 1 | `can you make it so that we do flips/tricks in the air? also would be nice to have some coins to collect` | F front flip, R spin, coins with a counter, trick HUD | 17 | 40,919 | 7 min 45 s |
 
 The prompts are in [`demos/skateboard/prompts/`](demos/skateboard/prompts/). Feedback rounds hand the
 model the previous round's `skateboard.html` in its working directory plus one sentence saying whose file it is.
@@ -38,8 +38,13 @@ Each run writes `agent-runs/<name>/`: `workspace/skateboard.html` (the deliverab
 run used), `server-props.json` (what llama-server reported), `stdout.log`. With `AGENT_TRACE=1` the runner also
 puts a small logging proxy in the path and writes `wire.jsonl`, every request and response including the model's
 thinking; that is how the recordings behind the replay page were captured. Follow a run with
-`tail -f agent-runs/sk16_skateboard_1/stdout.log`; round 0 takes under a
-minute on an H200 and a few minutes on an M-series Mac.
+`tail -f agent-runs/sk16_skateboard_1/stdout.log`; round 0 took 4 min 8 s on an
+H200 from launch to the last model reply (most of it the 20,206-token first turn at about 100 tok/s); expect longer on
+an M-series Mac. Times in the table are launch-to-last-reply wall clock.
+
+Hermes runs with `--yolo`: it executes the commands the model writes on this machine, as your user, with no
+confirmation. The private workspace keeps its files apart; it is not a sandbox. Run it on a machine where that is
+acceptable.
 
 ## The settings
 

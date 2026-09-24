@@ -130,6 +130,11 @@ if [ -z "$HPID" ] || ! kill -0 "$HPID" 2>/dev/null; then
   echo "ABORT: Hermes did not start or exited within 4 s. stderr tail:" >&2; tail -n 20 "$RUN/stderr.log" >&2 2>/dev/null; exit 4
 fi
 LAUNCHED=1; trap - EXIT
+# trace mode: the proxy must not outlive Hermes; a detached reaper stops it once the Hermes pid is gone
+if [ "$TRACE" = 1 ]; then
+  "$VENV/bin/python" "$A/daemonize.py" "$RUN/reaper.pid" /dev/null /dev/null \
+    /bin/sh -c "while kill -0 $HPID 2>/dev/null; do sleep 5; done; kill \$(cat '$RUN/proxy.pid') 2>/dev/null"
+fi
 echo "launched: $NAME  (hermes pid $HPID${TRACE:+$([ "$TRACE" = 1 ] && echo ", proxy pid $(cat "$RUN/proxy.pid")")})"; sed 's/^/  /' "$RUN/run.txt"
 if [ "$TRACE" = 1 ]; then echo "watch:  wc -l $RUN/wire.jsonl        deliverable: $RUN/workspace/"; else echo "watch:  tail -f $RUN/stdout.log        deliverable: $RUN/workspace/"; fi
 echo "stop:   kill \$(cat $RUN/hermes.pid)$([ "$TRACE" = 1 ] && echo " \$(cat $RUN/proxy.pid)")"

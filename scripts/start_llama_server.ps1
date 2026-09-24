@@ -145,7 +145,7 @@ $ChatTemplateKwargs = if ($PSVersionTable.PSEdition -eq 'Desktop') { '{\"enable_
 # Sampling for the 27B path: Bonsai 2 uses the base model's own defaults, the
 # earlier families keep the profile they were tested on. Mirrors start_llama_server.sh.
 $SamplingArgs = if ($BonsaiFamily -eq "bonsai2") {
-    @("--temp", "1.0", "--top-p", "0.95", "--top-k", "20")
+    @("--temp", "1.0", "--top-p", "0.95", "--top-k", "20", "--min-p", "0")
 } else {
     @("--temp", "0.7", "--top-p", "0.95", "--top-k", "20", "--min-p", "0")
 }
