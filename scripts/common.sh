@@ -281,10 +281,11 @@ bonsai_ctx_default() {
     # (64 GB RAM + 12 GB card -> 65536 -> ~12.3 GiB for the 27B). The 27B needs
     # ~8.3 GiB for weights + mmproj + buffers, plus 0.5 GiB of FP16 KV per 8192
     # tokens. It applies only when the caller passes the resolved backend ($1) and
-    # -ngl ($2) and they are a bundled CUDA build with offload on (so CPU-only
-    # launches keep the RAM tier), and only when exactly one NVIDIA GPU is listed
-    # (with several there is no telling which one llama.cpp will use).
-    if [ "${1:-}" = "cuda" ] && [ "${2:-0}" != "0" ] && command -v nvidia-smi >/dev/null 2>&1; then
+    # -ngl ($2) and they are a bundled CUDA build with full offload (-ngl >= 99;
+    # CPU-only and partial-offload launches keep the RAM tier, since the numbers
+    # above assume every layer and its KV are in VRAM), and only when exactly one
+    # NVIDIA GPU is listed (with several there is no telling which one is used).
+    if [ "${1:-}" = "cuda" ] && [ "${2:-0}" -ge 99 ] 2>/dev/null && command -v nvidia-smi >/dev/null 2>&1; then
         # One line per GPU. Keeping the newline between lines makes a multi-GPU
         # answer non-numeric below, like error text or N/A: all mean "unknown".
         _vram_mib=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null | tr -d ' \r')
