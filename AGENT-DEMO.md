@@ -6,18 +6,18 @@ loads it in a headless browser, plays it, looks at a screenshot, and ships it. T
 plain-English feedback. Everything here is what the model produced, unedited, and everything needed to
 run it again is in this folder.
 
-- 59-second clip: [`demos/skateboard/demo_clip_seed42_59s.mp4`](demos/skateboard/demo_clip_seed42_59s.mp4)
-- Skateboard, five rounds: [demos/skateboard_feedback/pages/](demos/skateboard_feedback/pages/) round0 to round4 · the brief and the four feedback lines: [demos/skateboard_feedback/prompts/](demos/skateboard_feedback/prompts/) · 75-second cut: [`demos/skateboard_feedback/skateboard_feedback_75s.mp4`](demos/skateboard_feedback/skateboard_feedback_75s.mp4)
-- Skateboard, another draw, round 0 and a flips round: [demos/skateboard_flips/pages/](demos/skateboard_flips/pages/) round0 and round1 · prompts: [demos/skateboard_flips/prompts/](demos/skateboard_flips/prompts/) · 45-second clip: [`demos/skateboard_flips/skateboard_flips_45s.mp4`](demos/skateboard_flips/skateboard_flips_45s.mp4)
-- Playable pages: [round 0](demos/skateboard/pages/round0.html) · [round 1, flips and coins](demos/skateboard/pages/round1.html)
-- Replay page with the model's trace beside the game: [`demos/skateboard/replay/index.html`](demos/skateboard/replay/index.html) (open it from a clone; it embeds the trace and loads the pages above)
+- 59-second clip: [`demos/skateboard/recorded/demo_clip_seed42_59s.mp4`](demos/skateboard/recorded/demo_clip_seed42_59s.mp4)
+- Skateboard, five rounds: [demos/skateboard/five_rounds/pages/](demos/skateboard/five_rounds/pages/) round0 to round4 · the brief and the four feedback lines: [demos/skateboard/five_rounds/prompts/](demos/skateboard/five_rounds/prompts/) · 75-second cut: [`demos/skateboard/five_rounds/skateboard_feedback_75s.mp4`](demos/skateboard/five_rounds/skateboard_feedback_75s.mp4)
+- Skateboard, another draw, round 0 and a flips round: [demos/skateboard/flips/pages/](demos/skateboard/flips/pages/) round0 and round1 · prompts: [demos/skateboard/flips/prompts/](demos/skateboard/flips/prompts/) · 45-second clip: [`demos/skateboard/flips/skateboard_flips_45s.mp4`](demos/skateboard/flips/skateboard_flips_45s.mp4)
+- Playable pages: [round 0](demos/skateboard/recorded/pages/round0.html) · [round 1, flips and coins](demos/skateboard/recorded/pages/round1.html)
+- Replay page with the model's trace beside the game: [`demos/skateboard/recorded/replay/index.html`](demos/skateboard/recorded/replay/index.html) (open it from a clone; it embeds the trace and loads the pages above)
 
 | round | prompt (verbatim) | result | calls | tokens | wall |
 |---|---|---|---|---|---|
 | 0 | `Make a simple 3d skateboard game in a single html file.` + `(Name the file skateboard.html in the current directory.)` | road, visible skater, trees, obstacles, distance HUD, game over and restart; the model verified it in its own browser | 8 | 23,239 | 4 min 8 s |
 | 1 | `can you make it so that we do flips/tricks in the air? also would be nice to have some coins to collect` | F front flip, R spin, coins with a counter, trick HUD | 17 | 40,919 | 7 min 45 s |
 
-The prompts are in [`demos/skateboard/prompts/`](demos/skateboard/prompts/). Feedback rounds hand the
+The prompts are in [`demos/skateboard/recorded/prompts/`](demos/skateboard/recorded/prompts/). Feedback rounds hand the
 model the previous round's `skateboard.html` in its working directory plus one sentence saying whose file it is.
 
 ## Run it
@@ -32,7 +32,7 @@ Node package that declares Node >= 24; the installer pins that version in `.agen
 
 ./scripts/start_agent_server.sh         # terminal 1: llama-server with the agent profile (below)
 ./scripts/agent/run_agent_demo.sh round0                                                        # terminal 2
-./scripts/agent/run_agent_demo.sh feedback agent-runs/sk16_skateboard_1     demos/skateboard/prompts/round1-feedback.md sk16_skateboard_1_fb1
+./scripts/agent/run_agent_demo.sh feedback agent-runs/sk16_skateboard_1     demos/skateboard/recorded/prompts/round1-feedback.md sk16_skateboard_1_fb1
 ```
 
 Hermes talks to llama-server directly; nothing sits in between and nothing in Hermes or llama.cpp is modified.
@@ -61,7 +61,7 @@ llama-server -m Ternary-Bonsai-2-27B-PQ2_0.gguf --mmproj Ternary-Bonsai-2-27B-mm
 
 | setting | value | why |
 |---|---|---|
-| sampling | temp 1.0 · top_p 0.95 · top_k 20 · min_p 0 · presence 0 · repeat 1.0 | the recorded values. The model card now recommends min_p 0.05 (llama.cpp's default); the agent profile keeps 0 to match the recording |
+| sampling | temp 1.0 · top_p 0.95 · top_k 20 · min_p 0 · presence 0 · repeat 1.0 | the recorded values. The launcher now defaults to min_p 0.05 (the model card's value, `AGENT_MIN_P`); start it with `AGENT_MIN_P=0` to match this recording |
 | reasoning | template default (`xhigh`), `--reasoning-format deepseek`, budget 16,384 thinking tokens per turn | thinking arrives in `reasoning_content`; Hermes sends only the visible answer back, so each turn thinks afresh. The budget caps runaway thinking |
 | context | 131,072 for the exact recording; `BONSAI_CTX=262144` recommended | at 131k Hermes compresses the history on long runs; at 262k it never did in our tests |
 | output | Hermes `max_tokens 32768` | the planning turn writes the whole page in one go and must fit |
@@ -78,7 +78,7 @@ settings, no proxy.
 
 | setting | value |
 |---|---|
-| server | `./scripts/start_agent_server.sh --min-p 0.05`: 16k thinking budget, ctx 131,072, seed 42, one slot. The launcher itself still passes `--min-p 0` to match the recording; the trailing flag overrides it, and the runner records the server's props at launch |
+| server | `./scripts/start_agent_server.sh` defaults: 16k thinking budget, ctx 131,072, min-p 0.05 (`AGENT_MIN_P`), seed 42, one slot |
 | runner | round 0 with `hermes-config-round0.yaml`, rounds 1-4 with `hermes-config-feedback.yaml` (max_tokens 32,768, xhigh) |
 
 | round | words sent to the agent | what came back | calls | wall |
@@ -93,18 +93,14 @@ What this shows: plain words are enough, specific complaints get fixed fast, vag
 and the loop still closes with a real game on a 2-bit model. The clip is rounds 0 to 3 captured from the saved pages
 and round 4 as a screen recording of the game being played.
 
-Known defect, kept as the agent wrote it: in rounds 3 and 4 the road mesh's index buffer is a `Float32Array`, which
-WebGL rejects, so the asphalt road is never drawn and the game plays on the tiled ground beside it. The pages in this
-repo are what the model produced, defects included; fixing that line by hand would make them something else.
-
 What it does not show: that a fresh round 0 lands every time. At these defaults roughly half of the skateboard
 round-0 draws on this machine produced a game, and open-ended asks ("make it visually impressive") are where the
 write runaways cluster. Bug reports land far more reliably than taste requests.
 
 ## The skateboard, another draw: round 0 and a flips round
 
-A separate draw of the same brief at the same settings (16k thinking budget, ctx 131,072, `--min-p 0.05` passed to the
-launcher, seed 42, no proxy). This draw happened to produce a playable game in round 0; one line of feedback added tricks.
+A separate draw of the same brief at the same defaults (16k thinking budget, ctx 131,072, min-p 0.05, seed 42, no
+proxy). This draw happened to produce a playable game in round 0; one line of feedback added tricks.
 
 | round | words sent to the agent | what came back | calls | wall |
 |---|---|---|---|---|
