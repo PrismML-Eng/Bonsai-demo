@@ -124,6 +124,22 @@ print(json.dumps({"data": [{"id": "test-model"}]} if sys.argv[-1].endswith("/v1/
         self.assertTrue(workspace.is_symlink())
         self.assertEqual((workspace / "TASK.md").read_text(), "Test task")
 
+    def test_failed_launch_removes_everything_it_created(self):
+        # daemonize stub records a pid that is not running: the startup check must fail and clean up
+        home_root = self.root / "homes"
+        self.env["AGENT_HOME_ROOT"] = str(home_root)
+        (self.agent / "daemonize.py").write_text(
+            "import pathlib, sys\npathlib.Path(sys.argv[1]).write_text('999999')\n")
+        sleep = self.fake / "sleep"
+        sleep.write_text("#!/bin/sh\nexit 0\n")
+        sleep.chmod(0o755)
+        result = self.run_task()
+        self.assertEqual(result.returncode, 4, result.stdout + result.stderr)
+        self.assertIn("did not start", result.stderr)
+        self.assertFalse((self.demo / "agent-runs" / "test-run").exists())
+        self.assertFalse((self.workspace / "test-run").exists())
+        self.assertFalse((home_root / "test-run").exists())
+
     def test_trace_injection_uses_runner_values(self):
         # Execute the actual JSON-building assignment without starting the proxy.
         source = (self.agent / "run_agent_demo.sh").read_text()

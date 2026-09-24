@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Wire-level transcript capture for ANY harness -> vLLM.
+"""Wire-level transcript capture for any OpenAI-compatible harness -> server (llama-server here).
 
 Records every /chat/completions exchange to JSONL: full message prefix (incl. tool schemas and
 tool results), sampling params, usage, finish_reason, and the assistant reply. Handles BOTH

@@ -74,7 +74,9 @@ is stable. Runs still differ from each other: the agent checks its page in a hea
 game is running while it looks, and a screenshot or a console read taken a second later says something else.
 Runs therefore share the same opening and part ways in the verification steps, ending with pages that play the
 same but are not necessarily identical files. Whether the page comes out well also depends on the system prompt
-Hermes builds (model id, working directory, skill list), so the scripts pin those to what the recording used.
+Hermes builds (model id, working directory, skill list). The scripts pin the model id to the recorded one; the working
+directory is a fresh per-user path and the shipped skill text was tidied after the recording, so a run here is its own
+sample, not a replay of the video.
 
 On this brief without a seed, the same setting produced a good page in 2 to 4 of every 9 attempts in our runs.
 The video is one attempt with seed 42.

@@ -31,7 +31,8 @@
 # <run>/wire.jsonl and the seed/effort are injected per request), prepares a workspace OUTSIDE any git repo (inside one, Hermes switches
 # to its coding-agent profile and behaves differently), copies the brief in as TASK.md (and the previous
 # round's files for a feedback round), then launches Hermes detached. Follow progress with
-#   wc -l agent-runs/<name>/wire.jsonl ; the deliverable lands in agent-runs/<name>/workspace/.
+#   tail -f agent-runs/<name>/stdout.log  (wc -l agent-runs/<name>/wire.jsonl with AGENT_TRACE=1); the deliverable
+#   lands in agent-runs/<name>/workspace/.
 set -euo pipefail
 MODE=${1:?round0 | feedback <prev-run> <feedback.md> [name] | task <task.md> [name]}
 A="$(cd "$(dirname "$0")" && pwd)"; DEMO_DIR="$(cd "$A/../.." && pwd)"
@@ -71,7 +72,12 @@ mkdir -p "$DEMO_DIR/agent-runs"
 mkdir "$RUN" || { echo "ABORT: cannot create $RUN; pick another name"; exit 1; }
 mv "$TMPM" "$RUN/models.json"
 # until Hermes is launched, any failure removes the run directory and stops the proxy
-LAUNCHED=0; cleanup(){ [ "$LAUNCHED" = 1 ] && return 0; { [ -f "$RUN/proxy.pid" ] && kill "$(cat "$RUN/proxy.pid")" 2>/dev/null; } || true; rm -rf -- "$RUN" || true; echo "launch failed; $RUN removed" >&2; }
+LAUNCHED=0; MADE_WORK=0; MADE_HOME=0
+cleanup(){ [ "$LAUNCHED" = 1 ] && return 0
+  { [ -f "$RUN/proxy.pid" ] && kill "$(cat "$RUN/proxy.pid")" 2>/dev/null; } || true
+  [ "$MADE_HOME" = 1 ] && [ -n "${HH:-}" ] && [ "$HH" != "$RUN/home" ] && rm -rf -- "$HH" "$(dirname "$HH")" 2>/dev/null || true   # custom AGENT_HOME_ROOT: only what this run created
+  [ "$MADE_WORK" = 1 ] && [ -n "${WORK_PARENT:-}" ] && rm -rf -- "$WORK_PARENT" || true
+  rm -rf -- "$RUN" || true; echo "launch failed; $RUN and the directories it created were removed" >&2; }
 trap cleanup EXIT
 curl -sf --max-time 10 "http://$UP/props" > "$RUN/server-props.json"
 
@@ -104,6 +110,7 @@ fi
 HR="${AGENT_HOME_ROOT:-$DEMO_DIR/agent-runs}"; case "$HR" in /*) ;; *) HR="$PWD/$HR" ;; esac   # Hermes gets this path after a cd, so make it absolute here
 HH="$HR/$NAME/home"; mkdir -p "$HR/$NAME"
 mkdir "$HH" || { echo "ABORT: cannot create private Hermes home $HH; choose a fresh name"; exit 1; }
+MADE_HOME=1
 [ "$HH" = "$RUN/home" ] || ln -s "$HH" "$RUN/home"
 [ -d "$DEMO_DIR/.hermes-agent/skills" ] && cp -a "$DEMO_DIR/.hermes-agent/skills" "$HH/skills"
 [ -d "$A/skills" ] && cp -a "$A/skills"/. "$HH/skills"/
@@ -112,6 +119,7 @@ sed -e "s/^  default: .*/  default: ${MODEL}/" -e "s#base_url: http://localhost:
 # 4. Claim a fresh workspace atomically; never remove or reuse existing work.
 mkdir -p "$ROOT"
 mkdir "$WORK_PARENT" || { echo "ABORT: cannot create $WORK_PARENT; pick another name or workspace root"; exit 1; }
+MADE_WORK=1
 WORK="$WORK_PARENT/workspace"; mkdir "$WORK"; ln -s "$WORK" "$RUN/workspace"
 [ -n "$SEED_DIR" ] && cp -a "$SEED_DIR"/. "$WORK"/ && rm -f "$WORK/TASK.md"
 cp "$TASK" "$WORK/TASK.md"
