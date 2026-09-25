@@ -175,17 +175,31 @@ Every launcher is configured through environment variables. The most common ones
 
 ## Upstream Status for Bonsai 2
 
-Bonsai 2 needs the Hadamard activation transform, which is not upstream yet, so every band currently
-requires this demo's binaries from the [PrismML fork](https://github.com/PrismML-Eng/llama.cpp).
+We are upstreaming Bonsai 2 support in smaller PRs, targeting the official `Q2_0`
+format. The fast Walsh–Hadamard transform (FWHT) work below provides backend
+building blocks; full support also needs the model's Hadamard and sign-flip
+integration. **Bonsai 2 still requires the [PrismML llama.cpp fork](https://github.com/PrismML-Eng/llama.cpp).**
 
-| Change | Status | Where |
-|--------|--------|-------|
-| FWHT with F16 input (CPU) | ⏳ Open | [ggml-org/llama.cpp#27779](https://github.com/ggml-org/llama.cpp/pull/27779) |
+Status checked September 25, 2026:
 
-More will be added here as they go up. Until this work lands, do not run Bonsai 2 on stock
-llama.cpp: `PQ2_0` and `PTQ1_0` are refused outright, but `Q2_0` loads without a warning and outputs
-gibberish, which is why that band is kept in a
-[separate repo](https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-gguf-dev).
+| Change | Status | PR |
+|--------|--------|----|
+| CPU: F16 input to FWHT | ✅ Merged | [#27779](https://github.com/ggml-org/llama.cpp/pull/27779) |
+| Metal: F16 input to FWHT | ✅ Merged | [#29094](https://github.com/ggml-org/llama.cpp/pull/29094) |
+| Metal: FWHT block widths above 512 | ✅ Merged | [#29095](https://github.com/ggml-org/llama.cpp/pull/29095) |
+| CUDA: F16 input to FWHT | ⏳ Open | [#29096](https://github.com/ggml-org/llama.cpp/pull/29096) |
+| CUDA: FWHT block widths above 512 | 📝 Draft | [#29100](https://github.com/ggml-org/llama.cpp/pull/29100) |
+| Vulkan: F16 input to FWHT | 📝 Draft | [#29101](https://github.com/ggml-org/llama.cpp/pull/29101) |
+| SYCL: FWHT block widths above 512 | ⏳ Open | [#29243](https://github.com/ggml-org/llama.cpp/pull/29243) |
+
+`PQ2_0` and `PTQ1_0` remain fork-specific packings; this upstream effort does not
+promise support for those types. All three packings contain the same model weights.
+
+Until full model support lands, do not run Bonsai 2 on stock llama.cpp: `PQ2_0`
+and `PTQ1_0` are rejected, but `Q2_0` can load without the required transforms and
+produce gibberish. The development `Q2_0` checkpoint is therefore kept in a
+[separate repository](https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-gguf-dev)
+and still requires our fork.
 
 <a id="bonsai-1-bit"></a>
 <a id="ternary-bonsai"></a>
