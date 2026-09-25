@@ -110,7 +110,7 @@ _version_ge() {
 
 # ── Model selection ──
 BONSAI_MODEL="${BONSAI_MODEL:-27B}"
-BONSAI_FAMILY="${BONSAI_FAMILY:-ternary}"
+BONSAI_FAMILY="${BONSAI_FAMILY:-bonsai2}"
 
 echo ""
 echo "========================================="

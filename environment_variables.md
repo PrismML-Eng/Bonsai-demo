@@ -7,7 +7,7 @@ Every script in this repo is driven by environment variables — model selection
 | Variable | Default | Valid values | Purpose |
 |----------|---------|--------------|---------|
 | **Model & setup** | | | |
-| `BONSAI_FAMILY` | `ternary` | `ternary`, `bonsai`, `all` | Model family. `ternary` = Ternary-Bonsai; `bonsai` = 1-bit Bonsai. `all` expands to both families (setup/download only). |
+| `BONSAI_FAMILY` | `bonsai2` | `bonsai2`, `ternary`, `bonsai`, `all` | Model family. `bonsai2` = Bonsai 2; `ternary` = earlier Ternary-Bonsai; `bonsai` = 1-bit Bonsai. `all` expands to all three families (setup/download only). |
 | `BONSAI_MODEL` | `27B` | `27B`, `8B`, `4B`, `1.7B`, `all` | Model size. `all` expands to all four sizes (setup/download only). |
 | `BONSAI_TOKEN` | — | HF read-only token | No longer needed: all model repos are public. Kept for compatibility; if set, it is passed to the HF downloads. |
 | `BONSAI_SKIP_GGUF` | unset | `1` | Skip the GGUF download entirely (macOS MLX-only setups, saves disk space). The llama.cpp scripts then point you at the MLX ones instead (see "Running the Model" below). |

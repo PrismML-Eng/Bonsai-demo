@@ -155,7 +155,17 @@ hf download prism-ml/Ternary-Bonsai-8B-gguf  Ternary-Bonsai-8B-Q2_0_g64.gguf  --
 The following runtime notes apply to these earlier families. For Bonsai 2's native
 mlx-vlm runtime, see [the main README](README.md#bonsai-2-ternary-default).
 
-**Tested versions (reproducibility).** The released MLX weights are plain safetensors and need no runtime patches. The 1-bit packs need an MLX build with 1-bit quantization support: the [PrismML-Eng/mlx](https://github.com/PrismML-Eng/mlx) fork, branch `prism`, until [mlx#3161](https://github.com/ml-explore/mlx/pull/3161) merges upstream. The 2-bit ternary packs run on stock MLX. The released 27B packs were validated with:
+For earlier families, `run_mlx.sh` uses `mlx_generate.py` in `.venv` for text-only
+one-shot generation. Binary 1-bit and the smaller ternary models also use
+`mlx_lm.server` in `.venv` for serving.
+
+**Ternary-Bonsai 27B serving:** `start_mlx_server.sh` and the MLX backend of
+`start_openwebui.sh` prefer native `mlx-vlm` in `.venv-vlm`, with image input and
+thinking enabled. If that environment is unavailable, or `BONSAI_MLX_VLM=0`,
+they fall back to text-only `mlx_lm` in `.venv`. This fallback applies to the
+earlier ternary family; Bonsai 2 requires its native mlx-vlm loader.
+
+**Earlier `.venv` validation (reproducibility).** The released MLX weights are plain safetensors and need no runtime patches. The 1-bit packs need an MLX build with 1-bit quantization support: the [PrismML-Eng/mlx](https://github.com/PrismML-Eng/mlx) fork, branch `prism`, until [mlx#3161](https://github.com/ml-explore/mlx/pull/3161) merges upstream. The 2-bit ternary packs run on stock MLX. The released 27B packs were validated with:
 
 - Python 3.11
 - mlx fork branch `prism` at commit [`88c9c20`](https://github.com/PrismML-Eng/mlx/commit/88c9c205a50f)
