@@ -1,0 +1,14 @@
+# Pipeline work products. The feature files alone run to hundreds of GB.
+teacher/
+feats/
+feats_*/
+logs/
+*.bin
+*.jsonl
+*.json
+*.safetensors
+*.gguf
+# built tools (build.sh)
+teacher_dump
+validate_wlm
+extract_feats_tf

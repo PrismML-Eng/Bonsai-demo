@@ -44,6 +44,8 @@ The previous-generation `ternary` and `bonsai` 27B models ship with a paired **d
 
 Drafters are **target-specific**: each one only accelerates the exact model it is paired with. The demo downloads the matching drafter for the `ternary` or `bonsai` 27B family you select.
 
+To retrain the Bonsai 2 drafter on your own GPU, see [tools/dspark-retrain/README.md](tools/dspark-retrain/README.md).
+
 ## Enable it
 
 ```bash
