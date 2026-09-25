@@ -2,7 +2,7 @@
 
 Complete reference for the demo's user-configurable environment variables. The [README](README.md#environment-variables) covers the common ones; everything is listed here.
 
-Every script in this repo is driven by environment variables — model selection and server behavior are all configured this way. The reference below covers the demo's **own** user-configurable variables (internal outputs the scripts set for themselves, like `BONSAI_DISPLAY`, `BONSAI_MCP_IDS`, `BONSAI_DEMO_DB`, or `BONSAI_CODE_INTERPRETER_ON`, are not listed). They're read by `setup.sh`, `setup.ps1`, `download_models.sh`, and the `run_*` / `start_*` launchers (Linux, macOS, and Windows). The build scripts take CLI flags rather than env vars (see below), and the llama.cpp/MLX runtimes accept a few env vars of their own that are not listed here — for example, M5 Macs may need `GGML_METAL_TENSOR_DISABLE=1` (see the [README FAQ](README.md#appendix--faq)).
+Every script in this repo is driven by environment variables — model selection and server behavior are all configured this way. The reference below covers the demo's **own** user-configurable variables (internal outputs the scripts set for themselves, like `BONSAI_DISPLAY`, `BONSAI_MCP_IDS`, `BONSAI_DEMO_DB`, or `BONSAI_CODE_INTERPRETER_ON`, are not listed). They're read by `setup.sh`, `setup.ps1`, `download_models.sh`, and the `run_*` / `start_*` launchers (Linux, macOS, and Windows). The build scripts take CLI flags rather than env vars (see below), and the llama.cpp/MLX runtimes accept a few env vars of their own that are not listed here — for example, M5 Macs may need `GGML_METAL_TENSOR_DISABLE=1` (see the [FAQ](FAQ.md)).
 
 | Variable | Default | Valid values | Purpose |
 |----------|---------|--------------|---------|

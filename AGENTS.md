@@ -47,7 +47,7 @@ If someone reports gibberish from Bonsai 2, check which binary they used before 
 All three 27B families have the same capabilities (vision, tools, thinking, long context) —
 they differ in size and speed. Context: 262,144 tokens max; FP16 KV cache is
 64 KiB/token (~6.3 GiB at 100K), so 100K context fits on many consumer devices —
-full peak-memory table in the README's Context Size section. All 27B repos:
+earlier-model peak-memory estimates in [Bonsai1_README.md](Bonsai1_README.md#context-and-memory). All 27B repos:
 https://huggingface.co/collections/prism-ml/bonsai-27b. All model repos are public;
 no token needed.
 
