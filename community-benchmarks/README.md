@@ -25,6 +25,7 @@ for commands, raw output, memory use, and configuration.
 | `PQ2_0` | NVIDIA RTX 3070 8 GB | llama.cpp CUDA (Windows) | 838.9 | 43.7 | [link](bonsai2/cuda-rtx3070-8gb-windows.md) |
 | `PTQ1_0` | NVIDIA Tesla V100-SXM2 16 GB | llama.cpp CUDA (Windows) | 852 | 34.3 | [link](bonsai2/cuda-tesla-v100-windows.md) |
 | `PTQ1_0` | NVIDIA RTX 4070 Laptop 8 GB | llama.cpp CUDA (Windows) | 435.60 | 32.44 | [link](bonsai2/cuda-rtx4070-laptop-windows.md) |
+| `2-bit` | Apple M3 Max 48 GB | MLX (mlx 0.32.2, mlx-vlm 0.6.17) | 165.9 | 27.1 | [link](bonsai2/mlx-m3-max-48gb-macos.md) |
 | `PQ2_0` | Apple M3 Max 36 GB | llama.cpp Metal | 162.2 | 24.3 | [link](bonsai2/metal-m3-max-36gb-macos.md) |
 | `PQ2_0` | AMD BC-250 16 GB UMA | llama.cpp Vulkan (Linux, local patches) | 142.58 | 24.11 | [link](bonsai2/vulkan-bc250-linux.md) |
 | `PTQ1_0` | Apple M3 Max 36 GB | llama.cpp Metal | 136.8 | 21.9 | [link](bonsai2/metal-m3-max-36gb-macos.md) |
