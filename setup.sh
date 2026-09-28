@@ -277,7 +277,7 @@ chmod +x "$SCRIPT_DIR"/scripts/*.sh 2>/dev/null || true
 
 echo ""
 if [ "$OS" = "Darwin" ] && ! bonsai_should_skip_mlx; then
-    info "llama.cpp is ready! You can start using it now while MLX builds."
+    info "llama.cpp is ready! You can start using it now while MLX is set up."
 elif [ "$OS" = "Darwin" ]; then
     info "llama.cpp is ready! (MLX skipped — Intel Mac or BONSAI_SKIP_MLX=1; use ./scripts/run_llama.sh)"
 else
@@ -285,78 +285,82 @@ else
 fi
 
 # ────────────────────────────────────────────────────
-#  8. MLX (macOS only, Apple Silicon) — clone and build from source
+#  8. MLX (macOS only, Apple Silicon) — native wheels or legacy fork
 # ────────────────────────────────────────────────────
 if [ "$OS" = "Darwin" ] && ! bonsai_should_skip_mlx; then
     step "Setting up MLX (Apple Silicon) ..."
 
-    # MLX builds Metal GPU kernels, which requires the full Xcode app *and*
-    # the Metal Toolchain component. Two user-facing failure modes are handled:
-    #   1. Only CLT installed (no metal binary at all)
-    #   2. 'metal' compiler present but unusable (e.g. xcodebuild first-launch
-    #      not completed or Metal Toolchain component not downloaded)
-    _metal_ok=false
-    if xcrun metal --version >/dev/null 2>&1; then
-        _metal_ok=true
-    fi
-
-    if [ "$_metal_ok" = false ]; then
-        # Distinguish: binary missing vs. present-but-broken
-        if ! xcrun --find metal >/dev/null 2>&1; then
-            err "The 'metal' shader compiler is not available."
-            echo ""
-            echo "  MLX requires the full Xcode app (not just Command Line Tools)."
-            echo "  1. Install Xcode from the App Store:"
-            echo "       https://developer.apple.com/xcode/"
-            echo "  2. Switch the active developer directory to Xcode:"
-            echo "       sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer"
-            echo "  3. Accept the Xcode license and complete first-launch setup:"
-            echo "       sudo xcodebuild -license accept"
-            echo "       xcodebuild -runFirstLaunch"
-            echo "  4. Download the Metal Toolchain component:"
-            echo "       xcodebuild -downloadComponent MetalToolchain"
-            echo "  5. Re-run ./setup.sh"
-        else
-            err "The 'metal' compiler is present but cannot execute."
-            echo ""
-            echo "  The Metal Toolchain component may not be installed."
-            echo "  Run the following commands, then re-run ./setup.sh:"
-            echo ""
-            echo "    sudo xcodebuild -license accept"
-            echo "    xcodebuild -runFirstLaunch"
-            echo "    xcodebuild -downloadComponent MetalToolchain"
+    # Bonsai 2 uses native wheels in .venv-vlm for both generation and serving.
+    # Earlier families still use the fork in .venv; "all" installs both paths.
+    if [ "$BONSAI_FAMILY" != "bonsai2" ]; then
+        # MLX builds Metal GPU kernels, which requires the full Xcode app *and*
+        # the Metal Toolchain component. Two user-facing failure modes are handled:
+        #   1. Only CLT installed (no metal binary at all)
+        #   2. 'metal' compiler present but unusable (e.g. xcodebuild first-launch
+        #      not completed or Metal Toolchain component not downloaded)
+        _metal_ok=false
+        if xcrun metal --version >/dev/null 2>&1; then
+            _metal_ok=true
         fi
-        exit 1
-    fi
 
-    if [ -d "mlx" ]; then
-        info "MLX repo already present."
-    else
-        step "Cloning PrismML-Eng/mlx (prism branch) ..."
-        git clone -b prism https://github.com/PrismML-Eng/mlx.git mlx
-    fi
+        if [ "$_metal_ok" = false ]; then
+            # Distinguish: binary missing vs. present-but-broken
+            if ! xcrun --find metal >/dev/null 2>&1; then
+                err "The 'metal' shader compiler is not available."
+                echo ""
+                echo "  The legacy MLX fork build requires the full Xcode app (not just Command Line Tools)."
+                echo "  1. Install Xcode from the App Store:"
+                echo "       https://developer.apple.com/xcode/"
+                echo "  2. Switch the active developer directory to Xcode:"
+                echo "       sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer"
+                echo "  3. Accept the Xcode license and complete first-launch setup:"
+                echo "       sudo xcodebuild -license accept"
+                echo "       xcodebuild -runFirstLaunch"
+                echo "  4. Download the Metal Toolchain component:"
+                echo "       xcodebuild -downloadComponent MetalToolchain"
+                echo "  5. Re-run ./setup.sh"
+            else
+                err "The 'metal' compiler is present but cannot execute."
+                echo ""
+                echo "  The Metal Toolchain component may not be installed."
+                echo "  Run the following commands, then re-run ./setup.sh:"
+                echo ""
+                echo "    sudo xcodebuild -license accept"
+                echo "    xcodebuild -runFirstLaunch"
+                echo "    xcodebuild -downloadComponent MetalToolchain"
+            fi
+            exit 1
+        fi
 
-    # 27B needs mlx-lm >= 0.31; an older install must be reconciled, not skipped.
-    if "$VENV_PY" -c "
+        if [ -d "mlx" ]; then
+            info "MLX repo already present."
+        else
+            step "Cloning PrismML-Eng/mlx (prism branch) ..."
+            git clone -b prism https://github.com/PrismML-Eng/mlx.git mlx
+        fi
+
+        # 27B needs mlx-lm >= 0.31; an older install must be reconciled, not skipped.
+        if "$VENV_PY" -c "
 import mlx, mlx_lm
 v = tuple(int(x) for x in mlx_lm.__version__.split('.')[:2])
 raise SystemExit(0 if v >= (0, 31) else 1)
 " 2>/dev/null; then
-        info "MLX already installed in the venv — skipping build."
-    else
-        step "Building MLX from source (this takes 2-5 minutes on first install) ..."
-        # --no-build-isolation required: MLX's C++/Metal build needs pre-installed setuptools
-        uv pip install --python "$VENV_PY" -e mlx/ --no-build-isolation
-        step "Installing MLX Python deps (mlx-lm, torch, transformers, ...) ..."
-        # mlx-lm >= 0.31 is required for the 27B (qwen3_5) architecture. The
-        # released 27B configs are plain dense (no num_experts field), and stock
-        # mlx-lm builds a SparseMoeBlock only when num_experts > 0 — so it loads
-        # them as dense out of the box, no source patch needed.
-        uv pip install --python "$VENV_PY" \
-            "mlx-lm==0.31.2" "torch==2.10.0" "transformers==5.2.0" \
-            "safetensors==0.7.0" "tokenizers==0.22.2" "sentencepiece==0.2.1" \
-            "protobuf==7.34.0" "numpy==2.4.2" "gguf==0.18.0"
-        info "MLX installed."
+            info "MLX already installed in the venv — skipping build."
+        else
+            step "Building MLX from source (this takes 2-5 minutes on first install) ..."
+            # --no-build-isolation required: MLX's C++/Metal build needs pre-installed setuptools
+            uv pip install --python "$VENV_PY" -e mlx/ --no-build-isolation
+            step "Installing MLX Python deps (mlx-lm, torch, transformers, ...) ..."
+            # mlx-lm >= 0.31 is required for the 27B (qwen3_5) architecture. The
+            # released 27B configs are plain dense (no num_experts field), and stock
+            # mlx-lm builds a SparseMoeBlock only when num_experts > 0 — so it loads
+            # them as dense out of the box, no source patch needed.
+            uv pip install --python "$VENV_PY" \
+                "mlx-lm==0.31.2" "torch==2.10.0" "transformers==5.2.0" \
+                "safetensors==0.7.0" "tokenizers==0.22.2" "sentencepiece==0.2.1" \
+                "protobuf==7.34.0" "numpy==2.4.2" "gguf==0.18.0"
+            info "MLX installed."
+        fi
     fi
 
     # Native Bonsai 2 text/vision support is included in mlx-vlm 0.7.2.
