@@ -9,10 +9,10 @@ Benchmark results submitted by the community running
 
 | Band | Hardware | Backend | PP512 (t/s) | TG128 (t/s) | Details |
 |------|----------|---------|------------:|------------:|---------|
-| `PQ2_0` | NVIDIA RTX 5080 16 GB | llama.cpp CUDA (Windows) | 1,688 | 86.3 | [link](cuda-rtx5080-16gb-windows.md) |
+| `PQ2_0` | NVIDIA RTX 5080 16 GB | llama.cpp CUDA 13.3 (Windows) | 2,345 | 92.5 | [link](cuda-rtx5080-16gb-windows.md) |
+| `PTQ1_0` | NVIDIA RTX 5080 16 GB | llama.cpp CUDA 13.3 (Windows) | 1,017 | 89.3 | [link](cuda-rtx5080-16gb-windows.md) |
 | `PTQ1_0` | NVIDIA RTX 4090 24 GB | llama.cpp CUDA (Windows) | 1,597 | 86.0 | [link](cuda-rtx4090-windows.md) |
 | `PQ2_0` | NVIDIA RTX 4090 24 GB | llama.cpp CUDA (Windows) | 3,285 | 84.9 | [link](cuda-rtx4090-windows.md) |
-| `PTQ1_0` | NVIDIA RTX 5080 16 GB | llama.cpp CUDA (Windows) | 896 | 84.6 | [link](cuda-rtx5080-16gb-windows.md) |
 | `PQ2_0` | NVIDIA RTX 3090 Ti 24 GB | llama.cpp CUDA (Linux) | 1,552 | 81.6 | [link](cuda-rtx3090ti-linux.md) |
 | `PTQ1_0` | NVIDIA RTX 3090 Ti 24 GB | llama.cpp CUDA (Linux) | 805 | 67.7 | [link](cuda-rtx3090ti-linux.md) |
 | `PQ2_0` (community MTP file, plain inference) | NVIDIA RTX 5070 Ti Laptop 12 GB | llama.cpp CUDA (Windows) | 1,135 | 49.0 | [link](cuda-rtx5070ti-laptop-windows.md) |
