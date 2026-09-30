@@ -9,6 +9,8 @@ Benchmark results submitted by the community running
 
 | Band | Hardware | Backend | PP512 (t/s) | TG128 (t/s) | Details |
 |------|----------|---------|------------:|------------:|---------|
+| `PQ2_0` | NVIDIA RTX 5090 32 GB | llama.cpp CUDA 12.8 (Linux) | 4,075 | 143.0 | [link](cuda-rtx5090-linux.md) |
+| `PTQ1_0` | NVIDIA RTX 5090 32 GB | llama.cpp CUDA 12.8 (Linux) | 4,117 | 133.0 | [link](cuda-rtx5090-linux.md) |
 | `PQ2_0` | NVIDIA RTX 5080 16 GB | llama.cpp CUDA 13.3 (Windows) | 2,345 | 92.5 | [link](cuda-rtx5080-16gb-windows.md) |
 | `PTQ1_0` | NVIDIA RTX 5080 16 GB | llama.cpp CUDA 13.3 (Windows) | 1,017 | 89.3 | [link](cuda-rtx5080-16gb-windows.md) |
 | `PTQ1_0` | NVIDIA RTX 4090 24 GB | llama.cpp CUDA (Windows) | 1,597 | 86.0 | [link](cuda-rtx4090-windows.md) |
