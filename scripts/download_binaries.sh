@@ -70,9 +70,12 @@ case "$OS" in
         if [ "$_gpu_type" = "cuda" ]; then
             _major="${_cuda_ver%%.*}"
             _minor="${_cuda_ver#*.}"
-            if [ "$_major" -gt 13 ] || { [ "$_major" -eq 13 ] && [ "$_minor" -ge 3 ]; }; then
+            # CUDA minor version compatibility: a binary built for 13.3 runs on
+            # any driver that reports a 13.x CUDA version, so one tag covers the
+            # whole major. The 12.x mapping below is unchanged.
+            if [ "$_major" -ge 13 ]; then
                 _cuda_tag="13.3"
-            elif [ "$_major" -eq 13 ] || { [ "$_major" -eq 12 ] && [ "$_minor" -ge 8 ]; }; then
+            elif [ "$_major" -eq 12 ] && [ "$_minor" -ge 8 ]; then
                 _cuda_tag="12.8"
             elif [ "$_major" -eq 12 ]; then
                 _cuda_tag="12.4"

@@ -179,10 +179,10 @@ foreach ($p in @(
             $out = & $p 2>&1 | Out-String
             if ($out -match 'CUDA(?:\s+UMD)?\s+Version:\s+(\d+)\.(\d+)') {
                 $major = [int]$Matches[1]; $minor = [int]$Matches[2]
-                if ($major -gt 13 -or ($major -eq 13 -and $minor -ge 3)) {
+                if ($major -ge 13) {
                     $CudaTag = "13.3"
                     $GpuType = "cuda"
-                } elseif ($major -gt 12 -or ($major -eq 12 -and $minor -ge 4)) {
+                } elseif ($major -eq 12 -and $minor -ge 4) {
                     $CudaTag = "12.4"
                     $GpuType = "cuda"
                 } else {
