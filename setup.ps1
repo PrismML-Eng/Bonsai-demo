@@ -249,7 +249,19 @@ function Download-GgufModel($Family, $Size) {
         $display = "Bonsai-2-$Size"
         # Every Bonsai 2 band needs the fork's kernels, so there is no group-64 option.
         # Quant-only, so an orphaned projector can never stand in for the weights.
-        $patterns = @("*-PQ2_0.gguf")
+        # Fetch the band the detected backend actually has kernels for: PQ2_0 is the
+        # faster pick, but Vulkan has no PQ2_0 kernels and only PTQ1_0, so a
+        # Vulkan-only install must not end up on CPU-only generic code. GPU builds
+        # are x64-only, so an ARM64 host ends up on the CPU build either way.
+        # Mirrors ptq1_0_ready_backend in scripts/common.sh; see BACKEND-SUPPORT.md.
+        $isArm64 = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -eq [System.Runtime.InteropServices.Architecture]::Arm64
+        if ($isArm64) {
+            $patterns = @("*-PQ2_0.gguf")
+        } elseif ($GpuType -eq "vulkan") {
+            $patterns = @("*-PTQ1_0.gguf")
+        } else {
+            $patterns = @("*-PQ2_0.gguf")
+        }
     } elseif ($Family -eq "ternary") {
         $repo = "prism-ml/Ternary-Bonsai-${Size}-gguf"
         $dir = Join-Path $PSScriptRoot "models\ternary-gguf\$Size"

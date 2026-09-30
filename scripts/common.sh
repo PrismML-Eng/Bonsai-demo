@@ -105,6 +105,30 @@ pq2_0_ready_backend() {
     esac
 }
 
+# Backends with PTQ1_0 (Bonsai 2 1.75 bpw) kernels. Disjoint from the list above
+# in practice: Vulkan is the one backend that runs PTQ1_0 but has no PQ2_0
+# kernels, so a Vulkan-only install needs the PTQ1_0 weights or it silently
+# falls back to slow generic CPU code. Keep in sync with BACKEND-SUPPORT.md.
+ptq1_0_ready_backend() {
+    case "$1" in
+        mac|cpu|cuda|rocm|hip|vulkan|local) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# Resolve the installed llama.cpp backend name ("" when no binaries are present
+# yet), so the downloader can pick the band that backend actually has kernels
+# for. Single source of truth for the bin/<backend> probe order.
+installed_backend() {
+    for _ib_d in bin/mac bin/cuda bin/rocm bin/hip bin/vulkan bin/cpu; do
+        if [ -d "$_ib_d" ]; then
+            echo "${_ib_d#bin/}"
+            return 0
+        fi
+    done
+    return 1
+}
+
 # Derive the backend name from a resolved llama-server binary path
 # (bin/<backend>/llama-server, or a local llama.cpp build -> "local").
 backend_from_bin() {

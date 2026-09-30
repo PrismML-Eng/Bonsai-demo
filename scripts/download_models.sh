@@ -91,14 +91,31 @@ download_one() {
     case "$_family" in
         bonsai2)
             # Every Bonsai 2 band needs the fork's kernels, so there is no mainline-compatible
-            # variant to choose between: the PQ2_0 band plus the projector.
+            # variant to choose between: the PQ2_0 or PTQ1_0 band plus the projector.
+            # Fetch the band the installed backend actually has kernels for: PQ2_0
+            # is the faster pick, but Vulkan has no PQ2_0 kernels and only PTQ1_0,
+            # so a Vulkan-only install must not end up on CPU-only generic code.
+            # Both when no binary is installed yet, since the backend is unknown.
+            # See select_model_gguf in common.sh, ptq1_0_ready_backend and
+            # BACKEND-SUPPORT.md.
             bonsai2_size_available "$_size" || { info "Bonsai 2 is 27B; skipping ${_size}."; return 0; }
             _gguf_repo="prism-ml/Ternary-Bonsai-2-${_size}-gguf"
             _mlx_repo="prism-ml/Ternary-Bonsai-2-${_size}-mlx-2bit"
             _gguf_dir="models/bonsai2-gguf/${_size}"
             _mlx_dir="models/Ternary-Bonsai-2-${_size}-mlx-2bit"
             _display="Bonsai-2-${_size}"
-            _gguf_pattern="*-PQ2_0.gguf"
+            _dl_backend="$(installed_backend || true)"
+            if [ -z "$_dl_backend" ]; then
+                _gguf_pattern="*-PQ2_0.gguf,*-PTQ1_0.gguf"
+            elif pq2_0_ready_backend "$_dl_backend"; then
+                _gguf_pattern="*-PQ2_0.gguf"
+            elif ptq1_0_ready_backend "$_dl_backend"; then
+                _gguf_pattern="*-PTQ1_0.gguf"
+            else
+                # No optimized kernels for either band: take PQ2_0, the default
+                # and the one the selector prefers.
+                _gguf_pattern="*-PQ2_0.gguf"
+            fi
             ;;
         bonsai)
             _gguf_repo="prism-ml/Bonsai-${_size}-gguf"
@@ -119,10 +136,7 @@ download_one() {
             # binary is installed yet). See select_model_gguf in common.sh and
             # MODEL-FORMATS.md. Newer repos ship the official file as plain
             # *-Q2_0.gguf; download_one falls back to that name when no *g64 exists.
-            _dl_backend=""
-            for _bd in bin/mac bin/cuda bin/rocm bin/hip bin/vulkan bin/cpu; do
-                [ -d "$_bd" ] && _dl_backend="${_bd#bin/}" && break
-            done
+            _dl_backend="$(installed_backend || true)"
             if [ -z "$_dl_backend" ]; then
                 _gguf_pattern="*-PQ2_0.gguf,*g64.gguf"
             elif pq2_0_ready_backend "$_dl_backend"; then

@@ -81,6 +81,9 @@ The demo scripts already handle both naming eras.
   llama.cpp). If unsure, use this.
 - **PQ2_0**: about 6% smaller on disk and in memory. Runs on the backends listed
   below; on others it has no kernels yet and would fall back to slow generic code.
+- **PTQ1_0** (Bonsai 2 only): the smallest band, and the one with a Vulkan path.
+  Slower prompt processing than PQ2_0, but on Vulkan it is the only one that
+  actually runs on the GPU.
 
 Backend support for PQ2_0 (the demo's selection registry, `pq2_0_ready_backend` in
 `scripts/common.sh`, mirrors this table):
@@ -93,6 +96,20 @@ Backend support for PQ2_0 (the demo's selection registry, `pq2_0_ready_backend` 
 | CPU (x86 VNNI, ARM NEON) | yes |
 | Vulkan | not yet (port planned) |
 | SYCL | not yet |
+
+### Bonsai 2 on Vulkan: PTQ1_0, not PQ2_0
+
+Vulkan is the one backend with **no PQ2_0 kernels** but a working **PTQ1_0** path
+(`ptq1_0_ready_backend` in `scripts/common.sh`; see
+[BACKEND-SUPPORT.md](BACKEND-SUPPORT.md) for the full matrix). The setup scripts
+therefore fetch the band the installed backend can run: `scripts/download_models.sh`
+and `setup.ps1` pick PTQ1_0 when the detected backend is Vulkan, and PQ2_0
+everywhere else. With no binary installed yet the backend is unknown, so both
+bands are fetched and the launcher picks (PQ2_0 first, PTQ1_0 otherwise).
+
+If you installed on CUDA or Metal and later moved the repo to a Vulkan-only
+machine, re-run `./scripts/download_models.sh` to pull the PTQ1_0 weights; the
+launcher already prefers PQ2_0 whenever it is present, so the two coexist.
 
 ## If you see the legacy-format error
 

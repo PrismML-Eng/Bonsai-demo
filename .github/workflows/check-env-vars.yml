@@ -187,3 +187,40 @@ jobs:
             exit 1
           fi
           echo "OK: invalid BONSAI_MODEL rejected"
+
+      - name: Format registries match the documented backend support
+        run: |
+          # pq2_0_ready_backend and ptq1_0_ready_backend are the single source of
+          # truth the downloader picks a band with. Vulkan is the interesting case:
+          # no PQ2_0 kernels, but a working PTQ1_0 path, so a Vulkan-only install
+          # must get PTQ1_0 or it falls back to slow generic CPU code. Keep these
+          # in sync with the tables in MODEL-FORMATS.md / BACKEND-SUPPORT.md.
+          _pq2_yes="mac cpu cuda rocm hip local"
+          for _b in $_pq2_yes; do
+            pq2_0_ready_backend "$_b" || { echo "FAIL: $_b should have PQ2_0 kernels"; exit 1; }
+          done
+          for _b in vulkan sycl; do
+            if pq2_0_ready_backend "$_b"; then echo "FAIL: $_b has no PQ2_0 kernels"; exit 1; fi
+          done
+          for _b in $_pq2_yes vulkan; do
+            ptq1_0_ready_backend "$_b" || { echo "FAIL: $_b should have PTQ1_0 kernels"; exit 1; }
+          done
+          if ptq1_0_ready_backend sycl; then echo "FAIL: sycl has no PTQ1_0 kernels"; exit 1; fi
+          echo "OK: PQ2_0 / PTQ1_0 backend registries match the docs"
+
+      - name: installed_backend probes the bin/ dirs in preference order
+        run: |
+          . scripts/common.sh
+          _d="$(mktemp -d)"
+          if installed_backend >/dev/null 2>&1 && [ -n "$(installed_backend)" ]; then
+            echo "FAIL: installed_backend returned a backend with no bin/ dir"
+            exit 1
+          fi
+          mkdir -p "$_d/bin/vulkan" "$_d/bin/cuda"
+          [ "$(cd "$_d" && installed_backend)" = "cuda" ] \
+            || { echo "FAIL: cuda should win over vulkan"; exit 1; }
+          rm -rf "$_d/bin/cuda"
+          [ "$(cd "$_d" && installed_backend)" = "vulkan" ] \
+            || { echo "FAIL: vulkan should be the only remaining backend"; exit 1; }
+          rm -rf "$_d"
+          echo "OK: installed_backend resolves the installed build"
