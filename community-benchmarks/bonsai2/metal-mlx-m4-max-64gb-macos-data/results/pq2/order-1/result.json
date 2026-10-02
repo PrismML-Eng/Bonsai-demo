@@ -1,0 +1,73 @@
+{
+  "backend": "pq2",
+  "case": "order",
+  "rep": 1,
+  "condition": "process-cold-first-request",
+  "ttft_s": 3.177503834012896,
+  "first_answer_s": 3.177503834012896,
+  "total_s": 5.481092999689281,
+  "finish_reason": "stop",
+  "error": null,
+  "input_tok_s": 166.70696478792584,
+  "generation_tok_s": 31.253513307268484,
+  "input_tokens": 524,
+  "output_tokens": 73,
+  "input_seconds": 3.1432399999999996,
+  "generation_seconds": 2.303741,
+  "cached_tokens": 0,
+  "mlx_peak_allocation_gb": null,
+  "memory": {
+    "samples": 11,
+    "max_rss_bytes": 9381675008,
+    "max_physical_footprint_bytes": 2306334160,
+    "swap_start_bytes": 39936655360,
+    "swap_peak_bytes": 39936655360,
+    "swap_end_bytes": 39936655360,
+    "swap_peak_delta_bytes": 0,
+    "min_system_available_bytes": 19817381888
+  },
+  "score": {
+    "strict_json_or_arguments": true,
+    "native_tool_call": null,
+    "exact_items": true,
+    "correct_rows": 4,
+    "expected_rows": 4,
+    "field_correct": {
+      "name": 4,
+      "quantity": 4,
+      "unit": 4
+    },
+    "extra_or_missing_rows": false,
+    "repetition": false,
+    "incomplete": false,
+    "thinking_observed": false,
+    "parse_error": null,
+    "mock_tool_execution": null
+  },
+  "content": "{\"items\":[{\"name\":\"장미 레드나오미\",\"quantity\":3,\"unit\":\"단\"},{\"name\":\"리시안셔스 보라\",\"quantity\":12,\"unit\":\"대\"},{\"name\":\"카네이션 핑크\",\"quantity\":2,\"unit\":\"단\"},{\"name\":\"유칼립투스\",\"quantity\":5,\"unit\":\"대\"}]}",
+  "thinking": "",
+  "tool_calls": [],
+  "backend_meta": {
+    "usage": {
+      "completion_tokens": 73,
+      "prompt_tokens": 524,
+      "total_tokens": 597,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      }
+    },
+    "timings": {
+      "cache_n": 0,
+      "prompt_n": 524,
+      "prompt_ms": 3143.24,
+      "prompt_per_token_ms": 5.99854961832061,
+      "prompt_per_second": 166.70696478792584,
+      "predicted_n": 73,
+      "predicted_ms": 2303.741,
+      "predicted_per_token_ms": 31.996402777777778,
+      "predicted_per_second": 31.253513307268484
+    }
+  },
+  "uncached_input_tokens": 524,
+  "normalized_uncached_input_tok_s": 166.70696478792584
+}

@@ -1,0 +1,1281 @@
+[
+  {
+    "elapsed_s": 0.19507533311843872,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:55.386085Z",
+      "message": {
+        "role": "assistant",
+        "content": "```"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 0.27457866724580526,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:55.465642Z",
+      "message": {
+        "role": "assistant",
+        "content": "json"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 0.2745911250822246,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:55.465654Z",
+      "message": {
+        "role": "assistant",
+        "content": "\n{"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 0.354075999930501,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:55.545133Z",
+      "message": {
+        "role": "assistant",
+        "content": "\n  \""
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 0.35408862493932247,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:55.545143Z",
+      "message": {
+        "role": "assistant",
+        "content": "items"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 0.35410124994814396,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:55.545178Z",
+      "message": {
+        "role": "assistant",
+        "content": "\":"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 0.3541050418280065,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:55.545184Z",
+      "message": {
+        "role": "assistant",
+        "content": " ["
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 0.4333766670897603,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:55.624439Z",
+      "message": {
+        "role": "assistant",
+        "content": "\n    {"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 0.5314488750882447,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:55.709952Z",
+      "message": {
+        "role": "assistant",
+        "content": "\n      \""
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 0.5314673748798668,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:55.709957Z",
+      "message": {
+        "role": "assistant",
+        "content": "name"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 0.5314720831811428,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:55.709989Z",
+      "message": {
+        "role": "assistant",
+        "content": "\":"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 0.6031488748267293,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:55.794208Z",
+      "message": {
+        "role": "assistant",
+        "content": " \""
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 0.6031653750687838,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:55.794217Z",
+      "message": {
+        "role": "assistant",
+        "content": "장"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 0.6031864169053733,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:55.794254Z",
+      "message": {
+        "role": "assistant",
+        "content": "미"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 0.6031917920336127,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:55.794259Z",
+      "message": {
+        "role": "assistant",
+        "content": " 레드"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 0.6031952500343323,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:55.79427Z",
+      "message": {
+        "role": "assistant",
+        "content": "나"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 0.6944305002689362,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:55.885488Z",
+      "message": {
+        "role": "assistant",
+        "content": "오"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 0.6944448328576982,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:55.885503Z",
+      "message": {
+        "role": "assistant",
+        "content": "미"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 0.6944638751447201,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:55.885529Z",
+      "message": {
+        "role": "assistant",
+        "content": "\","
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 0.7842502500861883,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:55.975309Z",
+      "message": {
+        "role": "assistant",
+        "content": "\n      \""
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 0.7842641668394208,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:55.975317Z",
+      "message": {
+        "role": "assistant",
+        "content": "quantity"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 0.784284083172679,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:55.975351Z",
+      "message": {
+        "role": "assistant",
+        "content": "\":"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 0.7842881670221686,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:55.975369Z",
+      "message": {
+        "role": "assistant",
+        "content": " 3"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 0.8785587502643466,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:56.069613Z",
+      "message": {
+        "role": "assistant",
+        "content": ","
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 0.8785717501305044,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:56.069625Z",
+      "message": {
+        "role": "assistant",
+        "content": "\n      \""
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 0.8785762921907008,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:56.069655Z",
+      "message": {
+        "role": "assistant",
+        "content": "unit"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 0.9734045001678169,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:56.16447Z",
+      "message": {
+        "role": "assistant",
+        "content": "\":"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 0.9734163330867887,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:56.164479Z",
+      "message": {
+        "role": "assistant",
+        "content": " \""
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 0.9734365828335285,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:56.164513Z",
+      "message": {
+        "role": "assistant",
+        "content": "단"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 0.9734411248937249,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:56.164518Z",
+      "message": {
+        "role": "assistant",
+        "content": "\""
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 1.094752499833703,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:56.2858Z",
+      "message": {
+        "role": "assistant",
+        "content": "\n    },"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 1.094767333008349,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:56.285819Z",
+      "message": {
+        "role": "assistant",
+        "content": "\n    {"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 1.2057427079416811,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:56.396792Z",
+      "message": {
+        "role": "assistant",
+        "content": "\n      \""
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 1.2057646252214909,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:56.396797Z",
+      "message": {
+        "role": "assistant",
+        "content": "name"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 1.2057847920805216,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:56.396837Z",
+      "message": {
+        "role": "assistant",
+        "content": "\":"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 1.2057896670885384,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:56.396856Z",
+      "message": {
+        "role": "assistant",
+        "content": " \""
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 1.3146595829166472,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:56.50572Z",
+      "message": {
+        "role": "assistant",
+        "content": "리"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 1.3146731671877205,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:56.50573Z",
+      "message": {
+        "role": "assistant",
+        "content": "시"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 1.3146925419569016,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:56.505761Z",
+      "message": {
+        "role": "assistant",
+        "content": "안"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 1.3146969168446958,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:56.505767Z",
+      "message": {
+        "role": "assistant",
+        "content": "셔"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 1.423706917092204,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:56.614764Z",
+      "message": {
+        "role": "assistant",
+        "content": "스"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 1.4237210829742253,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:56.614776Z",
+      "message": {
+        "role": "assistant",
+        "content": " 보"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 1.4237395832315087,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:56.614804Z",
+      "message": {
+        "role": "assistant",
+        "content": "라"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 1.4237450831569731,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:56.614808Z",
+      "message": {
+        "role": "assistant",
+        "content": "\","
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 1.531566624995321,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:56.72264Z",
+      "message": {
+        "role": "assistant",
+        "content": "\n      \""
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 1.531579041853547,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:56.722646Z",
+      "message": {
+        "role": "assistant",
+        "content": "quantity"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 1.5315976249985397,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:56.722677Z",
+      "message": {
+        "role": "assistant",
+        "content": "\":"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 1.6366031668148935,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:56.827675Z",
+      "message": {
+        "role": "assistant",
+        "content": " 1"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 1.6366154169663787,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:56.827683Z",
+      "message": {
+        "role": "assistant",
+        "content": "2"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 1.6366321248933673,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:56.827708Z",
+      "message": {
+        "role": "assistant",
+        "content": ","
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 1.7415230828337371,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:56.932584Z",
+      "message": {
+        "role": "assistant",
+        "content": "\n      \""
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 1.7415358750149608,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:56.932594Z",
+      "message": {
+        "role": "assistant",
+        "content": "unit"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 1.7415518751367927,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:56.932623Z",
+      "message": {
+        "role": "assistant",
+        "content": "\":"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 1.7415565829724073,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:56.932632Z",
+      "message": {
+        "role": "assistant",
+        "content": " \""
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 1.7415632079355419,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:56.932656Z",
+      "message": {
+        "role": "assistant",
+        "content": "대"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 1.850851375143975,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:57.041915Z",
+      "message": {
+        "role": "assistant",
+        "content": "\""
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 1.850864542182535,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:57.041928Z",
+      "message": {
+        "role": "assistant",
+        "content": "\n    },"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 1.9507037079893053,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:57.141754Z",
+      "message": {
+        "role": "assistant",
+        "content": "\n    {"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 1.950726999901235,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:57.141818Z",
+      "message": {
+        "role": "assistant",
+        "content": "\n      \""
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 2.0420634169131517,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:57.233142Z",
+      "message": {
+        "role": "assistant",
+        "content": "name"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 2.042076542042196,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:57.233151Z",
+      "message": {
+        "role": "assistant",
+        "content": "\":"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 2.0420952918939292,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:57.233181Z",
+      "message": {
+        "role": "assistant",
+        "content": " \""
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 2.0421034581959248,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:57.233191Z",
+      "message": {
+        "role": "assistant",
+        "content": "카"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 2.042107291985303,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:57.233207Z",
+      "message": {
+        "role": "assistant",
+        "content": "네"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 2.1336504998616874,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:57.324687Z",
+      "message": {
+        "role": "assistant",
+        "content": "이션"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 2.1336655421182513,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:57.324708Z",
+      "message": {
+        "role": "assistant",
+        "content": " 핑"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 2.1336707081645727,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:57.324738Z",
+      "message": {
+        "role": "assistant",
+        "content": "크"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 2.2236949582584202,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:57.414731Z",
+      "message": {
+        "role": "assistant",
+        "content": "\","
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 2.2237074999138713,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:57.414744Z",
+      "message": {
+        "role": "assistant",
+        "content": "\n      \""
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 2.2237114999443293,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:57.414778Z",
+      "message": {
+        "role": "assistant",
+        "content": "quantity"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 2.3209246252663434,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:57.511996Z",
+      "message": {
+        "role": "assistant",
+        "content": "\":"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 2.320937542244792,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:57.512015Z",
+      "message": {
+        "role": "assistant",
+        "content": " 2"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 2.3209560830146074,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:57.512049Z",
+      "message": {
+        "role": "assistant",
+        "content": ","
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 2.409483583178371,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:57.600546Z",
+      "message": {
+        "role": "assistant",
+        "content": "\n      \""
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 2.4095105421729386,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:57.600615Z",
+      "message": {
+        "role": "assistant",
+        "content": "unit"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 2.409515167120844,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:57.600624Z",
+      "message": {
+        "role": "assistant",
+        "content": "\":"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 2.40959500009194,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:57.600665Z",
+      "message": {
+        "role": "assistant",
+        "content": " \""
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 2.5017542499117553,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:57.692817Z",
+      "message": {
+        "role": "assistant",
+        "content": "단"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 2.501768750138581,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:57.692826Z",
+      "message": {
+        "role": "assistant",
+        "content": "\""
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 2.5017867079004645,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:57.692867Z",
+      "message": {
+        "role": "assistant",
+        "content": "\n    },"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 2.5977241252548993,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:57.788786Z",
+      "message": {
+        "role": "assistant",
+        "content": "\n    {"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 2.6940588331781328,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:57.885127Z",
+      "message": {
+        "role": "assistant",
+        "content": "\n      \""
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 2.6940720421262085,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:57.885136Z",
+      "message": {
+        "role": "assistant",
+        "content": "name"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 2.69409150024876,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:57.885163Z",
+      "message": {
+        "role": "assistant",
+        "content": "\":"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 2.6940959999337792,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:57.885172Z",
+      "message": {
+        "role": "assistant",
+        "content": " \""
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 2.6941018332727253,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:57.885203Z",
+      "message": {
+        "role": "assistant",
+        "content": "유"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 2.7908626669086516,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:57.981931Z",
+      "message": {
+        "role": "assistant",
+        "content": "칼"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 2.790875957813114,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:57.98194Z",
+      "message": {
+        "role": "assistant",
+        "content": "립"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 2.7908933330327272,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:57.981966Z",
+      "message": {
+        "role": "assistant",
+        "content": "투스"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 2.7908986252732575,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:57.981972Z",
+      "message": {
+        "role": "assistant",
+        "content": "\","
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 2.8896039999090135,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:58.080674Z",
+      "message": {
+        "role": "assistant",
+        "content": "\n      \""
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 2.8896180000156164,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:58.08068Z",
+      "message": {
+        "role": "assistant",
+        "content": "quantity"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 2.889634917024523,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:58.080716Z",
+      "message": {
+        "role": "assistant",
+        "content": "\":"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 2.9895044998265803,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:58.180581Z",
+      "message": {
+        "role": "assistant",
+        "content": " 5"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 2.989518417045474,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:58.18059Z",
+      "message": {
+        "role": "assistant",
+        "content": ","
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 2.989537625107914,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:58.180627Z",
+      "message": {
+        "role": "assistant",
+        "content": "\n      \""
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 3.0947225000709295,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:58.285778Z",
+      "message": {
+        "role": "assistant",
+        "content": "unit"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 3.0947347078472376,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:58.285788Z",
+      "message": {
+        "role": "assistant",
+        "content": "\":"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 3.094753208104521,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:58.285835Z",
+      "message": {
+        "role": "assistant",
+        "content": " \""
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 3.0947600421495736,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:58.285844Z",
+      "message": {
+        "role": "assistant",
+        "content": "대"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 3.0947639578953385,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:58.285874Z",
+      "message": {
+        "role": "assistant",
+        "content": "\""
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 3.20706933317706,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:58.398134Z",
+      "message": {
+        "role": "assistant",
+        "content": "\n    }"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 3.331268582958728,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:58.522335Z",
+      "message": {
+        "role": "assistant",
+        "content": "\n  ]"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 3.331281333230436,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:58.522347Z",
+      "message": {
+        "role": "assistant",
+        "content": "\n}"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 3.3312995000742376,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:58.522399Z",
+      "message": {
+        "role": "assistant",
+        "content": "\n```"
+      },
+      "done": false
+    }
+  },
+  {
+    "elapsed_s": 3.4532409170642495,
+    "data": {
+      "model": "qwen3.8:27b-mlx",
+      "created_at": "2026-10-01T22:33:58.644279Z",
+      "message": {
+        "role": "assistant",
+        "content": ""
+      },
+      "done": true,
+      "done_reason": "stop",
+      "total_duration": 3436504958,
+      "load_duration": 6089041,
+      "prompt_eval_count": 1401,
+      "prompt_eval_duration": 61138708,
+      "eval_count": 157,
+      "eval_duration": 3339472375
+    }
+  }
+]

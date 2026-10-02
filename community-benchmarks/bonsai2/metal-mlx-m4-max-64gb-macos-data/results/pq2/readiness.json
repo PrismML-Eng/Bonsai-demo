@@ -1,0 +1,5 @@
+{
+  "startup_to_endpoint_ready_s": 2.035175333265215,
+  "weights_loaded_at_readiness": true,
+  "cold_definition": "new server process, no OS filesystem cache purge"
+}

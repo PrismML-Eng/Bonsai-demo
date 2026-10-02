@@ -1,0 +1,75 @@
+[
+  {
+    "elapsed_s": 17.982659167144448,
+    "data": {
+      "id": "chatcmpl-aba0485d-a9e1-4bff-8f8c-7cfd1645cbdb",
+      "object": "chat.completion.chunk",
+      "created": 1790897420,
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-mlx-2bit",
+      "choices": [
+        {
+          "index": 0,
+          "finish_reason": "tool_calls",
+          "delta": {
+            "role": "assistant",
+            "content": null,
+            "reasoning_content": null,
+            "reasoning": null,
+            "tool_calls": [
+              {
+                "type": "function",
+                "index": 0,
+                "id": "af313862-b080-4de5-8fec-a6c60582c651",
+                "function": {
+                  "name": "extract_order",
+                  "arguments": "{\"items\": [{\"name\": \"장미 레드나오미\", \"quantity\": 3, \"unit\": \"단\"}, {\"name\": \"리시안셔스 보라\", \"quantity\": 12, \"unit\": \"대\"}, {\"name\": \"카네이션 핑크\", \"quantity\": 2, \"unit\": \"단\"}, {\"name\": \"유칼립투스\", \"quantity\": 5, \"unit\": \"대\"}]}"
+                }
+              }
+            ],
+            "tool_call_id": null,
+            "name": null
+          },
+          "logprobs": null
+        }
+      ],
+      "usage": null,
+      "timings": {
+        "predicted_per_second": 15.5009506700301
+      }
+    }
+  },
+  {
+    "elapsed_s": 17.982693375088274,
+    "data": {
+      "id": "chatcmpl-aba0485d-a9e1-4bff-8f8c-7cfd1645cbdb",
+      "object": "chat.completion.chunk",
+      "created": 1790897420,
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-mlx-2bit",
+      "choices": [],
+      "usage": {
+        "prompt_tokens": 860,
+        "completion_tokens": 120,
+        "total_tokens": 980,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "timings": {
+        "prompt_n": 860,
+        "cache_n": 0,
+        "predicted_n": 120,
+        "prompt_ms": 10219.619083683938,
+        "prompt_per_token_ms": 11.883278004283648,
+        "prompt_per_second": 84.15186446362047,
+        "predicted_ms": 7741.460672603183,
+        "predicted_per_token_ms": 64.51217227169319,
+        "predicted_per_second": 15.5009506700301,
+        "peak_memory": 12.619377288,
+        "draft_kind": null,
+        "draft_rounds": null,
+        "draft_n": null,
+        "draft_n_accepted": null
+      }
+    }
+  }
+]

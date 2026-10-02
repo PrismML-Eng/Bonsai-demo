@@ -1,0 +1,50 @@
+{
+  "cmd": [
+    "$LAB/Bonsai-demo/bin/mac/llama-server",
+    "-m",
+    "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+    "--mmproj",
+    "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-mmproj-BF16.gguf",
+    "--host",
+    "127.0.0.1",
+    "--port",
+    "19435",
+    "-ngl",
+    "99",
+    "-fa",
+    "on",
+    "-c",
+    "4096",
+    "-np",
+    "1",
+    "--jinja",
+    "--reasoning",
+    "off",
+    "--chat-template-kwargs",
+    "{\"enable_thinking\":false}",
+    "--cache-type-k",
+    "f16",
+    "--cache-type-v",
+    "f16",
+    "--cache-prompt",
+    "--cache-ram",
+    "0",
+    "--image-max-tokens",
+    "1024",
+    "--seed",
+    "42"
+  ],
+  "env_overrides": {
+    "HF_HOME": "$LAB/hf-cache",
+    "TOKENIZERS_PARALLELISM": "false"
+  },
+  "started_wall": 1790893522.368042,
+  "preflight_swap": {
+    "total": 40802189312,
+    "used": 39936655360,
+    "free": 865533952,
+    "percent": 97.9,
+    "sin": 7582017306624,
+    "sout": 37537447936
+  }
+}

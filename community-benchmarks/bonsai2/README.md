@@ -58,3 +58,9 @@ MLX submissions are also welcome in this folder. Identify the model, runtime ver
 harness, and prompt/generation lengths. Only put matching pp512/tg128 measurements
 in those columns. Keep server, long-context, speculative decoding, and vision or
 quality checks in separate labeled sections, with their commands and workloads.
+
+## End-to-end serving reports
+
+- [M4 Max 64GB, macOS: Bonsai 2 PQ2_0 Metal, MLX 2-bit and Ollama NVFP4/MLX](metal-mlx-m4-max-64gb-macos.md)
+  — Korean extraction, synthetic vision and mock tool calls, with per-request raw
+  results. PP512/TG128 not measured; cache/speculation settings differ.

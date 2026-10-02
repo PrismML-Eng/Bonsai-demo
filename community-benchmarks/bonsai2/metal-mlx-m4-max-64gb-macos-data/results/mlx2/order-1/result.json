@@ -1,0 +1,78 @@
+{
+  "backend": "mlx2",
+  "case": "order",
+  "rep": 1,
+  "condition": "process-cold-first-request",
+  "ttft_s": 6.401295959018171,
+  "first_answer_s": 6.401295959018171,
+  "total_s": 10.772451791912317,
+  "finish_reason": "stop",
+  "error": null,
+  "input_tok_s": 84.40351501135375,
+  "generation_tok_s": 16.45321116764574,
+  "input_tokens": 524,
+  "output_tokens": 73,
+  "input_seconds": 6.208272249437869,
+  "generation_seconds": 4.436823867157929,
+  "cached_tokens": 0,
+  "mlx_peak_allocation_gb": 11.368953724,
+  "memory": {
+    "samples": 21,
+    "max_rss_bytes": 9056124928,
+    "max_physical_footprint_bytes": 12225354784,
+    "swap_start_bytes": 40722300928,
+    "swap_peak_bytes": 40722300928,
+    "swap_end_bytes": 40713912320,
+    "swap_peak_delta_bytes": 0,
+    "min_system_available_bytes": 18807521280
+  },
+  "score": {
+    "strict_json_or_arguments": true,
+    "native_tool_call": null,
+    "exact_items": true,
+    "correct_rows": 4,
+    "expected_rows": 4,
+    "field_correct": {
+      "name": 4,
+      "quantity": 4,
+      "unit": 4
+    },
+    "extra_or_missing_rows": false,
+    "repetition": false,
+    "incomplete": false,
+    "thinking_observed": false,
+    "parse_error": null,
+    "mock_tool_execution": null
+  },
+  "content": "{\"items\":[{\"name\":\"장미 레드나오미\",\"quantity\":3,\"unit\":\"단\"},{\"name\":\"리시안셔스 보라\",\"quantity\":12,\"unit\":\"대\"},{\"name\":\"카네이션 핑크\",\"quantity\":2,\"unit\":\"단\"},{\"name\":\"유칼립투스\",\"quantity\":5,\"unit\":\"대\"}]}",
+  "thinking": "",
+  "tool_calls": [],
+  "backend_meta": {
+    "timings": {
+      "prompt_n": 524,
+      "cache_n": 0,
+      "predicted_n": 73,
+      "prompt_ms": 6208.272249437869,
+      "prompt_per_token_ms": 11.847847804270742,
+      "prompt_per_second": 84.40351501135375,
+      "predicted_ms": 4436.823867157929,
+      "predicted_per_token_ms": 60.778409139149716,
+      "predicted_per_second": 16.45321116764574,
+      "peak_memory": 11.368953724,
+      "draft_kind": null,
+      "draft_rounds": null,
+      "draft_n": null,
+      "draft_n_accepted": null
+    },
+    "usage": {
+      "prompt_tokens": 524,
+      "completion_tokens": 73,
+      "total_tokens": 597,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      }
+    }
+  },
+  "uncached_input_tokens": 524,
+  "normalized_uncached_input_tok_s": 84.40351501135375
+}

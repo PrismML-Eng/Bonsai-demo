@@ -1,0 +1,7 @@
+{"t": 1790893567.1455219, "rss_bytes": 9505226752, "physical_footprint_bytes": 2425790000, "system_swap_used_bytes": 39936655360, "system_swap_total_bytes": 40802189312, "system_available_bytes": 20073889792, "pids": [5558]}
+{"t": 1790893567.6660469, "rss_bytes": 9505292288, "physical_footprint_bytes": 2426641968, "system_swap_used_bytes": 39936655360, "system_swap_total_bytes": 40802189312, "system_available_bytes": 20073889792, "pids": [5558]}
+{"t": 1790893568.196893, "rss_bytes": 9505292288, "physical_footprint_bytes": 2426641968, "system_swap_used_bytes": 39936655360, "system_swap_total_bytes": 40802189312, "system_available_bytes": 20180500480, "pids": [5558]}
+{"t": 1790893568.7216132, "rss_bytes": 9505292288, "physical_footprint_bytes": 2425855536, "system_swap_used_bytes": 39936655360, "system_swap_total_bytes": 40802189312, "system_available_bytes": 20030816256, "pids": [5558]}
+{"t": 1790893569.249751, "rss_bytes": 9505292288, "physical_footprint_bytes": 2425855536, "system_swap_used_bytes": 39936655360, "system_swap_total_bytes": 40802189312, "system_available_bytes": 20025327616, "pids": [5558]}
+{"t": 1790893569.780066, "rss_bytes": 9505292288, "physical_footprint_bytes": 2425855536, "system_swap_used_bytes": 39936655360, "system_swap_total_bytes": 40802189312, "system_available_bytes": 19995410432, "pids": [5558]}
+{"t": 1790893570.307073, "rss_bytes": 9505292288, "physical_footprint_bytes": 2425855536, "system_swap_used_bytes": 39936655360, "system_swap_total_bytes": 40802189312, "system_available_bytes": 20052983808, "pids": [5558]}

@@ -1,0 +1,10 @@
+{
+  "samples": 402,
+  "max_rss_bytes": 9238740992,
+  "max_physical_footprint_bytes": 16522255728,
+  "swap_start_bytes": 40722300928,
+  "swap_peak_bytes": 40722300928,
+  "swap_end_bytes": 40646803456,
+  "swap_peak_delta_bytes": 0,
+  "min_system_available_bytes": 17071177728
+}

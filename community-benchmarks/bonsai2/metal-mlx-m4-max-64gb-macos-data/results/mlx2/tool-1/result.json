@@ -1,0 +1,90 @@
+{
+  "backend": "mlx2",
+  "case": "tool",
+  "rep": 1,
+  "condition": "model-resident-warm",
+  "ttft_s": 17.70861383387819,
+  "first_answer_s": 17.70861383387819,
+  "total_s": 17.708785749971867,
+  "finish_reason": "tool_calls",
+  "error": null,
+  "input_tok_s": 84.71010928495953,
+  "generation_tok_s": 16.029348975706828,
+  "input_tokens": 860,
+  "output_tokens": 120,
+  "input_seconds": 10.152271166443825,
+  "generation_seconds": 7.486267856658757,
+  "cached_tokens": 0,
+  "mlx_peak_allocation_gb": 12.327873144,
+  "memory": {
+    "samples": 33,
+    "max_rss_bytes": 9051570176,
+    "max_physical_footprint_bytes": 13613767736,
+    "swap_start_bytes": 40697135104,
+    "swap_peak_bytes": 40697135104,
+    "swap_end_bytes": 40697135104,
+    "swap_peak_delta_bytes": 0,
+    "min_system_available_bytes": 18427314176
+  },
+  "score": {
+    "strict_json_or_arguments": true,
+    "native_tool_call": true,
+    "exact_items": true,
+    "correct_rows": 4,
+    "expected_rows": 4,
+    "field_correct": {
+      "name": 4,
+      "quantity": 4,
+      "unit": 4
+    },
+    "extra_or_missing_rows": false,
+    "repetition": false,
+    "incomplete": false,
+    "thinking_observed": false,
+    "parse_error": null,
+    "mock_tool_execution": {
+      "executed": false,
+      "would_accept": true
+    }
+  },
+  "content": "",
+  "thinking": "",
+  "tool_calls": [
+    {
+      "type": "function",
+      "function": {
+        "name": "extract_order",
+        "arguments": "{\"items\": [{\"name\": \"장미 레드나오미\", \"quantity\": 3, \"unit\": \"단\"}, {\"name\": \"리시안셔스 보라\", \"quantity\": 12, \"unit\": \"대\"}, {\"name\": \"카네이션 핑크\", \"quantity\": 2, \"unit\": \"단\"}, {\"name\": \"유칼립투스\", \"quantity\": 5, \"unit\": \"대\"}]}"
+      },
+      "id": "a99b4221-9db4-4849-8146-b4a6d4ca0ae3"
+    }
+  ],
+  "backend_meta": {
+    "timings": {
+      "prompt_n": 860,
+      "cache_n": 0,
+      "predicted_n": 120,
+      "prompt_ms": 10152.271166443825,
+      "prompt_per_token_ms": 11.804966472609099,
+      "prompt_per_second": 84.71010928495953,
+      "predicted_ms": 7486.267856658757,
+      "predicted_per_token_ms": 62.38556547215631,
+      "predicted_per_second": 16.029348975706828,
+      "peak_memory": 12.327873144,
+      "draft_kind": null,
+      "draft_rounds": null,
+      "draft_n": null,
+      "draft_n_accepted": null
+    },
+    "usage": {
+      "prompt_tokens": 860,
+      "completion_tokens": 120,
+      "total_tokens": 980,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      }
+    }
+  },
+  "uncached_input_tokens": 860,
+  "normalized_uncached_input_tok_s": 84.71010928495953
+}

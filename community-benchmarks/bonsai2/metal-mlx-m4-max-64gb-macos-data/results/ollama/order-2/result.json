@@ -1,0 +1,69 @@
+{
+  "backend": "ollama",
+  "case": "order",
+  "rep": 2,
+  "condition": "model-resident-warm",
+  "ttft_s": 0.16605887515470386,
+  "first_answer_s": 0.16605887515470386,
+  "total_s": 2.7543155001476407,
+  "finish_reason": "stop",
+  "error": null,
+  "input_tok_s": 8889.196806444084,
+  "generation_tok_s": 56.94351736922449,
+  "input_tokens": 524,
+  "output_tokens": 152,
+  "input_seconds": 0.058947958,
+  "generation_seconds": 2.66931175,
+  "load_s": 0.008364708,
+  "cached_tokens": 519,
+  "memory": {
+    "samples": 6,
+    "max_rss_bytes": 506871808,
+    "max_physical_footprint_bytes": 21806791944,
+    "swap_start_bytes": 43203690496,
+    "swap_peak_bytes": 43203690496,
+    "swap_end_bytes": 43195301888,
+    "swap_peak_delta_bytes": 0,
+    "min_system_available_bytes": 10668965888
+  },
+  "score": {
+    "strict_json_or_arguments": true,
+    "native_tool_call": null,
+    "exact_items": true,
+    "correct_rows": 4,
+    "expected_rows": 4,
+    "field_correct": {
+      "name": 4,
+      "quantity": 4,
+      "unit": 4
+    },
+    "extra_or_missing_rows": false,
+    "repetition": false,
+    "incomplete": false,
+    "thinking_observed": false,
+    "parse_error": null,
+    "mock_tool_execution": null
+  },
+  "content": "{\n  \"items\": [\n    {\n      \"name\": \"장미 레드나오미\",\n      \"quantity\": 3,\n      \"unit\": \"단\"\n    },\n    {\n      \"name\": \"리시안셔스 보라\",\n      \"quantity\": 12,\n      \"unit\": \"대\"\n    },\n    {\n      \"name\": \"카네이션 핑크\",\n      \"quantity\": 2,\n      \"unit\": \"단\"\n    },\n    {\n      \"name\": \"유칼립투스\",\n      \"quantity\": 5,\n      \"unit\": \"대\"\n    }\n  ]\n}",
+  "thinking": "",
+  "tool_calls": [],
+  "backend_meta": {
+    "model": "qwen3.8:27b-mlx",
+    "created_at": "2026-10-01T22:33:23.341744Z",
+    "message": {
+      "role": "assistant",
+      "content": ""
+    },
+    "done": true,
+    "done_reason": "stop",
+    "total_duration": 2737430333,
+    "load_duration": 8364708,
+    "prompt_eval_count": 524,
+    "prompt_eval_duration": 58947958,
+    "eval_count": 152,
+    "eval_duration": 2669311750
+  },
+  "uncached_input_tokens": 5,
+  "normalized_uncached_input_tok_s": 84.82058021416111,
+  "input_tok_s_includes_cache": true
+}

@@ -1,0 +1,2568 @@
+[
+  {
+    "elapsed_s": 0.23860799986869097,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "role": "assistant",
+            "content": null
+          }
+        }
+      ],
+      "created": 1790893545,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 0.5890604997985065,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "id": "a9Ehp0gMTLoLRl4w6HupeEVPRQ6v8JVW",
+                "type": "function",
+                "function": {
+                  "name": "extract_order",
+                  "arguments": "{"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893545,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 0.8275283328257501,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "\"items\":"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893545,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 0.8682082919403911,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "["
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893545,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 0.9102022917941213,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "{\""
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893545,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 0.9505586670711637,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "name"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893545,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 0.9903715001419187,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "\":"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893545,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 1.0276808328926563,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": " \""
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893545,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 1.067140707746148,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "장"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893546,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 1.1220161668024957,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "미"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893546,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 1.1431279578246176,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": " 레드"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893546,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 1.1786091667599976,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "나"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893546,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 1.2147726668044925,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "오"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893546,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 1.2513639167882502,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "미"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893546,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 1.2856019167229533,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "\","
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893546,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 1.3213418750092387,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": " \""
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893546,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 1.3587547917850316,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "quantity"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893546,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 1.392998917028308,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "\":"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893546,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 1.4287942498922348,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": " "
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893546,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 1.4659705418162048,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "3"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893546,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 1.5006871670484543,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": ","
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893546,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 1.5349858747795224,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": " \""
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893546,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 1.5698641249909997,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "unit"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893546,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 1.6031136671081185,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "\":"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893546,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 1.654713625088334,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": " \""
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893546,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 1.6720851669088006,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "단"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893546,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 1.7079525417648256,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "\"},"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893546,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 1.7425513328053057,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": " {\""
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893546,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 1.776181791909039,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "name"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893546,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 1.8134715417400002,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "\":"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893546,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 1.8530437080189586,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": " \""
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893546,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 1.890570375137031,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "리"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893546,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 1.9292813329957426,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "시"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893546,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 1.9668777077458799,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "안"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893546,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 2.0066277920268476,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "셔"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893546,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 2.0436551668681204,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "스"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893546,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 2.082147208042443,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": " 보"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893547,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 2.1201950828544796,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "라"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893547,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 2.157829583156854,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "\","
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893547,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 2.205232999753207,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": " \""
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893547,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 2.230592332780361,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "quantity"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893547,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 2.2661949577741325,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "\":"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893547,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 2.3023534170351923,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": " "
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893547,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 2.336605708114803,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "1"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893547,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 2.374037832953036,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "2"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893547,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 2.409806292038411,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": ","
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893547,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 2.4443602501414716,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": " \""
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893547,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 2.4792474168352783,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "unit"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893547,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 2.515641249716282,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "\":"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893547,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 2.550490041729063,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": " \""
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893547,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 2.584890457801521,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "대"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893547,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 2.6197375417687,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "\"},"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893547,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 2.654841249808669,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": " {\""
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893547,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 2.6891503748483956,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "name"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893547,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 2.7334701251238585,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "\":"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893547,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 2.7593209170736372,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": " \""
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893547,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 2.7964068329893053,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "카"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893547,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 2.832858458161354,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "네"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893547,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 2.8690904998220503,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "이션"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893547,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 2.945408917032182,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": " 핑"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893547,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 2.9839619169943035,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "크"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893547,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 3.022408625110984,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "\","
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893547,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 3.0600760420784354,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": " \""
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893548,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 3.098467624746263,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "quantity"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893548,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 3.1386450827121735,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "\":"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893548,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 3.1759945419616997,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": " "
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893548,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 3.2119065830484033,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "2"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893548,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 3.2489453330636024,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": ","
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893548,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 3.298569125123322,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": " \""
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893548,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 3.3225784581154585,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "unit"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893548,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 3.3589951251633465,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "\":"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893548,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 3.394225458148867,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": " \""
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893548,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 3.4322528331540525,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "단"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893548,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 3.470974958036095,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "\"},"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893548,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 3.5086047081276774,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": " {\""
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893548,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 3.546621249988675,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "name"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893548,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 3.586131999734789,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "\":"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893548,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 3.6237758747301996,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": " \""
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893548,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 3.660998708102852,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "유"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893548,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 3.700700916815549,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "칼"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893548,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 3.74101833300665,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "립"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893548,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 3.779093832708895,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "투스"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893548,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 3.837862332817167,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "\","
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893548,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 3.8601756668649614,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": " \""
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893548,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 3.9030666667968035,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "quantity"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893548,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 3.9429713748395443,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "\":"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893548,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 3.9847347917966545,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": " "
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893548,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 4.026294750161469,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "5"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893548,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 4.0689720418304205,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": ","
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893549,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 4.112499666865915,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": " \""
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893549,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 4.15294195804745,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "unit"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893549,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 4.19553591683507,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "\":"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893549,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 4.236358457710594,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": " \""
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893549,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 4.277301957830787,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "대"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893549,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 4.316295667085797,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "\"}"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893549,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 4.356148041784763,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "]"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893549,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 4.70003475015983,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": null,
+          "index": 0,
+          "delta": {
+            "tool_calls": [
+              {
+                "index": 0,
+                "function": {
+                  "arguments": "}"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "created": 1790893549,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 4.7792177917435765,
+    "data": {
+      "choices": [
+        {
+          "finish_reason": "tool_calls",
+          "index": 0,
+          "delta": {}
+        }
+      ],
+      "created": 1790893549,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk"
+    }
+  },
+  {
+    "elapsed_s": 4.779248499777168,
+    "data": {
+      "choices": [],
+      "created": 1790893549,
+      "id": "chatcmpl-LaWwTD2wpUZQQizZ4WijIPJvC2WvOVuW",
+      "model": "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "system_fingerprint": "b10743-adfffbe41",
+      "object": "chat.completion.chunk",
+      "usage": {
+        "completion_tokens": 120,
+        "prompt_tokens": 860,
+        "total_tokens": 980,
+        "prompt_tokens_details": {
+          "cached_tokens": 856
+        }
+      },
+      "timings": {
+        "cache_n": 856,
+        "prompt_n": 4,
+        "prompt_ms": 194.686,
+        "prompt_per_token_ms": 48.6715,
+        "prompt_per_second": 20.545904687548155,
+        "predicted_n": 120,
+        "predicted_ms": 4540.549,
+        "predicted_per_token_ms": 38.155873949579835,
+        "predicted_per_second": 26.208284504803274
+      }
+    }
+  }
+]
