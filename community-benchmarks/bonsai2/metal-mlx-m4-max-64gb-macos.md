@@ -13,7 +13,7 @@ llama-bench or quantization-only comparison. No production service was replaced.
 | Existing Ollama NVFP4/MLX | Not measured | Not measured |
 
 PTQ1_0 and development Q2_0 were not tested. No serving numbers are added to the
-pp512/tg128 leaderboards. [Korean/English explanation](metal-mlx-m4-max-64gb-macos-data/community-explanation-ko-en.md).
+pp512/tg128 leaderboards.
 
 ## Configuration
 
@@ -36,9 +36,9 @@ pp512/tg128 leaderboards. [Korean/English explanation](metal-mlx-m4-max-64gb-mac
   Manifest SHA-256: `5642e97495e1a088883805981563dcdc4a040c2f53388b7a41d1f24d3622cf7e`.
   Model tensor files total 18,174,721,596 bytes. This locally installed tag is not
   assumed to be a reproducible public download by name alone.
-- Benchmark Python 3.11.15. [Full environment](metal-mlx-m4-max-64gb-macos-data/evidence/environment.json),
-  [model file hashes](metal-mlx-m4-max-64gb-macos-data/evidence/model-verification-ledger.json),
-  [baseline manifest](metal-mlx-m4-max-64gb-macos-data/evidence/ollama-model.json),
+- Benchmark Python 3.11.15. [Consolidated evidence](metal-mlx-m4-max-64gb-macos-data/final-results.json)
+  contains `provenance.environment`, `provenance.model-verification-ledger` and
+  `provenance.ollama-model` (baseline metadata, original manifest SHA and layer-count/size summary),
   [dependency lock](metal-mlx-m4-max-64gb-macos-data/requirements.lock.txt).
 - No power tuning was applied. Other existing apps/services remained running;
   this was not an idle dedicated machine. Background load and thermal state were
@@ -49,7 +49,7 @@ pp512/tg128 leaderboards. [Korean/English explanation](metal-mlx-m4-max-64gb-mac
 
 Paths below use `$LAB` for the isolated experiment directory and `$OLLAMA_MODELS`
 for the existing read-only Ollama model store. Only those path prefixes were
-redacted in the attached launch/request/result JSON. Command flags are unchanged.
+redacted in the attached launch/result JSON. Command flags are unchanged.
 
 ```bash
 OLLAMA_HOST=127.0.0.1:19434 OLLAMA_MODELS="$OLLAMA_MODELS" \
@@ -76,6 +76,8 @@ HF_HOME="$LAB/hf-cache" TOKENIZERS_PARALLELISM=false \
 [Harness](metal-mlx-m4-max-64gb-macos-data/benchmark.py) starts/stops only its own
 server process group and refuses occupied ports. Copy the evidence directory to
 a **new writable lab directory** before rerunning; its outputs use `results/`.
+The default harness validates and reuses the committed fixture PNG and manifest;
+it refuses a checksum mismatch. It does not silently redraw the image.
 Place the pinned demo at `Bonsai-demo/` and the verified weights in the `models/`
 paths above. Install the dependency lock into `venv/` using Python 3.11.15, then:
 
@@ -85,13 +87,43 @@ export OLLAMA_MODELS="$HOME/.ollama/models"  # existing matching baseline requir
 venv/bin/python benchmark.py ollama
 venv/bin/python benchmark.py pq2
 venv/bin/python benchmark.py mlx2
+venv/bin/python benchmark.py aggregate
+venv/bin/python benchmark.py verify
 ```
 
 These harness commands manage servers automatically: do not also run the manual
-server commands concurrently. The published harness differs from the measured
-script only by accepting `OLLAMA_MODELS`/the home directory instead of a private
-absolute model-store path. Synthetic fixture drawing requires the macOS font
-`/System/Library/Fonts/AppleSDGothicNeo.ttc`.
+server commands concurrently. The request/measurement logic is unchanged. The
+published harness accepts `OLLAMA_MODELS`/the home directory instead of a private
+absolute model-store path, validates existing fixtures and adds offline aggregation.
+The explicitly requested `fixtures --regenerate-fixture` command redraws the
+synthetic image and updates the manifest; this requires the macOS font
+`/System/Library/Fonts/AppleSDGothicNeo.ttc` and produces a new experiment fixture.
+It was **not** used for this cleanup.
+
+For **offline reproduction of the published CSV**, with no dependencies, servers
+or models required:
+
+```bash
+cd metal-mlx-m4-max-64gb-macos-data
+python3 benchmark.py verify
+python3 benchmark.py aggregate
+python3 benchmark.py verify
+```
+
+With no `results/` directory, aggregation reads the 27 original objects in
+`final-results.json`. With fresh raw results, it reads `results/*/*/result.json`
+and backend launch/readiness/lifecycle summaries. It does not overwrite individual
+result objects. Ollama normalization parses exactly nine ordered cache lines from
+the server log (or published excerpts), checks total = cached + left and matches
+request prompt counts, then derives `left / input_seconds`. Candidate normalization
+uses the original server timings (`prompt_n`, `input_tok_s`). Original reported
+rates and all 27 measured result objects are retained. CSV column order and
+serialization are deterministic; verification also re-scores the synthetic outputs.
+
+Committed fixture PNG SHA-256:
+`2b68776d8fea102692a7af75b562ef51856c100f684e473dc12e38befc29cfc8`.
+`final-results.json.artifact_sha256` covers the CSV, harness, dependency lock,
+manifest and PNG; the bundle does not include its own checksum.
 
 ## End-to-end serving
 
@@ -187,12 +219,17 @@ integration remain untested.
 ## Raw evidence and exclusions
 
 - [27-row CSV](metal-mlx-m4-max-64gb-macos-data/comparison.csv).
-- [Per-request results, requests, timed stream events and memory JSONL](metal-mlx-m4-max-64gb-macos-data/results/).
+- [Consolidated original results and evidence](metal-mlx-m4-max-64gb-macos-data/final-results.json):
+  `results` contains all 27 original result objects; `backends` retains all three
+  launch/readiness/lifecycle summaries and the Ollama cache/speculation excerpts.
 - [Fixed prompts/schema/expected fields/image SHA](metal-mlx-m4-max-64gb-macos-data/fixtures/manifest.json).
-- Backend launch/readiness/lifecycle memory and cache/speculation evidence excerpts
-  are included under each backend. Personal path prefixes were replaced; numeric
-  measurements and synthetic payloads were retained.
-- [Published artifact checksums](metal-mlx-m4-max-64gb-macos-data/artifact-sha256.json).
+- Personal path prefixes were replaced before the original submission; numeric
+  measurements and synthetic outputs were retained unchanged during consolidation.
+- Full request/stream/memory logs and tensor inventory are retained in the original
+  contributor experiment archive outside the PR diff. The submitted bundle retains
+  the evidence required for CSV/cache normalization and loading/memory summaries;
+  it does not permit re-sampling memory traces or reconstructing every stream event.
+- Published artifact checksums are embedded in `final-results.json.artifact_sha256`.
 - 18 preliminary calibration requests are excluded. Initial Ollama calibration
   overlapped model downloads. An initial MLX client's failure to handle valid
   SSE `tool_calls: null` was fixed before rerunning all nine main MLX requests

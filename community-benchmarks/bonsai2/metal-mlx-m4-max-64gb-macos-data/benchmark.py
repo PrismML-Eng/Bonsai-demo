@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 """Local-only, sequential 3-backend benchmark. No real tool execution."""
-import argparse, base64, ctypes, hashlib, json, os, pathlib, re, signal
+import argparse, base64, csv, ctypes, hashlib, io, json, os, pathlib, re, signal
 import socket, subprocess, threading, time, urllib.request, urllib.error
-import psutil
-from PIL import Image, ImageDraw, ImageFont
 
 ROOT = pathlib.Path(__file__).resolve().parent
 PY = ROOT / 'venv/bin/python'
@@ -25,7 +23,17 @@ MODELS = {
 def write_json(p, d):
  p.parent.mkdir(parents=True,exist_ok=True); p.write_text(json.dumps(d,ensure_ascii=False,indent=2))
 
-def fixture():
+def fixture(regenerate=False):
+ p=ROOT/'fixtures/statement.png'
+ manifest=ROOT/'fixtures/manifest.json'
+ if not regenerate:
+  d=json.loads(manifest.read_text())
+  if hashlib.sha256(p.read_bytes()).hexdigest()!=d['image_sha256']:
+   raise ValueError('fixture checksum mismatch; refusing to regenerate silently')
+  for key,value in [('items',ITEMS),('system',SYSTEM),('context',CONTEXT),('order',ORDER),('tools',TOOLS)]:
+   if d[key]!=value:raise ValueError(f'fixture manifest mismatch: {key}')
+  return p
+ from PIL import Image, ImageDraw, ImageFont
  p=ROOT/'fixtures/statement.png'; p.parent.mkdir(exist_ok=True)
  im=Image.new('RGB',(1200,760),'white'); draw=ImageDraw.Draw(im)
  font='/System/Library/Fonts/AppleSDGothicNeo.ttc'
@@ -42,9 +50,9 @@ def fixture():
  write_json(ROOT/'fixtures/manifest.json',{'items':ITEMS,'system':SYSTEM,'context':CONTEXT,'order':ORDER,'tools':TOOLS,'image_sha256':hashlib.sha256(p.read_bytes()).hexdigest(),'image_size':[1200,760],'synthetic':True,'max_context':4096,'max_output_tokens':512,'thinking':False,'temperature':0,'seed':42})
  return p
 
-LIB=ctypes.CDLL('/usr/lib/libproc.dylib')
-LIB.proc_pid_rusage.argtypes=[ctypes.c_int,ctypes.c_int,ctypes.c_void_p]
 def footprint(pid):
+ LIB=ctypes.CDLL('/usr/lib/libproc.dylib')
+ LIB.proc_pid_rusage.argtypes=[ctypes.c_int,ctypes.c_int,ctypes.c_void_p]
  # rusage_info_v2: uuid[16] followed by UInt64 fields; phys_footprint index 7.
  buf=ctypes.create_string_buffer(512)
  if LIB.proc_pid_rusage(pid,2,ctypes.byref(buf)) != 0:return 0
@@ -174,6 +182,8 @@ def run_request(key,case,rep,pid,image):
  return result
 
 def run_backend(key):
+ global psutil
+ import psutil
  image=fixture();out=ROOT/'results'/key;out.mkdir(parents=True,exist_ok=True)
  port=MODELS[key]['port']
  with socket.socket() as s:
@@ -208,7 +218,100 @@ def run_backend(key):
   log.close()
  return results
 
+BACKEND_ORDER = ['ollama','pq2','mlx2']
+CASE_ORDER = ['order','tool','image']
+RESULT_FIELDS = ['backend','case','rep','condition','ttft_s','first_answer_s','total_s',
+ 'input_tokens','uncached_input_tokens','cached_tokens','output_tokens','input_tok_s',
+ 'normalized_uncached_input_tok_s','generation_tok_s','finish_reason','error']
+SCORE_FIELDS = ['strict_json_or_arguments','native_tool_call','exact_items','correct_rows',
+ 'repetition','incomplete','thinking_observed']
+MEMORY_FIELDS = ['samples','max_rss_bytes','max_physical_footprint_bytes','swap_start_bytes',
+ 'swap_peak_bytes','swap_end_bytes','swap_peak_delta_bytes','min_system_available_bytes']
+
+
+def aggregate_rows(bundle):
+ """Derive CSV/cache fields without editing the original measured result objects."""
+ rows=bundle['results']
+ by_id={(r['backend'],r['case'],r['rep']):r for r in rows}
+ expected=[(b,c,n) for b in BACKEND_ORDER for c in CASE_ORDER for n in [1,2,3]]
+ if len(rows)!=27 or set(by_id)!=set(expected):raise ValueError('expected 27 unique request results')
+ excerpt=bundle['backends']['ollama']['server_evidence_excerpts']
+ caches=[tuple(map(int,m)) for m in re.findall(
+  r'msg="cache (?:hit|miss)" total=(\d+) matched=(\d+) cached=(\d+) left=(\d+)',excerpt)]
+ if len(caches)!=9:raise ValueError('expected exactly 9 ordered Ollama cache evidence lines')
+ flat=[]
+ for ident in expected:
+  original=by_id[ident];d=dict(original);b,c,n=ident
+  # Observed scores are preserved; offline re-scoring checks their consistency.
+  if score(d['content'],d['tool_calls'],d['finish_reason'],d['thinking'],c)!=d['score']:
+   raise ValueError(f'score mismatch: {ident}')
+  if b=='ollama':
+   total,matched,cached,left=caches[CASE_ORDER.index(c)*3+n-1]
+   if total!=d['input_tokens'] or cached+left!=total:
+    raise ValueError(f'cache evidence/request ordering mismatch: {ident}')
+   derived={'cached_tokens':cached,'uncached_input_tokens':left,
+    'normalized_uncached_input_tok_s':left/d['input_seconds'] if d.get('input_seconds') else None,
+    'input_tok_s_includes_cache':cached>0}
+  else:
+   derived={'uncached_input_tokens':d.get('backend_meta',{}).get('timings',{}).get('prompt_n'),
+    'normalized_uncached_input_tok_s':d.get('input_tok_s')}
+  for key,value in derived.items():
+   if key in original and original[key]!=value:raise ValueError(f'normalization mismatch: {ident} {key}')
+  d.update(derived)
+  flat.append({**{k:d.get(k) for k in RESULT_FIELDS},
+   **{k:d['score'][k] for k in SCORE_FIELDS},**{k:d['memory'][k] for k in MEMORY_FIELDS}})
+ return flat
+
+
+def csv_bytes(rows):
+ stream=io.StringIO(newline='')
+ writer=csv.DictWriter(stream,fieldnames=RESULT_FIELDS+SCORE_FIELDS+MEMORY_FIELDS,lineterminator="\n")
+ writer.writeheader();writer.writerows(rows)
+ return stream.getvalue().encode()
+
+
+def collect_raw_results():
+ bundle={'schema_version':1,'results':[],'backends':{},'provenance':{}}
+ for b in BACKEND_ORDER:
+  p=ROOT/'results'/b
+  for c in CASE_ORDER:
+   for n in [1,2,3]:bundle['results'].append(json.loads((p/f'{c}-{n}/result.json').read_text()))
+  bundle['backends'][b]={k:json.loads((p/f'{k}.json').read_text())
+   for k in ['launch','readiness','lifecycle-memory-summary']}
+  # Full server log is preferred for fresh experiments; published bundle retains excerpts.
+  log=p/'server.log'
+  if not log.exists():log=p/'server-evidence-excerpts.txt'
+  bundle['backends'][b]['server_evidence_excerpts']='\n'.join(
+   line for line in log.read_text().splitlines()
+   if re.search(r'cache (?:hit|miss)|speculative decode stats',line))
+ return bundle
+
+
+def offline(action):
+ fixture()  # Validate committed image and prompt bytes; never draw an image here.
+ if action=='aggregate' and (ROOT/'results').exists():bundle=collect_raw_results()
+ else:bundle=json.loads((ROOT/'final-results.json').read_text())
+ rows=aggregate_rows(bundle);generated=csv_bytes(rows)
+ if action=='verify':
+  if generated!=(ROOT/'comparison.csv').read_bytes():raise ValueError('CSV is not reproducible byte-for-byte')
+  for name,digest in bundle['artifact_sha256'].items():
+   if hashlib.sha256((ROOT/name).read_bytes()).hexdigest()!=digest:
+    raise ValueError(f'artifact checksum mismatch: {name}')
+  print('PASS: 27 unique results, offline scores/cache normalization, exact CSV, fixture/artifact SHA256')
+  return
+ (ROOT/'comparison.csv').write_bytes(generated)
+ names=['comparison.csv','benchmark.py','requirements.lock.txt','fixtures/manifest.json','fixtures/statement.png']
+ bundle['artifact_sha256']={n:hashlib.sha256((ROOT/n).read_bytes()).hexdigest() for n in names}
+ write_json(ROOT/'final-results.json',bundle)
+ print('Aggregated 27 requests without model execution; final-results.json and comparison.csv written')
+
+
 if __name__=='__main__':
- ap=argparse.ArgumentParser();ap.add_argument('backend',choices=[*MODELS,'fixtures']);a=ap.parse_args()
- if a.backend=='fixtures':fixture()
+ ap=argparse.ArgumentParser()
+ ap.add_argument('backend',choices=[*MODELS,'fixtures','aggregate','verify'])
+ ap.add_argument('--regenerate-fixture',action='store_true',help='Explicitly redraw synthetic image; changes fixture SHA')
+ a=ap.parse_args()
+ if a.regenerate_fixture and a.backend!='fixtures':ap.error('--regenerate-fixture requires fixtures')
+ if a.backend in ['aggregate','verify']:offline(a.backend)
+ elif a.backend=='fixtures':fixture(regenerate=a.regenerate_fixture)
  else:run_backend(a.backend)

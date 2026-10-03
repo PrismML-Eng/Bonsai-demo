@@ -1,0 +1,2452 @@
+{
+  "schema_version": 1,
+  "measurement_date": "2026-10-02 KST",
+  "results": [
+    {
+      "backend": "ollama",
+      "case": "order",
+      "rep": 1,
+      "condition": "process-cold-first-request",
+      "ttft_s": 11.16410329239443,
+      "first_answer_s": 11.16410329239443,
+      "total_s": 13.871470209211111,
+      "finish_reason": "stop",
+      "error": null,
+      "input_tok_s": 167.31980286995181,
+      "generation_tok_s": 52.77969210454093,
+      "input_tokens": 524,
+      "output_tokens": 152,
+      "input_seconds": 3.131727333,
+      "generation_seconds": 2.879895542,
+      "load_s": 7.833693125,
+      "cached_tokens": 0,
+      "memory": {
+        "samples": 27,
+        "max_rss_bytes": 6453215232,
+        "max_physical_footprint_bytes": 22486121760,
+        "swap_start_bytes": 39743717376,
+        "swap_peak_bytes": 43203690496,
+        "swap_end_bytes": 43203690496,
+        "swap_peak_delta_bytes": 3459973120,
+        "min_system_available_bytes": 9927835648
+      },
+      "score": {
+        "strict_json_or_arguments": true,
+        "native_tool_call": null,
+        "exact_items": true,
+        "correct_rows": 4,
+        "expected_rows": 4,
+        "field_correct": {
+          "name": 4,
+          "quantity": 4,
+          "unit": 4
+        },
+        "extra_or_missing_rows": false,
+        "repetition": false,
+        "incomplete": false,
+        "thinking_observed": false,
+        "parse_error": null,
+        "mock_tool_execution": null
+      },
+      "content": "{\n  \"items\": [\n    {\n      \"name\": \"장미 레드나오미\",\n      \"quantity\": 3,\n      \"unit\": \"단\"\n    },\n    {\n      \"name\": \"리시안셔스 보라\",\n      \"quantity\": 12,\n      \"unit\": \"대\"\n    },\n    {\n      \"name\": \"카네이션 핑크\",\n      \"quantity\": 2,\n      \"unit\": \"단\"\n    },\n    {\n      \"name\": \"유칼립투스\",\n      \"quantity\": 5,\n      \"unit\": \"대\"\n    }\n  ]\n}",
+      "thinking": "",
+      "tool_calls": [],
+      "backend_meta": {
+        "model": "qwen3.8:27b-mlx",
+        "created_at": "2026-10-01T22:33:20.585593Z",
+        "message": {
+          "role": "assistant",
+          "content": ""
+        },
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 13846577750,
+        "load_duration": 7833693125,
+        "prompt_eval_count": 524,
+        "prompt_eval_duration": 3131727333,
+        "eval_count": 152,
+        "eval_duration": 2879895542
+      },
+      "uncached_input_tokens": 524,
+      "normalized_uncached_input_tok_s": 167.31980286995181,
+      "input_tok_s_includes_cache": false
+    },
+    {
+      "backend": "ollama",
+      "case": "order",
+      "rep": 2,
+      "condition": "model-resident-warm",
+      "ttft_s": 0.16605887515470386,
+      "first_answer_s": 0.16605887515470386,
+      "total_s": 2.7543155001476407,
+      "finish_reason": "stop",
+      "error": null,
+      "input_tok_s": 8889.196806444084,
+      "generation_tok_s": 56.94351736922449,
+      "input_tokens": 524,
+      "output_tokens": 152,
+      "input_seconds": 0.058947958,
+      "generation_seconds": 2.66931175,
+      "load_s": 0.008364708,
+      "cached_tokens": 519,
+      "memory": {
+        "samples": 6,
+        "max_rss_bytes": 506871808,
+        "max_physical_footprint_bytes": 21806791944,
+        "swap_start_bytes": 43203690496,
+        "swap_peak_bytes": 43203690496,
+        "swap_end_bytes": 43195301888,
+        "swap_peak_delta_bytes": 0,
+        "min_system_available_bytes": 10668965888
+      },
+      "score": {
+        "strict_json_or_arguments": true,
+        "native_tool_call": null,
+        "exact_items": true,
+        "correct_rows": 4,
+        "expected_rows": 4,
+        "field_correct": {
+          "name": 4,
+          "quantity": 4,
+          "unit": 4
+        },
+        "extra_or_missing_rows": false,
+        "repetition": false,
+        "incomplete": false,
+        "thinking_observed": false,
+        "parse_error": null,
+        "mock_tool_execution": null
+      },
+      "content": "{\n  \"items\": [\n    {\n      \"name\": \"장미 레드나오미\",\n      \"quantity\": 3,\n      \"unit\": \"단\"\n    },\n    {\n      \"name\": \"리시안셔스 보라\",\n      \"quantity\": 12,\n      \"unit\": \"대\"\n    },\n    {\n      \"name\": \"카네이션 핑크\",\n      \"quantity\": 2,\n      \"unit\": \"단\"\n    },\n    {\n      \"name\": \"유칼립투스\",\n      \"quantity\": 5,\n      \"unit\": \"대\"\n    }\n  ]\n}",
+      "thinking": "",
+      "tool_calls": [],
+      "backend_meta": {
+        "model": "qwen3.8:27b-mlx",
+        "created_at": "2026-10-01T22:33:23.341744Z",
+        "message": {
+          "role": "assistant",
+          "content": ""
+        },
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 2737430333,
+        "load_duration": 8364708,
+        "prompt_eval_count": 524,
+        "prompt_eval_duration": 58947958,
+        "eval_count": 152,
+        "eval_duration": 2669311750
+      },
+      "uncached_input_tokens": 5,
+      "normalized_uncached_input_tok_s": 84.82058021416111,
+      "input_tok_s_includes_cache": true
+    },
+    {
+      "backend": "ollama",
+      "case": "order",
+      "rep": 3,
+      "condition": "model-resident-warm",
+      "ttft_s": 0.18294904241338372,
+      "first_answer_s": 0.18294904241338372,
+      "total_s": 3.3044544174335897,
+      "finish_reason": "stop",
+      "error": null,
+      "input_tok_s": 8595.635972651246,
+      "generation_tok_s": 47.20484739894727,
+      "input_tokens": 524,
+      "output_tokens": 152,
+      "input_seconds": 0.060961167,
+      "generation_seconds": 3.220008291,
+      "load_s": 0.005690917,
+      "cached_tokens": 519,
+      "memory": {
+        "samples": 7,
+        "max_rss_bytes": 519503872,
+        "max_physical_footprint_bytes": 22836837640,
+        "swap_start_bytes": 43195301888,
+        "swap_peak_bytes": 43195301888,
+        "swap_end_bytes": 43170136064,
+        "swap_peak_delta_bytes": 0,
+        "min_system_available_bytes": 10291478528
+      },
+      "score": {
+        "strict_json_or_arguments": true,
+        "native_tool_call": null,
+        "exact_items": true,
+        "correct_rows": 4,
+        "expected_rows": 4,
+        "field_correct": {
+          "name": 4,
+          "quantity": 4,
+          "unit": 4
+        },
+        "extra_or_missing_rows": false,
+        "repetition": false,
+        "incomplete": false,
+        "thinking_observed": false,
+        "parse_error": null,
+        "mock_tool_execution": null
+      },
+      "content": "{\n  \"items\": [\n    {\n      \"name\": \"장미 레드나오미\",\n      \"quantity\": 3,\n      \"unit\": \"단\"\n    },\n    {\n      \"name\": \"리시안셔스 보라\",\n      \"quantity\": 12,\n      \"unit\": \"대\"\n    },\n    {\n      \"name\": \"카네이션 핑크\",\n      \"quantity\": 2,\n      \"unit\": \"단\"\n    },\n    {\n      \"name\": \"유칼립투스\",\n      \"quantity\": 5,\n      \"unit\": \"대\"\n    }\n  ]\n}",
+      "thinking": "",
+      "tool_calls": [],
+      "backend_meta": {
+        "model": "qwen3.8:27b-mlx",
+        "created_at": "2026-10-01T22:33:26.647492Z",
+        "message": {
+          "role": "assistant",
+          "content": ""
+        },
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 3287482584,
+        "load_duration": 5690917,
+        "prompt_eval_count": 524,
+        "prompt_eval_duration": 60961167,
+        "eval_count": 152,
+        "eval_duration": 3220008291
+      },
+      "uncached_input_tokens": 5,
+      "normalized_uncached_input_tok_s": 82.01942721995464,
+      "input_tok_s_includes_cache": true
+    },
+    {
+      "backend": "ollama",
+      "case": "tool",
+      "rep": 1,
+      "condition": "model-resident-warm",
+      "ttft_s": 7.120179417077452,
+      "first_answer_s": 7.120179417077452,
+      "total_s": 7.120220374781638,
+      "finish_reason": "stop",
+      "error": null,
+      "input_tok_s": 170.6580595795274,
+      "generation_tok_s": 57.04711091551079,
+      "input_tokens": 855,
+      "output_tokens": 119,
+      "input_seconds": 5.010018291,
+      "generation_seconds": 2.085995208,
+      "load_s": 0.0058615,
+      "cached_tokens": 0,
+      "memory": {
+        "samples": 14,
+        "max_rss_bytes": 530104320,
+        "max_physical_footprint_bytes": 22277586184,
+        "swap_start_bytes": 43170136064,
+        "swap_peak_bytes": 43170136064,
+        "swap_end_bytes": 43170136064,
+        "swap_peak_delta_bytes": 0,
+        "min_system_available_bytes": 10305290240
+      },
+      "score": {
+        "strict_json_or_arguments": true,
+        "native_tool_call": true,
+        "exact_items": true,
+        "correct_rows": 4,
+        "expected_rows": 4,
+        "field_correct": {
+          "name": 4,
+          "quantity": 4,
+          "unit": 4
+        },
+        "extra_or_missing_rows": false,
+        "repetition": false,
+        "incomplete": false,
+        "thinking_observed": false,
+        "parse_error": null,
+        "mock_tool_execution": {
+          "executed": false,
+          "would_accept": true
+        }
+      },
+      "content": "",
+      "thinking": "",
+      "tool_calls": [
+        {
+          "id": "call_ge7kecf6",
+          "function": {
+            "index": 0,
+            "name": "extract_order",
+            "arguments": {
+              "items": [
+                {
+                  "name": "장미 레드나오미",
+                  "quantity": 3,
+                  "unit": "단"
+                },
+                {
+                  "name": "리시안셔스 보라",
+                  "quantity": 12,
+                  "unit": "대"
+                },
+                {
+                  "name": "카네이션 핑크",
+                  "quantity": 2,
+                  "unit": "단"
+                },
+                {
+                  "name": "유칼립투스",
+                  "quantity": 5,
+                  "unit": "대"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "backend_meta": {
+        "model": "qwen3.8:27b-mlx",
+        "created_at": "2026-10-01T22:33:33.769135Z",
+        "message": {
+          "role": "assistant",
+          "content": ""
+        },
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 7103120291,
+        "load_duration": 5861500,
+        "prompt_eval_count": 855,
+        "prompt_eval_duration": 5010018291,
+        "eval_count": 119,
+        "eval_duration": 2085995208
+      },
+      "uncached_input_tokens": 855,
+      "normalized_uncached_input_tok_s": 170.6580595795274,
+      "input_tok_s_includes_cache": false
+    },
+    {
+      "backend": "ollama",
+      "case": "tool",
+      "rep": 2,
+      "condition": "model-resident-warm",
+      "ttft_s": 2.6819145842455328,
+      "first_answer_s": 2.6819145842455328,
+      "total_s": 2.682687667198479,
+      "finish_reason": "stop",
+      "error": null,
+      "input_tok_s": 13103.113719732459,
+      "generation_tok_s": 45.896790023091235,
+      "input_tokens": 855,
+      "output_tokens": 119,
+      "input_seconds": 0.065251666,
+      "generation_seconds": 2.592773916,
+      "load_s": 0.005958125,
+      "cached_tokens": 850,
+      "memory": {
+        "samples": 6,
+        "max_rss_bytes": 531152896,
+        "max_physical_footprint_bytes": 22796598512,
+        "swap_start_bytes": 43170136064,
+        "swap_peak_bytes": 43170136064,
+        "swap_end_bytes": 43170136064,
+        "swap_peak_delta_bytes": 0,
+        "min_system_available_bytes": 10751787008
+      },
+      "score": {
+        "strict_json_or_arguments": true,
+        "native_tool_call": true,
+        "exact_items": true,
+        "correct_rows": 4,
+        "expected_rows": 4,
+        "field_correct": {
+          "name": 4,
+          "quantity": 4,
+          "unit": 4
+        },
+        "extra_or_missing_rows": false,
+        "repetition": false,
+        "incomplete": false,
+        "thinking_observed": false,
+        "parse_error": null,
+        "mock_tool_execution": {
+          "executed": false,
+          "would_accept": true
+        }
+      },
+      "content": "",
+      "thinking": "",
+      "tool_calls": [
+        {
+          "id": "call_5wkdt8ny",
+          "function": {
+            "index": 0,
+            "name": "extract_order",
+            "arguments": {
+              "items": [
+                {
+                  "name": "장미 레드나오미",
+                  "quantity": 3,
+                  "unit": "단"
+                },
+                {
+                  "name": "리시안셔스 보라",
+                  "quantity": 12,
+                  "unit": "대"
+                },
+                {
+                  "name": "카네이션 핑크",
+                  "quantity": 2,
+                  "unit": "단"
+                },
+                {
+                  "name": "유칼립투스",
+                  "quantity": 5,
+                  "unit": "대"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "backend_meta": {
+        "model": "qwen3.8:27b-mlx",
+        "created_at": "2026-10-01T22:33:36.451949Z",
+        "message": {
+          "role": "assistant",
+          "content": ""
+        },
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 2665183042,
+        "load_duration": 5958125,
+        "prompt_eval_count": 855,
+        "prompt_eval_duration": 65251666,
+        "eval_count": 119,
+        "eval_duration": 2592773916
+      },
+      "uncached_input_tokens": 5,
+      "normalized_uncached_input_tok_s": 76.62639602182725,
+      "input_tok_s_includes_cache": true
+    },
+    {
+      "backend": "ollama",
+      "case": "tool",
+      "rep": 3,
+      "condition": "model-resident-warm",
+      "ttft_s": 2.4750744169577956,
+      "first_answer_s": 2.4750744169577956,
+      "total_s": 2.4751190417446196,
+      "finish_reason": "stop",
+      "error": null,
+      "input_tok_s": 12253.730999533112,
+      "generation_tok_s": 49.972279033028,
+      "input_tokens": 855,
+      "output_tokens": 119,
+      "input_seconds": 0.069774667,
+      "generation_seconds": 2.38132025,
+      "load_s": 0.005861417,
+      "cached_tokens": 850,
+      "memory": {
+        "samples": 5,
+        "max_rss_bytes": 531234816,
+        "max_physical_footprint_bytes": 22129360112,
+        "swap_start_bytes": 43170136064,
+        "swap_peak_bytes": 43170136064,
+        "swap_end_bytes": 43170136064,
+        "swap_peak_delta_bytes": 0,
+        "min_system_available_bytes": 10751787008
+      },
+      "score": {
+        "strict_json_or_arguments": true,
+        "native_tool_call": true,
+        "exact_items": true,
+        "correct_rows": 4,
+        "expected_rows": 4,
+        "field_correct": {
+          "name": 4,
+          "quantity": 4,
+          "unit": 4
+        },
+        "extra_or_missing_rows": false,
+        "repetition": false,
+        "incomplete": false,
+        "thinking_observed": false,
+        "parse_error": null,
+        "mock_tool_execution": {
+          "executed": false,
+          "would_accept": true
+        }
+      },
+      "content": "",
+      "thinking": "",
+      "tool_calls": [
+        {
+          "id": "call_ipl3dn1a",
+          "function": {
+            "index": 0,
+            "name": "extract_order",
+            "arguments": {
+              "items": [
+                {
+                  "name": "장미 레드나오미",
+                  "quantity": 3,
+                  "unit": "단"
+                },
+                {
+                  "name": "리시안셔스 보라",
+                  "quantity": 12,
+                  "unit": "대"
+                },
+                {
+                  "name": "카네이션 핑크",
+                  "quantity": 2,
+                  "unit": "단"
+                },
+                {
+                  "name": "유칼립투스",
+                  "quantity": 5,
+                  "unit": "대"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "backend_meta": {
+        "model": "qwen3.8:27b-mlx",
+        "created_at": "2026-10-01T22:33:38.928684Z",
+        "message": {
+          "role": "assistant",
+          "content": ""
+        },
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 2458049625,
+        "load_duration": 5861417,
+        "prompt_eval_count": 855,
+        "prompt_eval_duration": 69774667,
+        "eval_count": 119,
+        "eval_duration": 2381320250
+      },
+      "uncached_input_tokens": 5,
+      "normalized_uncached_input_tok_s": 71.65924561130474,
+      "input_tok_s_includes_cache": true
+    },
+    {
+      "backend": "ollama",
+      "case": "image",
+      "rep": 1,
+      "condition": "first-image-encode",
+      "ttft_s": 9.598567709326744,
+      "first_answer_s": 9.598567709326744,
+      "total_s": 12.599743834231049,
+      "finish_reason": "stop",
+      "error": null,
+      "input_tok_s": 149.0613959791247,
+      "generation_tok_s": 49.89484871970376,
+      "input_tokens": 1401,
+      "output_tokens": 157,
+      "input_seconds": 9.39881175,
+      "generation_seconds": 3.146617417,
+      "load_s": 0.00656,
+      "cached_tokens": 2,
+      "memory": {
+        "samples": 25,
+        "max_rss_bytes": 634519552,
+        "max_physical_footprint_bytes": 25194544464,
+        "swap_start_bytes": 43170136064,
+        "swap_peak_bytes": 43170136064,
+        "swap_end_bytes": 43153358848,
+        "swap_peak_delta_bytes": 0,
+        "min_system_available_bytes": 10768859136
+      },
+      "score": {
+        "strict_json_or_arguments": false,
+        "native_tool_call": null,
+        "exact_items": true,
+        "correct_rows": 4,
+        "expected_rows": 4,
+        "field_correct": {
+          "name": 4,
+          "quantity": 4,
+          "unit": 4
+        },
+        "extra_or_missing_rows": false,
+        "repetition": false,
+        "incomplete": false,
+        "thinking_observed": false,
+        "parse_error": "Expecting value: line 1 column 1 (char 0)",
+        "mock_tool_execution": null
+      },
+      "content": "```json\n{\n  \"items\": [\n    {\n      \"name\": \"장미 레드나오미\",\n      \"quantity\": 3,\n      \"unit\": \"단\"\n    },\n    {\n      \"name\": \"리시안셔스 보라\",\n      \"quantity\": 12,\n      \"unit\": \"대\"\n    },\n    {\n      \"name\": \"카네이션 핑크\",\n      \"quantity\": 2,\n      \"unit\": \"단\"\n    },\n    {\n      \"name\": \"유칼립투스\",\n      \"quantity\": 5,\n      \"unit\": \"대\"\n    }\n  ]\n}\n```",
+      "thinking": "",
+      "tool_calls": [],
+      "backend_meta": {
+        "model": "qwen3.8:27b-mlx",
+        "created_at": "2026-10-01T22:33:51.530031Z",
+        "message": {
+          "role": "assistant",
+          "content": ""
+        },
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 12582446958,
+        "load_duration": 6560000,
+        "prompt_eval_count": 1401,
+        "prompt_eval_duration": 9398811750,
+        "eval_count": 157,
+        "eval_duration": 3146617417
+      },
+      "uncached_input_tokens": 1399,
+      "normalized_uncached_input_tok_s": 148.84860312262344,
+      "input_tok_s_includes_cache": true
+    },
+    {
+      "backend": "ollama",
+      "case": "image",
+      "rep": 2,
+      "condition": "model-resident-warm",
+      "ttft_s": 0.20591995771974325,
+      "first_answer_s": 0.20591995771974325,
+      "total_s": 3.6571942907758057,
+      "finish_reason": "stop",
+      "error": null,
+      "input_tok_s": 22381.785591056945,
+      "generation_tok_s": 44.39596496815299,
+      "input_tokens": 1401,
+      "output_tokens": 157,
+      "input_seconds": 0.062595542,
+      "generation_seconds": 3.536357417,
+      "load_s": 0.006361708,
+      "cached_tokens": 1396,
+      "memory": {
+        "samples": 8,
+        "max_rss_bytes": 613597184,
+        "max_physical_footprint_bytes": 23212932408,
+        "swap_start_bytes": 43153358848,
+        "swap_peak_bytes": 43153358848,
+        "swap_end_bytes": 43153358848,
+        "swap_peak_delta_bytes": 0,
+        "min_system_available_bytes": 11847794688
+      },
+      "score": {
+        "strict_json_or_arguments": false,
+        "native_tool_call": null,
+        "exact_items": true,
+        "correct_rows": 4,
+        "expected_rows": 4,
+        "field_correct": {
+          "name": 4,
+          "quantity": 4,
+          "unit": 4
+        },
+        "extra_or_missing_rows": false,
+        "repetition": false,
+        "incomplete": false,
+        "thinking_observed": false,
+        "parse_error": "Expecting value: line 1 column 1 (char 0)",
+        "mock_tool_execution": null
+      },
+      "content": "```json\n{\n  \"items\": [\n    {\n      \"name\": \"장미 레드나오미\",\n      \"quantity\": 3,\n      \"unit\": \"단\"\n    },\n    {\n      \"name\": \"리시안셔스 보라\",\n      \"quantity\": 12,\n      \"unit\": \"대\"\n    },\n    {\n      \"name\": \"카네이션 핑크\",\n      \"quantity\": 2,\n      \"unit\": \"단\"\n    },\n    {\n      \"name\": \"유칼립투스\",\n      \"quantity\": 5,\n      \"unit\": \"대\"\n    }\n  ]\n}\n```",
+      "thinking": "",
+      "tool_calls": [],
+      "backend_meta": {
+        "model": "qwen3.8:27b-mlx",
+        "created_at": "2026-10-01T22:33:55.184612Z",
+        "message": {
+          "role": "assistant",
+          "content": ""
+        },
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 3635558750,
+        "load_duration": 6361708,
+        "prompt_eval_count": 1401,
+        "prompt_eval_duration": 62595542,
+        "eval_count": 157,
+        "eval_duration": 3536357417
+      },
+      "uncached_input_tokens": 5,
+      "normalized_uncached_input_tok_s": 79.87789290170217,
+      "input_tok_s_includes_cache": true
+    },
+    {
+      "backend": "ollama",
+      "case": "image",
+      "rep": 3,
+      "condition": "model-resident-warm",
+      "ttft_s": 0.19507533311843872,
+      "first_answer_s": 0.19507533311843872,
+      "total_s": 3.45327554224059,
+      "finish_reason": "stop",
+      "error": null,
+      "input_tok_s": 22915.1064167074,
+      "generation_tok_s": 47.01341480628358,
+      "input_tokens": 1401,
+      "output_tokens": 157,
+      "input_seconds": 0.061138708,
+      "generation_seconds": 3.339472375,
+      "load_s": 0.006089041,
+      "cached_tokens": 1396,
+      "memory": {
+        "samples": 7,
+        "max_rss_bytes": 618921984,
+        "max_physical_footprint_bytes": 22746971448,
+        "swap_start_bytes": 43153358848,
+        "swap_peak_bytes": 43153358848,
+        "swap_end_bytes": 43153358848,
+        "swap_peak_delta_bytes": 0,
+        "min_system_available_bytes": 11989942272
+      },
+      "score": {
+        "strict_json_or_arguments": false,
+        "native_tool_call": null,
+        "exact_items": true,
+        "correct_rows": 4,
+        "expected_rows": 4,
+        "field_correct": {
+          "name": 4,
+          "quantity": 4,
+          "unit": 4
+        },
+        "extra_or_missing_rows": false,
+        "repetition": false,
+        "incomplete": false,
+        "thinking_observed": false,
+        "parse_error": "Expecting value: line 1 column 1 (char 0)",
+        "mock_tool_execution": null
+      },
+      "content": "```json\n{\n  \"items\": [\n    {\n      \"name\": \"장미 레드나오미\",\n      \"quantity\": 3,\n      \"unit\": \"단\"\n    },\n    {\n      \"name\": \"리시안셔스 보라\",\n      \"quantity\": 12,\n      \"unit\": \"대\"\n    },\n    {\n      \"name\": \"카네이션 핑크\",\n      \"quantity\": 2,\n      \"unit\": \"단\"\n    },\n    {\n      \"name\": \"유칼립투스\",\n      \"quantity\": 5,\n      \"unit\": \"대\"\n    }\n  ]\n}\n```",
+      "thinking": "",
+      "tool_calls": [],
+      "backend_meta": {
+        "model": "qwen3.8:27b-mlx",
+        "created_at": "2026-10-01T22:33:58.644279Z",
+        "message": {
+          "role": "assistant",
+          "content": ""
+        },
+        "done": true,
+        "done_reason": "stop",
+        "total_duration": 3436504958,
+        "load_duration": 6089041,
+        "prompt_eval_count": 1401,
+        "prompt_eval_duration": 61138708,
+        "eval_count": 157,
+        "eval_duration": 3339472375
+      },
+      "uncached_input_tokens": 5,
+      "normalized_uncached_input_tok_s": 81.78125059495859,
+      "input_tok_s_includes_cache": true
+    },
+    {
+      "backend": "pq2",
+      "case": "order",
+      "rep": 1,
+      "condition": "process-cold-first-request",
+      "ttft_s": 3.177503834012896,
+      "first_answer_s": 3.177503834012896,
+      "total_s": 5.481092999689281,
+      "finish_reason": "stop",
+      "error": null,
+      "input_tok_s": 166.70696478792584,
+      "generation_tok_s": 31.253513307268484,
+      "input_tokens": 524,
+      "output_tokens": 73,
+      "input_seconds": 3.1432399999999996,
+      "generation_seconds": 2.303741,
+      "cached_tokens": 0,
+      "mlx_peak_allocation_gb": null,
+      "memory": {
+        "samples": 11,
+        "max_rss_bytes": 9381675008,
+        "max_physical_footprint_bytes": 2306334160,
+        "swap_start_bytes": 39936655360,
+        "swap_peak_bytes": 39936655360,
+        "swap_end_bytes": 39936655360,
+        "swap_peak_delta_bytes": 0,
+        "min_system_available_bytes": 19817381888
+      },
+      "score": {
+        "strict_json_or_arguments": true,
+        "native_tool_call": null,
+        "exact_items": true,
+        "correct_rows": 4,
+        "expected_rows": 4,
+        "field_correct": {
+          "name": 4,
+          "quantity": 4,
+          "unit": 4
+        },
+        "extra_or_missing_rows": false,
+        "repetition": false,
+        "incomplete": false,
+        "thinking_observed": false,
+        "parse_error": null,
+        "mock_tool_execution": null
+      },
+      "content": "{\"items\":[{\"name\":\"장미 레드나오미\",\"quantity\":3,\"unit\":\"단\"},{\"name\":\"리시안셔스 보라\",\"quantity\":12,\"unit\":\"대\"},{\"name\":\"카네이션 핑크\",\"quantity\":2,\"unit\":\"단\"},{\"name\":\"유칼립투스\",\"quantity\":5,\"unit\":\"대\"}]}",
+      "thinking": "",
+      "tool_calls": [],
+      "backend_meta": {
+        "usage": {
+          "completion_tokens": 73,
+          "prompt_tokens": 524,
+          "total_tokens": 597,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        },
+        "timings": {
+          "cache_n": 0,
+          "prompt_n": 524,
+          "prompt_ms": 3143.24,
+          "prompt_per_token_ms": 5.99854961832061,
+          "prompt_per_second": 166.70696478792584,
+          "predicted_n": 73,
+          "predicted_ms": 2303.741,
+          "predicted_per_token_ms": 31.996402777777778,
+          "predicted_per_second": 31.253513307268484
+        }
+      },
+      "uncached_input_tokens": 524,
+      "normalized_uncached_input_tok_s": 166.70696478792584
+    },
+    {
+      "backend": "pq2",
+      "case": "order",
+      "rep": 2,
+      "condition": "model-resident-warm",
+      "ttft_s": 0.1582217076793313,
+      "first_answer_s": 0.1582217076793313,
+      "total_s": 2.5362017499282956,
+      "finish_reason": "stop",
+      "error": null,
+      "input_tok_s": 29.072514118339672,
+      "generation_tok_s": 30.278435445955097,
+      "input_tokens": 524,
+      "output_tokens": 73,
+      "input_seconds": 0.137587,
+      "generation_seconds": 2.3779299999999997,
+      "cached_tokens": 520,
+      "mlx_peak_allocation_gb": null,
+      "memory": {
+        "samples": 5,
+        "max_rss_bytes": 9381806080,
+        "max_physical_footprint_bytes": 2306465256,
+        "swap_start_bytes": 39936655360,
+        "swap_peak_bytes": 39936655360,
+        "swap_end_bytes": 39936655360,
+        "swap_peak_delta_bytes": 0,
+        "min_system_available_bytes": 19816775680
+      },
+      "score": {
+        "strict_json_or_arguments": true,
+        "native_tool_call": null,
+        "exact_items": true,
+        "correct_rows": 4,
+        "expected_rows": 4,
+        "field_correct": {
+          "name": 4,
+          "quantity": 4,
+          "unit": 4
+        },
+        "extra_or_missing_rows": false,
+        "repetition": false,
+        "incomplete": false,
+        "thinking_observed": false,
+        "parse_error": null,
+        "mock_tool_execution": null
+      },
+      "content": "{\"items\":[{\"name\":\"장미 레드나오미\",\"quantity\":3,\"unit\":\"단\"},{\"name\":\"리시안셔스 보라\",\"quantity\":12,\"unit\":\"대\"},{\"name\":\"카네이션 핑크\",\"quantity\":2,\"unit\":\"단\"},{\"name\":\"유칼립투스\",\"quantity\":5,\"unit\":\"대\"}]}",
+      "thinking": "",
+      "tool_calls": [],
+      "backend_meta": {
+        "usage": {
+          "completion_tokens": 73,
+          "prompt_tokens": 524,
+          "total_tokens": 597,
+          "prompt_tokens_details": {
+            "cached_tokens": 520
+          }
+        },
+        "timings": {
+          "cache_n": 520,
+          "prompt_n": 4,
+          "prompt_ms": 137.587,
+          "prompt_per_token_ms": 34.39675,
+          "prompt_per_second": 29.072514118339672,
+          "predicted_n": 73,
+          "predicted_ms": 2377.93,
+          "predicted_per_token_ms": 33.026805555555555,
+          "predicted_per_second": 30.278435445955097
+        }
+      },
+      "uncached_input_tokens": 4,
+      "normalized_uncached_input_tok_s": 29.072514118339672
+    },
+    {
+      "backend": "pq2",
+      "case": "order",
+      "rep": 3,
+      "condition": "model-resident-warm",
+      "ttft_s": 0.16908574989065528,
+      "first_answer_s": 0.16908574989065528,
+      "total_s": 2.7103640409186482,
+      "finish_reason": "stop",
+      "error": null,
+      "input_tok_s": 27.591725241600045,
+      "generation_tok_s": 28.333193634948053,
+      "input_tokens": 524,
+      "output_tokens": 73,
+      "input_seconds": 0.14497100000000002,
+      "generation_seconds": 2.5411889999999997,
+      "cached_tokens": 520,
+      "mlx_peak_allocation_gb": null,
+      "memory": {
+        "samples": 6,
+        "max_rss_bytes": 9381789696,
+        "max_physical_footprint_bytes": 2306514408,
+        "swap_start_bytes": 39936655360,
+        "swap_peak_bytes": 39936655360,
+        "swap_end_bytes": 39936655360,
+        "swap_peak_delta_bytes": 0,
+        "min_system_available_bytes": 19870744576
+      },
+      "score": {
+        "strict_json_or_arguments": true,
+        "native_tool_call": null,
+        "exact_items": true,
+        "correct_rows": 4,
+        "expected_rows": 4,
+        "field_correct": {
+          "name": 4,
+          "quantity": 4,
+          "unit": 4
+        },
+        "extra_or_missing_rows": false,
+        "repetition": false,
+        "incomplete": false,
+        "thinking_observed": false,
+        "parse_error": null,
+        "mock_tool_execution": null
+      },
+      "content": "{\"items\":[{\"name\":\"장미 레드나오미\",\"quantity\":3,\"unit\":\"단\"},{\"name\":\"리시안셔스 보라\",\"quantity\":12,\"unit\":\"대\"},{\"name\":\"카네이션 핑크\",\"quantity\":2,\"unit\":\"단\"},{\"name\":\"유칼립투스\",\"quantity\":5,\"unit\":\"대\"}]}",
+      "thinking": "",
+      "tool_calls": [],
+      "backend_meta": {
+        "usage": {
+          "completion_tokens": 73,
+          "prompt_tokens": 524,
+          "total_tokens": 597,
+          "prompt_tokens_details": {
+            "cached_tokens": 520
+          }
+        },
+        "timings": {
+          "cache_n": 520,
+          "prompt_n": 4,
+          "prompt_ms": 144.971,
+          "prompt_per_token_ms": 36.24275,
+          "prompt_per_second": 27.591725241600045,
+          "predicted_n": 73,
+          "predicted_ms": 2541.189,
+          "predicted_per_token_ms": 35.294291666666666,
+          "predicted_per_second": 28.333193634948053
+        }
+      },
+      "uncached_input_tokens": 4,
+      "normalized_uncached_input_tok_s": 27.591725241600045
+    },
+    {
+      "backend": "pq2",
+      "case": "tool",
+      "rep": 1,
+      "condition": "model-resident-warm",
+      "ttft_s": 5.806375833693892,
+      "first_answer_s": 5.806375833693892,
+      "total_s": 9.813077083788812,
+      "finish_reason": "tool_calls",
+      "error": null,
+      "input_tok_s": 157.17437034302392,
+      "generation_tok_s": 27.574847753240796,
+      "input_tokens": 860,
+      "output_tokens": 120,
+      "input_seconds": 5.47163,
+      "generation_seconds": 4.315527,
+      "cached_tokens": 0,
+      "mlx_peak_allocation_gb": null,
+      "memory": {
+        "samples": 19,
+        "max_rss_bytes": 9383198720,
+        "max_physical_footprint_bytes": 2307415528,
+        "swap_start_bytes": 39936655360,
+        "swap_peak_bytes": 39936655360,
+        "swap_end_bytes": 39936655360,
+        "swap_peak_delta_bytes": 0,
+        "min_system_available_bytes": 19780698112
+      },
+      "score": {
+        "strict_json_or_arguments": true,
+        "native_tool_call": true,
+        "exact_items": true,
+        "correct_rows": 4,
+        "expected_rows": 4,
+        "field_correct": {
+          "name": 4,
+          "quantity": 4,
+          "unit": 4
+        },
+        "extra_or_missing_rows": false,
+        "repetition": false,
+        "incomplete": false,
+        "thinking_observed": false,
+        "parse_error": null,
+        "mock_tool_execution": {
+          "executed": false,
+          "would_accept": true
+        }
+      },
+      "content": "",
+      "thinking": "",
+      "tool_calls": [
+        {
+          "type": "function",
+          "function": {
+            "name": "extract_order",
+            "arguments": "{\"items\":[{\"name\": \"장미 레드나오미\", \"quantity\": 3, \"unit\": \"단\"}, {\"name\": \"리시안셔스 보라\", \"quantity\": 12, \"unit\": \"대\"}, {\"name\": \"카네이션 핑크\", \"quantity\": 2, \"unit\": \"단\"}, {\"name\": \"유칼립투스\", \"quantity\": 5, \"unit\": \"대\"}]}"
+          },
+          "id": "6McEgpdJZmAr3uW7WdrNuwvspYmav7Mo"
+        }
+      ],
+      "backend_meta": {
+        "usage": {
+          "completion_tokens": 120,
+          "prompt_tokens": 860,
+          "total_tokens": 980,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        },
+        "timings": {
+          "cache_n": 0,
+          "prompt_n": 860,
+          "prompt_ms": 5471.63,
+          "prompt_per_token_ms": 6.3623604651162795,
+          "prompt_per_second": 157.17437034302392,
+          "predicted_n": 120,
+          "predicted_ms": 4315.527,
+          "predicted_per_token_ms": 36.264932773109244,
+          "predicted_per_second": 27.574847753240796
+        }
+      },
+      "uncached_input_tokens": 860,
+      "normalized_uncached_input_tok_s": 157.17437034302392
+    },
+    {
+      "backend": "pq2",
+      "case": "tool",
+      "rep": 2,
+      "condition": "model-resident-warm",
+      "ttft_s": 0.5890604997985065,
+      "first_answer_s": 0.5890604997985065,
+      "total_s": 4.779294874984771,
+      "finish_reason": "tool_calls",
+      "error": null,
+      "input_tok_s": 20.545904687548155,
+      "generation_tok_s": 26.208284504803274,
+      "input_tokens": 860,
+      "output_tokens": 120,
+      "input_seconds": 0.194686,
+      "generation_seconds": 4.540549,
+      "cached_tokens": 856,
+      "mlx_peak_allocation_gb": null,
+      "memory": {
+        "samples": 9,
+        "max_rss_bytes": 9383297024,
+        "max_physical_footprint_bytes": 2307530216,
+        "swap_start_bytes": 39936655360,
+        "swap_peak_bytes": 39936655360,
+        "swap_end_bytes": 39936655360,
+        "swap_peak_delta_bytes": 0,
+        "min_system_available_bytes": 20116586496
+      },
+      "score": {
+        "strict_json_or_arguments": true,
+        "native_tool_call": true,
+        "exact_items": true,
+        "correct_rows": 4,
+        "expected_rows": 4,
+        "field_correct": {
+          "name": 4,
+          "quantity": 4,
+          "unit": 4
+        },
+        "extra_or_missing_rows": false,
+        "repetition": false,
+        "incomplete": false,
+        "thinking_observed": false,
+        "parse_error": null,
+        "mock_tool_execution": {
+          "executed": false,
+          "would_accept": true
+        }
+      },
+      "content": "",
+      "thinking": "",
+      "tool_calls": [
+        {
+          "type": "function",
+          "function": {
+            "name": "extract_order",
+            "arguments": "{\"items\":[{\"name\": \"장미 레드나오미\", \"quantity\": 3, \"unit\": \"단\"}, {\"name\": \"리시안셔스 보라\", \"quantity\": 12, \"unit\": \"대\"}, {\"name\": \"카네이션 핑크\", \"quantity\": 2, \"unit\": \"단\"}, {\"name\": \"유칼립투스\", \"quantity\": 5, \"unit\": \"대\"}]}"
+          },
+          "id": "a9Ehp0gMTLoLRl4w6HupeEVPRQ6v8JVW"
+        }
+      ],
+      "backend_meta": {
+        "usage": {
+          "completion_tokens": 120,
+          "prompt_tokens": 860,
+          "total_tokens": 980,
+          "prompt_tokens_details": {
+            "cached_tokens": 856
+          }
+        },
+        "timings": {
+          "cache_n": 856,
+          "prompt_n": 4,
+          "prompt_ms": 194.686,
+          "prompt_per_token_ms": 48.6715,
+          "prompt_per_second": 20.545904687548155,
+          "predicted_n": 120,
+          "predicted_ms": 4540.549,
+          "predicted_per_token_ms": 38.155873949579835,
+          "predicted_per_second": 26.208284504803274
+        }
+      },
+      "uncached_input_tokens": 4,
+      "normalized_uncached_input_tok_s": 20.545904687548155
+    },
+    {
+      "backend": "pq2",
+      "case": "tool",
+      "rep": 3,
+      "condition": "model-resident-warm",
+      "ttft_s": 0.5123469168320298,
+      "first_answer_s": 0.5123469168320298,
+      "total_s": 4.69890012498945,
+      "finish_reason": "tool_calls",
+      "error": null,
+      "input_tok_s": 23.71213468492501,
+      "generation_tok_s": 26.42393946741773,
+      "input_tokens": 860,
+      "output_tokens": 120,
+      "input_seconds": 0.16869,
+      "generation_seconds": 4.5034920000000005,
+      "cached_tokens": 856,
+      "mlx_peak_allocation_gb": null,
+      "memory": {
+        "samples": 9,
+        "max_rss_bytes": 9383411712,
+        "max_physical_footprint_bytes": 2307644904,
+        "swap_start_bytes": 39936655360,
+        "swap_peak_bytes": 39936655360,
+        "swap_end_bytes": 39936655360,
+        "swap_peak_delta_bytes": 0,
+        "min_system_available_bytes": 20123516928
+      },
+      "score": {
+        "strict_json_or_arguments": true,
+        "native_tool_call": true,
+        "exact_items": true,
+        "correct_rows": 4,
+        "expected_rows": 4,
+        "field_correct": {
+          "name": 4,
+          "quantity": 4,
+          "unit": 4
+        },
+        "extra_or_missing_rows": false,
+        "repetition": false,
+        "incomplete": false,
+        "thinking_observed": false,
+        "parse_error": null,
+        "mock_tool_execution": {
+          "executed": false,
+          "would_accept": true
+        }
+      },
+      "content": "",
+      "thinking": "",
+      "tool_calls": [
+        {
+          "type": "function",
+          "function": {
+            "name": "extract_order",
+            "arguments": "{\"items\":[{\"name\": \"장미 레드나오미\", \"quantity\": 3, \"unit\": \"단\"}, {\"name\": \"리시안셔스 보라\", \"quantity\": 12, \"unit\": \"대\"}, {\"name\": \"카네이션 핑크\", \"quantity\": 2, \"unit\": \"단\"}, {\"name\": \"유칼립투스\", \"quantity\": 5, \"unit\": \"대\"}]}"
+          },
+          "id": "u5FCmOTR1alHhZPVSLuxhKLnJcKz5BYi"
+        }
+      ],
+      "backend_meta": {
+        "usage": {
+          "completion_tokens": 120,
+          "prompt_tokens": 860,
+          "total_tokens": 980,
+          "prompt_tokens_details": {
+            "cached_tokens": 856
+          }
+        },
+        "timings": {
+          "cache_n": 856,
+          "prompt_n": 4,
+          "prompt_ms": 168.69,
+          "prompt_per_token_ms": 42.1725,
+          "prompt_per_second": 23.71213468492501,
+          "predicted_n": 120,
+          "predicted_ms": 4503.492,
+          "predicted_per_token_ms": 37.844470588235296,
+          "predicted_per_second": 26.42393946741773
+        }
+      },
+      "uncached_input_tokens": 4,
+      "normalized_uncached_input_tok_s": 23.71213468492501
+    },
+    {
+      "backend": "pq2",
+      "case": "image",
+      "rep": 1,
+      "condition": "first-image-encode",
+      "ttft_s": 10.130845416802913,
+      "first_answer_s": 10.130845416802913,
+      "total_s": 12.682661624625325,
+      "finish_reason": "stop",
+      "error": null,
+      "input_tok_s": 138.95964619803632,
+      "generation_tok_s": 28.217102385756007,
+      "input_tokens": 1402,
+      "output_tokens": 73,
+      "input_seconds": 10.08926,
+      "generation_seconds": 2.5516439999999996,
+      "cached_tokens": 0,
+      "mlx_peak_allocation_gb": null,
+      "memory": {
+        "samples": 25,
+        "max_rss_bytes": 9505226752,
+        "max_physical_footprint_bytes": 2428018224,
+        "swap_start_bytes": 39936655360,
+        "swap_peak_bytes": 39936655360,
+        "swap_end_bytes": 39936655360,
+        "swap_peak_delta_bytes": 0,
+        "min_system_available_bytes": 20020985856
+      },
+      "score": {
+        "strict_json_or_arguments": true,
+        "native_tool_call": null,
+        "exact_items": true,
+        "correct_rows": 4,
+        "expected_rows": 4,
+        "field_correct": {
+          "name": 4,
+          "quantity": 4,
+          "unit": 4
+        },
+        "extra_or_missing_rows": false,
+        "repetition": false,
+        "incomplete": false,
+        "thinking_observed": false,
+        "parse_error": null,
+        "mock_tool_execution": null
+      },
+      "content": "{\"items\":[{\"name\":\"장미 레드나오미\",\"quantity\":3,\"unit\":\"단\"},{\"name\":\"리시안셔스 보라\",\"quantity\":12,\"unit\":\"대\"},{\"name\":\"카네이션 핑크\",\"quantity\":2,\"unit\":\"단\"},{\"name\":\"유칼립투스\",\"quantity\":5,\"unit\":\"대\"}]}",
+      "thinking": "",
+      "tool_calls": [],
+      "backend_meta": {
+        "usage": {
+          "completion_tokens": 73,
+          "prompt_tokens": 1402,
+          "total_tokens": 1475,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        },
+        "timings": {
+          "cache_n": 0,
+          "prompt_n": 1402,
+          "prompt_ms": 10089.26,
+          "prompt_per_token_ms": 7.196333808844508,
+          "prompt_per_second": 138.95964619803632,
+          "predicted_n": 73,
+          "predicted_ms": 2551.644,
+          "predicted_per_token_ms": 35.439499999999995,
+          "predicted_per_second": 28.217102385756007
+        }
+      },
+      "uncached_input_tokens": 1402,
+      "normalized_uncached_input_tok_s": 138.95964619803632
+    },
+    {
+      "backend": "pq2",
+      "case": "image",
+      "rep": 2,
+      "condition": "model-resident-warm",
+      "ttft_s": 0.203424624633044,
+      "first_answer_s": 0.203424624633044,
+      "total_s": 3.2261459166184068,
+      "finish_reason": "stop",
+      "error": null,
+      "input_tok_s": 23.408102714754712,
+      "generation_tok_s": 23.820740983849536,
+      "input_tokens": 1402,
+      "output_tokens": 73,
+      "input_seconds": 0.170881,
+      "generation_seconds": 3.022576,
+      "cached_tokens": 1398,
+      "mlx_peak_allocation_gb": null,
+      "memory": {
+        "samples": 7,
+        "max_rss_bytes": 9505292288,
+        "max_physical_footprint_bytes": 2426641968,
+        "swap_start_bytes": 39936655360,
+        "swap_peak_bytes": 39936655360,
+        "swap_end_bytes": 39936655360,
+        "swap_peak_delta_bytes": 0,
+        "min_system_available_bytes": 19995410432
+      },
+      "score": {
+        "strict_json_or_arguments": true,
+        "native_tool_call": null,
+        "exact_items": true,
+        "correct_rows": 4,
+        "expected_rows": 4,
+        "field_correct": {
+          "name": 4,
+          "quantity": 4,
+          "unit": 4
+        },
+        "extra_or_missing_rows": false,
+        "repetition": false,
+        "incomplete": false,
+        "thinking_observed": false,
+        "parse_error": null,
+        "mock_tool_execution": null
+      },
+      "content": "{\"items\":[{\"name\":\"장미 레드나오미\",\"quantity\":3,\"unit\":\"단\"},{\"name\":\"리시안셔스 보라\",\"quantity\":12,\"unit\":\"대\"},{\"name\":\"카네이션 핑크\",\"quantity\":2,\"unit\":\"단\"},{\"name\":\"유칼립투스\",\"quantity\":5,\"unit\":\"대\"}]}",
+      "thinking": "",
+      "tool_calls": [],
+      "backend_meta": {
+        "usage": {
+          "completion_tokens": 73,
+          "prompt_tokens": 1402,
+          "total_tokens": 1475,
+          "prompt_tokens_details": {
+            "cached_tokens": 1398
+          }
+        },
+        "timings": {
+          "cache_n": 1398,
+          "prompt_n": 4,
+          "prompt_ms": 170.881,
+          "prompt_per_token_ms": 42.72025,
+          "prompt_per_second": 23.408102714754712,
+          "predicted_n": 73,
+          "predicted_ms": 3022.576,
+          "predicted_per_token_ms": 41.980222222222224,
+          "predicted_per_second": 23.820740983849536
+        }
+      },
+      "uncached_input_tokens": 4,
+      "normalized_uncached_input_tok_s": 23.408102714754712
+    },
+    {
+      "backend": "pq2",
+      "case": "image",
+      "rep": 3,
+      "condition": "model-resident-warm",
+      "ttft_s": 0.21034766593948007,
+      "first_answer_s": 0.21034766593948007,
+      "total_s": 3.189157582819462,
+      "finish_reason": "stop",
+      "error": null,
+      "input_tok_s": 23.590469450342063,
+      "generation_tok_s": 24.17221900298997,
+      "input_tokens": 1402,
+      "output_tokens": 73,
+      "input_seconds": 0.16956,
+      "generation_seconds": 2.978626,
+      "cached_tokens": 1398,
+      "mlx_peak_allocation_gb": null,
+      "memory": {
+        "samples": 6,
+        "max_rss_bytes": 9505357824,
+        "max_physical_footprint_bytes": 2426707504,
+        "swap_start_bytes": 39936655360,
+        "swap_peak_bytes": 39936655360,
+        "swap_end_bytes": 39936655360,
+        "swap_peak_delta_bytes": 0,
+        "min_system_available_bytes": 19890716672
+      },
+      "score": {
+        "strict_json_or_arguments": true,
+        "native_tool_call": null,
+        "exact_items": true,
+        "correct_rows": 4,
+        "expected_rows": 4,
+        "field_correct": {
+          "name": 4,
+          "quantity": 4,
+          "unit": 4
+        },
+        "extra_or_missing_rows": false,
+        "repetition": false,
+        "incomplete": false,
+        "thinking_observed": false,
+        "parse_error": null,
+        "mock_tool_execution": null
+      },
+      "content": "{\"items\":[{\"name\":\"장미 레드나오미\",\"quantity\":3,\"unit\":\"단\"},{\"name\":\"리시안셔스 보라\",\"quantity\":12,\"unit\":\"대\"},{\"name\":\"카네이션 핑크\",\"quantity\":2,\"unit\":\"단\"},{\"name\":\"유칼립투스\",\"quantity\":5,\"unit\":\"대\"}]}",
+      "thinking": "",
+      "tool_calls": [],
+      "backend_meta": {
+        "usage": {
+          "completion_tokens": 73,
+          "prompt_tokens": 1402,
+          "total_tokens": 1475,
+          "prompt_tokens_details": {
+            "cached_tokens": 1398
+          }
+        },
+        "timings": {
+          "cache_n": 1398,
+          "prompt_n": 4,
+          "prompt_ms": 169.56,
+          "prompt_per_token_ms": 42.39,
+          "prompt_per_second": 23.590469450342063,
+          "predicted_n": 73,
+          "predicted_ms": 2978.626,
+          "predicted_per_token_ms": 41.36980555555556,
+          "predicted_per_second": 24.17221900298997
+        }
+      },
+      "uncached_input_tokens": 4,
+      "normalized_uncached_input_tok_s": 23.590469450342063
+    },
+    {
+      "backend": "mlx2",
+      "case": "order",
+      "rep": 1,
+      "condition": "process-cold-first-request",
+      "ttft_s": 6.401295959018171,
+      "first_answer_s": 6.401295959018171,
+      "total_s": 10.772451791912317,
+      "finish_reason": "stop",
+      "error": null,
+      "input_tok_s": 84.40351501135375,
+      "generation_tok_s": 16.45321116764574,
+      "input_tokens": 524,
+      "output_tokens": 73,
+      "input_seconds": 6.208272249437869,
+      "generation_seconds": 4.436823867157929,
+      "cached_tokens": 0,
+      "mlx_peak_allocation_gb": 11.368953724,
+      "memory": {
+        "samples": 21,
+        "max_rss_bytes": 9056124928,
+        "max_physical_footprint_bytes": 12225354784,
+        "swap_start_bytes": 40722300928,
+        "swap_peak_bytes": 40722300928,
+        "swap_end_bytes": 40713912320,
+        "swap_peak_delta_bytes": 0,
+        "min_system_available_bytes": 18807521280
+      },
+      "score": {
+        "strict_json_or_arguments": true,
+        "native_tool_call": null,
+        "exact_items": true,
+        "correct_rows": 4,
+        "expected_rows": 4,
+        "field_correct": {
+          "name": 4,
+          "quantity": 4,
+          "unit": 4
+        },
+        "extra_or_missing_rows": false,
+        "repetition": false,
+        "incomplete": false,
+        "thinking_observed": false,
+        "parse_error": null,
+        "mock_tool_execution": null
+      },
+      "content": "{\"items\":[{\"name\":\"장미 레드나오미\",\"quantity\":3,\"unit\":\"단\"},{\"name\":\"리시안셔스 보라\",\"quantity\":12,\"unit\":\"대\"},{\"name\":\"카네이션 핑크\",\"quantity\":2,\"unit\":\"단\"},{\"name\":\"유칼립투스\",\"quantity\":5,\"unit\":\"대\"}]}",
+      "thinking": "",
+      "tool_calls": [],
+      "backend_meta": {
+        "timings": {
+          "prompt_n": 524,
+          "cache_n": 0,
+          "predicted_n": 73,
+          "prompt_ms": 6208.272249437869,
+          "prompt_per_token_ms": 11.847847804270742,
+          "prompt_per_second": 84.40351501135375,
+          "predicted_ms": 4436.823867157929,
+          "predicted_per_token_ms": 60.778409139149716,
+          "predicted_per_second": 16.45321116764574,
+          "peak_memory": 11.368953724,
+          "draft_kind": null,
+          "draft_rounds": null,
+          "draft_n": null,
+          "draft_n_accepted": null
+        },
+        "usage": {
+          "prompt_tokens": 524,
+          "completion_tokens": 73,
+          "total_tokens": 597,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        }
+      },
+      "uncached_input_tokens": 524,
+      "normalized_uncached_input_tok_s": 84.40351501135375
+    },
+    {
+      "backend": "mlx2",
+      "case": "order",
+      "rep": 2,
+      "condition": "model-resident-warm",
+      "ttft_s": 6.562849584035575,
+      "first_answer_s": 6.562849584035575,
+      "total_s": 10.829574999865144,
+      "finish_reason": "stop",
+      "error": null,
+      "input_tok_s": 81.05314589923888,
+      "generation_tok_s": 16.856374035454746,
+      "input_tokens": 524,
+      "output_tokens": 73,
+      "input_seconds": 6.4648940418846905,
+      "generation_seconds": 4.330705989701932,
+      "cached_tokens": 0,
+      "mlx_peak_allocation_gb": 11.369749236,
+      "memory": {
+        "samples": 21,
+        "max_rss_bytes": 9056239616,
+        "max_physical_footprint_bytes": 12483861560,
+        "swap_start_bytes": 40713912320,
+        "swap_peak_bytes": 40713912320,
+        "swap_end_bytes": 40713912320,
+        "swap_peak_delta_bytes": 0,
+        "min_system_available_bytes": 18909954048
+      },
+      "score": {
+        "strict_json_or_arguments": true,
+        "native_tool_call": null,
+        "exact_items": true,
+        "correct_rows": 4,
+        "expected_rows": 4,
+        "field_correct": {
+          "name": 4,
+          "quantity": 4,
+          "unit": 4
+        },
+        "extra_or_missing_rows": false,
+        "repetition": false,
+        "incomplete": false,
+        "thinking_observed": false,
+        "parse_error": null,
+        "mock_tool_execution": null
+      },
+      "content": "{\"items\":[{\"name\":\"장미 레드나오미\",\"quantity\":3,\"unit\":\"단\"},{\"name\":\"리시안셔스 보라\",\"quantity\":12,\"unit\":\"대\"},{\"name\":\"카네이션 핑크\",\"quantity\":2,\"unit\":\"단\"},{\"name\":\"유칼립투스\",\"quantity\":5,\"unit\":\"대\"}]}",
+      "thinking": "",
+      "tool_calls": [],
+      "backend_meta": {
+        "timings": {
+          "prompt_n": 524,
+          "cache_n": 0,
+          "predicted_n": 73,
+          "prompt_ms": 6464.8940418846905,
+          "prompt_per_token_ms": 12.337584049398265,
+          "prompt_per_second": 81.05314589923888,
+          "predicted_ms": 4330.705989701932,
+          "predicted_per_token_ms": 59.32473958495797,
+          "predicted_per_second": 16.856374035454746,
+          "peak_memory": 11.369749236,
+          "draft_kind": null,
+          "draft_rounds": null,
+          "draft_n": null,
+          "draft_n_accepted": null
+        },
+        "usage": {
+          "prompt_tokens": 524,
+          "completion_tokens": 73,
+          "total_tokens": 597,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        }
+      },
+      "uncached_input_tokens": 524,
+      "normalized_uncached_input_tok_s": 81.05314589923888
+    },
+    {
+      "backend": "mlx2",
+      "case": "order",
+      "rep": 3,
+      "condition": "model-resident-warm",
+      "ttft_s": 6.5794454999268055,
+      "first_answer_s": 6.5794454999268055,
+      "total_s": 10.741988459136337,
+      "finish_reason": "stop",
+      "error": null,
+      "input_tok_s": 80.85983738982642,
+      "generation_tok_s": 17.28063662173035,
+      "input_tokens": 524,
+      "output_tokens": 73,
+      "input_seconds": 6.480349415913225,
+      "generation_seconds": 4.22438140434032,
+      "cached_tokens": 0,
+      "mlx_peak_allocation_gb": 11.627211428,
+      "memory": {
+        "samples": 21,
+        "max_rss_bytes": 9051373568,
+        "max_physical_footprint_bytes": 12684172344,
+        "swap_start_bytes": 40713912320,
+        "swap_peak_bytes": 40713912320,
+        "swap_end_bytes": 40697135104,
+        "swap_peak_delta_bytes": 0,
+        "min_system_available_bytes": 18925436928
+      },
+      "score": {
+        "strict_json_or_arguments": true,
+        "native_tool_call": null,
+        "exact_items": true,
+        "correct_rows": 4,
+        "expected_rows": 4,
+        "field_correct": {
+          "name": 4,
+          "quantity": 4,
+          "unit": 4
+        },
+        "extra_or_missing_rows": false,
+        "repetition": false,
+        "incomplete": false,
+        "thinking_observed": false,
+        "parse_error": null,
+        "mock_tool_execution": null
+      },
+      "content": "{\"items\":[{\"name\":\"장미 레드나오미\",\"quantity\":3,\"unit\":\"단\"},{\"name\":\"리시안셔스 보라\",\"quantity\":12,\"unit\":\"대\"},{\"name\":\"카네이션 핑크\",\"quantity\":2,\"unit\":\"단\"},{\"name\":\"유칼립투스\",\"quantity\":5,\"unit\":\"대\"}]}",
+      "thinking": "",
+      "tool_calls": [],
+      "backend_meta": {
+        "timings": {
+          "prompt_n": 524,
+          "cache_n": 0,
+          "predicted_n": 73,
+          "prompt_ms": 6480.349415913225,
+          "prompt_per_token_ms": 12.367079038002338,
+          "prompt_per_second": 80.85983738982642,
+          "predicted_ms": 4224.38140434032,
+          "predicted_per_token_ms": 57.86823841562082,
+          "predicted_per_second": 17.28063662173035,
+          "peak_memory": 11.627211428,
+          "draft_kind": null,
+          "draft_rounds": null,
+          "draft_n": null,
+          "draft_n_accepted": null
+        },
+        "usage": {
+          "prompt_tokens": 524,
+          "completion_tokens": 73,
+          "total_tokens": 597,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        }
+      },
+      "uncached_input_tokens": 524,
+      "normalized_uncached_input_tok_s": 80.85983738982642
+    },
+    {
+      "backend": "mlx2",
+      "case": "tool",
+      "rep": 1,
+      "condition": "model-resident-warm",
+      "ttft_s": 17.70861383387819,
+      "first_answer_s": 17.70861383387819,
+      "total_s": 17.708785749971867,
+      "finish_reason": "tool_calls",
+      "error": null,
+      "input_tok_s": 84.71010928495953,
+      "generation_tok_s": 16.029348975706828,
+      "input_tokens": 860,
+      "output_tokens": 120,
+      "input_seconds": 10.152271166443825,
+      "generation_seconds": 7.486267856658757,
+      "cached_tokens": 0,
+      "mlx_peak_allocation_gb": 12.327873144,
+      "memory": {
+        "samples": 33,
+        "max_rss_bytes": 9051570176,
+        "max_physical_footprint_bytes": 13613767736,
+        "swap_start_bytes": 40697135104,
+        "swap_peak_bytes": 40697135104,
+        "swap_end_bytes": 40697135104,
+        "swap_peak_delta_bytes": 0,
+        "min_system_available_bytes": 18427314176
+      },
+      "score": {
+        "strict_json_or_arguments": true,
+        "native_tool_call": true,
+        "exact_items": true,
+        "correct_rows": 4,
+        "expected_rows": 4,
+        "field_correct": {
+          "name": 4,
+          "quantity": 4,
+          "unit": 4
+        },
+        "extra_or_missing_rows": false,
+        "repetition": false,
+        "incomplete": false,
+        "thinking_observed": false,
+        "parse_error": null,
+        "mock_tool_execution": {
+          "executed": false,
+          "would_accept": true
+        }
+      },
+      "content": "",
+      "thinking": "",
+      "tool_calls": [
+        {
+          "type": "function",
+          "function": {
+            "name": "extract_order",
+            "arguments": "{\"items\": [{\"name\": \"장미 레드나오미\", \"quantity\": 3, \"unit\": \"단\"}, {\"name\": \"리시안셔스 보라\", \"quantity\": 12, \"unit\": \"대\"}, {\"name\": \"카네이션 핑크\", \"quantity\": 2, \"unit\": \"단\"}, {\"name\": \"유칼립투스\", \"quantity\": 5, \"unit\": \"대\"}]}"
+          },
+          "id": "a99b4221-9db4-4849-8146-b4a6d4ca0ae3"
+        }
+      ],
+      "backend_meta": {
+        "timings": {
+          "prompt_n": 860,
+          "cache_n": 0,
+          "predicted_n": 120,
+          "prompt_ms": 10152.271166443825,
+          "prompt_per_token_ms": 11.804966472609099,
+          "prompt_per_second": 84.71010928495953,
+          "predicted_ms": 7486.267856658757,
+          "predicted_per_token_ms": 62.38556547215631,
+          "predicted_per_second": 16.029348975706828,
+          "peak_memory": 12.327873144,
+          "draft_kind": null,
+          "draft_rounds": null,
+          "draft_n": null,
+          "draft_n_accepted": null
+        },
+        "usage": {
+          "prompt_tokens": 860,
+          "completion_tokens": 120,
+          "total_tokens": 980,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        }
+      },
+      "uncached_input_tokens": 860,
+      "normalized_uncached_input_tok_s": 84.71010928495953
+    },
+    {
+      "backend": "mlx2",
+      "case": "tool",
+      "rep": 2,
+      "condition": "model-resident-warm",
+      "ttft_s": 17.982659167144448,
+      "first_answer_s": 17.982659167144448,
+      "total_s": 17.982876957859844,
+      "finish_reason": "tool_calls",
+      "error": null,
+      "input_tok_s": 84.15186446362047,
+      "generation_tok_s": 15.5009506700301,
+      "input_tokens": 860,
+      "output_tokens": 120,
+      "input_seconds": 10.219619083683938,
+      "generation_seconds": 7.741460672603184,
+      "cached_tokens": 0,
+      "mlx_peak_allocation_gb": 12.619377288,
+      "memory": {
+        "samples": 35,
+        "max_rss_bytes": 9051521024,
+        "max_physical_footprint_bytes": 13548510288,
+        "swap_start_bytes": 40697135104,
+        "swap_peak_bytes": 40697135104,
+        "swap_end_bytes": 40697135104,
+        "swap_peak_delta_bytes": 0,
+        "min_system_available_bytes": 18516885504
+      },
+      "score": {
+        "strict_json_or_arguments": true,
+        "native_tool_call": true,
+        "exact_items": true,
+        "correct_rows": 4,
+        "expected_rows": 4,
+        "field_correct": {
+          "name": 4,
+          "quantity": 4,
+          "unit": 4
+        },
+        "extra_or_missing_rows": false,
+        "repetition": false,
+        "incomplete": false,
+        "thinking_observed": false,
+        "parse_error": null,
+        "mock_tool_execution": {
+          "executed": false,
+          "would_accept": true
+        }
+      },
+      "content": "",
+      "thinking": "",
+      "tool_calls": [
+        {
+          "type": "function",
+          "function": {
+            "name": "extract_order",
+            "arguments": "{\"items\": [{\"name\": \"장미 레드나오미\", \"quantity\": 3, \"unit\": \"단\"}, {\"name\": \"리시안셔스 보라\", \"quantity\": 12, \"unit\": \"대\"}, {\"name\": \"카네이션 핑크\", \"quantity\": 2, \"unit\": \"단\"}, {\"name\": \"유칼립투스\", \"quantity\": 5, \"unit\": \"대\"}]}"
+          },
+          "id": "af313862-b080-4de5-8fec-a6c60582c651"
+        }
+      ],
+      "backend_meta": {
+        "timings": {
+          "prompt_n": 860,
+          "cache_n": 0,
+          "predicted_n": 120,
+          "prompt_ms": 10219.619083683938,
+          "prompt_per_token_ms": 11.883278004283648,
+          "prompt_per_second": 84.15186446362047,
+          "predicted_ms": 7741.460672603183,
+          "predicted_per_token_ms": 64.51217227169319,
+          "predicted_per_second": 15.5009506700301,
+          "peak_memory": 12.619377288,
+          "draft_kind": null,
+          "draft_rounds": null,
+          "draft_n": null,
+          "draft_n_accepted": null
+        },
+        "usage": {
+          "prompt_tokens": 860,
+          "completion_tokens": 120,
+          "total_tokens": 980,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        }
+      },
+      "uncached_input_tokens": 860,
+      "normalized_uncached_input_tok_s": 84.15186446362047
+    },
+    {
+      "backend": "mlx2",
+      "case": "tool",
+      "rep": 3,
+      "condition": "model-resident-warm",
+      "ttft_s": 19.104120708070695,
+      "first_answer_s": 19.104120708070695,
+      "total_s": 19.104295707773417,
+      "finish_reason": "tool_calls",
+      "error": null,
+      "input_tok_s": 79.2206496687062,
+      "generation_tok_s": 14.606719597233688,
+      "input_tokens": 860,
+      "output_tokens": 120,
+      "input_seconds": 10.855755457654595,
+      "generation_seconds": 8.215396975425362,
+      "cached_tokens": 0,
+      "mlx_peak_allocation_gb": 12.619377288,
+      "memory": {
+        "samples": 37,
+        "max_rss_bytes": 9051553792,
+        "max_physical_footprint_bytes": 13582277712,
+        "swap_start_bytes": 40697135104,
+        "swap_peak_bytes": 40697135104,
+        "swap_end_bytes": 40697135104,
+        "swap_peak_delta_bytes": 0,
+        "min_system_available_bytes": 18526568448
+      },
+      "score": {
+        "strict_json_or_arguments": true,
+        "native_tool_call": true,
+        "exact_items": true,
+        "correct_rows": 4,
+        "expected_rows": 4,
+        "field_correct": {
+          "name": 4,
+          "quantity": 4,
+          "unit": 4
+        },
+        "extra_or_missing_rows": false,
+        "repetition": false,
+        "incomplete": false,
+        "thinking_observed": false,
+        "parse_error": null,
+        "mock_tool_execution": {
+          "executed": false,
+          "would_accept": true
+        }
+      },
+      "content": "",
+      "thinking": "",
+      "tool_calls": [
+        {
+          "type": "function",
+          "function": {
+            "name": "extract_order",
+            "arguments": "{\"items\": [{\"name\": \"장미 레드나오미\", \"quantity\": 3, \"unit\": \"단\"}, {\"name\": \"리시안셔스 보라\", \"quantity\": 12, \"unit\": \"대\"}, {\"name\": \"카네이션 핑크\", \"quantity\": 2, \"unit\": \"단\"}, {\"name\": \"유칼립투스\", \"quantity\": 5, \"unit\": \"대\"}]}"
+          },
+          "id": "da0bb8b6-5300-410e-88d8-8ad5faf5297a"
+        }
+      ],
+      "backend_meta": {
+        "timings": {
+          "prompt_n": 860,
+          "cache_n": 0,
+          "predicted_n": 120,
+          "prompt_ms": 10855.755457654595,
+          "prompt_per_token_ms": 12.622971462389064,
+          "prompt_per_second": 79.2206496687062,
+          "predicted_ms": 8215.396975425361,
+          "predicted_per_token_ms": 68.46164146187802,
+          "predicted_per_second": 14.606719597233688,
+          "peak_memory": 12.619377288,
+          "draft_kind": null,
+          "draft_rounds": null,
+          "draft_n": null,
+          "draft_n_accepted": null
+        },
+        "usage": {
+          "prompt_tokens": 860,
+          "completion_tokens": 120,
+          "total_tokens": 980,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        }
+      },
+      "uncached_input_tokens": 860,
+      "normalized_uncached_input_tok_s": 79.2206496687062
+    },
+    {
+      "backend": "mlx2",
+      "case": "image",
+      "rep": 1,
+      "condition": "first-image-encode",
+      "ttft_s": 20.443924666848034,
+      "first_answer_s": 20.443924666848034,
+      "total_s": 26.79220729181543,
+      "finish_reason": "stop",
+      "error": null,
+      "input_tok_s": 73.55155922761448,
+      "generation_tok_s": 11.341436716654261,
+      "input_tokens": 1402,
+      "output_tokens": 73,
+      "input_seconds": 19.061458583921194,
+      "generation_seconds": 6.43657429158015,
+      "cached_tokens": 0,
+      "mlx_peak_allocation_gb": 13.363868174,
+      "memory": {
+        "samples": 51,
+        "max_rss_bytes": 9216393216,
+        "max_physical_footprint_bytes": 16522255728,
+        "swap_start_bytes": 40697135104,
+        "swap_peak_bytes": 40697135104,
+        "swap_end_bytes": 40680357888,
+        "swap_peak_delta_bytes": 0,
+        "min_system_available_bytes": 17071177728
+      },
+      "score": {
+        "strict_json_or_arguments": true,
+        "native_tool_call": null,
+        "exact_items": true,
+        "correct_rows": 4,
+        "expected_rows": 4,
+        "field_correct": {
+          "name": 4,
+          "quantity": 4,
+          "unit": 4
+        },
+        "extra_or_missing_rows": false,
+        "repetition": false,
+        "incomplete": false,
+        "thinking_observed": false,
+        "parse_error": null,
+        "mock_tool_execution": null
+      },
+      "content": "{\"items\":[{\"name\":\"장미 레드나오미\",\"quantity\":3,\"unit\":\"단\"},{\"name\":\"리시안셔스 보라\",\"quantity\":12,\"unit\":\"대\"},{\"name\":\"카네이션 핑크\",\"quantity\":2,\"unit\":\"단\"},{\"name\":\"유칼립투스\",\"quantity\":5,\"unit\":\"대\"}]}",
+      "thinking": "",
+      "tool_calls": [],
+      "backend_meta": {
+        "timings": {
+          "prompt_n": 1402,
+          "cache_n": 0,
+          "predicted_n": 73,
+          "prompt_ms": 19061.458583921194,
+          "prompt_per_token_ms": 13.595904838745502,
+          "prompt_per_second": 73.55155922761448,
+          "predicted_ms": 6436.574291580149,
+          "predicted_per_token_ms": 88.17225056959109,
+          "predicted_per_second": 11.341436716654261,
+          "peak_memory": 13.363868174,
+          "draft_kind": null,
+          "draft_rounds": null,
+          "draft_n": null,
+          "draft_n_accepted": null
+        },
+        "usage": {
+          "prompt_tokens": 1402,
+          "completion_tokens": 73,
+          "total_tokens": 1475,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        }
+      },
+      "uncached_input_tokens": 1402,
+      "normalized_uncached_input_tok_s": 73.55155922761448
+    },
+    {
+      "backend": "mlx2",
+      "case": "image",
+      "rep": 2,
+      "condition": "model-resident-warm",
+      "ttft_s": 26.380751375108957,
+      "first_answer_s": 26.380751375108957,
+      "total_s": 39.53624087525532,
+      "finish_reason": "stop",
+      "error": null,
+      "input_tok_s": 53.52710552804472,
+      "generation_tok_s": 5.4717226741157665,
+      "input_tokens": 1402,
+      "output_tokens": 73,
+      "input_seconds": 26.192337249871343,
+      "generation_seconds": 13.341319424928063,
+      "cached_tokens": 0,
+      "mlx_peak_allocation_gb": 13.722483322,
+      "memory": {
+        "samples": 73,
+        "max_rss_bytes": 9238691840,
+        "max_physical_footprint_bytes": 15406325056,
+        "swap_start_bytes": 40680357888,
+        "swap_peak_bytes": 40680357888,
+        "swap_end_bytes": 40680357888,
+        "swap_peak_delta_bytes": 0,
+        "min_system_available_bytes": 17799151616
+      },
+      "score": {
+        "strict_json_or_arguments": true,
+        "native_tool_call": null,
+        "exact_items": true,
+        "correct_rows": 4,
+        "expected_rows": 4,
+        "field_correct": {
+          "name": 4,
+          "quantity": 4,
+          "unit": 4
+        },
+        "extra_or_missing_rows": false,
+        "repetition": false,
+        "incomplete": false,
+        "thinking_observed": false,
+        "parse_error": null,
+        "mock_tool_execution": null
+      },
+      "content": "{\"items\":[{\"name\":\"장미 레드나오미\",\"quantity\":3,\"unit\":\"단\"},{\"name\":\"리시안셔스 보라\",\"quantity\":12,\"unit\":\"대\"},{\"name\":\"카네이션 핑크\",\"quantity\":2,\"unit\":\"단\"},{\"name\":\"유칼립투스\",\"quantity\":5,\"unit\":\"대\"}]}",
+      "thinking": "",
+      "tool_calls": [],
+      "backend_meta": {
+        "timings": {
+          "prompt_n": 1402,
+          "cache_n": 0,
+          "predicted_n": 73,
+          "prompt_ms": 26192.337249871343,
+          "prompt_per_token_ms": 18.68212357337471,
+          "prompt_per_second": 53.52710552804472,
+          "predicted_ms": 13341.319424928062,
+          "predicted_per_token_ms": 182.7578003414803,
+          "predicted_per_second": 5.4717226741157665,
+          "peak_memory": 13.722483322,
+          "draft_kind": null,
+          "draft_rounds": null,
+          "draft_n": null,
+          "draft_n_accepted": null
+        },
+        "usage": {
+          "prompt_tokens": 1402,
+          "completion_tokens": 73,
+          "total_tokens": 1475,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        }
+      },
+      "uncached_input_tokens": 1402,
+      "normalized_uncached_input_tok_s": 53.52710552804472
+    },
+    {
+      "backend": "mlx2",
+      "case": "image",
+      "rep": 3,
+      "condition": "model-resident-warm",
+      "ttft_s": 39.91777020925656,
+      "first_answer_s": 39.91777020925656,
+      "total_s": 58.236284208949655,
+      "finish_reason": "stop",
+      "error": null,
+      "input_tok_s": 35.3199707355341,
+      "generation_tok_s": 3.9294126497807778,
+      "input_tokens": 1402,
+      "output_tokens": 73,
+      "input_seconds": 39.69425712432712,
+      "generation_seconds": 18.577840126837447,
+      "cached_tokens": 0,
+      "mlx_peak_allocation_gb": 13.722483322,
+      "memory": {
+        "samples": 110,
+        "max_rss_bytes": 9238740992,
+        "max_physical_footprint_bytes": 15453510976,
+        "swap_start_bytes": 40680357888,
+        "swap_peak_bytes": 40680357888,
+        "swap_end_bytes": 40646803456,
+        "swap_peak_delta_bytes": 0,
+        "min_system_available_bytes": 18105106432
+      },
+      "score": {
+        "strict_json_or_arguments": true,
+        "native_tool_call": null,
+        "exact_items": true,
+        "correct_rows": 4,
+        "expected_rows": 4,
+        "field_correct": {
+          "name": 4,
+          "quantity": 4,
+          "unit": 4
+        },
+        "extra_or_missing_rows": false,
+        "repetition": false,
+        "incomplete": false,
+        "thinking_observed": false,
+        "parse_error": null,
+        "mock_tool_execution": null
+      },
+      "content": "{\"items\":[{\"name\":\"장미 레드나오미\",\"quantity\":3,\"unit\":\"단\"},{\"name\":\"리시안셔스 보라\",\"quantity\":12,\"unit\":\"대\"},{\"name\":\"카네이션 핑크\",\"quantity\":2,\"unit\":\"단\"},{\"name\":\"유칼립투스\",\"quantity\":5,\"unit\":\"대\"}]}",
+      "thinking": "",
+      "tool_calls": [],
+      "backend_meta": {
+        "timings": {
+          "prompt_n": 1402,
+          "cache_n": 0,
+          "predicted_n": 73,
+          "prompt_ms": 39694.25712432712,
+          "prompt_per_token_ms": 28.31259423989096,
+          "prompt_per_second": 35.3199707355341,
+          "predicted_ms": 18577.840126837447,
+          "predicted_per_token_ms": 254.49096064160886,
+          "predicted_per_second": 3.9294126497807778,
+          "peak_memory": 13.722483322,
+          "draft_kind": null,
+          "draft_rounds": null,
+          "draft_n": null,
+          "draft_n_accepted": null
+        },
+        "usage": {
+          "prompt_tokens": 1402,
+          "completion_tokens": 73,
+          "total_tokens": 1475,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        }
+      },
+      "uncached_input_tokens": 1402,
+      "normalized_uncached_input_tok_s": 35.3199707355341
+    }
+  ],
+  "backends": {
+    "ollama": {
+      "launch": {
+        "cmd": [
+          "/Applications/Ollama.app/Contents/Resources/ollama",
+          "serve"
+        ],
+        "env_overrides": {
+          "HF_HOME": "$LAB/hf-cache",
+          "TOKENIZERS_PARALLELISM": "false",
+          "OLLAMA_HOST": "127.0.0.1:19434",
+          "OLLAMA_MODELS": "$OLLAMA_MODELS",
+          "OLLAMA_KEEP_ALIVE": "-1",
+          "OLLAMA_NUM_PARALLEL": "1",
+          "OLLAMA_MAX_LOADED_MODELS": "1",
+          "OLLAMA_LOAD_TIMEOUT": "10m"
+        },
+        "started_wall": 1790893985.6863801,
+        "preflight_swap": {
+          "total": 40802189312,
+          "used": 39743717376,
+          "free": 1058471936,
+          "percent": 97.4,
+          "sin": 7582612635648,
+          "sout": 37537677312
+        }
+      },
+      "readiness": {
+        "startup_to_endpoint_ready_s": 1.024586709216237,
+        "weights_loaded_at_readiness": false,
+        "cold_definition": "new server process, no OS filesystem cache purge"
+      },
+      "lifecycle-memory-summary": {
+        "samples": 102,
+        "max_rss_bytes": 6497763328,
+        "max_physical_footprint_bytes": 25194544464,
+        "swap_start_bytes": 39743717376,
+        "swap_peak_bytes": 43203690496,
+        "swap_end_bytes": 43153358848,
+        "swap_peak_delta_bytes": 3459973120,
+        "min_system_available_bytes": 9927835648
+      },
+      "server_evidence_excerpts": "time=2026-10-02T07:33:14.573+09:00 level=INFO source=prefix_cache.go:125 msg=\"cache miss\" total=524 matched=0 cached=0 left=524\ntime=2026-10-02T07:33:20.585+09:00 level=INFO source=speculate_stats.go:62 msg=\"speculative decode stats\" iterations=47 drafted=109 accepted=107 acceptance=0.98 avg_draft=2.32 max_draft=4 avg_accepted=2.28 depth_over_time=\"0.2/1 1.0/1 1.5/2 2.0/2 2.8/3 3.2/4 3.8/4 3.7/4\"\ntime=2026-10-02T07:33:20.613+09:00 level=INFO source=prefix_cache.go:125 msg=\"cache hit\" total=524 matched=523 cached=519 left=5\ntime=2026-10-02T07:33:23.341+09:00 level=INFO source=speculate_stats.go:62 msg=\"speculative decode stats\" iterations=34 drafted=125 accepted=120 acceptance=0.96 avg_draft=3.68 max_draft=5 avg_accepted=3.53 depth_over_time=\"4.5/5 4.2/5 3.5/5 3.2/4 3.2/4 3.2/4 4.2/5 3.4/4\"\ntime=2026-10-02T07:33:23.366+09:00 level=INFO source=prefix_cache.go:125 msg=\"cache hit\" total=524 matched=523 cached=519 left=5\ntime=2026-10-02T07:33:26.647+09:00 level=INFO source=speculate_stats.go:62 msg=\"speculative decode stats\" iterations=35 drafted=125 accepted=118 acceptance=0.94 avg_draft=3.57 max_draft=6 avg_accepted=3.37 depth_over_time=\"2.8/5 4.5/5 3.6/4 2.8/5 5.8/6 3.2/4 3.0/3 3.2/4\"\ntime=2026-10-02T07:33:26.672+09:00 level=INFO source=prefix_cache.go:125 msg=\"cache miss\" total=855 matched=2 cached=0 left=855\ntime=2026-10-02T07:33:33.769+09:00 level=INFO source=speculate_stats.go:62 msg=\"speculative decode stats\" iterations=30 drafted=91 accepted=91 acceptance=1.00 avg_draft=3.03 max_draft=4 avg_accepted=3.03 depth_over_time=\"3.0/3 3.0/3 3.0/3 3.2/4 3.0/3 3.0/3 3.0/3 3.0/3\"\ntime=2026-10-02T07:33:33.793+09:00 level=INFO source=prefix_cache.go:125 msg=\"cache hit\" total=855 matched=854 cached=850 left=5\ntime=2026-10-02T07:33:36.452+09:00 level=INFO source=speculate_stats.go:62 msg=\"speculative decode stats\" iterations=27 drafted=96 accepted=94 acceptance=0.98 avg_draft=3.56 max_draft=5 avg_accepted=3.48 depth_over_time=\"3.0/3 3.0/3 4.5/5 4.0/4 3.0/3 2.5/4 4.3/5 4.0/4\"\ntime=2026-10-02T07:33:36.477+09:00 level=INFO source=prefix_cache.go:125 msg=\"cache hit\" total=855 matched=854 cached=850 left=5\ntime=2026-10-02T07:33:38.928+09:00 level=INFO source=speculate_stats.go:62 msg=\"speculative decode stats\" iterations=24 drafted=98 accepted=97 acceptance=0.99 avg_draft=4.08 max_draft=5 avg_accepted=4.04 depth_over_time=\"4.0/4 4.3/5 4.0/4 4.0/4 4.0/4 4.0/4 4.3/5 4.0/4\"\ntime=2026-10-02T07:33:38.984+09:00 level=INFO source=prefix_cache.go:125 msg=\"cache hit\" total=1401 matched=86 cached=2 left=1399\ntime=2026-10-02T07:33:51.530+09:00 level=INFO source=speculate_stats.go:62 msg=\"speculative decode stats\" iterations=33 drafted=133 accepted=125 acceptance=0.94 avg_draft=4.03 max_draft=5 avg_accepted=3.79 depth_over_time=\"4.0/4 4.0/4 4.0/4 4.0/4 4.0/4 4.0/4 4.2/5 4.0/4\"\ntime=2026-10-02T07:33:51.585+09:00 level=INFO source=prefix_cache.go:125 msg=\"cache hit\" total=1401 matched=1400 cached=1396 left=5\ntime=2026-10-02T07:33:55.184+09:00 level=INFO source=speculate_stats.go:62 msg=\"speculative decode stats\" iterations=35 drafted=138 accepted=124 acceptance=0.90 avg_draft=3.94 max_draft=5 avg_accepted=3.54 depth_over_time=\"4.0/4 4.0/4 3.8/4 3.2/4 4.0/4 4.2/5 4.2/5 4.0/4\"\ntime=2026-10-02T07:33:55.243+09:00 level=INFO source=prefix_cache.go:125 msg=\"cache hit\" total=1401 matched=1400 cached=1396 left=5\ntime=2026-10-02T07:33:58.644+09:00 level=INFO source=speculate_stats.go:62 msg=\"speculative decode stats\" iterations=34 drafted=137 accepted=125 acceptance=0.91 avg_draft=4.03 max_draft=5 avg_accepted=3.68 depth_over_time=\"4.0/4 4.0/4 4.2/5 4.0/4 4.0/4 4.0/4 4.0/4 4.0/4\"\n"
+    },
+    "pq2": {
+      "launch": {
+        "cmd": [
+          "$LAB/Bonsai-demo/bin/mac/llama-server",
+          "-m",
+          "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+          "--mmproj",
+          "$LAB/models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-mmproj-BF16.gguf",
+          "--host",
+          "127.0.0.1",
+          "--port",
+          "19435",
+          "-ngl",
+          "99",
+          "-fa",
+          "on",
+          "-c",
+          "4096",
+          "-np",
+          "1",
+          "--jinja",
+          "--reasoning",
+          "off",
+          "--chat-template-kwargs",
+          "{\"enable_thinking\":false}",
+          "--cache-type-k",
+          "f16",
+          "--cache-type-v",
+          "f16",
+          "--cache-prompt",
+          "--cache-ram",
+          "0",
+          "--image-max-tokens",
+          "1024",
+          "--seed",
+          "42"
+        ],
+        "env_overrides": {
+          "HF_HOME": "$LAB/hf-cache",
+          "TOKENIZERS_PARALLELISM": "false"
+        },
+        "started_wall": 1790893522.368042,
+        "preflight_swap": {
+          "total": 40802189312,
+          "used": 39936655360,
+          "free": 865533952,
+          "percent": 97.9,
+          "sin": 7582017306624,
+          "sout": 37537447936
+        }
+      },
+      "readiness": {
+        "startup_to_endpoint_ready_s": 2.035175333265215,
+        "weights_loaded_at_readiness": true,
+        "cold_definition": "new server process, no OS filesystem cache purge"
+      },
+      "lifecycle-memory-summary": {
+        "samples": 97,
+        "max_rss_bytes": 9505357824,
+        "max_physical_footprint_bytes": 2428018224,
+        "swap_start_bytes": 39936655360,
+        "swap_peak_bytes": 39936655360,
+        "swap_end_bytes": 39936655360,
+        "swap_peak_delta_bytes": 0,
+        "min_system_available_bytes": 19682541568
+      },
+      "server_evidence_excerpts": "\n"
+    },
+    "mlx2": {
+      "launch": {
+        "cmd": [
+          "$LAB/venv/bin/python",
+          "-m",
+          "mlx_vlm.server",
+          "--model",
+          "$LAB/models/Ternary-Bonsai-2-27B-mlx-2bit",
+          "--host",
+          "127.0.0.1",
+          "--port",
+          "19436",
+          "--max-tokens",
+          "512",
+          "--max-kv-size",
+          "4096",
+          "--vision-cache-size",
+          "20",
+          "--max-num-seqs",
+          "1"
+        ],
+        "env_overrides": {
+          "HF_HOME": "$LAB/hf-cache",
+          "TOKENIZERS_PARALLELISM": "false"
+        },
+        "started_wall": 1790897349.199858,
+        "preflight_swap": {
+          "total": 41875931136,
+          "used": 40722300928,
+          "free": 1153630208,
+          "percent": 97.2,
+          "sin": 7660213960704,
+          "sout": 37822496768
+        }
+      },
+      "readiness": {
+        "startup_to_endpoint_ready_s": 3.0586517499759793,
+        "weights_loaded_at_readiness": true,
+        "cold_definition": "new server process, no OS filesystem cache purge"
+      },
+      "lifecycle-memory-summary": {
+        "samples": 402,
+        "max_rss_bytes": 9238740992,
+        "max_physical_footprint_bytes": 16522255728,
+        "swap_start_bytes": 40722300928,
+        "swap_peak_bytes": 40722300928,
+        "swap_end_bytes": 40646803456,
+        "swap_peak_delta_bytes": 0,
+        "min_system_available_bytes": 17071177728
+      },
+      "server_evidence_excerpts": "\n"
+    }
+  },
+  "provenance": {
+    "environment": {
+      "platform": "macOS-26.6.2-arm64-arm-64bit",
+      "machine": "arm64",
+      "physical_ram": 68719476736,
+      "swap": {
+        "total": 26843545600,
+        "used": 25619595264,
+        "free": 1223950336,
+        "percent": 95.4,
+        "sin": 7556585635840,
+        "sout": 37063262208
+      },
+      "packages": {
+        "mlx": "0.32.2",
+        "mlx-vlm": "0.7.2",
+        "transformers": "5.14.1",
+        "psutil": "7.2.2",
+        "pillow": "12.3.0",
+        "huggingface-hub": "1.33.0"
+      },
+      "demo_commit": "bfaea577522626b883f755236878e4583f3d6e68",
+      "llama_version": "version: 0.2.0-dev (build 10743, commit adfffbe41)\nbuilt with AppleClang 21.0.0.21000101 for Darwin arm64",
+      "llama_binary_sha256": "ccb543f84f6873459c99ab67983dbeacdb4ece836cc8257758bb14afea04f528",
+      "gpu_cores": 40,
+      "metal_support": "Metal 4",
+      "benchmark_python": "3.11.15"
+    },
+    "model-verification-ledger": [
+      {
+        "file": "models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-PQ2_0.gguf",
+        "bytes": 7206168928,
+        "official_sha256": "3907dc1658db1f78a9826bf8d5bcb8dc65db0d466388937af57f2294fae62ec1",
+        "verification": "SHA256 assertion passed in download_parallel.py before benchmark",
+        "hf_revision": "b072e1d3b35a0a630cece372c2127528e0994386",
+        "actual_sha256": "3907dc1658db1f78a9826bf8d5bcb8dc65db0d466388937af57f2294fae62ec1"
+      },
+      {
+        "file": "models/Ternary-Bonsai-2-27B-gguf/Ternary-Bonsai-2-27B-mmproj-BF16.gguf",
+        "bytes": 931145856,
+        "official_sha256": "e287342d92332fa3577ed1d42e921dac9370c08da58ba9337fa450f6cc76cfd7",
+        "verification": "SHA256 assertion passed in download_parallel.py before benchmark",
+        "hf_revision": "b072e1d3b35a0a630cece372c2127528e0994386",
+        "actual_sha256": "e287342d92332fa3577ed1d42e921dac9370c08da58ba9337fa450f6cc76cfd7"
+      },
+      {
+        "file": "models/Ternary-Bonsai-2-27B-mlx-2bit/model.safetensors",
+        "bytes": 8595477990,
+        "official_sha256": "130de5925082c168b7866b2e91b52e44abbafc99017e3ca352b77b5b55a269ed",
+        "verification": "SHA256 assertion passed in download_parallel.py before benchmark",
+        "hf_revision": "fcba37d2117a7077eac6b613b2668d14d9779edd",
+        "actual_sha256": "130de5925082c168b7866b2e91b52e44abbafc99017e3ca352b77b5b55a269ed"
+      },
+      {
+        "file": "models/Ternary-Bonsai-2-27B-mlx-2bit/tokenizer.json",
+        "bytes": 12809320,
+        "official_sha256": "0997f410c57a1f4e53b09e4be8f4a172d90edd9564368fb0847030937229b9f3",
+        "verification": "SHA256 checked in final artifact audit",
+        "hf_revision": "fcba37d2117a7077eac6b613b2668d14d9779edd",
+        "actual_sha256": "0997f410c57a1f4e53b09e4be8f4a172d90edd9564368fb0847030937229b9f3"
+      }
+    ],
+    "ollama-model": {
+      "details": {
+        "parent_model": "",
+        "format": "safetensors",
+        "family": "qwen3_5",
+        "families": null,
+        "parameter_size": "27.8B",
+        "quantization_level": "nvfp4"
+      },
+      "model_info": {
+        "general.architecture": "qwen3_5",
+        "general.parameter_count": 27781081984,
+        "qwen3_5.block_count": 64,
+        "qwen3_5.context_length": 262144,
+        "qwen3_5.embedding_length": 5120
+      },
+      "capabilities": [
+        "completion",
+        "vision",
+        "tools",
+        "thinking"
+      ],
+      "parameters": "min_p                          0\npresence_penalty               0\nrepeat_penalty                 1\ntemperature                    1\ntop_k                          20\ntop_p                          0.95",
+      "ollama_version": "ollama version is 0.33.2",
+      "manifest_sha256": "5642e97495e1a088883805981563dcdc4a040c2f53388b7a41d1f24d3622cf7e",
+      "manifest_summary": {
+        "schemaVersion": 2,
+        "mediaType": "application/vnd.docker.distribution.manifest.v2+json",
+        "config": {
+          "mediaType": "application/vnd.docker.container.image.v1+json",
+          "digest": "sha256:25a98d24af806ec8c25c21df601953c6a42f154dfcd8637bc82ec581f1c849aa",
+          "size": 251
+        },
+        "layer_count": 1209,
+        "layer_counts_by_media_type": {
+          "application/vnd.ollama.image.tensor": 1199,
+          "application/vnd.ollama.image.json": 8,
+          "application/vnd.ollama.image.license": 1,
+          "application/vnd.ollama.image.params": 1
+        },
+        "layer_bytes_by_media_type": {
+          "application/vnd.ollama.image.tensor": 18155017220,
+          "application/vnd.ollama.image.json": 19692939,
+          "application/vnd.ollama.image.license": 11345,
+          "application/vnd.ollama.image.params": 92
+        },
+        "inventory_omitted": "Full 1209-layer tensor/file inventory retained in original experiment archive; manifest_sha256 above identifies the original manifest."
+      }
+    }
+  },
+  "artifact_sha256": {
+    "comparison.csv": "abb86989f01443af4c7ca5d1d8ae18407283fbcf430f4bb4fff7a8c2cc2b2543",
+    "benchmark.py": "a7c08a7aa405f59bfb534cda315f0d6189e6ee6f317b0c8283ebbee6dcb688c7",
+    "requirements.lock.txt": "71e4f8991478db71abd9169ee2cd033b4d850f95127319af5114dc869cc74063",
+    "fixtures/manifest.json": "cc8666370db8e36c21c62c8b94faaff623ebf92ff5fd7b84e4791e12a19e06b5",
+    "fixtures/statement.png": "2b68776d8fea102692a7af75b562ef51856c100f684e473dc12e38befc29cfc8"
+  },
+  "exclusions": [
+    "18 preliminary calibration requests excluded",
+    "PP512/TG128 NOT_MEASURED",
+    "Only synthetic fixtures; no real tool execution"
+  ]
+}
