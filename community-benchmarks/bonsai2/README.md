@@ -62,5 +62,4 @@ quality checks in separate labeled sections, with their commands and workloads.
 ## End-to-end serving reports
 
 - [M4 Max 64GB, macOS: Bonsai 2 PQ2_0 Metal, MLX 2-bit and Ollama NVFP4/MLX](metal-mlx-m4-max-64gb-macos.md)
-  — Korean extraction, synthetic vision and mock tool calls, with per-request raw
-  results. PP512/TG128 not measured; cache/speculation settings differ.
+  — Korean extraction, synthetic vision and mock tool calls, with final results and setup notes. PP512/TG128 not measured; cache/speculation settings differ.

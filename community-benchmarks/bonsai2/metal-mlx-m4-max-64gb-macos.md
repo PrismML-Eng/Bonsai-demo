@@ -1,19 +1,27 @@
-# M4 Max 64GB — Metal / MLX, macOS: end-to-end serving comparison
+# M4 Max 64GB - Metal / MLX, macOS: end-to-end serving comparison
 
-## Summary
+Measured on an Apple M4 Max (40 GPU cores), 64 GiB unified memory, macOS 26.6.2,
+Metal 4, on 2026-10-02 KST. This compares three server configurations on a small
+Korean order-extraction workload: Bonsai 2 PQ2_0 with llama.cpp Metal, Bonsai 2
+MLX 2-bit with mlx-vlm, and an existing Ollama NVFP4/MLX model.
 
-Measured on one Apple M4 Max (40 GPU cores), 64 GiB unified memory, macOS 26.6.2,
-Metal 4, on 2026-10-02 KST. This is a **server workload comparison**, not a
-llama-bench or quantization-only comparison. No production service was replaced.
+**PP512 and TG128 were not measured.** These serving results are separate from
+the throughput leaderboards and are not a controlled comparison of quantization
+formats. PTQ1_0 and development Q2_0 were not tested.
 
-| Configuration | PP512 (t/s) | TG128 (t/s) |
-|---|---|---|
-| Bonsai 2 27B PQ2_0 | Not measured | Not measured |
-| Bonsai 2 27B MLX 2-bit | Not measured | Not measured |
-| Existing Ollama NVFP4/MLX | Not measured | Not measured |
+## What was tested
 
-PTQ1_0 and development Q2_0 were not tested. No serving numbers are added to the
-pp512/tg128 leaderboards.
+- **Order:** extract four flower names, quantities and units from Korean text,
+  excluding a cancelled item, and return JSON.
+- **Tool:** extract the same order via one native `extract_order` call. The call
+  was checked against expected arguments but never executed; no tool round-trip
+  or business action was tested.
+- **Image:** extract the four rows from one synthetic 1200×760 statement image
+  containing large, clear Korean text. This was not a real-document OCR evaluation.
+
+Each workload was repeated three times per configuration, for 27 requests total.
+The final tables below retain the contributor's measurements; no rerun was made
+when simplifying this report.
 
 ## Configuration
 
@@ -36,20 +44,19 @@ pp512/tg128 leaderboards.
   Manifest SHA-256: `5642e97495e1a088883805981563dcdc4a040c2f53388b7a41d1f24d3622cf7e`.
   Model tensor files total 18,174,721,596 bytes. This locally installed tag is not
   assumed to be a reproducible public download by name alone.
-- Benchmark Python 3.11.15. [Consolidated evidence](metal-mlx-m4-max-64gb-macos-data/final-results.json)
-  contains `provenance.environment`, `provenance.model-verification-ledger` and
-  `provenance.ollama-model` (baseline metadata, original manifest SHA and layer-count/size summary),
-  [dependency lock](metal-mlx-m4-max-64gb-macos-data/requirements.lock.txt).
+- Benchmark client: Python 3.11.15.
 - No power tuning was applied. Other existing apps/services remained running;
   this was not an idle dedicated machine. Background load and thermal state were
   not controlled throughout. Initial system swap was already about 24 GiB;
   calibration increased retained swap before the final runs.
 
-## Exact server commands and reproduction
+## Running a similar comparison
 
-Paths below use `$LAB` for the isolated experiment directory and `$OLLAMA_MODELS`
-for the existing read-only Ollama model store. Only those path prefixes were
-redacted in the attached launch/result JSON. Command flags are unchanged.
+Use the pinned model/runtime versions above. Set `$LAB` to your experiment
+folder containing `Bonsai-demo/`, `models/` and a Python environment at `venv/`.
+For the optional Ollama baseline, set `$OLLAMA_MODELS` to your existing model
+store; its local tag alone is not enough to obtain the same checkpoint.
+Run one server at a time using the recorded launch commands:
 
 ```bash
 OLLAMA_HOST=127.0.0.1:19434 OLLAMA_MODELS="$OLLAMA_MODELS" \
@@ -73,57 +80,35 @@ HF_HOME="$LAB/hf-cache" TOKENIZERS_PARALLELISM=false \
   --vision-cache-size 20 --max-num-seqs 1
 ```
 
-[Harness](metal-mlx-m4-max-64gb-macos-data/benchmark.py) starts/stops only its own
-server process group and refuses occupied ports. Copy the evidence directory to
-a **new writable lab directory** before rerunning; its outputs use `results/`.
-The default harness validates and reuses the committed fixture PNG and manifest;
-it refuses a checksum mismatch. It does not silently redraw the image.
-Place the pinned demo at `Bonsai-demo/` and the verified weights in the `models/`
-paths above. Install the dependency lock into `venv/` using Python 3.11.15, then:
 
-```bash
-cd "$LAB"
-export OLLAMA_MODELS="$HOME/.ollama/models"  # existing matching baseline required
-venv/bin/python benchmark.py ollama
-venv/bin/python benchmark.py pq2
-venv/bin/python benchmark.py mlx2
-venv/bin/python benchmark.py aggregate
-venv/bin/python benchmark.py verify
+Send requests to `/v1/chat/completions` on the selected server, using the loaded
+model ID returned by `/v1/models`. For each workload, repeat identical input
+three times with thinking disabled, temperature 0, top_p 0.95, top_k 20,
+min_p 0, max output 512 and seed 42 where supported. These are the experiment's
+settings, not recommended defaults for every use case.
+
+Example order text:
+
+```text
+주문 확정: 장미 레드나오미 3단, 리시안셔스 보라 12대, 카네이션 핑크 2단, 유칼립투스 5대. 취소한 해바라기 9대는 제외해 주세요.
 ```
 
-These harness commands manage servers automatically: do not also run the manual
-server commands concurrently. The request/measurement logic is unchanged. The
-published harness accepts `OLLAMA_MODELS`/the home directory instead of a private
-absolute model-store path, validates existing fixtures and adds offline aggregation.
-The explicitly requested `fixtures --regenerate-fixture` command redraws the
-synthetic image and updates the manifest; this requires the macOS font
-`/System/Library/Fonts/AppleSDGothicNeo.ttc` and produces a new experiment fixture.
-It was **not** used for this cleanup.
+Ask for `{"items":[{"name":"...","quantity":3,"unit":"단"}]}` with the
+original names and units, without unit conversion or extra explanation. Expected
+rows are 장미 레드나오미 / 3 / 단, 리시안셔스 보라 / 12 / 대,
+카네이션 핑크 / 2 / 단, and 유칼립투스 / 5 / 대. The original prompt also
+repeated the preservation/no-conversion rule 12 times as reference context.
+For the tool variant, supply `extract_order` with a required `items` array of
+objects requiring `name` (string), `quantity` (number), and `unit` (`단` or `대`),
+and ask for one call. For vision, use an image containing the same four rows.
 
-For **offline reproduction of the published CSV**, with no dependencies, servers
-or models required:
-
-```bash
-cd metal-mlx-m4-max-64gb-macos-data
-python3 benchmark.py verify
-python3 benchmark.py aggregate
-python3 benchmark.py verify
-```
-
-With no `results/` directory, aggregation reads the 27 original objects in
-`final-results.json`. With fresh raw results, it reads `results/*/*/result.json`
-and backend launch/readiness/lifecycle summaries. It does not overwrite individual
-result objects. Ollama normalization parses exactly nine ordered cache lines from
-the server log (or published excerpts), checks total = cached + left and matches
-request prompt counts, then derives `left / input_seconds`. Candidate normalization
-uses the original server timings (`prompt_n`, `input_tok_s`). Original reported
-rates and all 27 measured result objects are retained. CSV column order and
-serialization are deterministic; verification also re-scores the synthetic outputs.
-
-Committed fixture PNG SHA-256:
-`2b68776d8fea102692a7af75b562ef51856c100f684e473dc12e38befc29cfc8`.
-`final-results.json.artifact_sha256` covers the CSV, harness, dependency lock,
-manifest and PNG; the bundle does not include its own checksum.
+Measure HTTP-start to first observable output and total completion time; record
+server-reported token counts, cache use and generation rate separately. Report
+the first request and the median of repeats 2–3 separately. Use a fresh server
+process per configuration, and record background load and memory conditions.
+The original image and custom harness are not included in this report, so this
+procedure describes a similar experiment, not an exact replay of the published
+measurements. New inputs/images should be reported as a separate run.
 
 ## End-to-end serving
 
@@ -162,7 +147,7 @@ Ollama also automatically used speculative decoding/MTP; candidates had no draft
 model. No matched-speculation/cache ablation was performed. Warm input rates
 use new tokens only (`left / prompt_eval_duration` for Ollama, server timings
 for candidates); cache-hit rates for a handful of tokens are not full-prefill rates.
-Raw reported rates remain in CSV/JSON. Bonsai order/image outputs were 73 tokens
+Bonsai order/image outputs were 73 tokens
 versus Ollama 152/157, so shorter PQ completion is not higher decode throughput.
 
 ## Loading, memory and swap
@@ -184,25 +169,12 @@ swap. It cannot be attributed entirely to these models. MLX's own allocator peak
 was 13.722 GB, a separate counter, not directly comparable with footprint/RSS.
 GB file sizes use 10^9 bytes; GiB memory sizes use 2^30 bytes.
 
-## Vision
+## Vision and quality observations
 
-One [synthetic 1200×760 statement](metal-mlx-m4-max-64gb-macos-data/fixtures/statement.png),
-four Korean flower-item rows, large clear text, no customer data. PQ vision cap
-was 1024 tokens; image caps/encoder behavior were not matched across backends.
-This is not a real-document OCR accuracy evaluation.
-
-MLX warm image completion was **39.54 and 58.24 seconds**, median 48.89 seconds.
-This variance/slowdown is an observation of the tested server configuration.
-Its cause was not isolated; it is not evidence of an intrinsic 2-bit limitation.
-
-## Tool calling
-
-One native `extract_order` schema, identical raw schema on each backend. All
-three repetitions per configuration emitted one expected call with matching
-arguments. The harness scores/mock-accepts it only; **no tool or business action
-is actually executed**, and no multistep tool roundtrip was tested.
-
-## Quality
+The PQ2_0 server used a 1024-token image cap; image processing was not matched
+across backends. MLX's two warm image completions took **39.54 and 58.24 seconds**
+(median 48.89 seconds). The cause was not isolated; this does not establish an
+intrinsic 2-bit limitation.
 
 | Configuration | Order: exact rows / strict JSON | Image: exact rows / strict JSON | Tool: native / exact arguments | Repetition / incomplete / thinking observed |
 |---|---|---|---|---|
@@ -216,35 +188,15 @@ were correct. These are repetitions of one order/one image, not 27 distinct
 tasks. General Korean/OCR quality, adversarial robustness and production
 integration remain untested.
 
-## Raw evidence and exclusions
+## Limitations
 
-- [27-row CSV](metal-mlx-m4-max-64gb-macos-data/comparison.csv).
-- [Consolidated original results and evidence](metal-mlx-m4-max-64gb-macos-data/final-results.json):
-  `results` contains all 27 original result objects; `backends` retains all three
-  launch/readiness/lifecycle summaries and the Ollama cache/speculation excerpts.
-- [Fixed prompts/schema/expected fields/image SHA](metal-mlx-m4-max-64gb-macos-data/fixtures/manifest.json).
-- Personal path prefixes were replaced before the original submission; numeric
-  measurements and synthetic outputs were retained unchanged during consolidation.
-- Full request/stream/memory logs and tensor inventory are retained in the original
-  contributor experiment archive outside the PR diff. The submitted bundle retains
-  the evidence required for CSV/cache normalization and loading/memory summaries;
-  it does not permit re-sampling memory traces or reconstructing every stream event.
-- Published artifact checksums are embedded in `final-results.json.artifact_sha256`.
-- 18 preliminary calibration requests are excluded. Initial Ollama calibration
-  overlapped model downloads. An initial MLX client's failure to handle valid
-  SSE `tool_calls: null` was fixed before rerunning all nine main MLX requests
-  from a new process; it was not counted as a model-quality failure.
+Only one order and one synthetic image were tested, with two warm repetitions.
+Cache reuse, speculative decoding, output lengths, image processing and memory
+measurement differ across configurations. Background load and thermal state
+were uncontrolled. The results do not establish general speed or quality
+superiority, RAM savings, long-context performance, or production readiness.
 
-## Decision and unmeasured items
+Thinking-on, standard PP512/TG128, idle-machine runs, matched cache/speculation,
+real-document OCR, multistep tools and power consumption were not measured.
 
-PQ2_0 is a candidate for broader extraction validation: model + projector files
-are about 55% smaller and first-order startup/completion was shorter. Warm tool
-completion was slower than baseline and generated output was shorter, so no
-general speed superiority or immediate replacement is claimed. Hold the tested
-MLX 2-bit serving combination pending separate performance investigation.
-
-Not measured: PP512/TG128, PTQ1_0/Q2_0, idle-machine performance, OS/disk-cold
-distribution, matched speculative/cache settings, long or saturated context,
-thinking-on, real anonymized documents, large golden sets, actual tool execution,
-power/energy, monetary cost, and production acceptance. No other device's
-benchmark is substituted for these measurements.
+AI assistance was used for the experiment and report preparation.
