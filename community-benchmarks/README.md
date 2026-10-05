@@ -93,6 +93,10 @@ Each subfolder has its own README with results, submission templates, and filena
 
 ## How to Submit
 
+For a serving workload comparison without PP512/TG128 measurements, see the
+[M4 Max 64GB Bonsai 2 Metal/MLX report](bonsai2/metal-mlx-m4-max-64gb-macos.md).
+These end-to-end, vision and mock-tool results are separate from the throughput tables.
+
 1. Run `./setup.sh` on macOS/Linux or `.\setup.ps1` in Windows PowerShell to download models and binaries (the default family is Bonsai 2; `BONSAI_FAMILY=ternary` or `BONSAI_FAMILY=bonsai` for the older families)
 2. Go into the subfolder for your model family and follow its `README.md`:
    - [bonsai2/README.md](bonsai2/README.md)
