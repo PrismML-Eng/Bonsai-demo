@@ -8,8 +8,9 @@ see [MODEL-FORMATS.md](MODEL-FORMATS.md); for measured performance, see
 
 ## Release baseline
 
-Source audit: **`prism-b10709-9a9394a`**, the release pinned by the demo when this
-page was added. Pending PRs and newer branch code do not count as released support.
+Vulkan source audit: **`prism-b10743-adfffbe`**, the release currently pinned by
+the demo. Other backend rows retain the original **`prism-b10709-9a9394a`** audit.
+Pending PRs and newer branch code do not count as released support.
 
 ✅ Implemented · ❌ No native kernels · ⚠️ Partial / needs validation.
 Source-level status, not a guarantee for every device or configuration.
@@ -22,7 +23,7 @@ Source-level status, not a guarantee for every device or configuration.
 | Metal | ✅ | ✅ | ✅ | ✅ |
 | CUDA | ✅ | ✅ | ✅ | ✅ |
 | ROCm / HIP | ✅ | ✅ | ✅ | ✅ |
-| Vulkan | ✅ | ❌ | ✅* | ✅ |
+| Vulkan | ✅ | ✅* | ✅* | ✅ |
 | SYCL | ✅ | ❌ | ❌ | ⚠️ |
 
 **Q1_0** is the earlier 1-bit Bonsai format, not a Bonsai 2 packing. It is broadly
@@ -30,7 +31,11 @@ supported in mainline llama.cpp as well as our fork; optimizations and device-sp
 behavior can differ. Q2_0 is also an upstream format, but the Bonsai 2 Q2_0 model
 still requires the transforms below.
 
-- **Vulkan PTQ1_0:** scalar/coopmat1 paths exist; no coopmat2 decoder.
+- **Vulkan PQ2_0 / PTQ1_0:** scalar/coopmat1 paths and integer-dot mat-vec
+  kernels exist; kernel selection depends on the device and driver. Neither format
+  has a direct coopmat2 decoder. PQ2_0 support landed through
+  [llama.cpp #238](https://github.com/PrismML-Eng/llama.cpp/pull/238) and shipped in
+  `prism-b10735-842b188`; older binaries may need updating.
 - **SYCL Q2_0:** conversion and matrix-vector dot-product kernels exist; the warning
   reflects missing end-to-end validation, not missing format kernels.
 - **ROCm / HIP:** shares CUDA sources; validate on the target AMD GPU and build.
@@ -67,7 +72,8 @@ Do not use this table as a directory-name guard. A local build can enable multip
 backends, and a binary under `bin/vulkan` can be launched with CPU offload settings.
 Check the selected model, build, devices, and effective launch arguments. The demo's
 current model-selection registry is a selection policy, not a complete capability probe.
-In particular, setup downloading PQ2_0 does not imply native Vulkan PQ2_0 support.
+PQ2_0 is supported on Vulkan in the audited release; downloading the model alone
+does not update an older runtime or guarantee GPU offload.
 
 ## Model files and upstream compatibility
 
@@ -100,7 +106,8 @@ Release-pinned implementation references:
 - [Metal operation support](https://github.com/PrismML-Eng/llama.cpp/blob/prism-b10709-9a9394a/ggml/src/ggml-metal/ggml-metal-device.m)
 - [CUDA operation support and FWHT](https://github.com/PrismML-Eng/llama.cpp/blob/prism-b10709-9a9394a/ggml/src/ggml-cuda/ggml-cuda.cu)
 - [HIP shared-source build](https://github.com/PrismML-Eng/llama.cpp/blob/prism-b10709-9a9394a/ggml/src/ggml-hip/CMakeLists.txt)
-- [Vulkan format pipelines and FWHT](https://github.com/PrismML-Eng/llama.cpp/blob/prism-b10709-9a9394a/ggml/src/ggml-vulkan/ggml-vulkan.cpp)
+- [Vulkan format pipelines and FWHT](https://github.com/PrismML-Eng/llama.cpp/blob/prism-b10743-adfffbe/ggml/src/ggml-vulkan/ggml-vulkan.cpp)
+  and [shader generation and coopmat2 exclusions](https://github.com/PrismML-Eng/llama.cpp/blob/prism-b10743-adfffbe/ggml/src/ggml-vulkan/vulkan-shaders/vulkan-shaders-gen.cpp)
 - [SYCL Q2_0 matrix-vector dispatch](https://github.com/PrismML-Eng/llama.cpp/blob/prism-b10709-9a9394a/ggml/src/ggml-sycl/mmvq.cpp) and [dot-product kernels](https://github.com/PrismML-Eng/llama.cpp/blob/prism-b10709-9a9394a/ggml/src/ggml-sycl/vecdotq.hpp)
 - [SYCL FWHT width and tensor restrictions](https://github.com/PrismML-Eng/llama.cpp/blob/prism-b10709-9a9394a/ggml/src/ggml-sycl/fwht.cpp)
 - [SYCL conversion dispatch](https://github.com/PrismML-Eng/llama.cpp/blob/prism-b10709-9a9394a/ggml/src/ggml-sycl/convert.cpp) and [FWHT dispatch](https://github.com/PrismML-Eng/llama.cpp/blob/prism-b10709-9a9394a/ggml/src/ggml-sycl/ggml-sycl.cpp)
