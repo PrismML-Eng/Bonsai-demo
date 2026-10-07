@@ -19,6 +19,12 @@ the model must retry the same lookup, consume synthetic stock/reserved values,
 and return the calculated available quantity. Tool names and arguments are
 validated; no model-supplied code or arbitrary function is executed.
 
+The client sends fixed sampling settings on every chat request: `seed=42`,
+`temperature=1.0`, `top_p=0.95`, `top_k=20`, `min_p=0.05`,
+`presence_penalty=0.0`, and `repeat_penalty=1.0`, with `max_tokens=16384`.
+These checks exercise those settings, not your usual client or UI settings.
+`--reasoning-effort` selects `medium` (default) or `xhigh`.
+
 For a protected endpoint, set `BONSAI_API_KEY`, or specify the name of an existing
 environment variable with `--api-key-env`. Its value is not included in the JSON
 report. Keep report files local unless you intend to share the model output.
@@ -45,6 +51,10 @@ before any requests are sent. Exit status is zero only when all selected checks
 pass; failures, including timeouts or truncated generations, are recorded and
 return a nonzero status. Reports contain request timing and usage where supplied
 by the server, final answers, and individual check results, not reasoning traces.
+Every HTTP request, including tokenization and failed requests, records its path,
+duration, HTTP status when available, and success flag. HTTP errors retain the
+server response body. A failed context answer is saved alongside the measured
+document token count so the report shows what the model actually returned.
 
 These are model-dependent smoke checks. A wrong answer does not establish a
 runtime defect, and a pass does not establish general reasoning accuracy. Run

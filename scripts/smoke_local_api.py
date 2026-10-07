@@ -5,7 +5,14 @@ import json
 import os
 from pathlib import Path
 import time
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
+
+
+class CheckFailure(ValueError):
+    def __init__(self, message, **details):
+        super().__init__(message)
+        self.details = details
 
 
 class Client:
@@ -22,8 +29,28 @@ class Client:
         if self.key:
             headers['Authorization'] = 'Bearer ' + self.key
         request = Request(self.base_url + path, json.dumps(body).encode(), headers)
-        with urlopen(request, timeout=self.timeout) as response:
-            return json.load(response)
+        start = time.monotonic()
+        call = {'path': path, 'status': None, 'success': False}
+        try:
+            with urlopen(request, timeout=self.timeout) as response:
+                call['status'] = response.status
+                data = json.load(response)
+            call['success'] = True
+            return data
+        except HTTPError as error:
+            call['status'] = error.code
+            try:
+                call['error_body'] = error.read().decode('utf-8', errors='replace')
+            finally:
+                error.close()
+            call['error'] = str(error)
+            raise ValueError(str(error) + ': ' + call['error_body']) from error
+        except Exception as error:
+            call['error'] = str(error)
+            raise
+        finally:
+            call['seconds'] = time.monotonic() - start
+            self.calls.append(call)
 
     def chat(self, messages, tools=None):
         body = dict(model=self.model, messages=messages, stream=False,
@@ -32,13 +59,12 @@ class Client:
                     presence_penalty=0.0, repeat_penalty=1.0)
         if tools:
             body['tools'] = tools
-        start = time.monotonic()
         response = self.post('/v1/chat/completions', body)
         choice = response['choices'][0]
-        self.calls.append({'seconds': time.monotonic() - start,
-                           'usage': response.get('usage'),
-                           'timings': response.get('timings'),
-                           'finish_reason': choice.get('finish_reason')})
+        if self.calls:
+            self.calls[-1].update({'usage': response.get('usage'),
+                                   'timings': response.get('timings'),
+                                   'finish_reason': choice.get('finish_reason')})
         if choice.get('finish_reason') not in ('stop', 'tool_calls'):
             raise ValueError('Response did not finish: ' + str(choice.get('finish_reason')))
         return choice['message']
@@ -108,7 +134,8 @@ def context_check(client, target):
     count = len(client.post('/tokenize', {'content': doc})['tokens'])
     answer = client.chat(messages(doc + '\nReturn only the code from Record TARGET.'))
     if (answer.get('content') or '').strip() != 'Q7M4-Z9K2':
-        raise ValueError('Target code was not retrieved exactly')
+        raise CheckFailure('Target code was not retrieved exactly',
+                           document_tokens=count, answer=answer.get('content'))
     return {'document_tokens': count, 'answer': answer['content']}
 
 
@@ -122,6 +149,8 @@ def run(client, cases, context_tokens):
             result = {'case': case, 'passed': True, **detail}
         except Exception as error:
             result = {'case': case, 'passed': False, 'error': str(error)}
+            if isinstance(error, CheckFailure):
+                result.update(error.details)
         result['seconds'] = time.monotonic() - start
         results.append(result)
     return {'model': client.model, 'reasoning_effort': client.effort,

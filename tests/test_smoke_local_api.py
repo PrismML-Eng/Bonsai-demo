@@ -1,9 +1,11 @@
 """Deterministic tests; no model, GPU, or network is required."""
 import importlib.util
+import io
 import json
 from pathlib import Path
 import tempfile
 import unittest
+from urllib.error import HTTPError
 from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location('smoke', Path(__file__).resolve().parents[1] / 'scripts/smoke_local_api.py')
@@ -32,6 +34,71 @@ def tool(arguments='{"sku":"RTX5090"}'):
 
 
 class SmokeChecks(unittest.TestCase):
+    def test_http_error_body_status_and_timing_are_reported(self):
+        client = smoke.Client('http://localhost', 'missing', 'medium', 1, key='secret')
+        error = HTTPError('http://localhost/v1/chat/completions', 400,
+                          'Bad Request', {}, io.BytesIO(b'{"error":"model ID not found"}'))
+        with patch.object(smoke, 'urlopen', side_effect=error):
+            report = smoke.run(client, ['text'], 8000)
+        self.assertFalse(report['passed'])
+        self.assertIn('model ID not found', report['results'][0]['error'])
+        call, = report['requests']
+        self.assertEqual(call['status'], 400)
+        self.assertEqual(call['path'], '/v1/chat/completions')
+        self.assertEqual(call['error_body'], '{"error":"model ID not found"}')
+        self.assertFalse(call['success'])
+        self.assertGreaterEqual(call['seconds'], 0)
+        self.assertNotIn('secret', json.dumps(report))
+
+    def test_non_json_http_error_and_tokenize_request_are_recorded(self):
+        client = smoke.Client('http://localhost', 'test', 'medium', 1)
+        error = HTTPError('http://localhost/tokenize', 503, 'Unavailable', {},
+                          io.BytesIO(b'server unavailable: \xff'))
+        with patch.object(smoke, 'urlopen', side_effect=error):
+            report = smoke.run(client, ['context'], 512)
+        self.assertFalse(report['passed'])
+        self.assertEqual(report['requests'][0]['path'], '/tokenize')
+        self.assertEqual(report['requests'][0]['status'], 503)
+        self.assertIn('server unavailable', report['requests'][0]['error_body'])
+
+    def test_successful_http_request_retains_usage_and_timing(self):
+        client = smoke.Client('http://localhost', 'test', 'medium', 1)
+        data = {'choices': [{'finish_reason': 'stop', 'message': {'content': 'hello'}}],
+                'usage': {'completion_tokens': 1}, 'timings': {'predicted_ms': 12}}
+        response = io.BytesIO(json.dumps(data).encode())
+        response.status = 200
+        with patch.object(smoke, 'urlopen', return_value=response):
+            report = smoke.run(client, ['text'], 8000)
+        self.assertTrue(report['passed'])
+        call, = report['requests']
+        self.assertEqual(call['status'], 200)
+        self.assertTrue(call['success'])
+        self.assertEqual(call['usage'], data['usage'])
+        self.assertEqual(call['timings'], data['timings'])
+        self.assertEqual(call['finish_reason'], 'stop')
+        self.assertGreaterEqual(call['seconds'], 0)
+
+    def test_transport_failure_records_timing_without_http_status(self):
+        client = smoke.Client('http://localhost', 'test', 'medium', 1)
+        with patch.object(smoke, 'urlopen', side_effect=TimeoutError('request timed out')):
+            report = smoke.run(client, ['text'], 8000)
+        call, = report['requests']
+        self.assertFalse(call['success'])
+        self.assertIsNone(call['status'])
+        self.assertGreaterEqual(call['seconds'], 0)
+        self.assertIn('timed out', call['error'])
+
+    def test_failed_context_check_preserves_actual_answer(self):
+        for answer in ('WRONG-CODE', '', None):
+            with self.subTest(answer=answer):
+                client = FakeClient([{'content': answer}])
+                with patch.object(client, 'post', return_value={'tokens': [1] * 10}, create=True):
+                    report = smoke.run(client, ['context'], 512)
+                result, = report['results']
+                self.assertFalse(result['passed'])
+                self.assertEqual(result['answer'], answer)
+                self.assertEqual(result['document_tokens'], 10)
+
     def test_retry_and_final_result(self):
         client = FakeClient([tool(), tool(), {'content': '{"available":11}'}])
         self.assertEqual(smoke.tools_check(client)['tool_attempts'], 2)
