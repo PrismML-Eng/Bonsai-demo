@@ -34,6 +34,7 @@ BIN_DIR="$(cd "$(dirname "$BIN")" && pwd)"
 export LD_LIBRARY_PATH="$BIN_DIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
 NGL=$(bonsai_llama_ngl)
+CTX_SIZE_DEFAULT=$(bonsai_ctx_default "$BACKEND" "$NGL")
 
 info "Model:  $MODEL"
 info "Binary: $BIN"
