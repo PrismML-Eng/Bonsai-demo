@@ -110,6 +110,22 @@ The original image and custom harness are not included in this report, so this
 procedure describes a similar experiment, not an exact replay of the published
 measurements. New inputs/images should be reported as a separate run.
 
+## Original harness and evidence (external)
+
+The [contributor-owned evidence snapshot](https://github.com/uyt5041-lab/Bonsai-demo/tree/8b6d1857ffa4774002d1468222ca63fabc17c9ea/community-benchmarks/bonsai2/metal-mlx-m4-max-64gb-macos-data)
+is pinned to commit `8b6d1857ffa4774002d1468222ca63fabc17c9ea` and contains the
+[measurement harness](https://github.com/uyt5041-lab/Bonsai-demo/blob/8b6d1857ffa4774002d1468222ca63fabc17c9ea/community-benchmarks/bonsai2/metal-mlx-m4-max-64gb-macos-data/benchmark.py),
+dependency lock, original synthetic image and manifest,
+[27-row CSV](https://github.com/uyt5041-lab/Bonsai-demo/blob/8b6d1857ffa4774002d1468222ca63fabc17c9ea/community-benchmarks/bonsai2/metal-mlx-m4-max-64gb-macos-data/comparison.csv), and
+[all 27 result objects](https://github.com/uyt5041-lab/Bonsai-demo/blob/8b6d1857ffa4774002d1468222ca63fabc17c9ea/community-benchmarks/bonsai2/metal-mlx-m4-max-64gb-macos-data/final-results.json).
+The JSON also retains launch/readiness/lifecycle summaries, Ollama cache/speculation
+excerpts and artifact checksums. These are the existing measurements, not a new run.
+After downloading that directory, `python3 benchmark.py verify` checks the fixtures,
+checksums, scores and CSV; `python3 benchmark.py aggregate` rebuilds the CSV offline.
+Full stream/memory traces remain in the original local experiment archive and are
+not part of this external snapshot. The similar-run and comparison limitations above
+still apply; the baseline tag alone does not identify a publicly downloadable model.
+
 ## End-to-end serving
 
 27 main requests: 3 configurations × 3 fixed workloads × 3 repetitions. Identical
