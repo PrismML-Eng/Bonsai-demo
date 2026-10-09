@@ -8,8 +8,9 @@ see [MODEL-FORMATS.md](MODEL-FORMATS.md); for measured performance, see
 
 ## Release baseline
 
-Vulkan source audit: **`prism-b10743-adfffbe`**, the release currently pinned by
-the demo. Other backend rows retain the original **`prism-b10709-9a9394a`** audit.
+The demo pins **`prism-b10768-2a42998`**. Vulkan source audit:
+**`prism-b10743-adfffbe`**; other backend rows retain the original
+**`prism-b10709-9a9394a`** audit.
 Pending PRs and newer branch code do not count as released support.
 
 ✅ Implemented · ❌ No native kernels · ⚠️ Partial / needs validation.
