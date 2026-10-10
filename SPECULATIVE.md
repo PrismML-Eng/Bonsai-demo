@@ -38,11 +38,13 @@ The output name must keep `dspark-dflash` in it, which is what
 and lm head (the runtime borrows the target's), shrinking the drafter to about
 0.6 GB with unchanged acceptance.
 
-As of prism-v7, dspark rides on mainline llama.cpp's own DSpark implementation (upstream `draft-dspark`, [#25173](https://github.com/ggml-org/llama.cpp/pull/25173)) with a few fork-side patches on top (log-SNR conditioning, layout auto-detection from the model, the drafter converter; some of these will be proposed upstream). It is a supported path on both CUDA and Apple Silicon: at temperature 0 output is identical to normal decoding. Measured decode gains on the 27B are strongly workload-dependent (code and math draft best, casual chat worst). On an L40S (CUDA): 1.8-2.4x for the ternary 27B (2.06x blended) and 1.4-1.75x for the 1-bit 27B (1.60x blended). On an M5 Max (Metal) only ternary code/math workloads gain (~1.2x); chat/reasoning and the 1-bit family come out slower, so it is not recommended on Apple Silicon. Full per-workload tables: [community-benchmarks](community-benchmarks/README.md).
+As of prism-v7, dspark rides on mainline llama.cpp's own DSpark implementation (upstream `draft-dspark`, [#25173](https://github.com/ggml-org/llama.cpp/pull/25173)) with a few fork-side patches on top (log-SNR conditioning, layout auto-detection from the model, the drafter converter; some of these will be proposed upstream). It is a supported path on both CUDA and Apple Silicon; at temperature 0 the output matches normal decoding on most prompts (see the note on output identity below). Measured decode gains on the 27B are strongly workload-dependent (code and math draft best, casual chat worst). On an L40S (CUDA): 1.8-2.4x for the ternary 27B (2.06x blended) and 1.4-1.75x for the 1-bit 27B (1.60x blended). On an M5 Max (Metal) only ternary code/math workloads gain (~1.2x); chat/reasoning and the 1-bit family come out slower, so it is not recommended on Apple Silicon. Full per-workload tables: [community-benchmarks](community-benchmarks/README.md).
 
-The previous-generation `ternary` and `bonsai` 27B models ship with a paired **dspark drafter**: a small companion GGUF that drafts blocks of tokens for the target model to verify. The downloader fetches the bf16 drafter automatically with the 27B weights; run the one-time conversion above to produce the loadable file. On code and math workloads this gives roughly **1.75-2.4x faster decode** on CUDA; acceptance is workload-dependent, so casual chat gains less. Output at temperature 0 is identical to normal decoding.
+The Bonsai-27B and Ternary-Bonsai-27B models ship with a paired **dspark drafter**: a small companion GGUF that drafts blocks of tokens for the target model to verify. The downloader fetches the bf16 drafter automatically with the 27B weights; for older model releases run the one-time conversion above to produce the loadable file, while newer releases ship ready-to-use drafters. On code and math workloads this gives roughly **1.75-2.4x faster decode** on CUDA; acceptance is workload-dependent, so casual chat gains less. Acceptance is an exact match against the target's batched verify logits, and on most prompts the output at temperature 0 is identical to plain decoding. The batched verify pass can round differently from single-row decode at a near-tie token, so byte-identical output is not guaranteed. The [GB10 Bonsai 2 entry](community-benchmarks/ternary-bonsai/cuda-gb10-bonsai2-27b-linux.md) measured 37 of 65 temperature-0 outputs identical for each of two drafters, with the same divergence positions for both.
 
 Drafters are **target-specific**: each one only accelerates the exact model it is paired with. The demo downloads the matching drafter for the `ternary` or `bonsai` 27B family you select.
+
+Ternary-Bonsai-2-27B ships no drafter. The downloader fetches none for the Bonsai 2 family, and `BONSAI_SPECULATIVE=1` then warns and runs without speculation. The [GB10 Bonsai 2 entry](community-benchmarks/ternary-bonsai/cuda-gb10-bonsai2-27b-linux.md) documents a drafter for this target and the runtime fix that it needs.
 
 ## Enable it
 
@@ -87,7 +89,7 @@ On a datacenter-class CUDA GPU, a code prompt like this measured roughly 70 tok/
 
 Notes:
 
-- `--spec-draft-n-max` must equal the drafter's block size (4 for the current drafters); a smaller value crashes at the first draft round.
+- `--spec-draft-n-max` must equal the drafter's block size (4 for the current drafters); a smaller value crashes at the first draft round. This rule reflects an earlier runtime; the [GB10 Bonsai 2 entry](community-benchmarks/ternary-bonsai/cuda-gb10-bonsai2-27b-linux.md) measured a block-size-7 drafter at n-max 5 on prism `1a07bfa5f` plus its fix, with no crash.
 - Use a roomy `-c` (16384+): the model regularly thinks 1.5-2k tokens before the visible answer, and small contexts truncate responses mid-answer.
 
 ## Trade-offs (why it is off by default)
