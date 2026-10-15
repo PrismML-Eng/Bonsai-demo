@@ -169,6 +169,7 @@ else
         step "Starting llama-server on port $LLAMA_PORT ..."
         _bin_dir="$(cd "$(dirname "$_bin")" && pwd)"
         _ngl=$(bonsai_llama_ngl)
+        CTX_SIZE_DEFAULT=$(bonsai_ctx_default "$(backend_from_bin "$_bin")" "$_ngl")
         # 27B: --jinja enables native OpenAI-style tool calling; --mmproj
         # enables image input; reference-demo sampling. The 27B is a thinking
         # model and thinking stays on. Older sizes keep their tested flag set.
