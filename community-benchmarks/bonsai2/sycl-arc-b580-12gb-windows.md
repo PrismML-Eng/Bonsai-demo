@@ -123,6 +123,9 @@ build: 7adb2dd (1)
   (~+31% weight memory), so its smaller file does not translate into smaller
   VRAM at runtime.
 - Serving notes (kept separate from llama-bench timings, per the template):
+  - These serving runs used plain `q4_0` KV without a mean-centering bias,
+    unlike the FP16 KV used for the llama-bench results above. Mean-centered
+    Q4 KV support in this community SYCL runtime has not yet been verified.
   - With the mtp-lean file and `--spec-type draft-mtp,ngram-mod`, effective
     generation on short prompts runs ~63 t/s with the context capacity configured
     to 65536, and ~62.8 t/s with the capacity configured to 131072 (the fork's
