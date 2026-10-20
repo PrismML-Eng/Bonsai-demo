@@ -19,18 +19,26 @@ for commands, raw output, memory use, and configuration.
 | `PQ2_0` | NVIDIA RTX 4090 24 GB | llama.cpp CUDA (Windows) | 3,285 | 84.9 | [link](bonsai2/cuda-rtx4090-windows.md) |
 | `PQ2_0` | NVIDIA RTX 3090 Ti 24 GB | llama.cpp CUDA (Linux) | 1,552 | 81.6 | [link](bonsai2/cuda-rtx3090ti-linux.md) |
 | `PTQ1_0` | NVIDIA RTX 3090 Ti 24 GB | llama.cpp CUDA (Linux) | 805 | 67.7 | [link](bonsai2/cuda-rtx3090ti-linux.md) |
+| `PTQ1_0` | NVIDIA TITAN V 12 GB | llama.cpp CUDA 12.4 (Linux, fork b10777) | 562.2 | 51.25 | [link](bonsai2/cuda-titanv-12gb-linux.md) |
+| `PTQ1_0` | NVIDIA RTX A4000 16 GB | llama.cpp CUDA 12.4 (Linux, fork b10777) | 769.9 | 49.49 | [link](bonsai2/cuda-rtxa4000-16gb-linux.md) |
 | `PQ2_0` (MTP bundle, plain inference) | AMD Radeon RX 9070 XT 16 GB | llama.cpp ROCm/HIP (Proxmox) | 1,258 | 48.64 | [link](bonsai2/rocm-hip-rx9070xt-proxmox.md) |
 | `PQ2_0` | AMD Radeon RX 9070 XT 16 GB | llama.cpp ROCm/HIP (Proxmox) | 1,259 | 48.53 | [link](bonsai2/rocm-hip-rx9070xt-proxmox.md) |
 | `PQ2_0` | AMD Radeon RX 7800 XT 16 GB | llama.cpp ROCm/HIP | 316.3 | 46.8 | [link](bonsai2/rocm-hip-rx7800xt-fedora44.md) |
+| `PQ2_0` | NVIDIA TITAN V 12 GB | llama.cpp CUDA 12.4 (Linux, fork b10777) | 528.2 | 46.66 | [link](bonsai2/cuda-titanv-12gb-linux.md) |
 | `PQ2_0` | NVIDIA Tesla V100-SXM2 16 GB | llama.cpp CUDA (Windows) | 798 | 46.0 | [link](bonsai2/cuda-tesla-v100-windows.md) |
 | `PQ2_0` | AMD Radeon RX 6800 XT 16 GB | llama.cpp ROCm/HIP (Windows) | 266.4 | 44.9 | [link](bonsai2/rocm-hip-rx6800xt-windows.md) |
 | `PQ2_0` | NVIDIA RTX 3070 8 GB | llama.cpp CUDA (Windows) | 838.9 | 43.7 | [link](bonsai2/cuda-rtx3070-8gb-windows.md) |
+| `PQ2_0` | NVIDIA RTX A4000 16 GB | llama.cpp CUDA 12.4 (Linux, fork b10777) | 758.2 | 42.42 | [link](bonsai2/cuda-rtxa4000-16gb-linux.md) |
 | `PTQ1_0` | NVIDIA Tesla V100-SXM2 16 GB | llama.cpp CUDA (Windows) | 852 | 34.3 | [link](bonsai2/cuda-tesla-v100-windows.md) |
 | `PTQ1_0` | NVIDIA RTX 4070 Laptop 8 GB | llama.cpp CUDA (Windows) | 435.60 | 32.44 | [link](bonsai2/cuda-rtx4070-laptop-windows.md) |
 | `2-bit` | Apple M3 Max 48 GB | MLX (mlx 0.32.2, mlx-vlm 0.6.17) | 165.9 | 27.1 | [link](bonsai2/mlx-m3-max-48gb-macos.md) |
 | `PQ2_0` | Apple M3 Max 36 GB | llama.cpp Metal | 162.2 | 24.3 | [link](bonsai2/metal-m3-max-36gb-macos.md) |
 | `PQ2_0` | AMD BC-250 16 GB UMA | llama.cpp Vulkan (Linux, local patches) | 142.58 | 24.11 | [link](bonsai2/vulkan-bc250-linux.md) |
+| `PQ2_0` | Tesla P40 24 GB | llama.cpp CUDA 12.4 (Linux, fork b10777) | 254.4 | 23.16 | [link](bonsai2/cuda-teslap40-24gb-linux.md) |
 | `PTQ1_0` | Apple M3 Max 36 GB | llama.cpp Metal | 136.8 | 21.9 | [link](bonsai2/metal-m3-max-36gb-macos.md) |
+| `PTQ1_0` | Tesla P40 24 GB | llama.cpp CUDA 12.4 (Linux, fork b10777) | 139.9 | 19.86 | [link](bonsai2/cuda-teslap40-24gb-linux.md) |
+| `PQ2_0` | Apple M5 (Air) 16 GB | llama.cpp Metal (fork b10777) | 88.8 | 7.82 | [link](bonsai2/metal-m5-air-16gb-macos.md) |
+| `PTQ1_0` | Apple M5 (Air) 16 GB | llama.cpp Metal (fork b10777) | 79.7 | 7.03 | [link](bonsai2/metal-m5-air-16gb-macos.md) |
 
 ## Earlier 27B families
 
@@ -52,19 +60,26 @@ not directly comparable; each report should identify its harness and workload.
 | Ternary | NVIDIA L40S 48 GB | llama.cpp CUDA | 3,036 | 74.3 | ~150 (2.06x, 2.4x math) | [link](ternary-bonsai/cuda-l40s-linux.md) |
 | Ternary | NVIDIA RTX 4070 Ti SUPER 16 GB | llama.cpp CUDA (Windows) | 1,717 | 69.6 | | [link](ternary-bonsai/cuda-rtx4070tisuper-windows.md) |
 | Bonsai (1-bit) | Apple M5 Max 48 GB | llama.cpp Metal | 796 | 63.9 | slower on this HW | [link](bonsai/metal-m5-max-48gb-macos.md) |
+| Bonsai (1-bit) | NVIDIA TITAN V 12 GB | llama.cpp CUDA 12.4 (Linux, fork b10777) | 552.4 | 56.47 | | [link](bonsai/cuda-titanv-12gb-linux.md) |
+| Ternary | NVIDIA TITAN V 12 GB | llama.cpp CUDA 12.4 (Linux, fork b10777) | 576.6 | 49.20 | | [link](ternary-bonsai/cuda-titanv-12gb-linux.md) |
 | Ternary | NVIDIA RTX A5000 24 GB | llama.cpp CUDA | 1,036 | 48.2 | | [link](ternary-bonsai/cuda-rtxa5000-ubuntu.md) |
 | Ternary | Apple M5 Max 48 GB | llama.cpp Metal | 816 | 45.8 | ~1.2x code/math only | [link](ternary-bonsai/metal-m5-max-48gb-macos.md) |
 | Bonsai (1-bit) | NVIDIA DGX Spark (GB10) | llama.cpp CUDA | 1,024 | 45.4 | ~96.1 (2.21x, code) | [link](bonsai/cuda-gb10-27b-linux.md) |
 | Ternary | NVIDIA RTX 5060 Ti 16 GB | llama.cpp CUDA | 1,029 | 44.4 | ~79 (1.78x) | [link](ternary-bonsai/cuda-rtx5060ti-linux.md) |
+| Bonsai (1-bit) | NVIDIA GeForce RTX 2060 12 GB | llama.cpp CUDA 12.4 (Linux, fork b10777) | 431.2 | 29.96 | | [link](bonsai/cuda-rtx2060-12gb-linux.md) |
 | Ternary | Apple M5 Pro 64 GB | MLX 2-bit | 466 | 29.5 | 34-49 (community dspark-mlx) | [link](ternary-bonsai/mlx-m5-pro-macos.md) |
 | Ternary | NVIDIA DGX Spark (GB10) | llama.cpp CUDA | 1,005 | 29.2 | ~70.0 (2.45x, code) | [link](ternary-bonsai/cuda-gb10-27b-linux.md) |
 | Bonsai (1-bit) | NVIDIA GeForce GTX 1080 Ti 11 GB | llama.cpp CUDA | 285 | 28.3 | | [link](bonsai/cuda-gtx1080ti-linux.md) |
 | Ternary | Apple M5 Pro 64 GB | llama.cpp Metal | 130 | 26.5 | | [link](ternary-bonsai/mlx-m5-pro-macos.md) |
+| Ternary | NVIDIA GeForce RTX 2060 12 GB | llama.cpp CUDA 12.4 (Linux, fork b10777) | 415.8 | 25.71 | | [link](ternary-bonsai/cuda-rtx2060-12gb-linux.md) |
 | Ternary | Apple M4 Pro 64 GB | MLX 2-bit | 120 | 24.8 | | [link](ternary-bonsai/mlx-m4-pro-64gb-macos.md) |
-| Ternary | Apple M4 Pro 64 GB | llama.cpp Metal | 116 | 19.0 | slower on this HW | [link](ternary-bonsai/metal-m4-pro-64gb-macos.md) |
 | Ternary | NVIDIA GeForce GTX 1080 Ti 11 GB | llama.cpp CUDA | 278 | 20.5 | | [link](ternary-bonsai/cuda-gtx1080ti-linux.md) |
+| Ternary | Apple M4 Pro 64 GB | llama.cpp Metal | 116 | 19.0 | slower on this HW | [link](ternary-bonsai/metal-m4-pro-64gb-macos.md) |
 | Ternary | Apple M4 24 GB | MLX 2-bit | 65.2 | 12.7 | | [link](ternary-bonsai/mlx-m4-24gb-macos.md) |
 | Ternary | Apple M3 Pro 18 GB | llama.cpp Metal | 78.6 | 12.6 | | [link](ternary-bonsai/metal-m3-pro-macos.md) |
+| Bonsai (1-bit) | Apple M5 (Air) 16 GB | llama.cpp Metal (upstream b11630) | 84.2 | 11.54 | | [link](bonsai/metal-m5-air-16gb-macos.md) |
+| Ternary | Apple M5 (Air) 16 GB | llama.cpp Metal (upstream b11630, `Q2_g64`) | 80.2 | 6.68 | | [link](ternary-bonsai/metal-m5-air-16gb-macos.md) |
+| Ternary | Apple M5 (Air) 16 GB | llama.cpp Metal (fork b9596, legacy `Q2_0`) | 34.1 | 6.06 | | [link](ternary-bonsai/metal-m5-air-16gb-macos.md) |
 
 ## 8B and smaller
 
