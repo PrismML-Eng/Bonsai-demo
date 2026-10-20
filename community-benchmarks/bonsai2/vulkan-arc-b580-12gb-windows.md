@@ -23,7 +23,8 @@ using the PrismML fork release `prism-b10777-e3de715` (prebuilt
   - `Ternary-Bonsai-2-27B-PTQ1_0.gguf` — 5,946,648,928 bytes,
     sha256 `53107f530aa52eb00912263ab1ee29bd199261c87cd7b4ad4ca1318c1fe33ee3`
   - development Q2_0: `Ternary-Bonsai-2-27B-Q2_0-prism-fork-required.gguf` from
-    `prism-ml/Ternary-Bonsai-2-27B-gguf-dev` — 7,626,008,928 bytes
+    `prism-ml/Ternary-Bonsai-2-27B-gguf-dev` — 7,626,008,928 bytes (dev-format file;
+    no upstream-published reference hash)
 - llama.cpp: PrismML fork release `prism-b10777-e3de715`, prebuilt
   `llama-prism-b10777-e3de715-bin-win-vulkan-x64.zip`
   (asset sha256 `6bf30d60dd35ae1129ae221593d79bed053c775c6ce8554f75cfe171f3028f10`);
@@ -34,6 +35,12 @@ using the PrismML fork release `prism-b10777-e3de715` (prebuilt
   stock power and clocks
 - Flags: `-ngl 99 -fa 1`, default KV cache (f16), default context, default
   threads/batch, 5 repetitions (default). No mmproj involved (llama-bench).
+- Provenance and statistics: all pp/tg values in this report were measured on
+  this machine on 2026-10-16 with the exact commands shown; no numbers are
+  borrowed from other reports, other cards, or release notes. The `±` figures
+  are llama-bench's native mean ± sample stddev over the 5 repetitions
+  (default), not medians — same convention as the existing reports in this
+  folder (cf. the RTX 5080 methodology note).
 
 ## llama-bench results
 
@@ -85,8 +92,8 @@ build: e3de71522 (10777)
   development `Q2_0` runs on upstream b11669 Vulkan (pp 602.12 / tg 29.09,
   measured with a non-default q4_0 KV — cross-check only, listed here for
   completeness).
-- Short-length PTQ1_0 decode (34.84) is consistent with the docs' note that
-  Intel Vulkan PTQ1_0 is slow on this stack; the same card reaches ~45.9 tg128
-  on SYCL with a community Intel-focused fork (sibling report
+- PTQ1_0 shows the fastest Vulkan decode of the three packings (34.84 tg128 vs
+  31.59 for dev Q2_0 and 28.59 for PQ2_0); the same card reaches ~45.9 tg128 on
+  SYCL with a community Intel-focused fork (sibling report
   `sycl-arc-b580-12gb-windows.md`).
 - One llama-bench process at a time; no other GPU load during measurement.

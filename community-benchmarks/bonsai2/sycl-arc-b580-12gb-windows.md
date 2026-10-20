@@ -15,9 +15,13 @@ PrismML ternary packings (PTQ1_0 and PQ2_0) on Xe2.
 | Format | PP512 (t/s) | TG128 (t/s) |
 |--------|------------:|------------:|
 | PTQ1_0 (official file) | 1559.69 ± 2.84 | 45.89 ± 0.08 |
-| PTQ1_0 (community mtp-lean graft) | 1561.62 ± 2.09 | 45.45 ± 0.71 |
+| PTQ1_0 (community mtp-lean graft, plain inference) | 1561.62 ± 2.09 | 45.45 ± 0.71 |
 | PQ2_0 | 1533.14 ± 34.41 | 45.87 ± 0.12 |
 | Q2_0 (development) | 770.03 ± 0.66 | 10.26 ± 0.00 |
+
+> llama-bench measures plain decode — the MTP head in the mtp-lean file is not
+> used for speculation in these numbers (speculative serving speeds are in
+> Additional observations).
 
 ## Configuration
 
@@ -31,7 +35,8 @@ PrismML ternary packings (PTQ1_0 and PQ2_0) on Xe2.
   - `Ternary-Bonsai-2-27B-PQ2_0.gguf` (7,206,168,928 bytes, sha256
     `3907dc1658db1f78a9826bf8d5bcb8dc65db0d466388937af57f2294fae62ec1`)
   - development Q2_0: `Ternary-Bonsai-2-27B-Q2_0-prism-fork-required.gguf` from
-    `prism-ml/Ternary-Bonsai-2-27B-gguf-dev` (7,626,008,928 bytes)
+    `prism-ml/Ternary-Bonsai-2-27B-gguf-dev` (7,626,008,928 bytes; dev-format file,
+    no upstream-published reference hash)
 - llama.cpp: `Torchit1/llama.cpp` release `arc-b580-v0.10.1` (commit `7adb2dd`),
   prebuilt `llama-arc-b580-win-sycl-x64.zip`
   (asset sha256 `27ebc7204fe9700024ce6fc0b69aff68298769aed15003542bab46ec19d29bf4`);
@@ -48,6 +53,12 @@ PrismML ternary packings (PTQ1_0 and PQ2_0) on Xe2.
   `GGML_SYCL_PTQ1_T2=all`, `LLAMA_ARG_SPEC_DRAFT_UBATCH=512`,
   `GGML_SYCL_FA_ONEDNN_MAX_KV=98304`, `GGML_SYCL_FA_DEC_DPAS=1`,
   `GGML_SYCL_T2_W8A8_MIN=1024`
+- Provenance and statistics: all pp/tg values in this report were measured on
+  this machine on 2026-10-16 with the exact commands shown; no numbers are
+  borrowed from other reports, other cards, or release notes. The `±` figures
+  are llama-bench's native mean ± sample stddev over the 5 repetitions
+  (default), not medians — same convention as the existing reports in this
+  folder (cf. the RTX 5080 methodology note).
 
 ## llama-bench results
 
@@ -112,14 +123,16 @@ build: 7adb2dd (1)
   (~+31% weight memory), so its smaller file does not translate into smaller
   VRAM at runtime.
 - Serving notes (kept separate from llama-bench timings, per the template):
-  - With the mtp-lean file and `--spec-type draft-mtp,ngram-mod` at 64K context
-    (q4_0 KV incl. draft), effective generation on short prompts runs ~63 t/s;
-    128K context runs at ~62.8 t/s (the fork's delta-net replay keeps it within
-    12 GB). Correctness checked by exact-match greedy spot tests; no KLD run.
+  - With the mtp-lean file and `--spec-type draft-mtp,ngram-mod`, effective
+    generation on short prompts runs ~63 t/s with the context capacity configured
+    to 65536, and ~62.8 t/s with the capacity configured to 131072 (the fork's
+    delta-net replay keeps it within 12 GB). Probe prompts in both cases were
+    short (~50-100 tokens); these are not filled-context measurements. Correctness checked by exact-match greedy spot tests; no KLD run.
   - PQ2_0 carries no MTP head; with n-gram-only speculation it used 9,340 MiB
-    dedicated VRAM at 64K and 10,620 MiB at 128K (Get-Counter,
-    dedicated-usage samples) while decoding ~46.5–47.4 t/s. No OOM at either
-    context; headroom at 128K was ~1.7 GB.
+    dedicated VRAM with the context capacity configured to 65536 and 10,620 MiB
+    at 131072 (Get-Counter, dedicated-usage samples) while decoding
+    ~46.5–47.4 t/s on short prompts. No OOM at either setting; VRAM headroom at
+    the 131072 configuration was ~1.7 GB.
   - A 32K trimmed draft head (`add_draft_head.py`, English-corpus token
     frequencies) works with the one-graph draft chain, but draft acceptance on
     Chinese text collapses (3.9%); it behaves as intended for English/code.
