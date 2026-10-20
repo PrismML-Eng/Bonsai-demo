@@ -34,6 +34,14 @@ Benchmark results submitted by the community running
 | `PQ2_0` | Apple M4 Pro 64 GB | llama.cpp Metal | 126.9 | 20.5 | [link](metal-m4-pro-64gb-macos.md) |
 | `PTQ1_0` | Apple M4 Pro 64 GB | llama.cpp Metal | 98.6 | 17.3 | [link](metal-m4-pro-64gb-macos.md) |
 | `2-bit` | Apple M4 Pro 64 GB | MLX (mlx_lm 0.31.3) | 97.9 | 18.9 | [link](metal-m4-pro-64gb-macos.md) |
+| `PQ2_0` | Intel Arc B580 12 GB | llama.cpp Vulkan (Windows, PrismML fork prism-b10777) | 559 | 28.59 | [link](vulkan-arc-b580-12gb-windows.md) |
+| `PTQ1_0` | Intel Arc B580 12 GB | llama.cpp Vulkan (Windows, PrismML fork prism-b10777) | 380 | 34.84 | [link](vulkan-arc-b580-12gb-windows.md) |
+| `Q2_0` (development) | Intel Arc B580 12 GB | llama.cpp Vulkan (Windows, PrismML fork prism-b10777) | 568 | 31.59 | [link](vulkan-arc-b580-12gb-windows.md) |
+| `PQ2_0` | Intel Arc B580 12 GB | llama.cpp SYCL (Windows, community fork Torchit1 arc-b580-v0.10.1) | 1,533 | 45.87 | [link](sycl-arc-b580-12gb-windows.md) |
+| `PTQ1_0` | Intel Arc B580 12 GB | llama.cpp SYCL (Windows, community fork Torchit1 arc-b580-v0.10.1) | 1,560 | 45.89 | [link](sycl-arc-b580-12gb-windows.md) |
+| `PTQ1_0` (community mtp-lean graft, plain inference) | Intel Arc B580 12 GB | llama.cpp SYCL (Windows, community fork Torchit1 arc-b580-v0.10.1) | 1,562 | 45.45 | [link](sycl-arc-b580-12gb-windows.md) |
+| `Q2_0` (development) | Intel Arc B580 12 GB | llama.cpp SYCL (Windows, community fork Torchit1 arc-b580-v0.10.1) | 770 | 10.26 | [link](sycl-arc-b580-12gb-windows.md) |
+
 
 ## How to Submit
 
