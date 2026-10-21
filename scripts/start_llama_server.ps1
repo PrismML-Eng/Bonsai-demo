@@ -1,23 +1,28 @@
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "small_model_sampling.ps1")
 
 
 $BonsaiModel  = if ($env:BONSAI_MODEL)  { $env:BONSAI_MODEL.ToUpperInvariant() } else { "27B" }
 $BonsaiFamily = if ($env:BONSAI_FAMILY) { $env:BONSAI_FAMILY.ToLowerInvariant() } else { "bonsai2" }
 
-if ($BonsaiModel -notin @("27B", "8B", "4B", "1.7B")) {
-    Write-Host "[ERR] Unknown BONSAI_MODEL='$BonsaiModel'. Valid values: 27B, 8B, 4B, 1.7B" -ForegroundColor Red
+if ($BonsaiModel -notin @("27B", "9B", "8B", "4B", "2B", "1.7B")) {
+    Write-Host "[ERR] Unknown BONSAI_MODEL='$BonsaiModel'. Valid values: 27B, 9B, 8B, 4B, 2B, 1.7B" -ForegroundColor Red
     exit 1
 }
 if ($BonsaiFamily -notin @("bonsai2", "bonsai", "ternary")) {
     Write-Host "[ERR] Unknown BONSAI_FAMILY='$BonsaiFamily'. Valid values: bonsai2, bonsai, ternary" -ForegroundColor Red
     exit 1
 }
-# Bonsai 2 is 27B. Without this, another size walks into a directory that was
+if ($BonsaiFamily -in @("bonsai", "ternary") -and $BonsaiModel -in @("9B", "2B")) {
+    Write-Error "${BonsaiModel} requires BONSAI_FAMILY=bonsai2"
+    exit 1
+}
+# Validate Bonsai 2 sizes. Without this, another size walks into a directory that was
 # never going to exist and the error blames setup. Mirrors BONSAI2_SIZES in
 # scripts/common.sh.
-$Bonsai2Sizes = if ($env:BONSAI2_SIZES) { $env:BONSAI2_SIZES -split '\s+' } else { @("27B") }
+$Bonsai2Sizes = if ($env:BONSAI2_SIZES) { $env:BONSAI2_SIZES -split '\s+' } else { @("27B", "9B", "4B", "2B") }
 if ($BonsaiFamily -eq "bonsai2" -and $BonsaiModel -notin $Bonsai2Sizes) {
-    Write-Host "[ERR] Bonsai 2 is 27B." -ForegroundColor Red
+    Write-Host "[ERR] Bonsai 2 sizes: $Bonsai2Sizes." -ForegroundColor Red
     Write-Host "      Bonsai 2:     `$env:BONSAI_MODEL='27B'; .\scripts\start_llama_server.ps1" -ForegroundColor Yellow
     Write-Host "      Other sizes:  `$env:BONSAI_FAMILY='ternary'; .\scripts\start_llama_server.ps1" -ForegroundColor Yellow
     exit 1
@@ -142,10 +147,14 @@ Write-Host ""
 
 $ChatTemplateKwargs = if ($PSVersionTable.PSEdition -eq 'Desktop') { '{\"enable_thinking\": false}' } else { '{"enable_thinking": false}' }
 
-# Sampling for the 27B path: Bonsai 2 uses the base model's own defaults, the
+# Sampling for the 27B path: Bonsai 2 uses the model card's thinking-mode values, the
 # earlier families keep the profile they were tested on. Mirrors start_llama_server.sh.
 $SamplingArgs = if ($BonsaiFamily -eq "bonsai2") {
-    @("--temp", "1.0", "--top-p", "0.95", "--top-k", "20")
+    if ($BonsaiModel -in @("9B", "4B", "2B")) {
+        Get-SmallBonsaiSampling
+    } else {
+        @("--temp", "1.0", "--top-p", "0.95", "--top-k", "20", "--min-p", "0.05")
+    }
 } else {
     @("--temp", "0.7", "--top-p", "0.95", "--top-k", "20", "--min-p", "0")
 }
@@ -169,14 +178,17 @@ $ServerArgs = @(
 # image input; sampling matches the 27B reference demo (temp 0.7, top-p 0.95);
 # thinking stays enabled (reasoning overrides removed).
 # Older sizes keep the exact flag set they were tested with.
-if ($BonsaiModel -eq "27B") {
+if ($BonsaiModel -eq "27B" -or $BonsaiFamily -eq "bonsai2") {
     # Speculative decoding (opt-in, BONSAI_SPECULATIVE=1): pair the target with
     # its dspark drafter for ~1.8-2x decode on code/reasoning. Disables
     # prompt-cache reuse and forces a single slot, so it is off by default and
     # lives on this standalone server, not the agentic Open WebUI path.
     $Ctx = $CtxDefault
     $SpecArgs = @()
-    if ($env:BONSAI_SPECULATIVE -eq "1") {
+    if ($env:BONSAI_SPECULATIVE -eq "1" -and $BonsaiFamily -eq "bonsai2") {
+        Write-Host "[WARN] Automatic Bonsai 2 drafting is not configured in this launcher; running without speculation." -ForegroundColor Yellow
+        Write-Host "       Unset BONSAI_SPECULATIVE to hide this warning. See SPECULATIVE.md for availability." -ForegroundColor Yellow
+    } elseif ($env:BONSAI_SPECULATIVE -eq "1") {
         # v7 builds read only converted (arch=dflash) drafters; convert the downloaded
         # bf16 sidecar once with gguf-dspark-to-dflash (see SPECULATIVE.md)
         $Drafter = Get-ChildItem -Path $ModelDir -Filter *dspark-dflash*.gguf -File -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -250,7 +262,7 @@ if ($BonsaiModel -eq "27B") {
     if (Test-Path $WebuiConfig) { $ServerArgs += @("--webui-config-file", $WebuiConfig) }
 }
 
-$EffCtx = if ($BonsaiModel -eq "27B") { $Ctx } else { $CtxDefault }
+$EffCtx = if ($BonsaiModel -eq "27B" -or $BonsaiFamily -eq "bonsai2") { $Ctx } else { $CtxDefault }
 Write-Host "  Context: -c $EffCtx (override with BONSAI_CTX, 0 = auto)"
 try {
     & $Bin @ServerArgs @args

@@ -9,7 +9,7 @@ $VenvPy  = Join-Path $VenvDir "Scripts\python.exe"
 
 # v7 binaries read the official group-64 Q2_0 files and PQ2_0; they do NOT read
 # the legacy *-Q2_0.gguf files that pre-v7 releases used.
-$ReleaseTag = "prism-b10683-d8f26ee"
+$ReleaseTag = "prism-b10787-73bfe6c"
 $BaseUrl = "https://github.com/PrismML-Eng/llama.cpp/releases/download/$ReleaseTag"
 
 $BonsaiModel  = if ($env:BONSAI_MODEL)  { $env:BONSAI_MODEL }  else { "27B" }
@@ -18,20 +18,24 @@ $BonsaiFamily = if ($env:BONSAI_FAMILY) { $env:BONSAI_FAMILY } else { "bonsai2" 
 $BonsaiModel = if ($BonsaiModel.ToLowerInvariant() -eq "all") { "all" } else { $BonsaiModel.ToUpperInvariant() }
 $BonsaiFamily = $BonsaiFamily.ToLowerInvariant()
 
-if ($BonsaiModel -notin @("27B", "8B", "4B", "1.7B", "all")) {
-    Write-Host "[ERR] Unknown BONSAI_MODEL='$BonsaiModel'. Valid values: 27B, 8B, 4B, 1.7B, all" -ForegroundColor Red
+if ($BonsaiModel -notin @("27B", "9B", "8B", "4B", "2B", "1.7B", "all")) {
+    Write-Host "[ERR] Unknown BONSAI_MODEL='$BonsaiModel'. Valid values: 27B, 9B, 8B, 4B, 2B, 1.7B, all" -ForegroundColor Red
     exit 1
 }
 if ($BonsaiFamily -notin @("bonsai2", "bonsai", "ternary", "all")) {
     Write-Host "[ERR] Unknown BONSAI_FAMILY='$BonsaiFamily'. Valid values: bonsai2, ternary, bonsai, all" -ForegroundColor Red
     exit 1
 }
-# Bonsai 2 is 27B. Another concrete size would otherwise download nothing and
+if ($BonsaiFamily -in @("bonsai", "ternary") -and $BonsaiModel -in @("9B", "2B")) {
+    Write-Error "${BonsaiModel} requires BONSAI_FAMILY=bonsai2"
+    exit 1
+}
+# Validate Bonsai 2 sizes. Another concrete size would otherwise download nothing and
 # still report success, leaving no runnable model. "all" stays valid and fans
 # out to whatever each family has. Mirrors BONSAI2_SIZES in scripts/common.sh.
-$Bonsai2Sizes = if ($env:BONSAI2_SIZES) { $env:BONSAI2_SIZES -split '\s+' } else { @("27B") }
+$Bonsai2Sizes = if ($env:BONSAI2_SIZES) { $env:BONSAI2_SIZES -split '\s+' } else { @("27B", "9B", "4B", "2B") }
 if ($BonsaiFamily -eq "bonsai2" -and $BonsaiModel -ne "all" -and $BonsaiModel -notin $Bonsai2Sizes) {
-    Write-Host "[ERR] Bonsai 2 is 27B." -ForegroundColor Red
+    Write-Host "[ERR] Bonsai 2 sizes: $Bonsai2Sizes." -ForegroundColor Red
     Write-Host "      Bonsai 2:     `$env:BONSAI_MODEL='27B'; .\setup.ps1" -ForegroundColor Yellow
     Write-Host "      Other sizes:  `$env:BONSAI_FAMILY='ternary'; .\setup.ps1" -ForegroundColor Yellow
     exit 1
@@ -177,7 +181,7 @@ foreach ($p in @(
     if ($p -and (Test-Path $p)) {
         try {
             $out = & $p 2>&1 | Out-String
-            if ($out -match 'CUDA Version:\s+(\d+)\.(\d+)') {
+            if ($out -match 'CUDA(?:\s+UMD)?\s+Version:\s+(\d+)\.(\d+)') {
                 $major = [int]$Matches[1]; $minor = [int]$Matches[2]
                 if ($major -gt 13 -or ($major -eq 13 -and $minor -ge 3)) {
                     $CudaTag = "13.3"
@@ -240,8 +244,8 @@ function Download-GgufModel($Family, $Size) {
     # quant the demo is built around so the directory deterministically holds
     # one .gguf and we skip multi-GB reference weights we don't need.
     if ($Family -eq "bonsai2") {
-        if ($Size -ne "27B") {
-            Write-Host "[INFO] Bonsai 2 is 27B; skipping $Size." -ForegroundColor Yellow
+        if ($Size -notin $Bonsai2Sizes) {
+            Write-Host "[INFO] No Bonsai 2 $Size; skipping." -ForegroundColor Yellow
             return
         }
         $repo = "prism-ml/Ternary-Bonsai-2-${Size}-gguf"
@@ -296,8 +300,8 @@ function Download-GgufModel($Family, $Size) {
         return
     }
 
-    # HuggingFace auth: use BONSAI_TOKEN (env or .bonsai_token file) only if a
-    # repo is still private. Never a hard requirement; public repos download
+    # HuggingFace auth: use BONSAI_TOKEN (env or .bonsai_token file) for
+    # authenticated downloads. Never required; public repos download
     # anonymously and hf surfaces a clear 401 if auth is genuinely needed.
     if ($Size -eq "27B") {
         $TokenFile = Join-Path $PSScriptRoot ".bonsai_token"
@@ -309,7 +313,7 @@ function Download-GgufModel($Family, $Size) {
             # -NonInteractive and can hang other headless hosts.
             if ([Environment]::UserInteractive -and -not [Console]::IsInputRedirected) {
                 try {
-                    $entered = Read-Host "  Optional HuggingFace token for any still-private repo (press Enter to skip)"
+                    $entered = Read-Host "  Optional HuggingFace token (press Enter to skip)"
                     if ($entered) { $env:BONSAI_TOKEN = $entered }
                 } catch {}
             } else {
@@ -367,9 +371,10 @@ function Download-GgufModel($Family, $Size) {
 
 # Expand "all" for family and size into concrete lists, then iterate.
 $families = if ($BonsaiFamily -eq "all") { @("bonsai2", "bonsai", "ternary") } else { @($BonsaiFamily) }
-$sizes    = if ($BonsaiModel  -eq "all") { @("27B", "8B", "4B", "1.7B") } else { @($BonsaiModel) }
+$sizes    = if ($BonsaiModel  -eq "all") { @("27B", "9B", "8B", "4B", "2B", "1.7B") } else { @($BonsaiModel) }
 foreach ($fam in $families) {
     foreach ($sz in $sizes) {
+        if ($fam -ne "bonsai2" -and $sz -in @("9B", "2B")) { continue }
         Download-GgufModel $fam $sz
     }
 }

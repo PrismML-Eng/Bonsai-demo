@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Skate City — 3D Skateboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+  html, body { margin:0; height:100%; overflow:hidden; background:#e8f2fc; }
+  canvas { display:block; }
+  #hud { position:fixed; top:14px; left:14px; z-index:10; pointer-events:none; font-size:15px; line-height:1.6; text-shadow:0 1px 4px rgba(255,255,255,.7); }
+  #score { color:#0a7dd0; font-size:26px; font-weight:bold; }
+  #combo { color:#e07a1a; font-weight:bold; }
+  #speedbox { position:fixed; top:14px; right:14px; text-align:right; pointer-events:none; text-shadow:0 1px 4px rgba(255,255,255,.7); }
+  #speed { font-size:34px; font-weight:bold; color:#0a7dd0; }
+  .small { font-size:12px; color:#5a6a84; }
+  #keys { position:fixed; bottom:14px; left:50%; transform:translateX(-50%); font-size:12px; color:#5a6a84; letter-spacing:1px; pointer-events:none; text-shadow:0 1px 4px rgba(255,255,255,.7); }
+  #overlay { position:fixed; inset:0; display:flex; flex-direction:column; justify-content:center; align-items:center; background:rgba(180,210,240,.85); z-index:20; text-align:center; padding:20px; }
+  #overlay h1 { font-size:44px; letter-spacing:5px; margin:0; color:#0a7dd0; text-shadow:0 0 26px rgba(255,255,255,.8); }
+  #overlay p { margin:8px 0; font-size:15px; color:#223044; max-width:560px; }
+  .keys { color:#3a4a62; }
+  .hidden { display: none !important; }
+  #goBtn { margin-top:16px; font-size:19px; font-family:'Courier New',monospace; font-weight:bold; padding:12px 42px; border:none; border-radius:6px; background:#0aa; color:#060814; cursor:pointer; box-shadow:0 0 22px rgba(10,160,170,.55); }
+  #goBtn:hover { background:#37d; transform:scale(1.03); }
+</style>
+</head>
+<body>
+<div id="hud">
+  <div id="score">0</div>
+  <div id="dist">0 m</div>
+  <div id="combo"></div>
+</div>
+<div id="speedbox">
+  <div id="speed">0</div>
+  <div class="small">km/h</div>
+</div>
+<div id="keys">A / D steer &nbsp;·&nbsp; S brake &nbsp;·&nbsp; SPACE ollie &nbsp;·&nbsp; SHIFT grind rail</div>
+
+<div id="overlay">
+  <h1>SKATE CITY</h1>
+  <p id="result"></p>
+  <p>Follow the glowing rail down the city. Land clean, grind rails, build your combo.</p>
+  <p class="keys">A / D &nbsp;steer &nbsp;·&nbsp; S &nbsp;brake &nbsp;·&nbsp; SPACE &nbsp;ollie &nbsp;·&nbsp; SHIFT &nbsp;grind rail</p>
+  <button id="goBtn">RIDE</button>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.setClearColor(0xa8d2f0);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0xade1f2, 140, 520);
+
+/* ---------- sky ---------- */
+{
+  const geo = new THREE.SphereGeometry(85, 18, 10);
+  const mat = new THREE.ShaderMaterial({
+    side: THREE.BackSide, depthWrite: false,
+    vertexShader: `
+      varying float vY;
+      void main() {
+        vY = normalize(position).y;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }`,
+    fragmentShader: `
+      varying float vY;
+      void main() {
+        float t = smoothstep(-0.85, 0.35, vY);
+        vec3 col = mix(vec3(0.88, 0.95, 1.03), vec3(0.33, 0.66, 0.96), t);
+        gl_FragColor = vec4(col, 1.0);
+      }`
+  });
+  scene.add(new THREE.Mesh(geo, mat));
+}
+
+/* ---------- lights ---------- */
+const sun = new THREE.DirectionalLight(0xfff3dd, 1.65);
+sun.position.set(30, 90, -40);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.bias = -0.0009;
+sun.shadow.camera.near = 0.5; sun.shadow.camera.far = 260;
+sun.shadow.camera.left = -140; sun.shadow.camera.right = 140;
+sun.shadow.camera.top = 160; sun.shadow.camera.bottom = -160;
+sun.target.position.set(0, 0, 190);
+scene.add(sun, sun.target);
+scene.add(new THREE.HemisphereLight(0xd6e8ff, 0x90a8c4, 1.0));
+
+/* ---------- ground ---------- */
+function makeGround() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const x = c.getContext('2d');
+  x.fillStyle = '#9aa5b8'; x.fillRect(0, 0, 256, 256);
+  x.strokeStyle = '#7d8aa3'; x.lineWidth = 2;
+  for (let i = 0; i <= 8; i++) {
+    x.beginPath(); x.moveTo(i * 32, 0); x.lineTo(i * 32, 256); x.stroke();
+    x.beginPath(); x.moveTo(0, i * 32); x.lineTo(256, i * 32); x.stroke();
+  }
+  x.fillStyle = 'rgba(110, 122, 144, 0.10)';
+  for (let i = 0; i < 20; i++)
+    x.fillRect(Math.random() * 200, Math.random() * 200, 24 + Math.random() * 44, 14 + Math.random() * 44);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(33, 100);
+  return t;
+}
+const GROUND_D = 800;
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(260, GROUND_D),
+  new THREE.MeshPhongMaterial({ map: makeGround(), shininess: 20 }));
+ground.rotation.x = -Math.PI / 2;
+ground.position.z = GROUND_D / 2 - 200;
+ground.receiveShadow = true;
+scene.add(ground);
+
+/* ---------- city ---------- */
+const palette = [0x9aa5c4, 0xa6adc9, 0x8e97bb, 0x9c91ad, 0x9893aa, 0x8a94bd];
+const rnd = (a, b) => a + Math.random() * (b - a);
+const city = new THREE.Group();
+for (let i = 0; i < 60; i++) {
+  const side = Math.random() < 0.5 ? -1 : 1;
+  const x = side * rnd(28, 115);
+  const z = rnd(-180, 580);
+  const w = rnd(4, 11), d = rnd(4, 11), h = rnd(8, 42);
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d),
+    new THREE.MeshPhongMaterial({ color: palette[i % palette.length], shininess: 4 }));
+  m.position.set(x, h / 2, z);
+  m.castShadow = true; m.receiveShadow = true;
+  city.add(m);
+}
+for (let i = 0; i < 12; i++) {
+  const l = new THREE.PointLight(0xffcc55, 0.6, 18);
+  const b = city.children[Math.floor(Math.random() * city.children.length)];
+  l.position.copy(b.position); l.position.y *= 0.7;
+  city.add(l);
+}
+scene.add(city);
+
+/* ---------- rail ---------- */
+const RAIL_Z0 = 40, RAIL_Z1 = 580;
+function railPoint(z) {
+  const zz = z - RAIL_Z0;
+  return {
+    x: Math.sin(zz * 0.032) * 4.5 + Math.sin(zz * 0.011) * 8,
+    y: 1.0 + Math.sin(zz * 0.045) * 0.7 + Math.sin(zz * 0.017) * 0.4
+  };
+}
+const railPts = [];
+for (let z = RAIL_Z0; z <= RAIL_Z1; z += 3) {
+  const r = railPoint(z);
+  railPts.push(new THREE.Vector3(r.x, r.y, z));
+}
+const rail = new THREE.Mesh(
+  new THREE.TubeGeometry(new THREE.CatmullRomCurve3(railPts), 60, 0.15, 8, false),
+  new THREE.MeshPhongMaterial({ color: 0xff9d22, emissive: 0x2a1200, shininess: 200 })
+);
+rail.castShadow = true;
+scene.add(rail);
+const postGeo = new THREE.CylinderGeometry(0.09, 0.09, 1, 6);
+const postMat = new THREE.MeshPhongMaterial({ color: 0x77809a });
+for (let z = RAIL_Z0; z <= RAIL_Z1; z += 12) {
+  const r = railPoint(z);
+  const post = new THREE.Mesh(postGeo, postMat);
+  post.position.set(r.x, r.y / 2, r.z);
+  scene.add(post);
+}
+const BOARD_L = 0.25;
+const railSamples = [];
+for (let z = RAIL_Z0; z <= RAIL_Z1; z += 2) {
+  const r = railPoint(z);
+  railSamples.push(new THREE.Vector3(r.x, r.y, r.z));
+}
+function nearestRail(p) {
+  let best = null, bd = 1e9;
+  for (const s of railSamples) {
+    const dx = p.x - s.x, dz = p.z - s.z;
+    const d = dx * dx + dz * dz;
+    if (d < bd) { bd = d; best = s; }
+  }
+  return best;
+}
+
+/* ---------- player ---------- */
+const board = new THREE.Group();
+const deckMat = new THREE.MeshPhongMaterial({ color: 0xffcc55, shininess: 60 });
+board.add(new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.05, 1.9), deckMat));
+const nose = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.12, 0.45), deckMat);
+nose.position.set(0, 0.09, 0.85);
+const tail = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.12, 0.45), deckMat);
+tail.position.set(0, 0.09, -0.85);
+board.add(nose, tail);
+const wheelGeo = new THREE.CylinderGeometry(0.09, 0.09, 0.07, 10);
+const wheelMat = new THREE.MeshPhongMaterial({ color: 0x1a1a1a });
+const wheels = [];
+for (const [x, z] of [[-0.15, -0.62], [0.15, -0.62], [-0.15, 0.62], [0.15, 0.62]]) {
+  const w = new THREE.Mesh(wheelGeo, wheelMat);
+  w.rotation.z = Math.PI / 2;
+  w.position.set(x, -0.045, z);
+  w.castShadow = true;
+  wheels.push(w);
+  board.add(w);
+}
+const skater = new THREE.Group();
+const blue = new THREE.MeshPhongMaterial({ color: 0x40aaff, shininess: 40 });
+const torso = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.45, 0.18), blue);
+torso.position.y = 0.325;
+const head = new THREE.Mesh(new THREE.SphereGeometry(0.13, 12, 8),
+  new THREE.MeshPhongMaterial({ color: 0xf2c18c }));
+head.position.y = 0.62;
+const cap = new THREE.Mesh(new THREE.SphereGeometry(0.145, 12, 8, 0, Math.PI),
+  new THREE.MeshPhongMaterial({ color: 0xff4455, shininess: 40 }));
+cap.position.y = 0.655;
+const arms = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.05, 0.06), blue);
+arms.position.y = 0.2;
+const legs = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.34, 0.08),
+  new THREE.MeshPhongMaterial({ color: 0x2a3350 }));
+legs.position.y = 0.07;
+skater.add(torso, head, cap, arms, legs);
+skater.position.y = 0.03;
+skater.castShadow = true;
+board.add(skater);
+board.castShadow = true;
+board.position.set(0, BOARD_L, -30);
+scene.add(board);
+
+/* ---------- particles ---------- */
+const NB = 36;
+const pPos = new Float32Array(NB * 3), pVel = new Float32Array(NB * 3), pLife = new Float32Array(NB);
+const pGeo = new THREE.BufferGeometry();
+pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+pGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(NB * 3), 3));
+const points = new THREE.Points(pGeo, new THREE.PointsMaterial({ size: 0.3, transparent: true, opacity: 0.95, vertexColors: true, depthWrite: false }));
+points.visible = false;
+scene.add(points);
+let nLive = 0, grindSparkT = 0;
+function burst(v, color, scale = 1) {
+  for (let i = 0; i < NB; i++) {
+    const dir = new THREE.Vector3(Math.random() * 2 - 1, Math.random() * 1.6 + 0.4, Math.random() * 2 - 1).normalize();
+    const s = (1.4 + Math.random() * 3.2) * scale;
+    pPos[i * 3] = v.x; pPos[i * 3 + 1] = v.y + 0.2; pPos[i * 3 + 2] = v.z;
+    pVel[i * 3] = dir.x * s; pVel[i * 3 + 1] = dir.y * s; pVel[i * 3 + 2] = dir.z * s;
+    pLife[i] = 0.5 + Math.random() * 0.6;
+    const c = new THREE.Color(color);
+    pGeo.attributes.color.array[i * 3] = c.r;
+    pGeo.attributes.color.array[i * 3 + 1] = c.g;
+    pGeo.attributes.color.array[i * 3 + 2] = c.b;
+  }
+  nLive = NB;
+  pGeo.attributes.position.needsUpdate = true;
+  pGeo.attributes.color.needsUpdate = true;
+  points.visible = true;
+}
+function updateParticles(dt) {
+  for (let i = 0; i < nLive; i++) {
+    pLife[i] -= dt;
+    if (pLife[i] <= 0) {
+      const j = nLive - 1;
+      pPos[i * 3] = pPos[j * 3]; pPos[i * 3 + 1] = pPos[j * 3 + 1]; pPos[i * 3 + 2] = pPos[j * 3 + 2];
+      pVel[i * 3] = pVel[j * 3]; pVel[i * 3 + 1] = pVel[j * 3 + 1]; pVel[i * 3 + 2] = pVel[j * 3 + 2];
+      pLife[i] = pLife[j];
+      const ca = pGeo.attributes.color;
+      ca.array[i * 3] = ca.array[j * 3]; ca.array[i * 3 + 1] = ca.array[j * 3 + 1]; ca.array[i * 3 + 2] = ca.array[j * 3 + 2];
+      nLive--;
+      i--;
+      continue;
+    }
+    pVel[i * 3 + 1] -= 16 * dt;
+    pPos[i * 3] += pVel[i * 3] * dt;
+    pPos[i * 3 + 1] += pVel[i * 3 + 1] * dt;
+    pPos[i * 3 + 2] += pVel[i * 3 + 2] * dt;
+  }
+  if (nLive > 0) pGeo.attributes.position.needsUpdate = true;
+  else points.visible = false;
+}
+
+/* ---------- game state ---------- */
+const st = {
+  pos: new THREE.Vector3(0, BOARD_L, -30),
+  yaw: 0, pitch: 0, velY: 0, speed: 0,
+  grounded: true, onRail: false, grinding: false,
+  crash: 0, score: 0, dist: 0, combo: 0, comboT: 0
+};
+const G = 22, OLLIE = 9.5, MAXS = 26;
+const camPos = new THREE.Vector3(0, 11, -45);
+const cam = new THREE.PerspectiveCamera(58, 1, 0.1, 200);
+let running = false;
+
+const elScore = document.getElementById('score');
+const elDist = document.getElementById('dist');
+const elSpeed = document.getElementById('speed');
+const elCombo = document.getElementById('combo');
+const elResult = document.getElementById('result');
+const overlay = document.getElementById('overlay');
+const goBtn = document.getElementById('goBtn');
+
+function reset() {
+  st.pos.set(0, BOARD_L, -30);
+  st.yaw = 0; st.pitch = 0; st.velY = 0; st.speed = 0;
+  st.grounded = true; st.crash = 0; st.onRail = false; st.grinding = false;
+  st.score = 0; st.dist = 0; st.combo = 0; st.comboT = 0;
+  nLive = 0;
+  board.position.copy(st.pos);
+  board.rotation.set(0, 0, 0);
+  camPos.set(0, 11, -45);
+  elResult.textContent = '';
+}
+function startGame() {
+  reset();
+  overlay.classList.add('hidden');
+  running = true;
+}
+goBtn.addEventListener('click', startGame);
+
+const keys = {};
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  if (k === ' ' || k.startsWith('arrow')) e.preventDefault();
+  keys[k] = true;
+  if (k === ' ' && !e.repeat) {
+    if (!running) startGame();
+    else ollie();
+  }
+});
+addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+function ollie() {
+  if (st.crash > 0 || !st.grounded) return;
+  st.velY = OLLIE;
+  st.grounded = false;
+  st.onRail = false;
+  st.pitch = -0.35;
+}
+
+function update(dt) {
+  const left = keys.a || keys['arrowleft'];
+  const right = keys.d || keys['arrowright'];
+  const brake = keys.s || keys['arrowup'];
+  const turn = (right ? 1 : 0) - (left ? 1 : 0);
+  const fwd = new THREE.Vector3(Math.sin(st.yaw), 0, Math.cos(st.yaw));
+
+  if (st.crash > 0) {
+    st.crash -= dt;
+    st.velY -= G * dt;
+    st.pos.y += st.velY * dt;
+    st.yaw += dt * 5;
+    st.pitch += dt * 2.5;
+    if (st.pos.y <= BOARD_L) {
+      st.pos.y = BOARD_L; st.velY = 0;
+      st.crash = 0; st.grounded = true; st.pitch = 0; st.speed = 0;
+    }
+  } else {
+    if (st.grounded) {
+      st.speed = Math.max(0, st.speed + (brake ? -20 : 7) * dt);
+      st.speed = Math.min(st.speed, MAXS);
+      st.yaw += turn * (0.9 + st.speed * 0.04) * dt;
+      st.pos.addScaledVector(fwd, st.speed * dt);
+      st.onRail = false; st.grinding = false;
+      const nr = nearestRail(st.pos);
+      if (nr && Math.sqrt((st.pos.x - nr.x) ** 2 + (st.pos.z - nr.z) ** 2) < 0.7) {
+        st.onRail = true;
+        st.pos.y = railPoint(st.pos.z).y + BOARD_L;
+      }
+    } else {
+      st.velY -= G * dt;
+      st.pos.y += st.velY * dt;
+      st.yaw += turn * 0.5 * dt;
+      if (st.pos.y <= BOARD_L) {
+        st.grounded = true; st.pos.y = BOARD_L; st.velY = 0;
+        if (Math.abs(st.pitch) < 0.15) {
+          st.score += 60 + st.speed * 6 + st.combo * 30;
+          st.combo++;
+          st.comboT = 3.5;
+          burst(st.pos, 0x66ffcc, 1.4);
+        } else {
+          st.crash = 1.4; st.velY = 3.5; st.speed = 0;
+        }
+      }
+    }
+  }
+
+  st.dist += st.speed * dt;
+  st.score += st.speed * dt * 0.5;
+  if (st.onRail) {
+    st.grinding = keys.shift;
+    if (st.grinding) {
+      st.score += 90 * dt;
+      st.combo = Math.max(st.combo, 1);
+      st.comboT = 2.5;
+      grindSparkT -= dt;
+      if (grindSparkT <= 0) {
+        grindSparkT = 0.18;
+        burst(st.pos, 0xff9d22, 0.7);
+      }
+    } else {
+      grindSparkT = 0;
+    }
+  }
+  if (st.comboT > 0) {
+    st.comboT -= dt;
+    if (st.comboT <= 0) st.combo = 0;
+  }
+
+  if (st.pos.z > 620) {
+    running = false;
+    elScore.textContent = Math.round(st.score);
+    elResult.textContent = 'RIDE COMPLETE — SCORE ' + Math.round(st.score);
+    goBtn.textContent = 'RIDE AGAIN';
+    overlay.classList.remove('hidden');
+  }
+
+  board.position.copy(st.pos);
+  board.rotation.set(st.pitch, st.yaw, 0);
+  for (const w of wheels) w.rotation.x += st.speed * dt * 2.2;
+
+  const desired = st.pos.clone().add(0, 9.5, 0).addScaledVector(fwd, -13);
+  const k = 1 - Math.exp(-6 * dt);
+  camPos.lerp(desired, k);
+  cam.position.copy(camPos);
+  cam.lookAt(st.pos);
+
+  elScore.textContent = Math.round(st.score);
+  elDist.textContent = Math.round(st.dist) + ' m';
+  elSpeed.textContent = Math.round(st.speed * 3.6);
+  elCombo.textContent = st.combo > 1 ? 'COMBO x' + st.combo : '';
+}
+
+let last = 0;
+function loop(ts) {
+  requestAnimationFrame(loop);
+  const dt = Math.min((ts - last) / 1000, 0.05);
+  last = ts;
+  if (running) update(dt);
+  updateParticles(dt);
+  renderer.render(scene, cam);
+}
+requestAnimationFrame(loop);
+
+addEventListener('resize', () => {
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  cam.aspect = window.innerWidth / window.innerHeight;
+  cam.updateProjectionMatrix();
+});
+renderer.setSize(window.innerWidth, window.innerHeight);
+cam.aspect = window.innerWidth / window.innerHeight;
+cam.updateProjectionMatrix();
+})();
+</script>
+</body>
+</html>

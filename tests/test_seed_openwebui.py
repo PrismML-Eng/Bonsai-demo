@@ -85,6 +85,17 @@ class SeedOpenWebUITests(unittest.TestCase):
         self.assertEqual(params["top_p"], 0.95)
         self.assertEqual(params["top_k"], 20)
 
+    def test_bonsai2_uses_model_card_sampling(self):
+        seed = _load_seed_module()
+
+        for model_id in ("Ternary-Bonsai-2-27B-PQ2_0.gguf", "Ternary-Bonsai-2-27B-mlx-2bit"):
+            params = seed._model_params(model_id)
+
+            self.assertEqual(params["temperature"], 1.0)
+            self.assertEqual(params["top_p"], 0.95)
+            self.assertEqual(params["top_k"], 20)
+            self.assertEqual(params["min_p"], 0.05)
+
 
 if __name__ == "__main__":
     unittest.main()

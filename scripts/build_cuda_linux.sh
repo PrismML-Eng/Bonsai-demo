@@ -1,7 +1,7 @@
 #!/bin/bash
 # Build llama.cpp with CUDA on Linux (multi-arch)
 # Prerequisites: CUDA toolkit (nvcc), cmake, ninja-build
-# Run from the demo/ folder.
+# Output is always installed under this demo's bin/ folder.
 #
 # Usage:
 #   ./scripts/build_cuda_linux.sh [options] [path_to_llama_cpp_repo]
@@ -18,6 +18,9 @@
 
 set -e
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+DEMO_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd -P)"
+
 CUDA_PATH=""
 CUDA_ARCHS=""
 OUTPUT_DIR=""
@@ -32,7 +35,23 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-REPO_DIR="${REPO_DIR:-./llama.cpp}"
+OUTPUT_DIR="${OUTPUT_DIR:-cuda}"
+# --output names one child of bin/, never a path or a parent directory.
+if [[ ! "$OUTPUT_DIR" =~ ^[a-zA-Z0-9][a-zA-Z0-9_-]*$ ]]; then
+    echo "Error: --output must be a directory name containing only letters, digits, '_' or '-'."
+    exit 1
+fi
+DEST="$DEMO_DIR/bin/$OUTPUT_DIR"
+
+check_output_path() {
+    if [ -L "$DEMO_DIR/bin" ] || [ -L "$DEST" ]; then
+        echo "Error: refusing a symlinked output directory: $DEST"
+        exit 1
+    fi
+}
+check_output_path
+
+REPO_DIR="${REPO_DIR:-$DEMO_DIR/llama.cpp}"
 
 if [ ! -d "$REPO_DIR" ]; then
     echo "llama.cpp not found at $REPO_DIR — cloning from PrismML-Eng..."
@@ -64,14 +83,11 @@ CUDA_MAJOR=$(echo "$CUDA_VERSION" | cut -d. -f1)
 # Set default architectures: build a fat binary covering all supported GPUs
 if [ -z "$CUDA_ARCHS" ]; then
     if [ "$CUDA_MAJOR" -ge 13 ]; then
-        CUDA_ARCHS="80;86;89;90;100;120a"
+        CUDA_ARCHS="80;86;89;90;100;120a;121a"
     else
         CUDA_ARCHS="80;86;89;90;120a"
     fi
 fi
-
-OUTPUT_DIR="${OUTPUT_DIR:-cuda}"
-DEST="./bin/$OUTPUT_DIR"
 
 if [ ! -d "$REPO_DIR" ]; then
     echo "Error: llama.cpp repo not found at $REPO_DIR and clone failed."
@@ -117,35 +133,36 @@ cd - > /dev/null
 
 echo ""
 echo "=== Copying binaries to $DEST ==="
-mkdir -p "$DEST"
+check_output_path
+mkdir -p "$DEMO_DIR/bin"
+STAGE=$(mktemp -d "$DEMO_DIR/bin/.llama-stage.XXXXXX")
+trap 'rm -rf "$STAGE"' EXIT
 
-# Ship every llama-* tool that was built (cli, server, quantize, bench, ...).
-for bin in "$REPO_DIR/$BUILD_DIR"/bin/llama-*; do
-    [ -f "$bin" ] && [ -x "$bin" ] || continue
-    cp "$bin" "$DEST/"
-    echo "  Copied $(basename "$bin")"
-done
-
-echo ""
-echo "=== Copying shared libraries ==="
-cp -a "$REPO_DIR/$BUILD_DIR"/bin/libllama.so* "$DEST/"
-cp -a "$REPO_DIR/$BUILD_DIR"/bin/libggml.so* "$DEST/"
-cp -a "$REPO_DIR/$BUILD_DIR"/bin/libggml-base.so* "$DEST/"
-cp -a "$REPO_DIR/$BUILD_DIR"/bin/libggml-cpu.so* "$DEST/"
-cp -a "$REPO_DIR/$BUILD_DIR"/bin/libggml-cuda.so* "$DEST/"
-cp -a "$REPO_DIR/$BUILD_DIR"/bin/libmtmd.so* "$DEST/" 2>/dev/null || true
-echo "  Copied shared libraries (libllama, libggml, libggml-base, libggml-cpu, libggml-cuda, libmtmd)"
+# Preserve the complete runtime output, including symlinks and future helpers.
+# Stage separately so a failed copy/patch leaves the existing install intact.
+cp -a "$REPO_DIR/$BUILD_DIR/bin/." "$STAGE/"
 
 echo ""
 echo "=== Patching RUNPATH for portability ==="
 if command -v patchelf &>/dev/null; then
-    for f in "$DEST"/llama-* "$DEST"/lib*.so.*.*; do
-        [ -f "$f" ] && patchelf --set-rpath '$ORIGIN' "$f"
-    done
+    command -v file >/dev/null || { echo "Error: install 'file' to identify ELF runtime files."; exit 1; }
+    while IFS= read -r -d '' f; do
+        # find skips symlinks; patch their real targets once, regardless of name.
+        kind=$(LC_ALL=C file -b "$f")
+        if [[ "$kind" == ELF* ]] && [[ "$kind" == *executable* || "$kind" == *"shared object"* ]]; then
+            patchelf --set-rpath '$ORIGIN' "$f"
+        fi
+    done < <(find "$STAGE" -type f -print0)
     echo "  Set RUNPATH to \$ORIGIN (binaries find bundled libs automatically)"
 else
     echo "  Warning: patchelf not found. Install it (apt install patchelf) or use LD_LIBRARY_PATH."
 fi
+
+# Replace rather than overlay, so removed runtime libraries do not linger.
+check_output_path
+rm -rf -- "$DEMO_DIR/bin/$OUTPUT_DIR"
+mv "$STAGE" "$DEST"
+trap - EXIT
 
 echo ""
 echo "Done! CUDA $CUDA_VERSION Linux binaries are in: $DEST"

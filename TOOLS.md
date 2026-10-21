@@ -1,5 +1,7 @@
 # Tool calling & MCP
 
+For opt-in checks against a running server, see [Local API smoke checks](API-SMOKE.md).
+
 The 27B models are trained for agentic tool use. This page covers the three ways to
 use that: the raw API, MCP servers in the llama-server chat UI, and the Open WebUI
 demo. (Running the servers is covered in the [README](README.md); model-tuning knobs

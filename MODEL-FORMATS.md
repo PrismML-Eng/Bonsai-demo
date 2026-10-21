@@ -7,6 +7,9 @@ named the way they are.
 
 ## TL;DR
 
+For Bonsai 2, start with the [backend and format support table](BACKEND-SUPPORT.md).
+The bullets below apply to the previous ternary generation.
+
 - On prism-v7 (and newer) builds, the demo picks the right file automatically:
   **PQ2_0** where the backend has optimized kernels, otherwise the official
   **group-64 Q2_0**.
@@ -29,30 +32,22 @@ The legacy format stored a group-128 layout under the same type id that mainline
 standardized as group-64. prism-v7 follows mainline: type id 42 is read as group-64,
 and the fork's group-128 layout lives under its own name and id, PQ2_0 (142).
 
-## Bonsai 2: no mainline-compatible band
+## Bonsai 2 formats
 
-Everything below this section describes the previous generation. Bonsai 2 is simpler and stricter.
+| Packing | Runtime | Trade-off |
+|---|---|---|
+| `Q2_0` | Current official llama.cpp with Bonsai 2 support, or our fork | Upstream format |
+| `PQ2_0` | PrismML fork | Faster prompt processing than PTQ1_0 on many devices |
+| `PTQ1_0` | PrismML fork | Smallest packed files |
 
-| band | bits/weight | size | where |
-|---|---|---|---|
-| `PTQ1_0` | 1.75 | 5.9 GB | [Ternary-Bonsai-2-27B-gguf](https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-gguf) |
-| `PQ2_0` | 2.13 | 7.2 GB | same repo; what the demo downloads, faster prompt processing |
-| `Q2_0` | 2.25 | 7.6 GB | [Ternary-Bonsai-2-27B-gguf-dev](https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-gguf-dev), **testing only** |
+All three contain the same model weights. Bonsai 2 needs the Hadamard/sign-flip
+integration as well as format decoding: update old runtimes before using Q2_0.
+Older builds could load Q2_0 while missing those transforms and produce gibberish.
 
-All three store their weights in a rotated basis and need the activation transform that only this
-demo's binaries carry, from the [PrismML fork](https://github.com/PrismML-Eng/llama.cpp). There is no
-"works everywhere" option the way group-64 `Q2_0` is for the previous generation.
-
-`PQ2_0` and `PTQ1_0` fail safely on stock llama.cpp: their type ids sit past upstream's
-`GGML_TYPE_COUNT`, so it refuses them outright.
-
-**`Q2_0` does not fail safely.** Upstream already knows the `Q2_0` type and supports the `qwen35`
-architecture, so mainline loads the file without a warning and outputs gibberish.
-
-That is why the Bonsai 2 `Q2_0` band is kept out of the model repo and published separately as
-`Ternary-Bonsai-2-27B-Q2_0-prism-fork-required.gguf`, with the requirement in the filename so it
-survives being copied around. It exists for testing and for the work to upstream the Hadamard
-changes, and it moves into the main repo once mainline can run it.
+See the [model links](README.md#bonsai-2-ternary-default) for each size and
+[backend support](BACKEND-SUPPORT.md) for the fork's platform matrix. The older
+27B development-repository filename may still include a historical fork warning;
+compatibility depends on the runtime version, not that filename.
 
 ## Exact file names on the current repos
 

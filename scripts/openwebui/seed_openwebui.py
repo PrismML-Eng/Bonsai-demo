@@ -202,7 +202,11 @@ def _model_params(model_id):
     keep their own tested defaults — we only ship the system prompt for them
     rather than overriding sampling with 27B values."""
     params = {"system": SYSTEM_PROMPT}
-    if "27b" in model_id.lower():
+    name = model_id.lower()
+    if "bonsai-2-" in name:  # not "bonsai-27b", the earlier 27B
+        # Bonsai 2: the model card's thinking-mode settings.
+        params.update({"temperature": 1.0, "top_p": 0.95, "top_k": 20, "min_p": 0.05})
+    elif "27b" in name:
         params.update({"temperature": 0.6, "top_p": 0.95, "top_k": 20})
     return params
 

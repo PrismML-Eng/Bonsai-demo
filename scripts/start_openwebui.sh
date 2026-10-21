@@ -11,6 +11,15 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$SCRIPT_DIR/common.sh"
 assert_valid_model
 
+if [ "$BONSAI_FAMILY" = "bonsai2" ]; then
+    case "$BONSAI_MODEL" in
+        2B|4B|9B)
+            err "Small-model Open WebUI integration is not configured yet."
+            echo "  Use scripts/start_llama_server.sh for browser chat or scripts/start_mlx_server.sh for the API."
+            exit 1 ;;
+    esac
+fi
+
 # ── Backend selection: exactly ONE backend, never both (two resident 27Bs
 #    overwhelm consumer machines). BONSAI_BACKEND=llama (default) or mlx. ──
 BONSAI_BACKEND="${BONSAI_BACKEND:-llama}"
@@ -44,14 +53,8 @@ case "$BONSAI_HOST" in
         ;;
 esac
 
-# Bonsai 2 has no MLX server path yet: its pack needs the Hadamard-aware loader bundled in
-# runtime/, which neither mlx_lm.server nor mlx_vlm.server uses, so they would serve wrong
-# output with no error. Fail here rather than start something that looks fine and is not.
 if [ "$BONSAI_BACKEND" = "mlx" ] && [ "$BONSAI_FAMILY" = "bonsai2" ]; then
-    err "No MLX server for Bonsai 2 yet; use the llama.cpp backend."
-    echo "    BONSAI_BACKEND=llama ./scripts/start_openwebui.sh"
-    echo "  One-shot MLX still works: ./scripts/run_mlx.sh -p \"...\" [--image photo.jpg]"
-    exit 1
+    require_bonsai2_mlx_vlm "$(resolve_demo_dir)"
 fi
 
 # Assert the weights the selected backend actually needs (an MLX-only run must
@@ -178,10 +181,10 @@ else
         # 27B: --jinja enables native OpenAI-style tool calling; --mmproj
         # enables image input; reference-demo sampling. The 27B is a thinking
         # model and thinking stays on. Older sizes keep their tested flag set.
-        # Sampling matches start_llama_server.sh: Bonsai 2 uses the base model's
-        # own defaults, the earlier families keep the profile they were tested on.
+        # Sampling matches start_llama_server.sh: Bonsai 2 uses the model card's
+        # values, the earlier families keep the profile they were tested on.
         if [ "$BONSAI_FAMILY" = "bonsai2" ]; then
-            _SAMPLING="--temp 1.0 --top-p 0.95 --top-k 20"
+            _SAMPLING="--temp 1.0 --top-p 0.95 --top-k 20 --min-p 0.05"
         else
             _SAMPLING="--temp 0.7 --top-p 0.95 --top-k 20 --min-p 0"
         fi
@@ -227,24 +230,25 @@ fi
 # ── Start MLX server if selected (BONSAI_BACKEND=mlx, macOS only) ──
 if [ "$BONSAI_BACKEND" = "mlx" ]; then
     if curl -fsS --max-time 2 "http://localhost:$MLX_PORT/v1/models" >/dev/null 2>&1; then
+        reject_unverified_bonsai2_mlx_server "$MLX_PORT"
         _MLX_PREEXISTING=true
         info "MLX server already running on port $MLX_PORT"
-    elif [ -d "$DEMO_DIR/$MLX_MODEL_DIR" ] && python -c "import mlx_lm" 2>/dev/null; then
+    elif [ -d "$DEMO_DIR/$MLX_MODEL_DIR" ] && { [ "$BONSAI_FAMILY" = "bonsai2" ] || python -c "import mlx_lm" 2>/dev/null; }; then
         step "Starting MLX server on port $MLX_PORT (${BONSAI_DISPLAY}) ..."
         export HF_HOME="$DEMO_DIR/.hf_cache"
         mkdir -p "$HF_HOME/hub"
-        # 27B ternary: mlx-vlm gives the MLX backend image input (stock-mlx
+        # Bonsai 2 and ternary 27B: mlx-vlm gives the MLX backend image input (stock-mlx
         # .venv-vlm from setup.sh). Binary 1-bit needs the fork -> text-only.
         # Disable with BONSAI_MLX_VLM=0.
         _VLM_PY="$DEMO_DIR/.venv-vlm/bin/python"
         # The 27B is a thinking model and thinking stays on.
-        if [ "$BONSAI_MODEL" = "27B" ] && [ "$BONSAI_FAMILY" = "ternary" ] \
+        if [ "$BONSAI_MODEL" = "27B" ] && { [ "$BONSAI_FAMILY" = "ternary" ] || [ "$BONSAI_FAMILY" = "bonsai2" ]; } \
             && [ "${BONSAI_MLX_VLM:-1}" != "0" ] && [ -x "$_VLM_PY" ] \
             && "$_VLM_PY" -c "import mlx_vlm" 2>/dev/null; then
             _MLX_VISION=true
             "$_VLM_PY" -m mlx_vlm.server \
                 --model "$DEMO_DIR/$MLX_MODEL_DIR" \
-                --port "$MLX_PORT" \
+                --host 127.0.0.1 --port "$MLX_PORT" \
                 --enable-thinking \
                 > "$_MLX_LOG" 2>&1 &
         elif [ "$BONSAI_MODEL" = "27B" ]; then

@@ -23,8 +23,11 @@ if curl -s --max-time 2 "http://localhost:$PORT/health" >/dev/null 2>&1; then
 fi
 
 # ── Find binary first (its backend decides the ternary quant; see common.sh) ──
+# BONSAI_LLAMA_BIN=/path/to/dir overrides the search (a prebuilt PrismML-fork build elsewhere on disk).
 BIN=""
+[ -n "${BONSAI_LLAMA_BIN:-}" ] && [ -f "$BONSAI_LLAMA_BIN/llama-server" ] && BIN="$BONSAI_LLAMA_BIN/llama-server"
 for _d in bin/mac bin/cuda bin/rocm bin/hip bin/vulkan bin/cpu llama.cpp/build/bin llama.cpp/build-mac/bin llama.cpp/build-cuda/bin; do
+    [ -n "$BIN" ] && break
     [ -f "$DEMO_DIR/$_d/llama-server" ] && BIN="$DEMO_DIR/$_d/llama-server" && break
 done
 if [ -z "$BIN" ]; then
@@ -77,7 +80,7 @@ else
         echo "  Re-run ./scripts/download_models.sh to fetch it."
     fi
     _full_profile=0
-    if [ "$BONSAI_MODEL" = "27B" ]; then
+    if [ "$BONSAI_MODEL" = "27B" ] || [ "$BONSAI_FAMILY" = "bonsai2" ]; then
         _full_profile=1
     fi
 fi
@@ -105,12 +108,19 @@ fi
 echo ""
 
 # 27B: --jinja enables native OpenAI-style tool calling; --mmproj enables
-# image input. Sampling: Bonsai 2 uses the base model's own defaults (temp 1.0,
-# top-p 0.95, top-k 20); the earlier 27B keeps the reference demo's 0.7.
+# image input. Sampling: Bonsai 2 uses the model card's values (temp 1.0,
+# top-p 0.95, top-k 20, min-p 0.05); the earlier 27B keeps the reference demo's 0.7.
 if [ "$BONSAI_FAMILY" = "bonsai2" ]; then
-    SAMPLING="--temp 1.0 --top-p 0.95 --top-k 20"
+    # model card, thinking mode: temp 1.0, top-p 0.95, top-k 20, min-p 0.05 (llama.cpp's default; passed explicitly)
+    SAMPLING="--temp 1.0 --top-p 0.95 --top-k 20 --min-p 0.05"
 else
     SAMPLING="--temp 0.7 --top-p 0.95 --top-k 20 --min-p 0"
+fi
+if bonsai2_small_profile; then
+    SAMPLING="--temp $BONSAI_TEMP --top-p $BONSAI_TOP_P --top-k 20 --min-p 0 --presence-penalty $BONSAI_PRESENCE --repeat-penalty 1 --repeat-last-n 64"
+    if [ "${BONSAI_THINKING:-1}" = "0" ]; then
+        set -- --chat-template-kwargs '{"enable_thinking":false}' "$@"
+    fi
 fi
 # The 27B is a thinking model and thinking stays on; use the web UI's
 # Reasoning-effort picker per chat, or pass llama-server flags (e.g.
@@ -130,7 +140,10 @@ if [ "$_full_profile" = "1" ]; then
     MD=""
     _spec_flags=""
     _ctx="$CTX_SIZE_DEFAULT"
-    if [ "${BONSAI_SPECULATIVE:-0}" = "1" ]; then
+    if [ "${BONSAI_SPECULATIVE:-0}" = "1" ] && [ "$BONSAI_FAMILY" = "bonsai2" ] && [ -z "${BONSAI_GGUF:-}" ]; then
+        warn "Automatic Bonsai 2 drafting is not configured in this launcher; running without speculation."
+        echo "  Unset BONSAI_SPECULATIVE to hide this warning. See SPECULATIVE.md for availability."
+    elif [ "${BONSAI_SPECULATIVE:-0}" = "1" ]; then
         # v7 builds read only converted (arch=dflash) drafters; the published legacy
         # *dspark-Q4_1/bf16 files must be run through gguf-dspark-to-dflash first.
         # See SPECULATIVE.md for the two commands. Converted files keep "dspark-dflash"

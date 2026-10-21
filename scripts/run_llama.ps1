@@ -1,23 +1,28 @@
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "small_model_sampling.ps1")
 
 
 $BonsaiModel  = if ($env:BONSAI_MODEL)  { $env:BONSAI_MODEL.ToUpperInvariant() } else { "27B" }
 $BonsaiFamily = if ($env:BONSAI_FAMILY) { $env:BONSAI_FAMILY.ToLowerInvariant() } else { "bonsai2" }
 
-if ($BonsaiModel -notin @("27B", "8B", "4B", "1.7B")) {
-    Write-Host "[ERR] Unknown BONSAI_MODEL='$BonsaiModel'. Valid values: 27B, 8B, 4B, 1.7B" -ForegroundColor Red
+if ($BonsaiModel -notin @("27B", "9B", "8B", "4B", "2B", "1.7B")) {
+    Write-Host "[ERR] Unknown BONSAI_MODEL='$BonsaiModel'. Valid values: 27B, 9B, 8B, 4B, 2B, 1.7B" -ForegroundColor Red
     exit 1
 }
 if ($BonsaiFamily -notin @("bonsai2", "bonsai", "ternary")) {
     Write-Host "[ERR] Unknown BONSAI_FAMILY='$BonsaiFamily'. Valid values: bonsai2, bonsai, ternary" -ForegroundColor Red
     exit 1
 }
-# Bonsai 2 is 27B. Without this, another size walks into a directory that was
+if ($BonsaiFamily -in @("bonsai", "ternary") -and $BonsaiModel -in @("9B", "2B")) {
+    Write-Error "${BonsaiModel} requires BONSAI_FAMILY=bonsai2"
+    exit 1
+}
+# Validate Bonsai 2 sizes. Without this, another size walks into a directory that was
 # never going to exist and the error blames setup. Mirrors BONSAI2_SIZES in
 # scripts/common.sh.
-$Bonsai2Sizes = if ($env:BONSAI2_SIZES) { $env:BONSAI2_SIZES -split '\s+' } else { @("27B") }
+$Bonsai2Sizes = if ($env:BONSAI2_SIZES) { $env:BONSAI2_SIZES -split '\s+' } else { @("27B", "9B", "4B", "2B") }
 if ($BonsaiFamily -eq "bonsai2" -and $BonsaiModel -notin $Bonsai2Sizes) {
-    Write-Host "[ERR] Bonsai 2 is 27B." -ForegroundColor Red
+    Write-Host "[ERR] Bonsai 2 sizes: $Bonsai2Sizes." -ForegroundColor Red
     Write-Host "      Bonsai 2:     `$env:BONSAI_MODEL='27B'; .\scripts\run_llama.ps1" -ForegroundColor Yellow
     Write-Host "      Other sizes:  `$env:BONSAI_FAMILY='ternary'; .\scripts\run_llama.ps1" -ForegroundColor Yellow
     exit 1
@@ -108,8 +113,12 @@ if ($BonsaiFamily -eq "bonsai2") {
         "--log-disable",
         "--temp", "1.0",
         "--top-p", "0.95",
-        "--top-k", "20"
+        "--top-k", "20",
+        "--min-p", "0.05"
     )
+    if ($BonsaiModel -in @("9B", "4B", "2B")) {
+        $CommonArgs = @("-m", $Model.FullName, "-ngl", $Ngl, "-fa", "on", "--log-disable") + (Get-SmallBonsaiSampling)
+    }
 } elseif ($BonsaiModel -eq "27B") {
     $CommonArgs = @(
         "-m", $Model.FullName,

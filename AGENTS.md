@@ -23,33 +23,28 @@ The 27B generation is a step change over the earlier 8B/4B/1.7B demos:
 
 | `BONSAI_FAMILY` / `BONSAI_MODEL` | Weights | Notes |
 |---|---|---|
-| `bonsai2` / `27B` (**default**) | GGUF 5.9-7.2 GB + mmproj 0.63 GB; MLX 2-bit 8.6 GB | The current generation and what plain `./setup.sh` installs. Two GGUF bands, **both requiring this demo's binaries**: `PTQ1_0` (1.75 bpw, 5.9 GB, densely packed trits, smallest) and `PQ2_0` (2.13 bpw, 7.2 GB, faster prompt processing, what the scripts download). There is no mainline-compatible band; see the Q2_0 warning below. The MLX pack carries its own Hadamard-aware loader in `runtime/` plus the vision tower, and runs on stock mlx-vlm from `.venv-vlm`, not the fork in `.venv` |
+| `bonsai2` / `27B` (**default**) | GGUF 5.9-7.2 GB + mmproj 0.63 GB; MLX 2-bit 8.6 GB | The current generation and what plain `./setup.sh` installs. Two GGUF bands, **both requiring this demo's binaries**: `PTQ1_0` (1.75 bpw, 5.9 GB, densely packed trits, smallest) and `PQ2_0` (2.13 bpw, 7.2 GB, faster prompt processing, what the scripts download). Q2_0 is supported by current official llama.cpp with Bonsai 2 integration. MLX uses native Hadamard-aware mlx-vlm 0.7.8 from `.venv-vlm` for one-shot generation and serving, not the fork in `.venv` |
 | `ternary` / `27B` (previous generation) | GGUF ~6.7-7.1 GB + mmproj 0.9 GB; MLX 2-bit ~7.9 GB | Superseded by `bonsai2`. Two GGUF formats since the mainline rebase (`prism-b10658+`): `PQ2_0` (group 128, 6.66 GiB, smallest/fastest where supported: CUDA, Metal, CPU, ROCm) and official `Q2_0` group 64 (`Ternary-Bonsai-27B-Q2_g64.gguf`, 7.05 GiB, adds Vulkan/SYCL); smaller sizes use `*-Q2_0_g64.gguf` naming. The scripts pick per backend. Legacy `*-Q2_0.gguf` files (no `g64`) only load on old `prism-v5` releases; new binaries refuse them with an error |
 | `bonsai` / `27B` | GGUF Q1_0 ~3.5 GB + mmproj 0.9 GB; MLX 1-bit ~4.8 GB | Smallest and fastest; fits on a modern iPhone without offloading |
 | `8B` / `4B` / `1.7B` (both families) | smaller | Text-only, no tools wiring, legacy tested flag set |
 
-### Do not run Bonsai 2 on stock llama.cpp
+### Current runtime support
 
-Every Bonsai 2 band stores its weights in a rotated basis and needs the activation transform that
-only this demo's binaries have. `PQ2_0` and `PTQ1_0` are rejected outright by mainline as unknown
-types, which is the safe failure. **`Q2_0` is the dangerous one: mainline loads it without a warning
-and produces gibberish**, because `Q2_0` is a type upstream already knows and `qwen35` is a
-supported architecture, so nothing in the file makes it refuse.
+Current official llama.cpp supports Bonsai 2 in Q2_0 with the merged model and
+Hadamard/sign-flip integration. PQ2_0 and PTQ1_0 still need our fork. Older engines
+may recognize Q2_0 but miss the transforms; check the build when diagnosing gibberish.
+See [upstream support](README.md#upstream-support) instead of relying on old PR lists.
 
-For that reason the Bonsai 2 `Q2_0` band is **not** in the model repo. It lives on its own at
-[Ternary-Bonsai-2-27B-gguf-dev](https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-gguf-dev),
-named `Ternary-Bonsai-2-27B-Q2_0-prism-fork-required.gguf`, published for testing and for the work
-to upstream the Hadamard changes. Do not point a user at it for running the model. It moves into the
-main repo once mainline can run it.
-
-If someone reports gibberish from Bonsai 2, check which binary they used before anything else.
+Bonsai 2 now includes 2B, 4B, and 9B; use [SMALL-MODELS.md](SMALL-MODELS.md) for their
+sampling profiles and API differences. Native mlx-vlm is the tested loader for these
+checkpoints. Core MLX changes merging does not guarantee an app's model loader has
+picked them up yet.
 
 All three 27B families have the same capabilities (vision, tools, thinking, long context) —
 they differ in size and speed. Context: 262,144 tokens max; FP16 KV cache is
 64 KiB/token (~6.3 GiB at 100K), so 100K context fits on many consumer devices —
-full peak-memory table in the README's Context Size section. All 27B repos:
-https://huggingface.co/collections/prism-ml/bonsai-27b. All model repos are public;
-no token needed.
+earlier-model peak-memory estimates in [Bonsai1_README.md](Bonsai1_README.md#context-and-memory). All 27B repos:
+https://huggingface.co/collections/prism-ml/bonsai-27b.
 
 ## Knobs that matter (27B)
 
@@ -58,7 +53,7 @@ All extra args pass straight through the start scripts, e.g.
 
 | Knob | What it does | Trade-off |
 |---|---|---|
-| `BONSAI_SPECULATIVE=1` (env, `start_llama_server.sh` only) | **Experimental.** Loads the paired DSpark drafter for speculative decoding (`--spec-type draft-dspark`). Post-migration (`prism-b10658+`) the drafter is the converted `*dspark-dflash*` sidecar (~0.6 GiB; embedding/lm_head shared with the target — one-time conversion documented in SPECULATIVE.md). Measured on an L40S: ternary 27B 1.8-2.4x decode (2.06x blended), 1-bit 27B 1.4-1.75x (1.60x blended). Off by default. | The drafter path is stable and fast on CUDA. On Apple Silicon (Metal) it only pays off for ternary code/math (~1.2x) and is a net slowdown on chat/reasoning and for the 1-bit family, so do not recommend it on Macs. Disables cross-request prompt-cache reuse (every turn re-prefills) and forces single-slot (`-np 1`); worse for multi-turn and the agentic Open WebUI path, which is why it is server-only and opt-in. The prebuilt binaries include both the dspark-capable `llama-server` and the CLI one-shot `llama-speculative-simple`. Details: SPECULATIVE.md. |
+| `BONSAI_SPECULATIVE=1` (env, `start_llama_server.sh` / `start_llama_server.ps1`) | **Experimental; previous-generation `ternary`/`bonsai` 27B only.** Automatic Bonsai 2 drafter selection is not configured here; its family launcher warns and runs without speculation. Loads the paired DSpark drafter for speculative decoding (`--spec-type draft-dspark`). Post-migration (`prism-b10658+`) the drafter is the converted `*dspark-dflash*` sidecar (~0.6 GiB; embedding/lm_head shared with the target — one-time conversion documented in SPECULATIVE.md). Measured on an L40S: ternary 27B 1.8-2.4x decode (2.06x blended), 1-bit 27B 1.4-1.75x (1.60x blended). Off by default. | The drafter path is stable and fast on CUDA. On Apple Silicon (Metal) it only pays off for ternary code/math (~1.2x) and is a net slowdown on chat/reasoning and for the 1-bit family, so do not recommend it on Macs. Disables cross-request prompt-cache reuse (every turn re-prefills) and forces single-slot (`-np 1`); worse for multi-turn and the agentic Open WebUI path, which is why it is server-only and opt-in. The prebuilt binaries include both the dspark-capable `llama-server` and the CLI one-shot `llama-speculative-simple`. Details: SPECULATIVE.md. |
 | `BONSAI_KV4=1` (env, `start_llama_server.sh` only) | **Experimental.** Q4_0 (4-bit) KV cache, ~3.5x smaller KV memory. Optional quality booster: `./scripts/make_kv_bias.sh` builds a model-specific mean-centering bias (tiny calibration corpus is enough; users can pass their own text) that the server picks up automatically. | Memory tool, not a speed tool: decode is slightly slower than F16 KV. The 27B's hybrid attention already keeps KV small, so only reach for this at very long contexts on tight machines. The bias is calibrated with K-rotation off and the script/server handle the matching flags automatically; llama.cpp backend only. Details: KV-CACHE.md. |
 | `--reasoning-budget N` | Caps thinking at N tokens (default -1 = unlimited) | Middle ground; pair with `--reasoning-budget-message` |
 | `--image-max-tokens N` | Downscales images to ~N vision tokens (1 token ~ 32x32 px). Model allows ~4096 (=4.2 MP) | The scripts default this to **1024 on Metal / Vulkan / CPU** and leave CUDA/ROCm uncapped; override with `BONSAI_IMAGE_MAX_TOKENS` (0 = uncapped). Loses fine detail (small text / OCR) on large images; images under the cap are unaffected |
@@ -164,6 +159,13 @@ Full guide with entry examples: **TOOLS.md** (repo root). The essentials:
 
 ## Behavior notes (from testing on Apple Silicon)
 
+- **Prompt reuse:** a disabled `--cache-reuse` warning is about chunk shifting, not
+  all prefix caching. Hybrid models can reuse context checkpoints with the projector
+  loaded. Check effective CLI flags before recommending cache changes; explicit flags
+  override `LLAMA_ARG_*` variables. Checkpoint creation also splits short prefills even
+  with request `cache_prompt: false`, so output hashes across checkpoint settings do
+  not isolate restore correctness. See [PROMPT-CACHE.md](PROMPT-CACHE.md).
+
 - Binary is the snappier demo; ternary trades speed for quality-per-bit. Both were
   tested working end to end (text, native tool_calls with round-trips, vision).
 - With thinking on, most of a "slow answer" is reasoning tokens, not vision or prefill —
@@ -171,25 +173,41 @@ Full guide with entry examples: **TOOLS.md** (repo root). The essentials:
   **capping** over disabling: `./scripts/start_llama_server.sh --reasoning-budget 2048`
   keeps most of the quality while bounding latency; the web UI's Reasoning-effort
   picker (Off ... Max) does the same per chat. (Default stays uncapped; these are
-  user choices, not shipped defaults.)
+  user choices, not shipped defaults.) For API clients, the chat template's own
+  `reasoning_effort: "medium"` is usually better than a hard cap: it thinks noticeably
+  less than the default `xhigh` at about the same accuracy under moderate output limits.
+  Server-wide: `--chat-template-kwargs '{"reasoning_effort":"medium"}'`. The UI picker's
+  "Medium" is a 2,048-token budget, not this setting.
 - Image cost scales with resolution and is mostly a first-turn cost: the prompt cache
   makes follow-up questions about the same image near-instant.
 - **Check macOS Low Power Mode** when speeds look far off — it throttles inference hard
   (System Settings -> Battery).
 - Vision encode runs on GPU by default (`--mmproj-offload`).
-- MLX: the **ternary 27B gets full vision + native tool calls** via mlx-vlm
+- MLX: the **Bonsai 2 and ternary 27B get vision + native tool calls** via mlx-vlm
   (`start_mlx_server.sh` uses the stock-mlx `.venv-vlm` that setup.sh creates;
-  `BONSAI_MLX_VLM=0` opts out). The binary 27B MLX should support vision the same
+  `BONSAI_MLX_VLM=0` opts out for the older ternary family; Bonsai 2 refuses
+  to fall back to the generic loader). The binary 27B MLX should support vision the same
   way (the vision tower is full precision in both packs) — it just hasn't been
   wired through / verified in these scripts yet.
-- MLX has **no cross-request prompt cache** (mlx-vlm re-prefills the full
-  conversation, image tokens included, on every turn), so follow-ups are much
-  slower than llama.cpp (which caches the KV prefix). Steer multi-turn users to
-  the llama.cpp backend; the image encoder itself is cached, it's the LM prefill.
-- **M5 Macs on macOS 26.2–26.4:** if Metal init fails with `error compiling source` /
-  command-buffer status 5, set `GGML_METAL_TENSOR_DISABLE=1` (README Appendix — FAQ has
-  details). Keep `-ngl` on GPU; don't reach for `BONSAI_NGL=0`.
-- Linux CUDA / Windows / CPU-only: not tested yet — extend these notes after testing.
+- MLX cache behavior depends on the runtime version and request type. For the native
+  mlx-vlm server, inspect response timings/cache counts instead of assuming every
+  request fully re-prefills.
+
+## Linux CUDA setup notes (RTX 2080, 8 GB)
+
+Reported with Bonsai 2 27B `PTQ1_0` and release `prism-b10685-7dffb15`:
+
+- The tested CUDA build ran on Turing via PTX JIT; the first launch can take longer.
+  To inspect PTX support, use `cuobjdump --list-ptx`; `--list-elf` only lists cubins.
+- If startup reports missing `libcudart` or `libcublas`, check that the installed CUDA
+  runtime matches the binary's CUDA major version; the driver alone may not provide it.
+- On an 8 GB card, start with a smaller context and `-np 1`; lower `-b`/`-ub` if needed.
+  FP16 KV remains the default. If KV memory is still limiting, use our experimental
+  [mean-centered Q4_0 KV-cache workflow](KV-CACHE.md#better-quality-the-mean-centering-bias):
+  run `./scripts/make_kv_bias.sh` for the selected model, then launch with `BONSAI_KV4=1`
+  so the server loads the calibrated bias. Do not recommend plain Q4_0 cache flags alone.
+  For image input with limited VRAM, try `BONSAI_MMPROJ_CPU=1` to offload the projector
+  to system RAM. Vision was not tested in this submission.
 
 ## Quick verification commands
 

@@ -1,0 +1,157 @@
+model:
+  context_length: 131072
+  max_tokens: 32768
+  default: bonsai2-27b-pq2-v16_2
+  provider: custom
+  base_url: http://localhost:8080/v1
+  api_key: sk-local
+terminal:
+  backend: local
+  cwd: .
+  timeout: 180
+  home_mode: auto
+  docker_mount_cwd_to_workspace: false
+  lifetime_seconds: 300
+  container_cpu: 1
+  container_memory: 5120
+  container_disk: 51200
+  container_persistent: true
+browser:
+  inactivity_timeout: 120
+tool_loop_guardrails:
+  warnings_enabled: true
+  hard_stop_enabled: false
+  warn_after:
+    exact_failure: 2
+    same_tool_failure: 3
+    idempotent_no_progress: 2
+  hard_stop_after:
+    exact_failure: 5
+    same_tool_failure: 8
+    idempotent_no_progress: 5
+compression:
+  enabled: true
+  threshold: 0.5
+  codex_gpt55_autoraise: true
+  target_ratio: 0.2
+  protect_last_n: 20
+  codex_app_server_auto: native
+  protect_first_n: 3
+prompt_caching:
+  cache_ttl: 5m
+memory:
+  memory_enabled: true
+  user_profile_enabled: true
+  memory_char_limit: 2200
+  user_char_limit: 1375
+  nudge_interval: 10
+  flush_min_turns: 6
+session_reset:
+  mode: both
+  idle_minutes: 1440
+  at_hour: 4
+max_concurrent_sessions: null
+group_sessions_per_user: true
+streaming:
+  enabled: false
+skills:
+  creation_nudge_interval: 15
+agent:
+  max_turns: 16
+  coding_context: off
+  verify_on_stop: false
+  verbose: false
+  reasoning_effort: xhigh
+  reasoning_overrides: {}
+  personalities:
+    helpful: You are a helpful, friendly AI assistant.
+    concise: You are a concise assistant. Keep responses brief and to the point.
+    technical: You are a technical expert. Provide detailed, accurate technical information.
+    creative: You are a creative assistant. Think outside the box and offer innovative
+      solutions.
+    teacher: You are a patient teacher. Explain concepts clearly with examples.
+    kawaii: You are a kawaii assistant! Use cute expressions like (◕‿◕), ★, ♪, and
+      ~! Add sparkles and be super enthusiastic about everything! Every response should
+      feel warm and adorable desu~! ヽ(>∀<☆)ノ
+    catgirl: You are Neko-chan, an anime catgirl AI assistant, nya~! Add 'nya' and
+      cat-like expressions to your speech. Use kaomoji like (=^･ω･^=) and ฅ^•ﻌ•^ฅ.
+      Be playful and curious like a cat, nya~!
+    pirate: 'Arrr! Ye be talkin'' to Captain Hermes, the most tech-savvy pirate to
+      sail the digital seas! Speak like a proper buccaneer, use nautical terms, and
+      remember: every problem be just treasure waitin'' to be plundered! Yo ho ho!'
+    shakespeare: Hark! Thou speakest with an assistant most versed in the bardic arts.
+      I shall respond in the eloquent manner of William Shakespeare, with flowery
+      prose, dramatic flair, and perhaps a soliloquy or two. What light through yonder
+      terminal breaks?
+    surfer: Duuude! You're chatting with the chillest AI on the web, bro! Everything's
+      gonna be totally rad. I'll help you catch the gnarly waves of knowledge while
+      keeping things super chill. Cowabunga! 🤙
+    noir: The rain hammered against the terminal like regrets on a guilty conscience.
+      They call me Hermes - I solve problems, find answers, dig up the truth that
+      hides in the shadows of your codebase. In this city of silicon and secrets,
+      everyone's got something to hide. What's your story, pal?
+    uwu: hewwo! i'm your fwiendwy assistant uwu~ i wiww twy my best to hewp you! *nuzzles
+      your code* OwO what's this? wet me take a wook! i pwomise to be vewy hewpful
+      >w<
+    philosopher: Greetings, seeker of wisdom. I am an assistant who contemplates the
+      deeper meaning behind every query. Let us examine not just the 'how' but the
+      'why' of your questions. Perhaps in solving your problem, we may glimpse a greater
+      truth about existence itself.
+    hype: YOOO LET'S GOOOO!!! 🔥🔥🔥 I am SO PUMPED to help you today! Every question
+      is AMAZING and we're gonna CRUSH IT together! This is gonna be LEGENDARY! ARE
+      YOU READY?! LET'S DO THIS! 💪😤🚀
+platform_toolsets:
+  cli:
+    - hermes-cli
+  telegram:
+    - hermes-telegram
+  discord:
+    - hermes-discord
+  whatsapp:
+    - hermes-whatsapp
+  slack:
+    - hermes-slack
+  signal:
+    - hermes-signal
+  homeassistant:
+    - hermes-homeassistant
+  qqbot:
+    - hermes-qqbot
+  yuanbao:
+    - hermes-yuanbao
+  teams:
+    - hermes-teams
+  google_chat:
+    - hermes-google_chat
+stt:
+  enabled: true
+  local:
+    model: base
+  openai:
+    model: whisper-1
+code_execution:
+  timeout: 300
+  max_tool_calls: 50
+delegation:
+  max_iterations: 50
+display:
+  compact: false
+  file_mutation_verifier: false
+  tool_progress: all
+  cleanup_progress: false
+  interim_assistant_messages: true
+  long_running_notifications: true
+  busy_ack_detail: true
+  busy_input_mode: interrupt
+  background_process_notifications: all
+  bell_on_complete: false
+  show_reasoning: false
+  streaming: true
+  skin: default
+updates:
+  pre_update_backup: false
+  backup_keep: 5
+  non_interactive_local_changes: stash
+onboarding:
+  seen:
+    tool_progress_prompt: true
