@@ -1,9 +1,12 @@
 /**
- * LM Studio generator plugin for Bonsai 2 27B (prism-ml/Ternary-Bonsai-2-27B-gguf).
+ * LM Studio generator plugin for Bonsai 2 27B's fork-only PQ2_0 / PTQ1_0 bands
+ * (prism-ml/Ternary-Bonsai-2-27B-gguf).
  *
- * LM Studio's bundled llama.cpp is mainline and cannot load any Bonsai 2 band:
- * PQ2_0 / PTQ1_0 are fork-only tensor types and the weights need the fork's
- * Hadamard activation transform. So the model runs on this demo's llama-server
+ * LM Studio's bundled llama.cpp engines cannot load PQ2_0 or PTQ1_0 GGUFs: those
+ * tensor types and the Hadamard activation transform they need only exist in this
+ * demo's llama.cpp fork (see `AGENTS.md`, "Do not run Bonsai 2 on stock llama.cpp",
+ * and LMSTUDIO.md for the mainline `Q2_0` band, which upstream can now load
+ * natively). So for PQ2_0/PTQ1_0 the model runs on this demo's llama-server
  * (scripts/start_llama_server.sh - see LMSTUDIO.md) and this generator makes that
  * server look like a model to LM Studio. Text, thinking and tool calls stream
  * straight through.
@@ -13,10 +16,13 @@
  * not serve generator models from its Server tab or its REST API.
  *
  * Env overrides:
- *   BONSAI_BASE_URL  default http://127.0.0.1:8080/v1
+ *   BONSAI_BASE_URL  llama-server endpoint. Default http://127.0.0.1:8080/v1
+ *                    (loopback-only by default); set this only to point at a
+ *                    server on another host, which this plugin will then reach
+ *                    over the network.
  *   BONSAI_MODEL_ID  model name sent to llama-server (it routes by server, not by
- *                    name, so any value works; the alias set by the launcher is
- *                    bonsai-2-27b)
+ *                    name, so any value works; this plugin's default matches the
+ *                    value the request body carries)
  */
 
 import { readFileSync } from "node:fs";
@@ -52,7 +58,7 @@ async function toImagePart(file) {
   const extension = String(file.name).split(".").pop().toLowerCase();
   const mime = MIME_BY_EXTENSION[extension];
   if (mime === undefined) {
-    return null;
+    throw new Error(`unsupported image extension ".${extension}"`);
   }
   const path = await file.getFilePath();
   const base64 = readFileSync(path).toString("base64");
@@ -127,6 +133,13 @@ async function toOpenAIMessages(history, ctl) {
 /*                              Stream handling                               */
 /* -------------------------------------------------------------------------- */
 
+function closeReasoning(ctl, state) {
+  if (state.inReasoning) {
+    ctl.fragmentGenerated("", { reasoningType: "reasoningEndTag" });
+    state.inReasoning = false;
+  }
+}
+
 function handleDelta(ctl, state, chunk) {
   const choice = chunk.choices?.[0];
   if (choice === undefined) {
@@ -144,72 +157,95 @@ function handleDelta(ctl, state, chunk) {
   }
 
   if (typeof delta.content === "string" && delta.content !== "") {
-    if (state.inReasoning) {
-      ctl.fragmentGenerated("", { reasoningType: "reasoningEndTag" });
-      state.inReasoning = false;
-    }
+    closeReasoning(ctl, state);
     ctl.fragmentGenerated(delta.content);
   }
 
+  // OpenAI streams tool calls as deltas keyed by `index`; a single chunk can
+  // carry fragments for several calls at once, and fragments for different
+  // calls can interleave across chunks. Accumulate per index and only emit
+  // them to LM Studio (in index order) once the stream is done, so an
+  // in-progress call never gets another call's name/arguments attached.
+  if ((delta.tool_calls ?? []).length > 0) {
+    closeReasoning(ctl, state);
+  }
   for (const toolCall of delta.tool_calls ?? []) {
-    if (toolCall.id !== undefined && toolCall.id !== null) {
-      flushToolCall(ctl, state);
-      state.toolCall = { id: toolCall.id, name: null, arguments: "" };
-      ctl.toolCallGenerationStarted();
+    const index = toolCall.index ?? 0;
+    let entry = state.toolCalls.get(index);
+    if (entry === undefined) {
+      entry = { id: null, name: null, arguments: "" };
+      state.toolCalls.set(index, entry);
+      state.toolCallOrder.push(index);
     }
-    if (state.toolCall === null) {
-      continue;
+    if (typeof toolCall.id === "string" && toolCall.id !== "") {
+      entry.id = toolCall.id;
     }
     if (typeof toolCall.function?.name === "string" && toolCall.function.name !== "") {
-      state.toolCall.name = toolCall.function.name;
-      ctl.toolCallGenerationNameReceived(toolCall.function.name);
+      entry.name = (entry.name ?? "") + toolCall.function.name;
     }
     if (typeof toolCall.function?.arguments === "string" && toolCall.function.arguments !== "") {
-      state.toolCall.arguments += toolCall.function.arguments;
-      ctl.toolCallGenerationArgumentFragmentGenerated(toolCall.function.arguments);
+      entry.arguments += toolCall.function.arguments;
     }
-  }
-
-  if (choice.finish_reason === "tool_calls") {
-    flushToolCall(ctl, state);
   }
 }
 
-function flushToolCall(ctl, state) {
-  const toolCall = state.toolCall;
-  if (toolCall === null) {
-    return;
+/** Emit every accumulated tool call to LM Studio, in the order it first appeared. */
+function flushToolCalls(ctl, state) {
+  for (const index of state.toolCallOrder) {
+    const toolCall = state.toolCalls.get(index);
+    if (toolCall === undefined) {
+      continue;
+    }
+    ctl.toolCallGenerationStarted();
+    if (toolCall.name === null) {
+      ctl.toolCallGenerationFailed(new Error("llama-server streamed a tool call without a name."));
+      continue;
+    }
+    ctl.toolCallGenerationNameReceived(toolCall.name);
+    let args;
+    try {
+      args = JSON.parse(toolCall.arguments === "" ? "{}" : toolCall.arguments);
+    } catch {
+      ctl.toolCallGenerationFailed(new Error(`Malformed tool arguments: ${toolCall.arguments}`));
+      continue;
+    }
+    if (toolCall.arguments !== "") {
+      ctl.toolCallGenerationArgumentFragmentGenerated(toolCall.arguments);
+    }
+    ctl.toolCallGenerationEnded({
+      type: "function",
+      name: toolCall.name,
+      arguments: args,
+      id: toolCall.id ?? "",
+    });
   }
-  state.toolCall = null;
-  if (toolCall.name === null) {
-    ctl.toolCallGenerationFailed(new Error("llama-server streamed a tool call without a name."));
-    return;
-  }
-  let args;
-  try {
-    args = JSON.parse(toolCall.arguments === "" ? "{}" : toolCall.arguments);
-  } catch {
-    ctl.toolCallGenerationFailed(new Error(`Malformed tool arguments: ${toolCall.arguments}`));
-    return;
-  }
-  ctl.toolCallGenerationEnded({
-    type: "function",
-    name: toolCall.name,
-    arguments: args,
-    id: toolCall.id,
-  });
+  state.toolCalls.clear();
+  state.toolCallOrder = [];
 }
 
 async function consumeStream(ctl, response, signal) {
-  const state = { inReasoning: false, toolCall: null };
+  const state = { inReasoning: false, toolCalls: new Map(), toolCallOrder: [] };
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
+  let completed = false;
 
   try {
     for (;;) {
-      const { done, value } = await reader.read();
+      let read;
+      try {
+        read = await reader.read();
+      } catch (error) {
+        if (signal.aborted) {
+          // Expected: cancelling mid-read rejects the pending read() per the
+          // fetch spec. Not a real failure, so don't let it surface as one.
+          break;
+        }
+        throw error;
+      }
+      const { done, value } = read;
       if (done) {
+        completed = true;
         break;
       }
       buffer += decoder.decode(value, { stream: true });
@@ -223,6 +259,7 @@ async function consumeStream(ctl, response, signal) {
         const payload = line.slice(5).trim();
         if (payload === "[DONE]") {
           buffer = "";
+          completed = true;
           break;
         }
         let chunk;
@@ -233,14 +270,19 @@ async function consumeStream(ctl, response, signal) {
         }
         handleDelta(ctl, state, chunk);
       }
+      if (completed) {
+        break;
+      }
     }
   } finally {
-    if (state.inReasoning) {
-      ctl.fragmentGenerated("", { reasoningType: "reasoningEndTag" });
-    }
-    flushToolCall(ctl, state);
     if (signal.aborted) {
+      // The user cancelled generation: discard whatever tool call(s) were
+      // still buffered instead of finalizing them, so nothing partially
+      // captured can be reported as a completed call.
       await reader.cancel().catch(() => {});
+    } else if (completed) {
+      closeReasoning(ctl, state);
+      flushToolCalls(ctl, state);
     }
   }
 }
@@ -277,9 +319,14 @@ export async function generate(ctl, history) {
       signal: controller.signal,
     });
   } catch (error) {
+    if (controller.signal.aborted) {
+      // The user cancelled generation before the server sent a response;
+      // this is not a connectivity problem, so don't report it as one.
+      return;
+    }
     throw new Error(
       `Cannot reach the Bonsai llama-server at ${BASE_URL} (${error?.message ?? error}). ` +
-        `Start it with serve-bonsai.ps1.`,
+        `Start it with scripts/start_llama_server.sh (Windows: scripts\\start_llama_server.ps1).`,
     );
   }
 
