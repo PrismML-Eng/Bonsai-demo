@@ -227,6 +227,10 @@ mlx/
 TODOS.md
 llama.cpp
 
+# LM Studio generator plugin dependencies (LMSTUDIO.md)
+scripts/lmstudio-plugin/node_modules/
+scripts/lmstudio-plugin/.lmstudio/
+
 # ── Bonsai agentic demo (AGENT-DEMO.md): local Hermes install and run output ──
 .hermes-agent/
 .venv-hermes/
