@@ -73,3 +73,5 @@ quality checks in separate labeled sections, with their commands and workloads.
 
 - [M4 Max 64GB, macOS: Bonsai 2 PQ2_0 Metal, MLX 2-bit and Ollama NVFP4/MLX](metal-mlx-m4-max-64gb-macos.md)
   — Korean extraction, synthetic vision and mock tool calls, with final results and setup notes. PP512/TG128 not measured; cache/speculation settings differ.
+
+- [M3 24GB, macOS: Speculative Decoding with DFlash2 Drafters](metal-m3-10c-24gb-dflash-macos.md) — 8.65 t/s baseline boosted to 11.05 to 13.00 t/s (+22% to +41%), 100% bit-for-bit lossless SHA-256 match.
