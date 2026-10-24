@@ -13,8 +13,10 @@ for commands, raw output, memory use, and configuration.
 |--------|----------|---------|------------:|------------:|---------|
 | `PQ2_0` | NVIDIA RTX 5090 32 GB | llama.cpp CUDA 12.8 (Linux) | 4,075 | 143.0 | [link](bonsai2/cuda-rtx5090-linux.md) |
 | `PTQ1_0` | NVIDIA RTX 5090 32 GB | llama.cpp CUDA 12.8 (Linux) | 4,117 | 133.0 | [link](bonsai2/cuda-rtx5090-linux.md) |
+| `PTQ1_0` | NVIDIA RTX 5070 Ti 16 GB | llama.cpp CUDA 13.3 (Windows) | 1,959 | 99.3 | [link](bonsai2/cuda-rtx5070ti-16gb-windows.md) |
 | `PQ2_0` | NVIDIA RTX 5080 16 GB | llama.cpp CUDA 13.3 (Windows) | 2,345 | 92.5 | [link](bonsai2/cuda-rtx5080-16gb-windows.md) |
 | `PTQ1_0` | NVIDIA RTX 5080 16 GB | llama.cpp CUDA 13.3 (Windows) | 1,017 | 89.3 | [link](bonsai2/cuda-rtx5080-16gb-windows.md) |
+| `PQ2_0` | NVIDIA RTX 5070 Ti 16 GB | llama.cpp CUDA 13.3 (Windows) | 2,045 | 86.9 | [link](bonsai2/cuda-rtx5070ti-16gb-windows.md) |
 | `PTQ1_0` | NVIDIA RTX 4090 24 GB | llama.cpp CUDA (Windows) | 1,597 | 86.0 | [link](bonsai2/cuda-rtx4090-windows.md) |
 | `PQ2_0` | NVIDIA RTX 4090 24 GB | llama.cpp CUDA (Windows) | 3,285 | 84.9 | [link](bonsai2/cuda-rtx4090-windows.md) |
 | `PQ2_0` | NVIDIA RTX 3090 Ti 24 GB | llama.cpp CUDA (Linux) | 1,552 | 81.6 | [link](bonsai2/cuda-rtx3090ti-linux.md) |
