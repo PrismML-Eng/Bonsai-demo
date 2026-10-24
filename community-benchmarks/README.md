@@ -23,6 +23,7 @@ for commands, raw output, memory use, and configuration.
 | `PTQ1_0` | NVIDIA RTX 3090 Ti 24 GB | llama.cpp CUDA (Linux) | 805 | 67.7 | [link](bonsai2/cuda-rtx3090ti-linux.md) |
 | `PQ2_0` (MTP bundle, plain inference) | AMD Radeon RX 9070 XT 16 GB | llama.cpp ROCm/HIP (Proxmox) | 1,258 | 48.64 | [link](bonsai2/rocm-hip-rx9070xt-proxmox.md) |
 | `PQ2_0` | AMD Radeon RX 9070 XT 16 GB | llama.cpp ROCm/HIP (Proxmox) | 1,259 | 48.53 | [link](bonsai2/rocm-hip-rx9070xt-proxmox.md) |
+| `PTQ1_0` | Intel Arc B580 12 GB | llama.cpp SYCL, oneAPI 2026.1 (Linux) | 1,593 | 47.9 | [link](bonsai2/sycl-arc-b580-linux.md) |
 | `PQ2_0` | AMD Radeon RX 7800 XT 16 GB | llama.cpp ROCm/HIP | 316.3 | 46.8 | [link](bonsai2/rocm-hip-rx7800xt-fedora44.md) |
 | `PQ2_0` | NVIDIA Tesla V100-SXM2 16 GB | llama.cpp CUDA (Windows) | 798 | 46.0 | [link](bonsai2/cuda-tesla-v100-windows.md) |
 | `PQ2_0` | AMD Radeon RX 6800 XT 16 GB | llama.cpp ROCm/HIP (Windows) | 266.4 | 44.9 | [link](bonsai2/rocm-hip-rx6800xt-windows.md) |
