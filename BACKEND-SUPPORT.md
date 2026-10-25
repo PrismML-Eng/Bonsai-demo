@@ -8,7 +8,7 @@ see [MODEL-FORMATS.md](MODEL-FORMATS.md); for measured performance, see
 
 ## Release baseline
 
-The demo pins **`prism-b10787-73bfe6c`**. The SYCL source audit baseline remains
+The demo pins **`prism-b10822-bf8c069`**. The SYCL source audit baseline remains
 **`prism-b10770-6684606`**.
 Vulkan was audited at **`prism-b10743-adfffbe`**; other backend rows retain the
 original **`prism-b10709-9a9394a`** audit.
