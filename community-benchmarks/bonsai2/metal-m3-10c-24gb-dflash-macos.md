@@ -4,19 +4,21 @@
 
 Physical empirical benchmarks of **`Ternary-Bonsai-2-27B-PQ2_0`** on Apple Silicon M3 (10 GPU Cores, 24 GB Unified Memory, 100 GB/s physical memory bandwidth), comparing **baseline standalone generation** against **speculative decoding using open-source DFlash2 drafters**.
 
-All benchmarks were physically measured using the official `PrismML-Eng/llama.cpp` Metal C++ backend under deterministic greedy sampling (`--temp 0`). Both drafters achieve **100% bit-for-bit lossless output** (matching SHA-256 digests against the standalone baseline).
+All benchmarks were physically measured using the official `PrismML-Eng/llama.cpp` Metal C++ backend under deterministic greedy sampling (`--temp 0`). For the tested greedy runs, both drafters produced outputs with SHA-256 digests matching the standalone baseline. This observation is limited to the tested prompts and settings.
 
-| Configuration / Drafter | Model Size | Avg TPS | Net Speedup | Acceptance Rate | Output Match (SHA-256) |
+| Configuration / Drafter | Drafter File Size | Avg TPS | Net Speedup | Acceptance Rate | Output Match in Tested Runs (SHA-256) |
 | :--- | :---: | :---: | :---: | :---: | :---: |
 | **Target Baseline (`--spec-type none`)** | — | **8.65 to 9.23 t/s** | 1.00x (Ref) | — | Reference (`84ce7b...`) |
 | **Tier 1: Full-Rank Q2_K FC (`draft-dflash`)** | **715.5 MB** | **11.05 to 13.00 t/s** | **+22.5% to +41.3%** | **76.7% to 91.7%** | **100% Match** |
 | **Tier 2: SVD-r256-QAT (`draft-dflash`)** | **375.5 MB** | **10.40 to 11.80 t/s** | **+8.0% to +28.3%** | **43.2% to 62.1%** | **100% Match** |
 
 - **Tier 1 (715.5 MB)**: Re-quantized FFN projection weights to asymmetric `Q2_K` while locking Attention and Selector at `Q4_K`. Breaks past the real-time 10 tok/s threshold on Apple Silicon M3, averaging 11.31 t/s across multi-prompt workloads (up to 13.00 t/s on concise tasks).
-- **Tier 2 (375.5 MB)**: Factorized 15 SwiGLU FFN matrices into rank-256 pairs via SVD followed by multi-step K=3 QAT knowledge distillation. Slashes drafter memory down to 375.5 MB (65.9% reduction vs uncompressed 1.10 GB baseline) with forward latency of approx. 15.1 ms, preserving positive speedup (+20.2% on code generation).
+- **Tier 2 (375.5 MB)**: Factorized 15 SwiGLU FFN matrices into rank-256 pairs via SVD followed by multi-step K=3 QAT knowledge distillation. Reduces the drafter file size to 375.5 MB (65.9% reduction vs uncompressed 1.10 GB baseline) with forward latency of approx. 15.1 ms, preserving positive speedup (+20.2% on code generation).
 - **Drafter Model Weights & Documentation**: [https://huggingface.co/NOhhh/Ternary-Bonsai-2-27B-Speculative-Drafters](https://huggingface.co/NOhhh/Ternary-Bonsai-2-27B-Speculative-Drafters)
 
 ---
+
+Drafter sizes below refer to GGUF files on disk, not measured runtime memory use.
 
 ## Configuration
 
@@ -96,7 +98,7 @@ hf download NOhhh/Ternary-Bonsai-2-27B-Speculative-Drafters Ternary-Bonsai-2-27B
   -p "Write a clean Python implementation of quicksort with type annotations and docstring."
 ```
 
-**3. Tier 2 Low-VRAM Speculative Decoding (+20.2% Speedup, 375.5 MB VRAM):**
+**3. Tier 2 Speculative Decoding (+20.2% Speedup, 375.5 MB Drafter File):**
 ```bash
 ./build/bin/llama-cli \
   -m ./models/Ternary-Bonsai-2-27B-PQ2_0.gguf \
