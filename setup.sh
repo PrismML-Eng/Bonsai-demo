@@ -410,12 +410,19 @@ if [ "${BONSAI_CODE_INTERPRETER:-1}" != "0" ]; then
         info "code-interpreter venv already present."
     elif uv venv "$JUP_VENV" --python "$PYTHON_VERSION" >/dev/null 2>&1 \
         && uv pip install --python "$JUP_VENV/bin/python" \
-            jupyter-server ipykernel matplotlib numpy pandas scipy sympy pillow requests yfinance; then
+            jupyter-server ipykernel matplotlib numpy pandas scipy sympy pillow requests yfinance "certifi>=2026.10.23"; then
         info "code-interpreter venv ready (.venv-jupyter)."
     else
         warn "code-interpreter venv setup failed — Open WebUI code execution will be unavailable."
     fi
 fi
+
+# Refresh the CA bundle even when an existing optional environment was reused.
+for CERTIFI_VENV in "$SCRIPT_DIR/.venv-vlm" "$SCRIPT_DIR/.venv-jupyter"; do
+    if [ -x "$CERTIFI_VENV/bin/python" ]; then
+        uv pip install --python "$CERTIFI_VENV/bin/python" "certifi>=2026.10.23"
+    fi
+done
 
 # ────────────────────────────────────────────────────
 #  Done!

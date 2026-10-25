@@ -2,6 +2,7 @@
 
 [Back to the main README](README.md) · [Bonsai 1 guide](Bonsai1_README.md)
 
+- [October 2026 certifi certificate update](#october-2026-certifi-certificate-update)
 - [The model allocates huge memory or the machine freezes at startup](#the-model-allocates-huge-memory-or-the-machine-freezes-at-startup)
 - [M5 Mac on macOS 26.2/26.3: Metal compile errors, then out-of-memory](#m5-mac-on-macos-262263-metal-compile-errors-then-out-of-memory)
 - [Windows setup selects Vulkan or CPU instead of CUDA](#windows-setup-selects-vulkan-or-cpu-instead-of-cuda)
@@ -68,3 +69,27 @@ GGML_METAL_TENSOR_DISABLE=1 ./scripts/start_llama_server.sh
 ```
 
 This is much faster than falling back to CPU (`BONSAI_NGL=0`). If out-of-memory errors persist afterwards on lower-memory machines, additionally pin a smaller context, e.g. `-c 16384` (extra args pass through to llama.cpp and override the default).
+
+## October 2026 certifi certificate update
+
+Existing Python environments should update to `certifi>=2026.10.23` following [GHSA-6q48-6c7w-9gw2](https://github.com/advisories/GHSA-6q48-6c7w-9gw2). This affects outbound HTTPS clients using certifi's certificate bundle, including model downloads; it does not require a publicly hosted server. Updating the repository alone does not update installed packages.
+
+After pulling the updated repository, stop running demo servers and update each existing environment from the repository root:
+
+**macOS / Linux:**
+
+```sh
+for env_dir in .venv .venv-vlm .venv-jupyter; do
+    if [ -x "$env_dir/bin/python" ]; then
+        uv pip install --python "$env_dir/bin/python" "certifi>=2026.10.23" || break
+    fi
+done
+```
+
+**Windows PowerShell:**
+
+```powershell
+uv pip install --python .venv\Scripts\python.exe "certifi>=2026.10.23"
+```
+
+Restart the servers afterward. These commands only update certifi as needed and do not download models. Updated setup scripts also enforce this minimum when rerun. Rebuild any containers or other environments you maintain separately with a patched certifi bundle.

@@ -167,7 +167,8 @@ if (Test-Path $VenvPy) {
 
 # ── 5. Install Python deps ──
 Write-Host "==> Installing Python dependencies ..." -ForegroundColor Cyan
-uv pip install --python $VenvPy huggingface-hub
+uv pip install --python $VenvPy huggingface-hub "certifi>=2026.10.23"
+if ($LASTEXITCODE -ne 0) { throw "Failed to install Python dependencies." }
 Write-Host "[OK] Dependencies installed." -ForegroundColor Green
 
 # ── 6. Detect GPU: NVIDIA (CUDA) or AMD (HIP) ──
