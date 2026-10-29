@@ -79,6 +79,7 @@ not directly comparable; each report should identify its harness and workload.
 | Ternary | Apple M5 Pro 64 GB | MLX 2-bit | 466 | 29.5 | 34-49 (community dspark-mlx) | [link](ternary-bonsai/mlx-m5-pro-macos.md) |
 | Ternary | NVIDIA DGX Spark (GB10) | llama.cpp CUDA | 1,005 | 29.2 | ~70.0 (2.45x, code) | [link](ternary-bonsai/cuda-gb10-27b-linux.md) |
 | Bonsai (1-bit) | NVIDIA GeForce GTX 1080 Ti 11 GB | llama.cpp CUDA | 285 | 28.3 | | [link](bonsai/cuda-gtx1080ti-linux.md) |
+| Ternary (Bonsai 2) | NVIDIA DGX Spark (GB10) | llama.cpp CUDA | 919 | 27.8 | ~57 (1.9x blended; 2.5x math, 2.2x code) | [link](ternary-bonsai/cuda-gb10-bonsai2-27b-linux.md) |
 | Ternary | Apple M5 Pro 64 GB | llama.cpp Metal | 130 | 26.5 | | [link](ternary-bonsai/mlx-m5-pro-macos.md) |
 | Ternary | NVIDIA GeForce RTX 2060 12 GB | llama.cpp CUDA 12.4 (Linux, fork b10777) | 415.8 | 25.71 | | [link](ternary-bonsai/cuda-rtx2060-12gb-linux.md) |
 | Ternary | Apple M4 Pro 64 GB | MLX 2-bit | 120 | 24.8 | | [link](ternary-bonsai/mlx-m4-pro-64gb-macos.md) |
