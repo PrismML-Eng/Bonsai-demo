@@ -9,7 +9,7 @@ $VenvPy  = Join-Path $VenvDir "Scripts\python.exe"
 
 # v7 binaries read the official group-64 Q2_0 files and PQ2_0; they do NOT read
 # the legacy *-Q2_0.gguf files that pre-v7 releases used.
-$ReleaseTag = "prism-b10826-c9c34bc"
+$ReleaseTag = "prism-b10828-a153697"
 $BaseUrl = "https://github.com/PrismML-Eng/llama.cpp/releases/download/$ReleaseTag"
 
 $BonsaiModel  = if ($env:BONSAI_MODEL)  { $env:BONSAI_MODEL }  else { "27B" }
