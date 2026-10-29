@@ -31,6 +31,9 @@ for commands, raw output, memory use, and configuration.
 | `PQ2_0` | Apple M3 Max 36 GB | llama.cpp Metal | 162.2 | 24.3 | [link](bonsai2/metal-m3-max-36gb-macos.md) |
 | `PQ2_0` | AMD BC-250 16 GB UMA | llama.cpp Vulkan (Linux, local patches) | 142.58 | 24.11 | [link](bonsai2/vulkan-bc250-linux.md) |
 | `PTQ1_0` | Apple M3 Max 36 GB | llama.cpp Metal | 136.8 | 21.9 | [link](bonsai2/metal-m3-max-36gb-macos.md) |
+| 'PQ2_0' | AMD Radeon RX 580 (8 GB) | Vulkan | 36.67 | 7.26 | [Details](bonsai2/vulkan-amd-radeon-rx-580-ubuntu-22-04.md) |
+| 'PTQ1_0' | AMD Radeon RX 580 (8 GB) | Vulkan | 49.03 | 5.50 | [Details](bonsai2/vulkan-amd-radeon-rx-580-ubuntu-22-04.md) |
+
 
 ## Earlier 27B families
 
