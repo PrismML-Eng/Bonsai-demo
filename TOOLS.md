@@ -39,8 +39,9 @@ result as a `"role": "tool"` message and continue the conversation as usual.
 
 Every MCP server that is active in a chat has its tool schemas rendered into that
 chat's prompt, adding prefill time before the first token — noticeable on Macs and
-CPU boxes. That is why the demos ship everything **per-chat opt-in**: the servers
-are preconfigured and one toggle away, but you only pay for what you turn on.
+CPU boxes. The llama-server UI keeps its MCP servers **per-chat opt-in**. Open
+WebUI attaches local tools and the selected web search to new model records;
+Hugging Face and DeepWiki remain opt-in there. Existing model selections are kept.
 
 Measured from the live servers (2026-07; will drift as they update their tools):
 
@@ -107,14 +108,45 @@ per-chat opt-in). In the **Open WebUI** demo this is wired for you (next section
 - **time** — `get_current_timestamp` (a builtin tool); the model is also told the
   current date/time in its system prompt (`{{CURRENT_DATE}}`), so "this year" /
   "recent" reasoning works without a tool call.
-- **Brave web search** — attached by default *when configured* (key + bridge, below).
+- **Web search** — Parallel Search MCP on a fresh installation; configured Brave
+  credentials select Brave instead (key + bridge, below).
 
 Hugging Face and DeepWiki are connected but **per-chat opt-in** (their schemas are
 heavy); pick them from the tool menu in the message box when a chat needs them.
 
-Note: with Brave on by default the base prompt is larger (~2.9k tokens for Brave's
-schemas). If that matters for your hardware, drop `server:mcp:brave` from the model
-`toolIds` in `seed_openwebui.py` to make Brave per-chat opt-in like the others.
+### Web search selection
+
+The default `BONSAI_WEB_SEARCH=auto` uses [Parallel Search MCP](https://docs.parallel.ai/integrations/mcp/search-mcp)
+at `https://search.parallel.ai/mcp` when no Brave key is configured. It provides
+`web_search` and `web_fetch`, with anonymous search using Fast mode. No account,
+API key, npm package, or local bridge is needed. The free endpoint has limits
+and is intended for exploration and light use; inference still runs on your
+local model. This is the standalone Search MCP endpoint, which Parallel retains
+for existing clients; its documentation also describes the newer unified MCP.
+
+Set the provider explicitly on launch:
+
+```bash
+BONSAI_WEB_SEARCH=parallel ./scripts/start_openwebui.sh  # even with a Brave key
+BONSAI_WEB_SEARCH=brave ./scripts/start_openwebui.sh     # needs key + bridge
+BONSAI_WEB_SEARCH=none ./scripts/start_openwebui.sh      # no general-search server
+```
+
+A `BRAVE_API_KEY` or gitignored `.brave_key` keeps Brave selected in auto mode.
+If its bridge is missing or fails, the demo does not switch providers silently.
+Brave's news and summarizer tools remain available through its existing setup.
+
+New model records attach the selected search server. Re-seeding preserves
+existing `toolIds` (including an empty list) and model access grants, so upgrading
+does not re-enable disabled tools or replace a saved selection. For an existing
+model, pick the available search server from the chat's tool menu, or edit the
+model's tool selection. Provider overrides control which search connection is
+available; they do not rewrite those saved selections. `none` removes both search
+connections, including for models that previously selected one. Weather, web fetch,
+and the other tools remain available.
+
+With Brave selected, its schemas add ~2.9k prompt tokens. Keep search per-chat by
+removing its `server:mcp:<id>` entry from the model's saved tool selection.
 
 `web_fetch` reads arbitrary public pages, but some sites (e.g. Reuters) block
 automated fetches and return 401/403 - that's the site, not the tool.
@@ -164,7 +196,8 @@ point the config at `http://127.0.0.1:<port>/mcp`).
   server rejects browser CORS requests (llama-server ships a `/cors-proxy`).
 
 **Open WebUI** — edit the `TOOL_SERVER_CONNECTIONS` JSON in
-[scripts/start_openwebui.sh](scripts/start_openwebui.sh) and restart. Do **not** add
+[scripts/openwebui/mcp_servers.sh](scripts/openwebui/mcp_servers.sh), sourced by
+[scripts/start_openwebui.sh](scripts/start_openwebui.sh), and restart. Do **not** add
 servers through the admin panel: the demo runs with `ENABLE_PERSISTENT_CONFIG=false`,
 so panel edits are lost on restart — the script is the source of truth. Entry shape:
 
@@ -177,6 +210,7 @@ runtime instead of hardcoding it in the tracked script: keep it in an environmen
 variable or a gitignored file (the Brave key below uses `.brave_key`), and reference
 it from the JSON the script builds, e.g. `"key":"'"'"'$MY_MCP_KEY'"'"'"` inside the
 `TOOL_SERVER_CONNECTIONS` block. Never commit a literal token. `config.enable: true` means connected and visible in the chat tool menu —
-still per-chat opt-in. To attach a server to every chat, add `server:mcp:<id>` to
-the model `toolIds` in [scripts/openwebui/seed_openwebui.py](scripts/openwebui/seed_openwebui.py)
-(mind the prompt-token table above).
+still per-chat opt-in. To attach a server to new model records, add `server:mcp:<id>`
+to the default tool selection in [scripts/openwebui/seed_openwebui.py](scripts/openwebui/seed_openwebui.py).
+For existing records, edit the model's saved tool selection (mind the prompt-token
+table above).

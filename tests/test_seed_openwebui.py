@@ -9,10 +9,10 @@ ROOT = Path(__file__).resolve().parents[1]
 SEED_PATH = ROOT / "scripts" / "openwebui" / "seed_openwebui.py"
 
 
-def _load_seed_module():
+def _load_seed_module(mcp_ids=""):
     spec = importlib.util.spec_from_file_location("seed_openwebui_test", SEED_PATH)
     module = importlib.util.module_from_spec(spec)
-    with mock.patch.dict(os.environ, {"BONSAI_CODE_INTERPRETER_ON": "1"}):
+    with mock.patch.dict(os.environ, {"BONSAI_CODE_INTERPRETER_ON": "1", "BONSAI_MCP_IDS": mcp_ids}):
         spec.loader.exec_module(module)
     return module
 
@@ -45,6 +45,36 @@ class SeedOpenWebUITests(unittest.TestCase):
             if method == "POST" and path.startswith("/api/v1/models/model/update")
         )
         self.assertIs(payload["meta"]["capabilities"]["citations"], False)
+
+
+    def test_new_model_uses_selected_search(self):
+        for server in ("parallel", "brave"):
+            seed = _load_seed_module(f"huggingface,deepwiki,{server}")
+            api = _ApiRecorder()
+            seed.seed_model(api, "Bonsai-27B", False, True, "llama.cpp")
+            payload = next(p for method, _, p in api.calls if method == "POST")
+            self.assertEqual(payload["meta"]["toolIds"], seed.TOOL_IDS + [f"server:mcp:{server}"])
+
+    def test_saved_provider_empty_selection_and_permissions_survive_reseeding(self):
+        for saved in ([], ["server:mcp:brave"], ["custom_tool"]):
+            seed = _load_seed_module("huggingface,deepwiki,parallel")
+            api = _ApiRecorder()
+            original_request = api.request
+
+            def request(method, path, payload=None, timeout=15):
+                if method == "GET":
+                    return {"meta": {"toolIds": saved}, "access_grants": []}
+                return original_request(method, path, payload, timeout)
+
+            api.request = request
+            seed.seed_model(api, "Bonsai-27B", False, True, "llama.cpp")
+            payload = next(p for method, _, p in api.calls if method == "POST")
+            self.assertEqual(payload["meta"]["toolIds"], saved)
+            self.assertEqual(payload["access_grants"], [])
+
+    def test_disabled_search_adds_no_model_search_tool(self):
+        seed = _load_seed_module("huggingface,deepwiki")
+        self.assertEqual(seed.DEFAULT_MCP_TOOL_IDS, [])
 
     def test_prompt_is_generic_bounded_and_date_aware(self):
         seed = _load_seed_module()

@@ -413,40 +413,9 @@ else
 fi
 export BONSAI_CODE_INTERPRETER_ON
 
-# ── MCP tool servers (same set as the hosted HF demo) ──
-# Hugging Face + DeepWiki are remote and keyless. Brave Search (web search) is
-# opt-in: provide a key via BRAVE_API_KEY (env) or a gitignored .brave_key file,
-# and install the bridge (npm i -g @brave/brave-search-mcp-server). The key stays
-# local - it is never committed. (ENABLE_PERSISTENT_CONFIG=false -> read every boot.)
-_ACCESS='"access_grants":[{"principal_type":"user","principal_id":"*","permission":"read"}]'
-_MCP_BRAVE=""
-BONSAI_MCP_IDS="huggingface,deepwiki"
-if [ -z "${BRAVE_API_KEY:-}" ] && [ -f "$DEMO_DIR/.brave_key" ]; then
-    BRAVE_API_KEY="$(tr -d '\r\n' < "$DEMO_DIR/.brave_key")"
-fi
-if [ -n "${BRAVE_API_KEY:-}" ]; then
-    export BRAVE_API_KEY
-    if command -v brave-search-mcp-server >/dev/null 2>&1; then
-        step "Starting Brave Search MCP bridge on 127.0.0.1:8001 ..."
-        # Limit to the search tools the demo needs. Brave's full tool set is ~29k
-        # tokens of schemas (brave_place_search alone is ~20k!); these three are
-        # ~2.9k. Override with BONSAI_BRAVE_TOOLS if you want a different set.
-        _brave_tools="${BONSAI_BRAVE_TOOLS:-brave_web_search brave_news_search brave_summarizer}"
-        # shellcheck disable=SC2086
-        brave-search-mcp-server --transport http --host 127.0.0.1 --port 8001 \
-            --enabled-tools $_brave_tools > "$_BRAVE_LOG" 2>&1 &
-        BG_PIDS="$BG_PIDS $!"
-        _MCP_BRAVE=',{"id":"brave","type":"mcp","url":"http://127.0.0.1:8001/mcp","path":"","auth_type":"none","key":"","config":{"enable":true,'$_ACCESS'},"info":{"id":"brave","name":"Brave Search","description":"Web search via Brave"}}'
-        BONSAI_MCP_IDS="$BONSAI_MCP_IDS,brave"
-    else
-        warn "BRAVE_API_KEY is set but brave-search-mcp-server is not installed - skipping Brave MCP."
-    fi
-fi
-export TOOL_SERVER_CONNECTIONS='[
-  {"id":"huggingface","type":"mcp","url":"https://huggingface.co/mcp","path":"","auth_type":"none","key":"","config":{"enable":true,'$_ACCESS'},"info":{"id":"huggingface","name":"Hugging Face","description":"Search models, datasets and Spaces on the HF Hub"}},
-  {"id":"deepwiki","type":"mcp","url":"https://mcp.deepwiki.com/mcp","path":"","auth_type":"none","key":"","config":{"enable":true,'$_ACCESS'},"info":{"id":"deepwiki","name":"DeepWiki","description":"Ask questions about any public GitHub repository"}}'"$_MCP_BRAVE"'
-]'
-export BONSAI_MCP_IDS
+# ── MCP tool servers: keyless search unless Brave is configured ──
+# BONSAI_WEB_SEARCH=parallel|brave|none overrides automatic selection.
+. "$SCRIPT_DIR/openwebui/mcp_servers.sh"
 
 mkdir -p "$DATA_DIR"
 
