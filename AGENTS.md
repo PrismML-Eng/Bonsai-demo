@@ -62,7 +62,8 @@ All extra args pass straight through the start scripts, e.g.
 | `BONSAI_CTX=N` (env) | Overrides the default context. The scripts default to a RAM-tiered size (8192 up to 131072 by machine memory) for predictable memory use; `0` (or unset) resolves to that same tiered size — it is *not* passed to llama.cpp as `-c 0` (which would use the model's full 262k training context and OOM constrained machines). Pass an explicit number to force full context | Bigger context = more KV memory at 64 KiB/token FP16; pair huge contexts with `BONSAI_KV4=1` |
 | `BONSAI_MMPROJ_CPU=1` (env, 27B) | Adds `--no-mmproj-offload` so the vision projector stays in system RAM instead of VRAM. Off by default | Frees ~0.9 GiB of VRAM for KV/context on tight cards; cost is a slower image prefill (CPU vision encode, tens of ms to seconds/image). Token generation and text-only requests are unaffected, so it's a good trade when images are occasional |
 | `--parallel N` | Server slots (default 4) | More slots = more concurrent users, same total context pool |
-| `BRAVE_API_KEY` (env, Open WebUI) | Makes a Brave Search MCP server available next to the preconfigured Hugging Face + DeepWiki ones | Needs `npm i -g @brave/brave-search-mcp-server`; skipped otherwise. Limited to web/news/summarizer (~2.9k tokens); its full tool set is ~29k (brave_place_search alone ~20k). Override with BONSAI_BRAVE_TOOLS. |
+| `BONSAI_WEB_SEARCH` (env, Open WebUI) | `auto` uses keyless Parallel Search MCP unless Brave credentials are configured; `parallel`, `brave`, or `none` override it | New model records attach the selected search; saved tool selections and access grants survive re-seeding. `none` removes the general-search connections. |
+| `BRAVE_API_KEY` (env, Open WebUI) | Selects Brave Search MCP in `auto` mode instead of Parallel | Needs `npm i -g @brave/brave-search-mcp-server`; skipped otherwise. Limited to web/news/summarizer (~2.9k tokens); its full tool set is ~29k (brave_place_search alone ~20k). Override with BONSAI_BRAVE_TOOLS. |
 | `BONSAI_CODE_INTERPRETER=0` (env, Open WebUI) | Disables the server-side Jupyter code interpreter (plots via matplotlib, data via pandas/numpy, market data via yfinance). On by default. | Off falls back to browser Pyodide: plots still work, but no yfinance/network. The Jupyter stack (`.venv-jupyter`) is built by setup.sh. |
 
 Thinking is extracted into `reasoning_content` by default (collapsible in UIs).
@@ -102,8 +103,9 @@ Everything below is per-conversation, in Settings, no server restart:
   prefix and llama-server reuses the cached prefix across new chats as long as the
   enabled set (and order) does not change. On slow hardware prefer a small fixed
   subset over toggling servers between chats. Same logic in the Open WebUI demo:
-  the servers are connected but not attached to the model - pick them per chat from
-  the tool menu, or add `server:mcp:<id>` to the model's toolIds to make one permanent.
+  Hugging Face and DeepWiki are connected but not attached to the model - pick them
+  per chat from the tool menu. Open WebUI attaches the selected web search to new
+  model records; existing tool selections are preserved.
 - **System message**: settable in Settings (useful to give the model a Bonsai identity).
   Can also be shipped as an admin default via `scripts/webui-config.json` (`systemMessage`).
 - (A Pyodide Python interpreter setting exists but is NOT implemented in the current
@@ -138,20 +140,24 @@ Full guide with entry examples: **TOOLS.md** (repo root). The essentials:
   defaults), or shipped for everyone via the `mcpServers` JSON-string in
   `scripts/webui-config.json` (`"enabled":true` = listed in the per-chat selector,
   chats still opt in individually; `"useProxy":true` for CORS-rejecting servers).
-- Open WebUI: edit `TOOL_SERVER_CONNECTIONS` in `scripts/start_openwebui.sh` and
+- Open WebUI: edit `TOOL_SERVER_CONNECTIONS` in `scripts/openwebui/mcp_servers.sh` and
   restart. Do NOT use the admin panel - `ENABLE_PERSISTENT_CONFIG=false` means panel
   edits are lost on restart; the script is the source of truth. For bearer tokens set
   `"auth_type":"bearer"` and inject the secret at runtime from an environment
   variable or a gitignored file (mirror the `.brave_key` handling below); never
   write a literal token into the tracked script. To attach a server to every chat,
-  add `server:mcp:<id>` to the model `toolIds` in `scripts/openwebui/seed_openwebui.py`
-  (mind the prompt-token table above).
+  edit the model's saved tool selection; defaults for new model records live in
+  `scripts/openwebui/seed_openwebui.py` (mind the prompt-token table above).
+
+**Open WebUI web search** defaults to keyless Parallel Search MCP when unconfigured;
+`BONSAI_WEB_SEARCH=none` disables it. A configured Brave key keeps Brave selected,
+with no fallback if its bridge is unavailable. Existing saved selections are kept.
 
 **Optional web search (Brave)** - needs a Brave Search API key; the key stays local
 (never committed). Install the bridge once: `npm i -g @brave/brave-search-mcp-server`.
 - Open WebUI: put the key in a gitignored `.brave_key` file (or `BRAVE_API_KEY` env)
   and run `start_openwebui.sh` - it auto-starts the bridge on 127.0.0.1:8001 and adds
-  the `brave` MCP (per-chat opt-in). Tell the user this is how they get web search.
+  the `brave` MCP (attached to new model records; existing selections are kept).
 - llama-server webui: no auto-bridge (out-of-box only). Run the bridge yourself
   (`BRAVE_API_KEY=... brave-search-mcp-server --transport http --host 127.0.0.1 --port 8001`)
   and add `http://127.0.0.1:8001/mcp` in Settings -> MCP Client. See TOOLS.md.

@@ -42,12 +42,12 @@ if CODE_INTERPRETER_ON:
     ))
 TOOL_IDS = [t[0] for t in TOOLS]
 
-# MCP servers (TOOL_SERVER_CONNECTIONS in start_openwebui.sh): Brave web search is
-# attached to the model (on by default) when it's configured; Hugging Face / DeepWiki
+# MCP servers (mcp_servers.sh): the selected web search is attached to new
+# model records; existing tool selections are preserved. Hugging Face / DeepWiki
 # stay per-chat opt-in because their schemas add thousands of prompt tokens. Attach
 # any server to every chat by adding "server:mcp:<id>" to the model's toolIds.
 _MCP_IDS = [s for s in os.environ.get("BONSAI_MCP_IDS", "").split(",") if s]
-DEFAULT_MCP_TOOL_IDS = [f"server:mcp:{s}" for s in _MCP_IDS if s == "brave"]
+DEFAULT_MCP_TOOL_IDS = [f"server:mcp:{s}" for s in _MCP_IDS if s in ("brave", "parallel")]
 
 # Open WebUI substitutes these at request time, so the model always knows "now".
 SYSTEM_PROMPT = (
@@ -237,8 +237,8 @@ def seed_model(api, model_id, vision, native_tools, backend):
             # Per-category switch (see BUILTIN_TOOLS_META): time on, code
             # interpreter when the kernel is up, everything else off.
             "builtinTools": BUILTIN_TOOLS_META,
-            # Local tools (weather / web_fetch / demo_db) + Brave web search
-            # (server:mcp:brave) when configured, all on by default.
+            # Local tools + the selected search provider for new model records.
+            # Existing selections, including an empty list, are kept below.
             "toolIds": TOOL_IDS + DEFAULT_MCP_TOOL_IDS,
             # Turn the code interpreter on by default for new chats.
             "defaultFeatureIds": (["code_interpreter"] if CODE_INTERPRETER_ON else []),
@@ -251,7 +251,13 @@ def seed_model(api, model_id, vision, native_tools, backend):
         # llama-server is started with --jinja and emits OpenAI tool_calls.
         payload["params"]["function_calling"] = "native"
     try:
-        api.request("GET", f"/api/v1/models/model?id={model_id}")
+        existing = api.request("GET", f"/api/v1/models/model?id={model_id}")
+        # Re-seeding must not turn tools back on after a user disabled them,
+        # replace a saved provider, or broaden the model's access permissions.
+        if "toolIds" in (existing.get("meta") or {}):
+            payload["meta"]["toolIds"] = existing["meta"]["toolIds"]
+        if "access_grants" in existing:
+            payload["access_grants"] = existing["access_grants"]
         api.request("POST", f"/api/v1/models/model/update?id={model_id}", payload)
         log(f"model updated: {model_id} (vision={vision}, native_tools={native_tools})")
     except urllib.error.HTTPError:
