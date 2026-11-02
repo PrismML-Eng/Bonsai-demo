@@ -36,6 +36,7 @@ Benchmark results submitted by the community running
 | `PQ2_0` | NVIDIA RTX A4000 16 GB | llama.cpp CUDA 12.4 (Linux, fork b10777) | 758.2 | 42.42 | [link](cuda-rtxa4000-16gb-linux.md) |
 | `PTQ1_0` | Intel Arc B580 12 GB | llama.cpp Vulkan (Windows, PrismML fork prism-b10777) | 380 | 34.84 | [link](vulkan-arc-b580-12gb-windows.md) |
 | `PTQ1_0` | NVIDIA Tesla V100-SXM2 16 GB | llama.cpp CUDA (Windows) | 852 | 34.3 | [link](cuda-tesla-v100-windows.md) |
+| `PTQ1_0` (community mtp-lean graft, plain inference, q4_0 KV) | AMD Radeon RX 7600 XT 16 GB | llama.cpp Vulkan (Windows, custom build on community fork Torchit1 v0.10.1) | 329.9 | 33.61 | [link](vulkan-rx7600xt-16gb-windows.md) |
 | `PTQ1_0` | NVIDIA RTX 4070 Laptop 8 GB | llama.cpp CUDA (Windows) | 435.60 | 32.44 | [link](cuda-rtx4070-laptop-windows.md) |
 | `Q2_0` (development) | Intel Arc B580 12 GB | llama.cpp Vulkan (Windows, PrismML fork prism-b10777) | 568 | 31.59 | [link](vulkan-arc-b580-12gb-windows.md) |
 | `PQ2_0` | Intel Arc B580 12 GB | llama.cpp Vulkan (Windows, PrismML fork prism-b10777) | 559 | 28.59 | [link](vulkan-arc-b580-12gb-windows.md) |
