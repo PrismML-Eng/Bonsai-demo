@@ -51,7 +51,9 @@ Benchmark results submitted by the community running
 | `PTQ1_0` | Apple M4 Pro 64 GB | llama.cpp Metal | 98.6 | 17.3 | [link](metal-m4-pro-64gb-macos.md) |
 | `Q2_0` (development) | Intel Arc B580 12 GB | llama.cpp SYCL (Windows, community fork Torchit1 arc-b580-v0.10.1) | 770 | 10.26 | [link](sycl-arc-b580-12gb-windows.md) |
 | `PQ2_0` | Apple M5 (Air) 16 GB | llama.cpp Metal (fork b10777) | 88.8 | 7.82 | [link](metal-m5-air-16gb-macos.md) |
+| `PQ2_0` | AMD Radeon RX 580 8 GB | llama.cpp Vulkan (Linux) | 36.67 | 7.26 | [link](vulkan-amd-radeon-rx-580-linux.md) |
 | `PTQ1_0` | Apple M5 (Air) 16 GB | llama.cpp Metal (fork b10777) | 79.7 | 7.03 | [link](metal-m5-air-16gb-macos.md) |
+| `PTQ1_0` | AMD Radeon RX 580 8 GB | llama.cpp Vulkan (Linux) | 49.03 | 5.50 | [link](vulkan-amd-radeon-rx-580-linux.md) |
 
 ## How to Submit
 

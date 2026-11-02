@@ -48,7 +48,9 @@ for commands, raw output, memory use, and configuration.
 | `PTQ1_0` | Tesla P40 24 GB | llama.cpp CUDA 12.4 (Linux, fork b10777) | 139.9 | 19.86 | [link](bonsai2/cuda-teslap40-24gb-linux.md) |
 | `Q2_0` (development) | Intel Arc B580 12 GB | llama.cpp SYCL (Windows, community fork) | 770 | 10.26 | [link](bonsai2/sycl-arc-b580-12gb-windows.md) |
 | `PQ2_0` | Apple M5 (Air) 16 GB | llama.cpp Metal (fork b10777) | 88.8 | 7.82 | [link](bonsai2/metal-m5-air-16gb-macos.md) |
+| `PQ2_0` | AMD Radeon RX 580 8 GB | llama.cpp Vulkan (Linux) | 36.67 | 7.26 | [link](bonsai2/vulkan-amd-radeon-rx-580-linux.md) |
 | `PTQ1_0` | Apple M5 (Air) 16 GB | llama.cpp Metal (fork b10777) | 79.7 | 7.03 | [link](bonsai2/metal-m5-air-16gb-macos.md) |
+| `PTQ1_0` | AMD Radeon RX 580 8 GB | llama.cpp Vulkan (Linux) | 49.03 | 5.50 | [link](bonsai2/vulkan-amd-radeon-rx-580-linux.md) |
 
 ## Earlier 27B families
 
