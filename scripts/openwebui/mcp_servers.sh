@@ -4,6 +4,8 @@
 #
 # BONSAI_WEB_SEARCH=auto (default): use configured Brave, otherwise Parallel.
 # parallel / brave / none explicitly select or disable general web search.
+# Every server here is connected but per-chat opt-in: none of them is attached to
+# a model by default, so no search query leaves the machine until a chat picks it.
 _ACCESS='"access_grants":[{"principal_type":"user","principal_id":"*","permission":"read"}]'
 _MCP_SEARCH=""
 BONSAI_MCP_IDS="huggingface,deepwiki"
@@ -25,11 +27,20 @@ case "$BONSAI_WEB_SEARCH" in
         exit 1 ;;
 esac
 
+_SEARCH_NOTE="off (BONSAI_WEB_SEARCH=none)."
 if [ "$_web_search" = "parallel" ]; then
+    # Deliberately the standalone Search MCP at search.parallel.ai: it is the
+    # free, keyless endpoint, and it exposes only web_search + web_fetch, so the
+    # prompt cost stays small. Parallel documents it as legacy but supported for
+    # existing clients, and recommends the unified mcp.parallel.ai for new
+    # installs (same two tools plus web_research / web_decisions). We stay on the
+    # search-only URL because "no account, nothing to install" is the point here.
+    #
     # The pinned Open WebUI MCP transport sends custom headers on discovery and
     # calls. Leave the optional session_id to the host/model, never a global ID.
     _MCP_SEARCH=',{"id":"parallel","type":"mcp","url":"https://search.parallel.ai/mcp","path":"","auth_type":"none","key":"","headers":{"User-Agent":"BonsaiDemo/0.1.0"},"config":{"enable":true,'$_ACCESS'},"info":{"id":"parallel","name":"Parallel Search","description":"Search the public web and fetch pages, no API key required"}}'
     BONSAI_MCP_IDS="$BONSAI_MCP_IDS,parallel"
+    _SEARCH_NOTE="Parallel Search MCP (keyless free tier). Queries you run with it leave this machine and go to parallel.ai. Pick 'Parallel Search' from the chat tool menu to use it; BONSAI_WEB_SEARCH=none to remove it."
 elif [ "$_web_search" = "brave" ]; then
     if [ -z "${BRAVE_API_KEY:-}" ]; then
         warn "BONSAI_WEB_SEARCH=brave needs BRAVE_API_KEY or .brave_key - web search is unavailable."
@@ -44,6 +55,7 @@ elif [ "$_web_search" = "brave" ]; then
         BG_PIDS="$BG_PIDS $!"
         _MCP_SEARCH=',{"id":"brave","type":"mcp","url":"http://127.0.0.1:8001/mcp","path":"","auth_type":"none","key":"","config":{"enable":true,'$_ACCESS'},"info":{"id":"brave","name":"Brave Search","description":"Web search via Brave"}}'
         BONSAI_MCP_IDS="$BONSAI_MCP_IDS,brave"
+        _SEARCH_NOTE="Brave Search MCP (your API key). Queries you run with it go to Brave. Pick 'Brave Search' from the chat tool menu to use it; BONSAI_WEB_SEARCH=none to remove it."
     else
         # A configured provider stays selected even when unavailable.
         warn "BRAVE_API_KEY is set but brave-search-mcp-server is not installed - skipping Brave MCP."
@@ -54,3 +66,5 @@ export TOOL_SERVER_CONNECTIONS='[
   {"id":"deepwiki","type":"mcp","url":"https://mcp.deepwiki.com/mcp","path":"","auth_type":"none","key":"","config":{"enable":true,'$_ACCESS'},"info":{"id":"deepwiki","name":"DeepWiki","description":"Ask questions about any public GitHub repository"}}'"$_MCP_SEARCH"'
 ]'
 export BONSAI_MCP_IDS
+BONSAI_WEB_SEARCH_NOTE="$_SEARCH_NOTE"
+export BONSAI_WEB_SEARCH_NOTE

@@ -52,7 +52,7 @@ Every script in this repo is driven by environment variables — model selection
 | `BONSAI_MAX_TOOL_ITERS` | `30` | int; `-1` = unlimited | Cap on the native tool-call loop rounds in Open WebUI (default 30; `-1` unbounded). |
 | `BONSAI_CODE_INTERPRETER` | `1` | `0` | Disable the server-side Jupyter code interpreter (falls back to the browser Pyodide — plots still work, but no yfinance/network). |
 | `BONSAI_JUPYTER_PORT` | `8888` | port | Port for the Jupyter code interpreter kernel. |
-| `BONSAI_WEB_SEARCH` | `auto` | `auto`, `parallel`, `brave`, `none` | Open WebUI general search. Auto preserves a configured Brave key; otherwise uses keyless Parallel. None disables both search connections. Saved model tool selections remain unchanged. [TOOLS.md](TOOLS.md) |
+| `BONSAI_WEB_SEARCH` | `auto` | `auto`, `parallel`, `brave`, `none` | Open WebUI general search, connected but per-chat opt-in. Auto preserves a configured Brave key; otherwise connects keyless Parallel. None removes both search connections. Saved model tool selections remain unchanged. [TOOLS.md](TOOLS.md) |
 | `BONSAI_BRAVE_TOOLS` | `brave_web_search brave_news_search brave_summarizer` | space-separated tool names | Which Brave MCP tools to expose (~2.9k prompt tokens for the default three; the full set is ~29k). |
 | `BRAVE_API_KEY` | — | Brave Search API key | Selects Brave in auto mode instead of Parallel (or a gitignored `.brave_key` file; needs `npm i -g @brave/brave-search-mcp-server`). [TOOLS.md](TOOLS.md) |
 

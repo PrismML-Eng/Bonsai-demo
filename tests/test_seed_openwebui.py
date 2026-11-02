@@ -47,16 +47,18 @@ class SeedOpenWebUITests(unittest.TestCase):
         self.assertIs(payload["meta"]["capabilities"]["citations"], False)
 
 
-    def test_new_model_uses_selected_search(self):
-        for server in ("parallel", "brave"):
-            seed = _load_seed_module(f"huggingface,deepwiki,{server}")
+    def test_new_model_keeps_every_mcp_server_opt_in(self):
+        for connected in ("huggingface,deepwiki",
+                          "huggingface,deepwiki,parallel",
+                          "huggingface,deepwiki,brave"):
+            seed = _load_seed_module(connected)
             api = _ApiRecorder()
             seed.seed_model(api, "Bonsai-27B", False, True, "llama.cpp")
             payload = next(p for method, _, p in api.calls if method == "POST")
-            self.assertEqual(payload["meta"]["toolIds"], seed.TOOL_IDS + [f"server:mcp:{server}"])
+            self.assertEqual(payload["meta"]["toolIds"], seed.TOOL_IDS)
 
-    def test_saved_provider_empty_selection_and_permissions_survive_reseeding(self):
-        for saved in ([], ["server:mcp:brave"], ["custom_tool"]):
+    def test_saved_search_empty_selection_and_permissions_survive_reseeding(self):
+        for saved in ([], ["server:mcp:parallel"], ["custom_tool"]):
             seed = _load_seed_module("huggingface,deepwiki,parallel")
             api = _ApiRecorder()
             original_request = api.request
@@ -72,8 +74,8 @@ class SeedOpenWebUITests(unittest.TestCase):
             self.assertEqual(payload["meta"]["toolIds"], saved)
             self.assertEqual(payload["access_grants"], [])
 
-    def test_disabled_search_adds_no_model_search_tool(self):
-        seed = _load_seed_module("huggingface,deepwiki")
+    def test_no_mcp_server_is_attached_by_default(self):
+        seed = _load_seed_module("huggingface,deepwiki,parallel")
         self.assertEqual(seed.DEFAULT_MCP_TOOL_IDS, [])
 
     def test_prompt_is_generic_bounded_and_date_aware(self):

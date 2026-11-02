@@ -42,12 +42,11 @@ if CODE_INTERPRETER_ON:
     ))
 TOOL_IDS = [t[0] for t in TOOLS]
 
-# MCP servers (mcp_servers.sh): the selected web search is attached to new
-# model records; existing tool selections are preserved. Hugging Face / DeepWiki
-# stay per-chat opt-in because their schemas add thousands of prompt tokens. Attach
-# any server to every chat by adding "server:mcp:<id>" to the model's toolIds.
-_MCP_IDS = [s for s in os.environ.get("BONSAI_MCP_IDS", "").split(",") if s]
-DEFAULT_MCP_TOOL_IDS = [f"server:mcp:{s}" for s in _MCP_IDS if s in ("brave", "parallel")]
+# MCP servers (mcp_servers.sh) stay per-chat opt-in, web search included: their
+# schemas add thousands of prompt tokens, and a search sends the query to a remote
+# provider. Connected servers are listed in BONSAI_MCP_IDS and picked from the chat
+# tool menu. To attach one to new model records instead, add "server:mcp:<id>" here.
+DEFAULT_MCP_TOOL_IDS = []
 
 # Open WebUI substitutes these at request time, so the model always knows "now".
 SYSTEM_PROMPT = (
@@ -237,7 +236,7 @@ def seed_model(api, model_id, vision, native_tools, backend):
             # Per-category switch (see BUILTIN_TOOLS_META): time on, code
             # interpreter when the kernel is up, everything else off.
             "builtinTools": BUILTIN_TOOLS_META,
-            # Local tools + the selected search provider for new model records.
+            # Local tools only for new model records; MCP servers stay opt-in.
             # Existing selections, including an empty list, are kept below.
             "toolIds": TOOL_IDS + DEFAULT_MCP_TOOL_IDS,
             # Turn the code interpreter on by default for new chats.
@@ -253,7 +252,7 @@ def seed_model(api, model_id, vision, native_tools, backend):
     try:
         existing = api.request("GET", f"/api/v1/models/model?id={model_id}")
         # Re-seeding must not turn tools back on after a user disabled them,
-        # replace a saved provider, or broaden the model's access permissions.
+        # drop a search server someone attached, or broaden access permissions.
         if "toolIds" in (existing.get("meta") or {}):
             payload["meta"]["toolIds"] = existing["meta"]["toolIds"]
         if "access_grants" in existing:

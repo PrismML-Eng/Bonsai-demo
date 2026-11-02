@@ -414,7 +414,8 @@ fi
 export BONSAI_CODE_INTERPRETER_ON
 
 # ── MCP tool servers: keyless search unless Brave is configured ──
-# BONSAI_WEB_SEARCH=parallel|brave|none overrides automatic selection.
+# Connected but per-chat opt-in, search included. BONSAI_WEB_SEARCH=parallel|brave
+# overrides automatic selection; none removes the search server entirely.
 . "$SCRIPT_DIR/openwebui/mcp_servers.sh"
 
 mkdir -p "$DATA_DIR"
@@ -446,6 +447,7 @@ _SEED_ARGS="--url http://localhost:$PORT"
             echo ""
             echo "  Demo tools seeded: weather, web fetch, SQL demo database."
             echo "  MCP servers available (per-chat opt-in): ${BONSAI_MCP_IDS}."
+            echo "  Web search: ${BONSAI_WEB_SEARCH_NOTE}"
             [ "$BONSAI_CODE_INTERPRETER_ON" = "1" ] && \
                 echo "  Code interpreter: Jupyter (plots, pandas/numpy, yfinance)."
             [ -n "$LOG_DIR" ] && \

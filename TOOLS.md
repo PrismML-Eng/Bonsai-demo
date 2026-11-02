@@ -39,9 +39,10 @@ result as a `"role": "tool"` message and continue the conversation as usual.
 
 Every MCP server that is active in a chat has its tool schemas rendered into that
 chat's prompt, adding prefill time before the first token — noticeable on Macs and
-CPU boxes. The llama-server UI keeps its MCP servers **per-chat opt-in**. Open
-WebUI attaches local tools and the selected web search to new model records;
-Hugging Face and DeepWiki remain opt-in there. Existing model selections are kept.
+CPU boxes. That is why both demos ship their MCP servers **per-chat opt-in**,
+web search included: the servers are preconfigured and one toggle away, but you
+only pay for what you turn on. Open WebUI attaches the small local tools to new
+model records; existing model selections are kept as they are.
 
 Measured from the live servers (2026-07; will drift as they update their tools):
 
@@ -108,21 +109,32 @@ per-chat opt-in). In the **Open WebUI** demo this is wired for you (next section
 - **time** — `get_current_timestamp` (a builtin tool); the model is also told the
   current date/time in its system prompt (`{{CURRENT_DATE}}`), so "this year" /
   "recent" reasoning works without a tool call.
-- **Web search** — Parallel Search MCP on a fresh installation; configured Brave
-  credentials select Brave instead (key + bridge, below).
 
-Hugging Face and DeepWiki are connected but **per-chat opt-in** (their schemas are
-heavy); pick them from the tool menu in the message box when a chat needs them.
+Web search, Hugging Face, and DeepWiki are connected but **per-chat opt-in**: their
+schemas are heavy, and a search leaves the machine, so none of them is attached to
+the model. Pick them from the tool menu in the message box when a chat needs them.
 
 ### Web search selection
 
-The default `BONSAI_WEB_SEARCH=auto` uses [Parallel Search MCP](https://docs.parallel.ai/integrations/mcp/search-mcp)
+The default `BONSAI_WEB_SEARCH=auto` connects [Parallel Search MCP](https://docs.parallel.ai/integrations/mcp/search-mcp)
 at `https://search.parallel.ai/mcp` when no Brave key is configured. It provides
 `web_search` and `web_fetch`, with anonymous search using Fast mode. No account,
 API key, npm package, or local bridge is needed. The free endpoint has limits
 and is intended for exploration and light use; inference still runs on your
-local model. This is the standalone Search MCP endpoint, which Parallel retains
-for existing clients; its documentation also describes the newer unified MCP.
+local model.
+
+**Why this endpoint.** `search.parallel.ai/mcp` is the standalone, search-only
+Search MCP: free without an account, and exactly two tools, so the prompt cost
+stays small. Parallel's docs label it legacy but supported for existing clients
+and point new installs at the unified server (`mcp.parallel.ai/mcp`), which adds
+`web_research` and `web_decisions`. The demo deliberately stays on the search-only
+URL, because "no account, nothing to install, smallest tool set" is the point
+here. Use the unified server instead by editing the `url` in
+[scripts/openwebui/mcp_servers.sh](scripts/openwebui/mcp_servers.sh).
+
+Nothing is sent to Parallel until a chat enables the server from the tool menu.
+The launcher prints which provider is connected, where its queries go, and how to
+remove it.
 
 Set the provider explicitly on launch:
 
@@ -136,17 +148,19 @@ A `BRAVE_API_KEY` or gitignored `.brave_key` keeps Brave selected in auto mode.
 If its bridge is missing or fails, the demo does not switch providers silently.
 Brave's news and summarizer tools remain available through its existing setup.
 
-New model records attach the selected search server. Re-seeding preserves
-existing `toolIds` (including an empty list) and model access grants, so upgrading
-does not re-enable disabled tools or replace a saved selection. For an existing
-model, pick the available search server from the chat's tool menu, or edit the
-model's tool selection. Provider overrides control which search connection is
-available; they do not rewrite those saved selections. `none` removes both search
-connections, including for models that previously selected one. Weather, web fetch,
-and the other tools remain available.
+New model records attach the local tools only, so search stays opt-in. Re-seeding
+preserves existing `toolIds` (including an empty list) and model access grants, so
+upgrading does not re-enable disabled tools or drop a search server you attached.
+Provider overrides control which search connection is available; they do not
+rewrite those saved selections. `none` removes both search connections, including
+for models that previously selected one. Weather, web fetch, and the other tools
+remain available.
 
-With Brave selected, its schemas add ~2.9k prompt tokens. Keep search per-chat by
-removing its `server:mcp:<id>` entry from the model's saved tool selection.
+To have every new chat start with search on, add `server:mcp:parallel` (or
+`server:mcp:brave`) to `DEFAULT_MCP_TOOL_IDS` in
+[scripts/openwebui/seed_openwebui.py](scripts/openwebui/seed_openwebui.py), or
+attach it once in the model editor. Mind the prompt cost: Brave's schemas add
+~2.9k tokens.
 
 `web_fetch` reads arbitrary public pages, but some sites (e.g. Reuters) block
 automated fetches and return 401/403 - that's the site, not the tool.
