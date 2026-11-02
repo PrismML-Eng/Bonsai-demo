@@ -18,9 +18,9 @@ fi
 assert_mlx_downloaded
 
 MODEL="$DEMO_DIR/$MLX_MODEL_DIR"
-PORT=8081
+PORT="${PORT:-8081}"
 
-export HF_HOME="$DEMO_DIR/.hf_cache"
+export HF_HOME="${HF_HOME:-$DEMO_DIR/.hf_cache}"
 mkdir -p "$HF_HOME/hub"
 
 echo ""
@@ -40,10 +40,10 @@ if [ "$BONSAI_FAMILY" = "bonsai2" ]; then
 fi
 
 VLM_PY="$DEMO_DIR/.venv-vlm/bin/python"
-if [ "$BONSAI_MODEL" = "27B" ] && { [ "$BONSAI_FAMILY" = "ternary" ] || [ "$BONSAI_FAMILY" = "bonsai2" ]; } \
-    && [ "${BONSAI_MLX_VLM:-1}" != "0" ] && [ -x "$VLM_PY" ] \
+if { [ "$BONSAI_FAMILY" = "bonsai2" ] || { [ "$BONSAI_MODEL" = "27B" ] && [ "$BONSAI_FAMILY" = "ternary" ] && [ "${BONSAI_MLX_VLM:-1}" != "0" ]; }; } && [ -x "$VLM_PY" ] \
     && "$VLM_PY" -c "import mlx_vlm" 2>/dev/null; then
     step "Serving with mlx-vlm (image input enabled)."
+    info "Set sampling and enable_thinking per request; see SMALL-MODELS.md."
     exec "$VLM_PY" -m mlx_vlm.server \
         --model "$MODEL" \
         --host 127.0.0.1 --port "$PORT" \

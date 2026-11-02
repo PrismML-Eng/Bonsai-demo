@@ -12,19 +12,23 @@ Benchmark results submitted by the community running [Ternary-Bonsai](https://hu
 | NVIDIA RTX 3090 24 GB | llama.cpp CUDA | 1,478 | 80.5 | | [link](cuda-rtx3090-linux.md) |
 | NVIDIA L40S 48 GB | llama.cpp CUDA | 3,036 | 74.3 | ~133-175 (1.8-2.4x) | [link](cuda-l40s-linux.md) |
 | NVIDIA RTX 4070 Ti SUPER 16 GB | llama.cpp CUDA (Windows) | 1,717 | 69.6 | | [link](cuda-rtx4070tisuper-windows.md) |
+| NVIDIA TITAN V 12 GB | llama.cpp CUDA 12.4 (Linux, fork b10777) | 576.6 | 49.20 |  | [link](cuda-titanv-12gb-linux.md) |
 | NVIDIA RTX A5000 24 GB | llama.cpp CUDA | 1,036 | 48.2 | | [link](cuda-rtxa5000-ubuntu.md) |
 | Apple M5 Max 48 GB | llama.cpp Metal | 816 | 45.8 | ~1.2x code/math only | [link](metal-m5-max-48gb-macos.md) |
 | NVIDIA RTX 5060 Ti 16 GB | llama.cpp CUDA | 1,029 | 44.4 | ~79 (1.78x) | [link](cuda-rtx5060ti-linux.md) |
 | Apple M5 Pro 64 GB | MLX 2-bit | 466 | 29.5 | 34-49 (community dspark-mlx) | [link](mlx-m5-pro-macos.md) |
 | NVIDIA DGX Spark (GB10) | llama.cpp CUDA | 1,005 | 29.2 | ~70.0 (2.45x) | [link](cuda-gb10-27b-linux.md) |
 | Apple M5 Pro 64 GB | llama.cpp Metal | 130 | 26.5 | | [link](mlx-m5-pro-macos.md) |
+| NVIDIA GeForce RTX 2060 12 GB | llama.cpp CUDA 12.4 (Linux, fork b10777) | 415.8 | 25.71 |  | [link](cuda-rtx2060-12gb-linux.md) |
 | Apple M4 Pro 64 GB | MLX 2-bit | 120 | 24.8 | | [link](mlx-m4-pro-64gb-macos.md) |
-| Apple M4 Pro 64 GB | llama.cpp Metal | 116 | 19.0 | slower on this HW | [link](metal-m4-pro-64gb-macos.md) |
 | NVIDIA GeForce GTX 1080 Ti 11 GB | llama.cpp CUDA | 278 | 20.5 | | [link](cuda-gtx1080ti-linux.md) |
+| Apple M4 Pro 64 GB | llama.cpp Metal | 116 | 19.0 | slower on this HW | [link](metal-m4-pro-64gb-macos.md) |
 | Apple M1 Pro 32 GB | MLX 2-bit | 65.1 | 15.0 | ~10 MLX / ~11 code llama.cpp (net slowdown on MLX) | [link](mlx-m1-pro-32gb-macos.md) |
 | Apple M4 24 GB | MLX 2-bit | 65.2 | 12.7 | | [link](mlx-m4-24gb-macos.md) |
 | Apple M3 Pro 18 GB | llama.cpp Metal | 78.6 | 12.6 | | [link](metal-m3-pro-macos.md) |
 | Apple M3 MacBook Air 16 GB | MLX 2-bit | 48.4 | 9.1 | | [link](mlx-m3-air-macos.md) |
+| Apple M5 (Air) 16 GB | llama.cpp Metal (upstream b11630, `Q2_g64`) | 80.2 | 6.68 |  | [link](metal-m5-air-16gb-macos.md) |
+| Apple M5 (Air) 16 GB | llama.cpp Metal (fork b9596, legacy `Q2_0`) | 34.1 | 6.06 |  | [link](metal-m5-air-16gb-macos.md) |
 
 ### 8B and smaller
 

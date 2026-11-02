@@ -5,7 +5,7 @@
 # Usage:
 #   ./setup.sh                          (downloads 27B model by default)
 #   BONSAI_MODEL=4B ./setup.sh          (download a different model size)
-#   BONSAI_TOKEN=hf_xxx ./setup.sh      (read-only HF token; needed for 27B while private)
+#   BONSAI_TOKEN=hf_xxx ./setup.sh      (optional read-only HF token)
 set -e
 
 # ── Resolve paths ──
@@ -122,7 +122,7 @@ echo ""
 
 # ── HuggingFace auth ──
 # Use BONSAI_TOKEN (env, or the gitignored .bonsai_token file) only if you need
-# a repo that is still private; public repos download anonymously. Never a hard
+# authenticated access; public repos download anonymously. Never a hard
 # requirement: the downloader attempts anonymously and HF surfaces a clear 401
 # if a repo genuinely needs auth.
 TOKEN_FILE="$SCRIPT_DIR/.bonsai_token"
@@ -131,7 +131,7 @@ if [ -z "$BONSAI_TOKEN" ] && [ -f "$TOKEN_FILE" ]; then
 fi
 # Offer (never require) a prompt when a tty is attached and no token is set.
 if [ -z "$BONSAI_TOKEN" ] && [ -r /dev/tty ]; then
-    printf "  Optional HuggingFace token for any still-private repo (press Enter to skip): "
+    printf "  Optional HuggingFace token (press Enter to skip): "
     { read -r BONSAI_TOKEN </dev/tty; } 2>/dev/null || true
     echo ""
 fi
@@ -363,11 +363,11 @@ raise SystemExit(0 if v >= (0, 31) else 1)
         fi
     fi
 
-    # Native Bonsai 2 text/vision support is included in mlx-vlm 0.7.2.
+    # Native Bonsai 2 support, including the small models, uses mlx-vlm 0.7.8.
     # Keep stock MLX separate from the 1-bit fork installed in .venv.
     # Skip with BONSAI_MLX_VLM=0.
     if [ "${BONSAI_MLX_VLM:-1}" != "0" ]; then
-        step "Setting up mlx-vlm venv (MLX image input for the 27B) ..."
+        step "Setting up mlx-vlm venv (native Bonsai 2 text and image input) ..."
         VLM_VENV="$SCRIPT_DIR/.venv-vlm"
         if [ -x "$VLM_VENV/bin/python" ] && "$VLM_VENV/bin/python" -c "import mlx_vlm" 2>/dev/null \
             && "$VLM_VENV/bin/python" "$SCRIPT_DIR/scripts/check_mlx_vlm.py" >/dev/null 2>&1; then
@@ -410,12 +410,19 @@ if [ "${BONSAI_CODE_INTERPRETER:-1}" != "0" ]; then
         info "code-interpreter venv already present."
     elif uv venv "$JUP_VENV" --python "$PYTHON_VERSION" >/dev/null 2>&1 \
         && uv pip install --python "$JUP_VENV/bin/python" \
-            jupyter-server ipykernel matplotlib numpy pandas scipy sympy pillow requests yfinance; then
+            jupyter-server ipykernel matplotlib numpy pandas scipy sympy pillow requests yfinance "certifi>=2026.10.23"; then
         info "code-interpreter venv ready (.venv-jupyter)."
     else
         warn "code-interpreter venv setup failed — Open WebUI code execution will be unavailable."
     fi
 fi
+
+# Refresh the CA bundle even when an existing optional environment was reused.
+for CERTIFI_VENV in "$SCRIPT_DIR/.venv-vlm" "$SCRIPT_DIR/.venv-jupyter"; do
+    if [ -x "$CERTIFI_VENV/bin/python" ]; then
+        uv pip install --python "$CERTIFI_VENV/bin/python" "certifi>=2026.10.23"
+    fi
+done
 
 # ────────────────────────────────────────────────────
 #  Done!

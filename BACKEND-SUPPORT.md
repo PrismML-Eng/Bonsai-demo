@@ -8,7 +8,7 @@ see [MODEL-FORMATS.md](MODEL-FORMATS.md); for measured performance, see
 
 ## Release baseline
 
-The demo pins **`prism-b10772-e8fd209`**. The SYCL source audit baseline remains
+The demo pins **`prism-b10828-a153697`**. The SYCL source audit baseline remains
 **`prism-b10770-6684606`**.
 Vulkan was audited at **`prism-b10743-adfffbe`**; other backend rows retain the
 original **`prism-b10709-9a9394a`** audit.
@@ -69,8 +69,8 @@ shapes, data types, and device capabilities. They do not imply every quantized
 format is supported on that backend; consult both tables.
 
 Bonsai 2 also needs its sign flips and model graph transformations. Format decoding
-or a standalone Hadamard kernel alone is insufficient. The upstream integration is
-still pending; use our fork for all Bonsai 2 GGUF formats for now.
+or a standalone Hadamard kernel alone is insufficient. The required integration has merged upstream for Q2_0; use a recent official
+build containing those changes. PQ2_0 and PTQ1_0 still require our fork.
 
 Do not use this table as a directory-name guard. A local build can enable multiple
 backends, and a binary under `bin/vulkan` can be launched with CPU offload settings.
@@ -89,25 +89,16 @@ The demo setup scripts do not automatically select or install SYCL yet.
 
 ## Model files and upstream compatibility
 
-- **PQ2_0 and PTQ1_0:** published in the
-  [main Bonsai 2 GGUF repository](https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-gguf).
-  PQ2_0 is the demo's current download default. Both require our fork.
-- **Q2_0:** available separately as
-  [Ternary-Bonsai-2-27B-Q2_0-prism-fork-required.gguf](https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-gguf-dev/blob/main/Ternary-Bonsai-2-27B-Q2_0-prism-fork-required.gguf)
-  in the development repository for testing and benchmarks with our fork.
+- **Q2_0:** works with current official llama.cpp containing the merged Bonsai 2
+  model/Hadamard integration. Older bundled engines need updating; recognizing
+  the type alone did not guarantee correct output in older builds.
+- **PQ2_0 and PTQ1_0:** remain fork-specific. PQ2_0 is this demo's download default.
+- **MTP/DFlash:** compatibility is checkpoint/runtime-specific; some paths still
+  need our fork. These tables do not certify speculative-decoding support.
 
-**Q2_0 is already an official llama.cpp format; upstream Bonsai 2 support is the
-missing piece.** Stock llama.cpp can recognize the file and load it while omitting
-the required Bonsai 2 Hadamard/sign-flip transforms, producing gibberish instead of
-an unknown-format error. PQ2_0 and PTQ1_0 instead encounter unknown-type errors in
-upstream builds without those custom types. Do not treat successful loading as
-compatibility.
-
-The separate development repository is temporary. Once the required upstream PRs
-are merged and Bonsai 2 Q2_0 works correctly in upstream llama.cpp, the plan is to
-move this model into the main Bonsai 2 GGUF repository. Applications embedding
-llama.cpp will also need to adopt a version containing those changes. Until then,
-use our fork and keep the fork requirement visible when linking or copying the file.
+All packings contain the same model weights. See the [model list](README.md#bonsai-2-ternary-default)
+for per-size repositories; small-model repos include Q2_0 alongside the fork packings.
+Applications embedding llama.cpp must pick up the updated runtime too.
 
 ## Evidence and maintenance
 

@@ -21,13 +21,17 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-p", "--prompt", required=True)
     parser.add_argument("--model", required=True)
+    parser.add_argument("--sampling-profile", choices=("27b", "small"), default="27b")
     parser.add_argument("--image", action="append", default=[],
                         help="image file; repeat for more than one")
     parser.add_argument("-n", "--max-tokens", type=int, default=DEFAULTS["max_tokens"])
-    parser.add_argument("--temp", type=float, default=DEFAULTS["temp"])
-    parser.add_argument("--top-p", type=float, default=DEFAULTS["top_p"])
+    parser.add_argument("--temp", type=float)
+    parser.add_argument("--top-p", type=float)
     parser.add_argument("--top-k", type=int, default=DEFAULTS["top_k"])
-    parser.add_argument("--min-p", type=float, default=DEFAULTS["min_p"])
+    parser.add_argument("--min-p", type=float)
+    parser.add_argument("--presence-penalty", type=float)
+    parser.add_argument("--presence-context-size", type=int, default=64)
+    parser.add_argument("--repetition-penalty", type=float, default=1.0)
     parser.add_argument("--no-think", action="store_true", help="skip the thinking phase")
     parser.add_argument("--stats", action="store_true", help="show prompt and generation tokens/sec")
     args = parser.parse_args()
@@ -42,6 +46,18 @@ def main():
             f"{pack} is not a Bonsai 2 MLX pack (model_type={config.get('model_type')!r}).\n"
             "Use scripts/mlx_generate.py for the earlier families."
         )
+    small = args.sampling_profile == "small"
+    defaults = dict(DEFAULTS)
+    if small:
+        defaults.update(temp=0.7 if args.no_think else 1.0,
+                        top_p=0.8 if args.no_think else 0.95, min_p=0.0)
+    for key in ("temp", "top_p", "min_p"):
+        if getattr(args, key) is None:
+            setattr(args, key, defaults[key])
+    if args.presence_penalty is None:
+        args.presence_penalty = (1.5 if args.no_think else 1.0) if small else 0.0
+    if args.presence_context_size < 1:
+        parser.error("--presence-context-size must be positive")
     import warnings
 
     warnings.filterwarnings("ignore")
@@ -78,6 +94,9 @@ def main():
         top_p=args.top_p,
         top_k=args.top_k,
         min_p=args.min_p,
+        presence_penalty=args.presence_penalty,
+        presence_context_size=args.presence_context_size,
+        repetition_penalty=args.repetition_penalty,
         verbose=False,
     )
     text = out if isinstance(out, str) else getattr(out, "text", str(out))

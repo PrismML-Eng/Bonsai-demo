@@ -80,7 +80,7 @@ else
         echo "  Re-run ./scripts/download_models.sh to fetch it."
     fi
     _full_profile=0
-    if [ "$BONSAI_MODEL" = "27B" ]; then
+    if [ "$BONSAI_MODEL" = "27B" ] || [ "$BONSAI_FAMILY" = "bonsai2" ]; then
         _full_profile=1
     fi
 fi
@@ -116,6 +116,12 @@ if [ "$BONSAI_FAMILY" = "bonsai2" ]; then
 else
     SAMPLING="--temp 0.7 --top-p 0.95 --top-k 20 --min-p 0"
 fi
+if bonsai2_small_profile; then
+    SAMPLING="--temp $BONSAI_TEMP --top-p $BONSAI_TOP_P --top-k 20 --min-p 0 --presence-penalty $BONSAI_PRESENCE --repeat-penalty 1 --repeat-last-n 64"
+    if [ "${BONSAI_THINKING:-1}" = "0" ]; then
+        set -- --chat-template-kwargs '{"enable_thinking":false}' "$@"
+    fi
+fi
 # The 27B is a thinking model and thinking stays on; use the web UI's
 # Reasoning-effort picker per chat, or pass llama-server flags (e.g.
 # --reasoning-budget N) as extra args to this script.
@@ -135,7 +141,7 @@ if [ "$_full_profile" = "1" ]; then
     _spec_flags=""
     _ctx="$CTX_SIZE_DEFAULT"
     if [ "${BONSAI_SPECULATIVE:-0}" = "1" ] && [ "$BONSAI_FAMILY" = "bonsai2" ] && [ -z "${BONSAI_GGUF:-}" ]; then
-        warn "Bonsai 2 27B has no official DSpark drafter released yet; running without speculation."
+        warn "Automatic Bonsai 2 drafting is not configured in this launcher; running without speculation."
         echo "  Unset BONSAI_SPECULATIVE to hide this warning. See SPECULATIVE.md for availability."
     elif [ "${BONSAI_SPECULATIVE:-0}" = "1" ]; then
         # v7 builds read only converted (arch=dflash) drafters; the published legacy

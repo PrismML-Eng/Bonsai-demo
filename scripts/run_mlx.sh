@@ -22,7 +22,7 @@ PROMPT=""
 # Only Bonsai 2 has a vision tower and a thinking phase, and only its generator takes
 # top-k and min-p. The earlier families go to mlx_generate.py, which would abort in argparse on
 # these options, so refuse them here with a message that says why.
-_BONSAI2_ONLY=" --image --top-k --min-p --no-think --stats "
+_BONSAI2_ONLY=" --image --top-k --min-p --no-think --stats --presence-penalty --presence-context-size --repetition-penalty "
 
 # Rebuild the passthrough flags as real positional parameters. Collecting them into a
 # string and expanding it unquoted would split paths on whitespace, so `--image "my cat.jpg"`
@@ -42,7 +42,7 @@ while [ "$1" != "--end-of-args--" ]; do
     fi
     case "$1" in
         -p) PROMPT="$2"; shift 2 ;;
-        --image|-n|--temp|--top-p|--top-k|--min-p) set -- "$@" "$1" "$2"; shift 2 ;;
+        --image|-n|--temp|--top-p|--top-k|--min-p|--presence-penalty|--presence-context-size|--repetition-penalty) set -- "$@" "$1" "$2"; shift 2 ;;
         --no-think|--stats) set -- "$@" "$1"; shift ;;
         *) shift ;;
     esac
@@ -55,6 +55,12 @@ fi
 
 # Native Bonsai 2 support uses stock MLX in .venv-vlm; .venv is for 1-bit.
 if [ "$BONSAI_FAMILY" = "bonsai2" ]; then
+    if bonsai2_small_profile; then
+        set -- --sampling-profile small "$@"
+        if [ "${BONSAI_THINKING:-1}" = "0" ]; then
+            set -- --no-think "$@"
+        fi
+    fi
     require_bonsai2_mlx_vlm "$DEMO_DIR"
     _vlm_py="$DEMO_DIR/.venv-vlm/bin/python"
     exec "$_vlm_py" "$SCRIPT_DIR/mlx_generate_bonsai2.py" \

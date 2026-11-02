@@ -55,7 +55,7 @@ jobs:
           # The launchers exit before touching the filesystem on a size Bonsai 2
           # does not cover, so this runs them for real and checks they refuse.
           $env:BONSAI_FAMILY = "bonsai2"
-          foreach ($size in @("8B", "4B", "1.7B")) {
+          foreach ($size in @("8B", "1.7B")) {
             $env:BONSAI_MODEL = $size
             foreach ($s in @("./scripts/run_llama.ps1", "./scripts/start_llama_server.ps1")) {
               $out = & $s 2>&1
@@ -63,7 +63,7 @@ jobs:
                 Write-Host "FAIL: $s accepted bonsai2 $size"
                 exit 1
               }
-              if ($out -notmatch "Bonsai 2 is 27B") {
+              if ($out -notmatch "Bonsai 2 sizes:") {
                 Write-Host "FAIL: $s rejected bonsai2 $size for the wrong reason:"
                 Write-Host ($out -join "`n")
                 exit 1
@@ -101,6 +101,9 @@ jobs:
             echo "  OK: $f $s"
           }
           _check bonsai2 27B   models/bonsai2-gguf/27B   models/Ternary-Bonsai-2-27B-mlx-2bit Bonsai-2-27B
+          _check bonsai2 9B models/bonsai2-gguf/9B models/Ternary-Bonsai-2-9B-mlx-2bit Bonsai-2-9B
+          _check bonsai2 4B models/bonsai2-gguf/4B models/Ternary-Bonsai-2-4B-mlx-2bit Bonsai-2-4B
+          _check bonsai2 2B models/bonsai2-gguf/2B models/Ternary-Bonsai-2-2B-mlx-2bit Bonsai-2-2B
           _check bonsai  27B   models/gguf/27B           models/Bonsai-27B-mlx           Bonsai-27B
           _check bonsai  8B    models/gguf/8B            models/Bonsai-8B-mlx            Bonsai-8B
           _check bonsai  4B    models/gguf/4B            models/Bonsai-4B-mlx            Bonsai-4B
@@ -164,7 +167,7 @@ jobs:
 
       - name: Bonsai 2 size gate
         run: |
-          for _s in 8B 4B 1.7B; do
+          for _s in 8B 1.7B; do
             if ( export BONSAI_FAMILY=bonsai2 BONSAI_MODEL="$_s"; . scripts/common.sh; assert_valid_model ) >/dev/null 2>&1; then
               echo "FAIL: bonsai2 accepted size $_s"
               exit 1

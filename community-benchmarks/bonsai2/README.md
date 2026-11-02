@@ -11,29 +11,49 @@ Benchmark results submitted by the community running
 |------|----------|---------|------------:|------------:|---------|
 | `PQ2_0` | NVIDIA RTX 5090 32 GB | llama.cpp CUDA 12.8 (Linux) | 4,075 | 143.0 | [link](cuda-rtx5090-linux.md) |
 | `PTQ1_0` | NVIDIA RTX 5090 32 GB | llama.cpp CUDA 12.8 (Linux) | 4,117 | 133.0 | [link](cuda-rtx5090-linux.md) |
+| `PTQ1_0` | NVIDIA RTX 5070 Ti 16 GB | llama.cpp CUDA 13.3 (Windows) | 1,959 | 99.3 | [link](cuda-rtx5070ti-16gb-windows.md) |
 | `PQ2_0` | NVIDIA RTX 5080 16 GB | llama.cpp CUDA 13.3 (Windows) | 2,345 | 92.5 | [link](cuda-rtx5080-16gb-windows.md) |
 | `PTQ1_0` | NVIDIA RTX 5080 16 GB | llama.cpp CUDA 13.3 (Windows) | 1,017 | 89.3 | [link](cuda-rtx5080-16gb-windows.md) |
+| `PQ2_0` | NVIDIA RTX 5070 Ti 16 GB | llama.cpp CUDA 13.3 (Windows) | 2,045 | 86.9 | [link](cuda-rtx5070ti-16gb-windows.md) |
 | `PTQ1_0` | NVIDIA RTX 4090 24 GB | llama.cpp CUDA (Windows) | 1,597 | 86.0 | [link](cuda-rtx4090-windows.md) |
 | `PQ2_0` | NVIDIA RTX 4090 24 GB | llama.cpp CUDA (Windows) | 3,285 | 84.9 | [link](cuda-rtx4090-windows.md) |
 | `PQ2_0` | NVIDIA RTX 3090 Ti 24 GB | llama.cpp CUDA (Linux) | 1,552 | 81.6 | [link](cuda-rtx3090ti-linux.md) |
 | `PTQ1_0` | NVIDIA RTX 3090 Ti 24 GB | llama.cpp CUDA (Linux) | 805 | 67.7 | [link](cuda-rtx3090ti-linux.md) |
+| `PTQ1_0` | NVIDIA TITAN V 12 GB | llama.cpp CUDA 12.4 (Linux, fork b10777) | 562.2 | 51.25 | [link](cuda-titanv-12gb-linux.md) |
+| `PTQ1_0` | NVIDIA RTX A4000 16 GB | llama.cpp CUDA 12.4 (Linux, fork b10777) | 769.9 | 49.49 | [link](cuda-rtxa4000-16gb-linux.md) |
 | `PQ2_0` (community MTP file, plain inference) | NVIDIA RTX 5070 Ti Laptop 12 GB | llama.cpp CUDA (Windows) | 1,135 | 49.0 | [link](cuda-rtx5070ti-laptop-windows.md) |
+| `PTQ1_0` | NVIDIA RTX 5070 Ti Laptop 12 GB | llama.cpp CUDA (Windows) | 527 | 49.0 | [link](cuda-rtx5070ti-laptop-windows.md) |
 | `PQ2_0` (MTP bundle, plain inference) | AMD Radeon RX 9070 XT 16 GB | llama.cpp ROCm/HIP (Proxmox) | 1,258 | 48.64 | [link](rocm-hip-rx9070xt-proxmox.md) |
 | `PQ2_0` | AMD Radeon RX 9070 XT 16 GB | llama.cpp ROCm/HIP (Proxmox) | 1,259 | 48.53 | [link](rocm-hip-rx9070xt-proxmox.md) |
-| `PTQ1_0` | NVIDIA RTX 5070 Ti Laptop 12 GB | llama.cpp CUDA (Windows) | 527 | 49.0 | [link](cuda-rtx5070ti-laptop-windows.md) |
 | `PQ2_0` | AMD Radeon RX 7800 XT 16 GB | llama.cpp ROCm/HIP | 316.3 | 46.8 | [link](rocm-hip-rx7800xt-fedora44.md) |
+| `PQ2_0` | NVIDIA TITAN V 12 GB | llama.cpp CUDA 12.4 (Linux, fork b10777) | 528.2 | 46.66 | [link](cuda-titanv-12gb-linux.md) |
 | `PQ2_0` | NVIDIA Tesla V100-SXM2 16 GB | llama.cpp CUDA (Windows) | 798 | 46.0 | [link](cuda-tesla-v100-windows.md) |
+| `PTQ1_0` | Intel Arc B580 12 GB | llama.cpp SYCL (Windows, community fork Torchit1 arc-b580-v0.10.1) | 1,560 | 45.89 | [link](sycl-arc-b580-12gb-windows.md) |
+| `PQ2_0` | Intel Arc B580 12 GB | llama.cpp SYCL (Windows, community fork Torchit1 arc-b580-v0.10.1) | 1,533 | 45.87 | [link](sycl-arc-b580-12gb-windows.md) |
+| `PTQ1_0` (community mtp-lean graft, plain inference) | Intel Arc B580 12 GB | llama.cpp SYCL (Windows, community fork Torchit1 arc-b580-v0.10.1) | 1,562 | 45.45 | [link](sycl-arc-b580-12gb-windows.md) |
 | `PQ2_0` | AMD Radeon RX 6800 XT 16 GB | llama.cpp ROCm/HIP (Windows) | 266.4 | 44.9 | [link](rocm-hip-rx6800xt-windows.md) |
 | `PQ2_0` | NVIDIA RTX 3070 8 GB | llama.cpp CUDA (Windows) | 838.9 | 43.7 | [link](cuda-rtx3070-8gb-windows.md) |
+| `PQ2_0` | NVIDIA RTX A4000 16 GB | llama.cpp CUDA 12.4 (Linux, fork b10777) | 758.2 | 42.42 | [link](cuda-rtxa4000-16gb-linux.md) |
+| `PTQ1_0` | Intel Arc B580 12 GB | llama.cpp Vulkan (Windows, PrismML fork prism-b10777) | 380 | 34.84 | [link](vulkan-arc-b580-12gb-windows.md) |
 | `PTQ1_0` | NVIDIA Tesla V100-SXM2 16 GB | llama.cpp CUDA (Windows) | 852 | 34.3 | [link](cuda-tesla-v100-windows.md) |
+| `PTQ1_0` (community mtp-lean graft, plain inference, q4_0 KV) | AMD Radeon RX 7600 XT 16 GB | llama.cpp Vulkan (Windows, custom build on community fork Torchit1 v0.10.1) | 329.9 | 33.61 | [link](vulkan-rx7600xt-16gb-windows.md) |
 | `PTQ1_0` | NVIDIA RTX 4070 Laptop 8 GB | llama.cpp CUDA (Windows) | 435.60 | 32.44 | [link](cuda-rtx4070-laptop-windows.md) |
+| `Q2_0` (development) | Intel Arc B580 12 GB | llama.cpp Vulkan (Windows, PrismML fork prism-b10777) | 568 | 31.59 | [link](vulkan-arc-b580-12gb-windows.md) |
+| `PQ2_0` | Intel Arc B580 12 GB | llama.cpp Vulkan (Windows, PrismML fork prism-b10777) | 559 | 28.59 | [link](vulkan-arc-b580-12gb-windows.md) |
 | `2-bit` | Apple M3 Max 48 GB | MLX (mlx 0.32.2, mlx-vlm 0.6.17) | 165.9 | 27.1 | [link](mlx-m3-max-48gb-macos.md) |
 | `PQ2_0` | Apple M3 Max 36 GB | llama.cpp Metal | 162.2 | 24.3 | [link](metal-m3-max-36gb-macos.md) |
 | `PQ2_0` | AMD BC-250 16 GB UMA | llama.cpp Vulkan (Linux, local patches) | 142.58 | 24.11 | [link](vulkan-bc250-linux.md) |
+| `PQ2_0` | Tesla P40 24 GB | llama.cpp CUDA 12.4 (Linux, fork b10777) | 254.4 | 23.16 | [link](cuda-teslap40-24gb-linux.md) |
 | `PTQ1_0` | Apple M3 Max 36 GB | llama.cpp Metal | 136.8 | 21.9 | [link](metal-m3-max-36gb-macos.md) |
 | `PQ2_0` | Apple M4 Pro 64 GB | llama.cpp Metal | 126.9 | 20.5 | [link](metal-m4-pro-64gb-macos.md) |
-| `PTQ1_0` | Apple M4 Pro 64 GB | llama.cpp Metal | 98.6 | 17.3 | [link](metal-m4-pro-64gb-macos.md) |
+| `PTQ1_0` | Tesla P40 24 GB | llama.cpp CUDA 12.4 (Linux, fork b10777) | 139.9 | 19.86 | [link](cuda-teslap40-24gb-linux.md) |
 | `2-bit` | Apple M4 Pro 64 GB | MLX (mlx_lm 0.31.3) | 97.9 | 18.9 | [link](metal-m4-pro-64gb-macos.md) |
+| `PTQ1_0` | Apple M4 Pro 64 GB | llama.cpp Metal | 98.6 | 17.3 | [link](metal-m4-pro-64gb-macos.md) |
+| `Q2_0` (development) | Intel Arc B580 12 GB | llama.cpp SYCL (Windows, community fork Torchit1 arc-b580-v0.10.1) | 770 | 10.26 | [link](sycl-arc-b580-12gb-windows.md) |
+| `PQ2_0` | Apple M5 (Air) 16 GB | llama.cpp Metal (fork b10777) | 88.8 | 7.82 | [link](metal-m5-air-16gb-macos.md) |
+| `PQ2_0` | AMD Radeon RX 580 8 GB | llama.cpp Vulkan (Linux) | 36.67 | 7.26 | [link](vulkan-amd-radeon-rx-580-linux.md) |
+| `PTQ1_0` | Apple M5 (Air) 16 GB | llama.cpp Metal (fork b10777) | 79.7 | 7.03 | [link](metal-m5-air-16gb-macos.md) |
+| `PTQ1_0` | AMD Radeon RX 580 8 GB | llama.cpp Vulkan (Linux) | 49.03 | 5.50 | [link](vulkan-amd-radeon-rx-580-linux.md) |
 
 ## How to Submit
 
@@ -65,3 +85,5 @@ quality checks in separate labeled sections, with their commands and workloads.
 
 - [M4 Max 64GB, macOS: Bonsai 2 PQ2_0 Metal, MLX 2-bit and Ollama NVFP4/MLX](metal-mlx-m4-max-64gb-macos.md)
   — Korean extraction, synthetic vision and mock tool calls, with final results and setup notes. PP512/TG128 not measured; cache/speculation settings differ.
+
+- [M3 24GB, macOS: Speculative Decoding with DFlash2 Drafters](metal-m3-10c-24gb-dflash-macos.md) — 8.65 t/s baseline boosted to 11.05 to 13.00 t/s (+22% to +41%), output SHA-256 digests matched the baseline in the tested greedy runs.

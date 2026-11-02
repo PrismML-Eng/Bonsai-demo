@@ -19,7 +19,7 @@ GGUF_QUANT_PATTERN=""
 BONSAI_DISPLAY="(family=${BONSAI_FAMILY} size=${BONSAI_MODEL})"
 
 case "$BONSAI_MODEL" in
-    27B|8B|4B|1.7B)
+    27B|9B|8B|4B|2B|1.7B)
         case "$BONSAI_FAMILY" in
             bonsai2)
                 GGUF_MODEL_DIR="models/bonsai2-gguf/${BONSAI_MODEL}"
@@ -49,7 +49,7 @@ case "$BONSAI_MODEL" in
 esac
 
 # Sizes this family covers.
-BONSAI2_SIZES="${BONSAI2_SIZES:-27B}"
+BONSAI2_SIZES="${BONSAI2_SIZES:-27B 9B 4B 2B}"
 bonsai2_size_available() {
     [ "$1" = "all" ] && return 0
     for _b2s in $BONSAI2_SIZES; do
@@ -61,12 +61,15 @@ bonsai2_size_available() {
 # Validate BONSAI_MODEL + BONSAI_FAMILY — call at the top of every run/server script
 assert_valid_model() {
     case "$BONSAI_MODEL" in
-        27B|8B|4B|1.7B|all) ;;
+        27B|9B|8B|4B|2B|1.7B|all) ;;
         *)
-            err "Unknown BONSAI_MODEL='${BONSAI_MODEL}'. Valid values: 27B, 8B, 4B, 1.7B, all"
+            err "Unknown BONSAI_MODEL='${BONSAI_MODEL}'. Valid values: 27B, 9B, 8B, 4B, 2B, 1.7B, all"
             echo "  Example: export BONSAI_MODEL=27B"
             exit 1 ;;
     esac
+    if { [ "$BONSAI_FAMILY" = "bonsai" ] || [ "$BONSAI_FAMILY" = "ternary" ]; }; then
+        case "$BONSAI_MODEL" in 9B|2B) err "${BONSAI_MODEL} requires BONSAI_FAMILY=bonsai2"; exit 1 ;; esac
+    fi
     case "$BONSAI_FAMILY" in
         bonsai2|bonsai|ternary|all) ;;
         *)
@@ -75,7 +78,7 @@ assert_valid_model() {
             exit 1 ;;
     esac
     if [ "$BONSAI_FAMILY" = "bonsai2" ] && ! bonsai2_size_available "$BONSAI_MODEL"; then
-        err "Bonsai 2 is 27B."
+        err "Bonsai 2 sizes: $BONSAI2_SIZES."
         echo "  Bonsai 2:              BONSAI_MODEL=27B ./scripts/run_llama.sh"
         echo "  Other sizes:           BONSAI_FAMILY=ternary BONSAI_MODEL=${BONSAI_MODEL} ./scripts/run_llama.sh"
         exit 1
@@ -412,4 +415,15 @@ reject_unverified_bonsai2_mlx_server() {
         echo "  Stop that server and retry so this launcher can start the tested native mlx-vlm runtime." >&2
         exit 1
     fi
+}
+
+# Sampling profile for the new small Bonsai 2 models. Extra CLI flags still override it.
+bonsai2_small_profile() {
+    [ "$BONSAI_FAMILY" = "bonsai2" ] || return 1
+    case "$BONSAI_MODEL" in 9B|4B|2B) ;; *) return 1 ;; esac
+    case "${BONSAI_THINKING:-1}" in
+        1) BONSAI_TEMP=1.0; BONSAI_TOP_P=0.95; BONSAI_PRESENCE=1.0 ;;
+        0) BONSAI_TEMP=0.7; BONSAI_TOP_P=0.8; BONSAI_PRESENCE=1.5 ;;
+        *) err "BONSAI_THINKING must be 0 or 1"; exit 1 ;;
+    esac
 }

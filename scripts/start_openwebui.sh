@@ -11,6 +11,15 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$SCRIPT_DIR/common.sh"
 assert_valid_model
 
+if [ "$BONSAI_FAMILY" = "bonsai2" ]; then
+    case "$BONSAI_MODEL" in
+        2B|4B|9B)
+            err "Small-model Open WebUI integration is not configured yet."
+            echo "  Use scripts/start_llama_server.sh for browser chat or scripts/start_mlx_server.sh for the API."
+            exit 1 ;;
+    esac
+fi
+
 # ── Backend selection: exactly ONE backend, never both (two resident 27Bs
 #    overwhelm consumer machines). BONSAI_BACKEND=llama (default) or mlx. ──
 BONSAI_BACKEND="${BONSAI_BACKEND:-llama}"

@@ -48,6 +48,15 @@ done
 
 # Bonsai 2: the model card's thinking-mode sampling (temp 1.0, top-p 0.95, top-k 20, min-p 0.05),
 # thinking stays enabled.
+if bonsai2_small_profile; then
+    if [ "${BONSAI_THINKING:-1}" = "0" ]; then
+        set -- --chat-template-kwargs '{"enable_thinking":false}' "$@"
+    fi
+    exec "$BIN" -m "$MODEL" -ngl "$NGL" -fa on -c "$CTX_SIZE_DEFAULT" \
+        --temp "$BONSAI_TEMP" --top-p "$BONSAI_TOP_P" --top-k 20 --min-p 0 \
+        --presence-penalty "$BONSAI_PRESENCE" --repeat-penalty 1 --repeat-last-n 64 \
+        $_ONESHOT "$@"
+fi
 if [ "$BONSAI_FAMILY" = "bonsai2" ]; then
     # shellcheck disable=SC2086
     exec "$BIN" -m "$MODEL" -ngl "$NGL" -fa on -c "$CTX_SIZE_DEFAULT" --log-disable \

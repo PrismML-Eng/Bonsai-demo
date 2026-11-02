@@ -11,10 +11,13 @@ Benchmark results submitted by the community running [Bonsai](https://huggingfac
 | NVIDIA L40S 48 GB | llama.cpp CUDA | 2,937 | 107.5 | [link](cuda-l40s-27b-linux.md) |
 | NVIDIA RTX 3090 24 GB | llama.cpp CUDA | 1,480 | 89.2 | [link](cuda-rtx3090-linux.md) |
 | Apple M5 Max 48 GB | llama.cpp Metal | 796 | 63.9 | [link](metal-m5-max-48gb-macos.md) |
+| NVIDIA TITAN V 12 GB | llama.cpp CUDA 12.4 (Linux, fork b10777) | 552.4 | 56.47 | [link](cuda-titanv-12gb-linux.md) |
 | NVIDIA DGX Spark (GB10) | llama.cpp CUDA | 1,024 | 45.4 | [link](cuda-gb10-27b-linux.md) |
 | NVIDIA RTX 2060 SUPER 8 GB | llama.cpp CUDA (WSL) | 494 | 32.7 | [link](cuda-rtx2060-linux.md) |
+| NVIDIA GeForce RTX 2060 12 GB | llama.cpp CUDA 12.4 (Linux, fork b10777) | 431.2 | 29.96 | [link](cuda-rtx2060-12gb-linux.md) |
 | NVIDIA GeForce GTX 1080 Ti 11 GB | llama.cpp CUDA | 285 | 28.3 | [link](cuda-gtx1080ti-linux.md) |
 | Apple M3 MacBook Air 16 GB | MLX 1-bit | 51.0 | 18.3 | [link](mlx-m3-air-macos.md) |
+| Apple M5 (Air) 16 GB | llama.cpp Metal (upstream b11630) | 84.2 | 11.54 | [link](metal-m5-air-16gb-macos.md) |
 
 ### 8B and smaller
 

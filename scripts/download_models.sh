@@ -11,8 +11,8 @@
 #   BONSAI_FAMILY=all BONSAI_MODEL=all ./scripts/download_models.sh      # Full matrix (sizes without a build are skipped)
 #   BONSAI_SKIP_GGUF=1 ./scripts/download_models.sh                      # MLX only (macOS) — saves disk space
 #
-# Set BONSAI_TOKEN (a read-only HF token) if you need to pull a repo that is
-# still private; public repos download anonymously with no token.
+# Set BONSAI_TOKEN (a read-only HF token) for authenticated downloads.
+# Public repos download anonymously with no token.
 #
 # Set BONSAI_SKIP_GGUF=1 to skip the GGUF download entirely (llama.cpp backend
 # won't be usable afterwards — only makes sense if you only run the MLX
@@ -29,17 +29,16 @@ VENV_PY="$DEMO_DIR/.venv/bin/python"
 
 # ── HuggingFace auth ──
 # Use BONSAI_TOKEN (env, or the gitignored .bonsai_token file) if present.
-# It is only needed for a repo that is still private; public repos download
+# It is only needed for authenticated access; public repos download
 # anonymously. We never hard-skip on a missing token: HF surfaces a clear 401
-# if a repo genuinely needs auth, and once a repo goes public no token is
-# required at all.
+# if a repo genuinely needs auth.
 if [ -z "$BONSAI_TOKEN" ] && [ -f "$DEMO_DIR/.bonsai_token" ]; then
     BONSAI_TOKEN="$(tr -d '\r\n' < "$DEMO_DIR/.bonsai_token")"
 fi
 # Offer (never require) an interactive prompt when a tty is attached and no
 # token is set. Declining is fine. `|| true`: EOF must not abort under set -e.
 if [ -z "$BONSAI_TOKEN" ] && [ -r /dev/tty ]; then
-    printf "  Optional HuggingFace token for any still-private repo (press Enter to skip): "
+    printf "  Optional HuggingFace token (press Enter to skip): "
     { read -r BONSAI_TOKEN </dev/tty; } 2>/dev/null || true
 fi
 if [ -n "$BONSAI_TOKEN" ]; then
@@ -75,7 +74,7 @@ kwargs = {'repo_id': '$_repo', 'local_dir': '$_dest'}
 _p = '$_patterns'
 if _p:
     kwargs['allow_patterns'] = [p for p in _p.split(',') if p]
-# Private-repo auth (27B until launch); falls back to anonymous when unset.
+# Optional Hugging Face auth; falls back to anonymous when unset.
 if os.environ.get('BONSAI_TOKEN'):
     kwargs['token'] = os.environ['BONSAI_TOKEN']
 snapshot_download(**kwargs)
@@ -90,9 +89,9 @@ download_one() {
     # quant the demo is built around, so restrict the download via allow_patterns.
     case "$_family" in
         bonsai2)
-            # Every Bonsai 2 band needs the fork's kernels, so there is no mainline-compatible
-            # variant to choose between: the PQ2_0 band plus the projector.
-            bonsai2_size_available "$_size" || { info "Bonsai 2 is 27B; skipping ${_size}."; return 0; }
+            # Download the demo's default PQ2_0 packing and projector.
+            # PQ2_0 needs our fork; Q2_0 works with current upstream llama.cpp.
+            bonsai2_size_available "$_size" || { info "No Bonsai 2 ${_size}; skipping."; return 0; }
             _gguf_repo="prism-ml/Ternary-Bonsai-2-${_size}-gguf"
             _mlx_repo="prism-ml/Ternary-Bonsai-2-${_size}-mlx-2bit"
             _gguf_dir="models/bonsai2-gguf/${_size}"
@@ -227,12 +226,13 @@ case "$BONSAI_FAMILY" in
     *)   _families="$BONSAI_FAMILY" ;;
 esac
 case "$BONSAI_MODEL" in
-    all) _sizes="27B 8B 4B 1.7B" ;;
+    all) _sizes="27B 9B 8B 4B 2B 1.7B" ;;
     *)   _sizes="$BONSAI_MODEL" ;;
 esac
 
 for _f in $_families; do
     for _s in $_sizes; do
+        case "$_f:$_s" in bonsai:9B|bonsai:2B|ternary:9B|ternary:2B) continue ;; esac
         download_one "$_f" "$_s"
     done
 done
