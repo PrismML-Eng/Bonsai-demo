@@ -89,8 +89,8 @@ The demo setup scripts do not automatically select or install SYCL yet.
 
 ## Model files and upstream compatibility
 
-- **Q2_0:** works with current official llama.cpp containing the merged Bonsai 2
-  model/Hadamard integration. Older bundled engines need updating; recognizing
+- **Q2_0:** works with official llama.cpp b11556 or newer, which contains the merged
+  Bonsai 2 model/Hadamard integration. Older bundled engines need updating; recognizing
   the type alone did not guarantee correct output in older builds.
 - **PQ2_0 and PTQ1_0:** remain fork-specific. PQ2_0 is this demo's download default.
 - **MTP/DFlash:** compatibility is checkpoint/runtime-specific; some paths still

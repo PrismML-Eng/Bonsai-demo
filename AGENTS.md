@@ -23,15 +23,15 @@ The 27B generation is a step change over the earlier 8B/4B/1.7B demos:
 
 | `BONSAI_FAMILY` / `BONSAI_MODEL` | Weights | Notes |
 |---|---|---|
-| `bonsai2` / `27B` (**default**) | GGUF 5.9-7.2 GB + mmproj 0.63 GB; MLX 2-bit 8.6 GB | The current generation and what plain `./setup.sh` installs. Two GGUF bands, **both requiring this demo's binaries**: `PTQ1_0` (1.75 bpw, 5.9 GB, densely packed trits, smallest) and `PQ2_0` (2.13 bpw, 7.2 GB, faster prompt processing, what the scripts download). Q2_0 is supported by current official llama.cpp with Bonsai 2 integration. MLX uses native Hadamard-aware mlx-vlm 0.7.8 from `.venv-vlm` for one-shot generation and serving, not the fork in `.venv` |
+| `bonsai2` / `27B` (**default**) | GGUF 5.9-7.2 GB + mmproj 0.63 GB; MLX 2-bit 8.6 GB | The current generation and what plain `./setup.sh` installs. Two GGUF bands, **both requiring this demo's binaries**: `PTQ1_0` (1.75 bpw, 5.9 GB, densely packed trits, smallest) and `PQ2_0` (2.13 bpw, 7.2 GB, faster prompt processing, what the scripts download). Q2_0 is supported by official llama.cpp b11556 or newer. MLX uses native Hadamard-aware mlx-vlm 0.7.8 from `.venv-vlm` for one-shot generation and serving, not the fork in `.venv` |
 | `ternary` / `27B` (previous generation) | GGUF ~6.7-7.1 GB + mmproj 0.9 GB; MLX 2-bit ~7.9 GB | Superseded by `bonsai2`. Two GGUF formats since the mainline rebase (`prism-b10658+`): `PQ2_0` (group 128, 6.66 GiB, smallest/fastest where supported: CUDA, Metal, CPU, ROCm) and official `Q2_0` group 64 (`Ternary-Bonsai-27B-Q2_g64.gguf`, 7.05 GiB, adds Vulkan/SYCL); smaller sizes use `*-Q2_0_g64.gguf` naming. The scripts pick per backend. Legacy `*-Q2_0.gguf` files (no `g64`) only load on old `prism-v5` releases; new binaries refuse them with an error |
 | `bonsai` / `27B` | GGUF Q1_0 ~3.5 GB + mmproj 0.9 GB; MLX 1-bit ~4.8 GB | Smallest and fastest; fits on a modern iPhone without offloading |
 | `8B` / `4B` / `1.7B` (both families) | smaller | Text-only, no tools wiring, legacy tested flag set |
 
 ### Current runtime support
 
-Current official llama.cpp supports Bonsai 2 in Q2_0 with the merged model and
-Hadamard/sign-flip integration. PQ2_0 and PTQ1_0 still need our fork. Older engines
+Official llama.cpp supports Bonsai 2 in Q2_0 from release b11556, which merged the
+model and Hadamard/sign-flip integration. PQ2_0 and PTQ1_0 still need our fork. Older engines
 may recognize Q2_0 but miss the transforms; check the build when diagnosing gibberish.
 See [upstream support](README.md#upstream-support) instead of relying on old PR lists.
 

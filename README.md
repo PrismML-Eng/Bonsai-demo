@@ -46,7 +46,7 @@ model's card for its specifications:
   faster prompt processing and is what this demo downloads by default.
   See [MODEL-FORMATS.md](MODEL-FORMATS.md).
 
-**Official `Q2_0` works with current upstream llama.cpp containing Bonsai 2 support.**
+**Official `Q2_0` works with upstream llama.cpp [b11556](https://github.com/ggml-org/llama.cpp/releases/tag/b11556) or newer.**
 `PQ2_0` and `PTQ1_0` still require the [PrismML fork](https://github.com/PrismML-Eng/llama.cpp).
 This demo downloads `PQ2_0` and the matching fork binaries by default.
 All three packings contain the same model weights, with different memory/speed trade-offs.
@@ -155,7 +155,7 @@ See [community-benchmarks/](community-benchmarks/) for results on different hard
 
 ### Bonsai 2 (ternary, default)
 
-Available in GGUF and MLX 2-bit formats. Use current official llama.cpp for `Q2_0`,
+Available in GGUF and MLX 2-bit formats. Use official llama.cpp b11556 or newer for `Q2_0`,
 or our fork for `PQ2_0` / `PTQ1_0`. Setup installs the fork for its default `PQ2_0` download.
 
 | Model | GGUF | MLX (2-bit) |
@@ -201,12 +201,13 @@ Every launcher is configured through environment variables. The most common ones
 
 ## Upstream support
 
-- **llama.cpp:** Bonsai 2 works in official `Q2_0` format with current upstream
-  builds containing the merged model/Hadamard integration. Use a recent version;
-  older engines may recognize the format but miss the required transforms.
-- **PrismML fork:** still required for `PQ2_0` and `PTQ1_0`. Some MTP/DFlash
-  configurations and other experimental features may also need our fork; follow
-  the instructions for the specific checkpoint and runtime.
+- **llama.cpp:** Bonsai 2 (2B, 4B, 9B and 27B) works in official `Q2_0` format on
+  upstream llama.cpp from release [b11556](https://github.com/ggml-org/llama.cpp/releases/tag/b11556) onward, which merged the
+  model/Hadamard integration. Older engines may recognize the format but miss the
+  required transforms.
+- **PrismML fork:** still required for `PQ2_0` and `PTQ1_0`, and for the MTP and
+  DFlash2 drafters on the model cards. Other experimental features may also need
+  our fork; follow the instructions for the specific checkpoint and runtime.
 - **MLX:** the 1-bit support and Hadamard changes have merged upstream. Support
   should reach mlx-lm and other MLX engines as they integrate the model support
   and ship updated runtimes. A core MLX merge alone does not make every engine

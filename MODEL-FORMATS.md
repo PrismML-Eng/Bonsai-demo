@@ -36,7 +36,7 @@ and the fork's group-128 layout lives under its own name and id, PQ2_0 (142).
 
 | Packing | Runtime | Trade-off |
 |---|---|---|
-| `Q2_0` | Current official llama.cpp with Bonsai 2 support, or our fork | Upstream format |
+| `Q2_0` | Official llama.cpp b11556 or newer, or our fork | Upstream format |
 | `PQ2_0` | PrismML fork | Faster prompt processing than PTQ1_0 on many devices |
 | `PTQ1_0` | PrismML fork | Smallest packed files |
 
