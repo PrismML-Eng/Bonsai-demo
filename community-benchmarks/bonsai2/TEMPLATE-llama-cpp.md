@@ -54,14 +54,13 @@ Use the same settings when comparing packings, and list any differences.
 
 (Paste the exact command and raw results, or state that this packing was not tested.)
 
-### Q2_0 (optional, development)
+### Q2_0 (optional)
 
-Use [Ternary-Bonsai-2-27B-Q2_0-prism-fork-required.gguf](https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-gguf-dev/blob/main/Ternary-Bonsai-2-27B-Q2_0-prism-fork-required.gguf)
+Use [Ternary-Bonsai-2-27B-Q2_0.gguf](https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-gguf/blob/main/Ternary-Bonsai-2-27B-Q2_0.gguf)
 and pass its path to `-m` with the same benchmark settings.
-This is the official llama.cpp `Q2_0` format, but Bonsai 2 currently requires our
-fork's Hadamard transform support. Upstream support is pending our PRs; stock
-llama.cpp may load the file but produce incorrect output without those changes.
-Record the exact fork build and model revision or hash.
+This is the official llama.cpp `Q2_0` format. It runs on our fork and on upstream
+llama.cpp from release [b11556](https://github.com/ggml-org/llama.cpp/releases/tag/b11556) onward; older upstream builds load it but produce
+incorrect output. Record the exact build (fork or upstream) and model revision or hash.
 
 (Paste the exact command and raw results, or state that this format was not tested.)
 
