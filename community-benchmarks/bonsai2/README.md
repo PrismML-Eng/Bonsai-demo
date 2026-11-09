@@ -42,6 +42,7 @@ Benchmark results submitted by the community running
 | `PQ2_0` | Intel Arc B580 12 GB | llama.cpp Vulkan (Windows, PrismML fork prism-b10777) | 559 | 28.59 | [link](vulkan-arc-b580-12gb-windows.md) |
 | `2-bit` | Apple M3 Max 48 GB | MLX (mlx 0.32.2, mlx-vlm 0.6.17) | 165.9 | 27.1 | [link](mlx-m3-max-48gb-macos.md) |
 | `PQ2_0` | Apple M3 Max 36 GB | llama.cpp Metal | 162.2 | 24.3 | [link](metal-m3-max-36gb-macos.md) |
+| `PQ2_0` | AMD Strix Halo (Ryzen AI Max+ 395, Radeon 8060S) 128 GB UMA | llama.cpp Vulkan (Linux, prism-b12128) | 336.2 | 24.28 | [link](vulkan-strix-halo-8060s-linux.md) |
 | `PQ2_0` | AMD BC-250 16 GB UMA | llama.cpp Vulkan (Linux, local patches) | 142.58 | 24.11 | [link](vulkan-bc250-linux.md) |
 | `PQ2_0` | Tesla P40 24 GB | llama.cpp CUDA 12.4 (Linux, fork b10777) | 254.4 | 23.16 | [link](cuda-teslap40-24gb-linux.md) |
 | `PTQ1_0` | Apple M3 Max 36 GB | llama.cpp Metal | 136.8 | 21.9 | [link](metal-m3-max-36gb-macos.md) |
