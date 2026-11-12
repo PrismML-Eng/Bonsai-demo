@@ -20,18 +20,18 @@ browser:
   inactivity_timeout: 120
 tool_loop_guardrails:
   warnings_enabled: true
-  hard_stop_enabled: false
+  hard_stop_enabled: true
   warn_after:
     exact_failure: 2
     same_tool_failure: 3
     idempotent_no_progress: 2
   hard_stop_after:
-    exact_failure: 5
-    same_tool_failure: 8
-    idempotent_no_progress: 5
+    exact_failure: 4
+    same_tool_failure: 5
+    idempotent_no_progress: 3
 compression:
   enabled: true
-  threshold: 0.5
+  threshold: 0.75
   codex_gpt55_autoraise: true
   target_ratio: 0.2
   protect_last_n: 20
@@ -53,15 +53,20 @@ session_reset:
 max_concurrent_sessions: null
 group_sessions_per_user: true
 streaming:
-  enabled: false
+  enabled: true
 skills:
   creation_nudge_interval: 15
 agent:
   max_turns: 16
-  coding_context: off
+  coding_context: on
+  coding_instructions: |
+    Inspect relevant files before editing, then use the narrowest suitable file or terminal tool.
+    Prefer focused changes over whole-file rewrites. If a tool fails or makes no progress, diagnose
+    the latest result and change strategy instead of repeating the same call. Verify changes with
+    the smallest relevant check before reporting completion.
   verify_on_stop: false
   verbose: false
-  reasoning_effort: xhigh
+  reasoning_effort: medium
   reasoning_overrides: {}
   personalities:
     helpful: You are a helpful, friendly AI assistant.
