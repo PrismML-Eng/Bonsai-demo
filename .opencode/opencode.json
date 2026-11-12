@@ -1,0 +1,58 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "default_agent": "build",
+  "model": "bonsai/bonsai2-27b",
+  "providers": {
+    "bonsai": {
+      "name": "Bonsai local",
+      "package": "@opencode/ai/providers/openai-compatible",
+      "settings": {
+        "baseURL": "http://127.0.0.1:8080/v1",
+        "apiKey": "sk-local",
+        "headerTimeout": 900000,
+        "chunkTimeout": 300000,
+        "timeout": 1800000
+      },
+      "models": {
+        "bonsai2-27b": {
+          "name": "Bonsai 2 27B",
+          "modelID": "bonsai2-27b-opencode",
+          "limit": {
+            "context": 262144,
+            "input": 196608,
+            "output": 32768
+          },
+          "capabilities": {
+            "tools": true,
+            "input": ["text", "image"],
+            "output": ["text"]
+          },
+          "compatibility": {
+            "reasoningField": "reasoning_content"
+          }
+        }
+      }
+    }
+  },
+  "compaction": {
+    "auto": true,
+    "keep": {
+      "tokens": 12000
+    },
+    "buffer": "20%"
+  },
+  "tool_output": {
+    "max_lines": 1000,
+    "max_bytes": 32768
+  },
+  "instructions": [".opencode/INSTRUCTIONS.md"],
+  "agents": {
+    "build": {
+      "steps": 18
+    }
+  },
+  "experimental": {
+    "todo": true,
+    "background_compaction": true
+  }
+}

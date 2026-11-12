@@ -51,6 +51,13 @@ acceptable.
 
 ## The settings
 
+The checked-in Hermes profiles are tuned for more responsive and reliable
+coding runs than the historical recordings: streamed progress and coding
+guidance are enabled, reasoning defaults to medium, context compression waits
+until 75% of the declared window, and repeated failed/no-progress tool loops
+hard-stop rather than continuing silently. The settings below describing
+recorded runs remain historical.
+
 Server, from `scripts/start_agent_server.sh` on top of `start_llama_server.sh`:
 
 ```
@@ -67,7 +74,7 @@ llama-server -m Ternary-Bonsai-2-27B-PQ2_0.gguf --mmproj Ternary-Bonsai-2-27B-mm
 | context | 131,072 for the exact recording; `BONSAI_CTX=262144` recommended | at 131k Hermes compresses the history on long runs; at 262k it never did in our tests |
 | output | Hermes `max_tokens 32768` | the planning turn writes the whole page in one go and must fit |
 | seed | 42, the server's `-s 42` (`AGENT_SERVER_SEED`, default 42); the runner refuses to start against a server whose seed differs from `AGENT_SEED` | a fixed seed keeps the sampler repeatable; one slot, so a server seed equals a per-request seed. The recording injected 42 per request through the trace proxy, same effect |
-| Hermes | 0.18.2 at commit `c387be0`, browser tool `agent-browser` 0.38.1 (pinned in `.agent-browser/` by the installer, first on PATH at run time); `scripts/agent/hermes-config-round0.yaml` (context 131,072, max_tokens 32,768, coding mode off, verify-on-stop off, tools file · terminal · coding · web · search · browser); feedback rounds use `hermes-config-feedback.yaml` (8-turn limit) | the recorded configuration, verbatim; the workspace lives outside any git repo because Hermes changes profile inside one |
+| Hermes | 0.18.2 at commit `c387be0`, browser tool `agent-browser` 0.38.1 (pinned in `.agent-browser/` by the installer, first on PATH at run time); the checked-in profiles use context 131,072, max_tokens 32,768, medium reasoning, streamed progress, coding guidance on, verify-on-stop off, and tools file · terminal · coding · web · search · browser; feedback rounds use `hermes-config-feedback.yaml` (8-turn limit) | the recorded runs used xhigh reasoning, coding guidance off, and warning-only tool-loop guardrails; the current profiles add focused coding/tool-recovery instructions, stop repeated failing/no-progress calls, and defer compression to 75% of context. The workspace remains outside any git repo |
 | model | `Ternary-Bonsai-2-27B-PQ2_0.gguf` 7,206,168,928 bytes, sha256 `3907dc1658db1f78a9826bf8d5bcb8dc65db0d466388937af57f2294fae62ec1` · `Ternary-Bonsai-2-27B-mmproj-Q8_0.gguf` 629,246,976 bytes, sha256 `6807ede61d570bb86ba34b756a0fa109edc33668604de867c6ea6d8f1d631903` | |
 
 ## The skateboard, five rounds
