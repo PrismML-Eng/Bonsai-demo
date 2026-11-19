@@ -13,6 +13,7 @@ Benchmark results submitted by the community running [Bonsai](https://huggingfac
 | Apple M5 Max 48 GB | llama.cpp Metal | 796 | 63.9 | [link](metal-m5-max-48gb-macos.md) |
 | NVIDIA TITAN V 12 GB | llama.cpp CUDA 12.4 (Linux, fork b10777) | 552.4 | 56.47 | [link](cuda-titanv-12gb-linux.md) |
 | NVIDIA DGX Spark (GB10) | llama.cpp CUDA | 1,024 | 45.4 | [link](cuda-gb10-27b-linux.md) |
+| NVIDIA RTX 2060 SUPER 8 GB | llama.cpp CUDA 12.4 (Windows, fork b12128) | 496.92 | 40.85 | [link](cuda-rtx2060super-8gb-windows.md) |
 | NVIDIA RTX 2060 SUPER 8 GB | llama.cpp CUDA (WSL) | 494 | 32.7 | [link](cuda-rtx2060-linux.md) |
 | NVIDIA GeForce RTX 2060 12 GB | llama.cpp CUDA 12.4 (Linux, fork b10777) | 431.2 | 29.96 | [link](cuda-rtx2060-12gb-linux.md) |
 | NVIDIA GeForce GTX 1080 Ti 11 GB | llama.cpp CUDA | 285 | 28.3 | [link](cuda-gtx1080ti-linux.md) |
