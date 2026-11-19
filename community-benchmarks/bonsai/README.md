@@ -19,6 +19,7 @@ Benchmark results submitted by the community running [Bonsai](https://huggingfac
 | NVIDIA GeForce GTX 1080 Ti 11 GB | llama.cpp CUDA | 285 | 28.3 | [link](cuda-gtx1080ti-linux.md) |
 | Apple M3 MacBook Air 16 GB | MLX 1-bit | 51.0 | 18.3 | [link](mlx-m3-air-macos.md) |
 | Apple M5 (Air) 16 GB | llama.cpp Metal (upstream b11630) | 84.2 | 11.54 | [link](metal-m5-air-16gb-macos.md) |
+| Intel Arc 140T iGPU | llama.cpp Vulkan (Windows, fork b12128) | 119.26 | 7.45 | [link](vulkan-arc-140t-windows.md) |
 
 ### 8B and smaller
 

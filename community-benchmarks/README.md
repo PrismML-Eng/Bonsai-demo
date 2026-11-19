@@ -53,7 +53,10 @@ for commands, raw output, memory use, and configuration.
 | `PQ2_0` | Apple M5 (Air) 16 GB | llama.cpp Metal (fork b10777) | 88.8 | 7.82 | [link](bonsai2/metal-m5-air-16gb-macos.md) |
 | `PQ2_0` | AMD Radeon RX 580 8 GB | llama.cpp Vulkan (Linux) | 36.67 | 7.26 | [link](bonsai2/vulkan-amd-radeon-rx-580-linux.md) |
 | `PTQ1_0` | Apple M5 (Air) 16 GB | llama.cpp Metal (fork b10777) | 79.7 | 7.03 | [link](bonsai2/metal-m5-air-16gb-macos.md) |
+| `PTQ1_0` | Intel Arc 140T iGPU | llama.cpp Vulkan (Windows, fork b12128) | 58.70 | 6.53 | [link](bonsai2/vulkan-arc-140t-windows.md) |
 | `PTQ1_0` | AMD Radeon RX 580 8 GB | llama.cpp Vulkan (Linux) | 49.03 | 5.50 | [link](bonsai2/vulkan-amd-radeon-rx-580-linux.md) |
+| `PQ2_0` | Intel Arc 140T iGPU | llama.cpp Vulkan (Windows, fork b12128) | 118.86 | 5.11 | [link](bonsai2/vulkan-arc-140t-windows.md) |
+| `Q2_0` | Intel Arc 140T iGPU | llama.cpp Vulkan (Windows, fork b12128) | 121.94 | 4.29 | [link](bonsai2/vulkan-arc-140t-windows.md) |
 
 ## Earlier 27B families
 
@@ -94,6 +97,7 @@ not directly comparable; each report should identify its harness and workload.
 | Ternary | Apple M4 24 GB | MLX 2-bit | 65.2 | 12.7 | | [link](ternary-bonsai/mlx-m4-24gb-macos.md) |
 | Ternary | Apple M3 Pro 18 GB | llama.cpp Metal | 78.6 | 12.6 | | [link](ternary-bonsai/metal-m3-pro-macos.md) |
 | Bonsai (1-bit) | Apple M5 (Air) 16 GB | llama.cpp Metal (upstream b11630) | 84.2 | 11.54 | | [link](bonsai/metal-m5-air-16gb-macos.md) |
+| Bonsai (1-bit) | Intel Arc 140T iGPU | llama.cpp Vulkan (Windows, fork b12128) | 119.26 | 7.45 | | [link](bonsai/vulkan-arc-140t-windows.md) |
 | Ternary | Apple M5 (Air) 16 GB | llama.cpp Metal (upstream b11630, `Q2_g64`) | 80.2 | 6.68 | | [link](ternary-bonsai/metal-m5-air-16gb-macos.md) |
 | Ternary | Apple M5 (Air) 16 GB | llama.cpp Metal (fork b9596, legacy `Q2_0`) | 34.1 | 6.06 | | [link](ternary-bonsai/metal-m5-air-16gb-macos.md) |
 

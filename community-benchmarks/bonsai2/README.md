@@ -56,7 +56,10 @@ Benchmark results submitted by the community running
 | `PQ2_0` | Apple M5 (Air) 16 GB | llama.cpp Metal (fork b10777) | 88.8 | 7.82 | [link](metal-m5-air-16gb-macos.md) |
 | `PQ2_0` | AMD Radeon RX 580 8 GB | llama.cpp Vulkan (Linux) | 36.67 | 7.26 | [link](vulkan-amd-radeon-rx-580-linux.md) |
 | `PTQ1_0` | Apple M5 (Air) 16 GB | llama.cpp Metal (fork b10777) | 79.7 | 7.03 | [link](metal-m5-air-16gb-macos.md) |
+| `PTQ1_0` | Intel Arc 140T iGPU | llama.cpp Vulkan (Windows, fork b12128) | 58.70 | 6.53 | [link](vulkan-arc-140t-windows.md) |
 | `PTQ1_0` | AMD Radeon RX 580 8 GB | llama.cpp Vulkan (Linux) | 49.03 | 5.50 | [link](vulkan-amd-radeon-rx-580-linux.md) |
+| `PQ2_0` | Intel Arc 140T iGPU | llama.cpp Vulkan (Windows, fork b12128) | 118.86 | 5.11 | [link](vulkan-arc-140t-windows.md) |
+| `Q2_0` | Intel Arc 140T iGPU | llama.cpp Vulkan (Windows, fork b12128) | 121.94 | 4.29 | [link](vulkan-arc-140t-windows.md) |
 
 ## How to Submit
 
