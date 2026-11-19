@@ -25,6 +25,7 @@ Benchmark results submitted by the community running
 | `PTQ1_0` | NVIDIA RTX 5070 Ti Laptop 12 GB | llama.cpp CUDA (Windows) | 527 | 49.0 | [link](cuda-rtx5070ti-laptop-windows.md) |
 | `PQ2_0` (MTP bundle, plain inference) | AMD Radeon RX 9070 XT 16 GB | llama.cpp ROCm/HIP (Proxmox) | 1,258 | 48.64 | [link](rocm-hip-rx9070xt-proxmox.md) |
 | `PQ2_0` | AMD Radeon RX 9070 XT 16 GB | llama.cpp ROCm/HIP (Proxmox) | 1,259 | 48.53 | [link](rocm-hip-rx9070xt-proxmox.md) |
+| `PTQ1_0` | NVIDIA RTX 2060 SUPER 8 GB | llama.cpp CUDA 12.4 (Windows, fork b12128) | 466.28 | 48.10 | [link](cuda-rtx2060super-8gb-windows.md) |
 | `PQ2_0` | AMD Radeon RX 7800 XT 16 GB | llama.cpp ROCm/HIP | 316.3 | 46.8 | [link](rocm-hip-rx7800xt-fedora44.md) |
 | `PQ2_0` | NVIDIA TITAN V 12 GB | llama.cpp CUDA 12.4 (Linux, fork b10777) | 528.2 | 46.66 | [link](cuda-titanv-12gb-linux.md) |
 | `PQ2_0` | NVIDIA Tesla V100-SXM2 16 GB | llama.cpp CUDA (Windows) | 798 | 46.0 | [link](cuda-tesla-v100-windows.md) |
@@ -40,6 +41,8 @@ Benchmark results submitted by the community running
 | `PTQ1_0` | NVIDIA RTX 4070 Laptop 8 GB | llama.cpp CUDA (Windows) | 435.60 | 32.44 | [link](cuda-rtx4070-laptop-windows.md) |
 | `Q2_0` (development) | Intel Arc B580 12 GB | llama.cpp Vulkan (Windows, PrismML fork prism-b10777) | 568 | 31.59 | [link](vulkan-arc-b580-12gb-windows.md) |
 | `PQ2_0` | Intel Arc B580 12 GB | llama.cpp Vulkan (Windows, PrismML fork prism-b10777) | 559 | 28.59 | [link](vulkan-arc-b580-12gb-windows.md) |
+| `PQ2_0` | NVIDIA RTX 2060 SUPER 8 GB | llama.cpp CUDA 12.4 (Windows, fork b12128) | 477.00 | 28.52 | [link](cuda-rtx2060super-8gb-windows.md) |
+| `Q2_0` | NVIDIA RTX 2060 SUPER 8 GB | llama.cpp CUDA 12.4 (Windows, fork b12128) | 466.75 | 28.31 | [link](cuda-rtx2060super-8gb-windows.md) |
 | `2-bit` | Apple M3 Max 48 GB | MLX (mlx 0.32.2, mlx-vlm 0.6.17) | 165.9 | 27.1 | [link](mlx-m3-max-48gb-macos.md) |
 | `PQ2_0` | Apple M3 Max 36 GB | llama.cpp Metal | 162.2 | 24.3 | [link](metal-m3-max-36gb-macos.md) |
 | `PQ2_0` | AMD BC-250 16 GB UMA | llama.cpp Vulkan (Linux, local patches) | 142.58 | 24.11 | [link](vulkan-bc250-linux.md) |
