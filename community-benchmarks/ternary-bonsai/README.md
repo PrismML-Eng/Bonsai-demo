@@ -8,7 +8,7 @@ Benchmark results submitted by the community running [Ternary-Bonsai](https://hu
 
 | Hardware | Backend | PP512 (t/s) | TG128 (t/s) | DSpark TG (t/s) | Details |
 |----------|---------|------------:|------------:|----------------:|---------|
-| NVIDIA DGX Spark (GB10) | llama.cpp CUDA | 919 (PQ2_0) / 433 (PTQ1_0) | 27.8 (PQ2_0) / 32.8 (PTQ1_0) | ~57 (1.9x blended; 2.5x math, 2.2x code) | [link](cuda-gb10-bonsai2-27b-linux.md) |
+| NVIDIA DGX Spark (GB10) | llama.cpp CUDA | 919 (PQ2_0) / 433 (PTQ1_0) | 27.8 (PQ2_0) / 32.8 (PTQ1_0) | ~57 (experimental, 1.9x blended, 2.5x math, 2.2x code) | [link](cuda-gb10-bonsai2-27b-linux.md) |
 
 ### Ternary-Bonsai-27B
 
