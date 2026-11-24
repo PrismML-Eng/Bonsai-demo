@@ -281,7 +281,7 @@ The setup script handles everything for you, even on a fresh machine:
 2. **Installs [uv](https://docs.astral.sh/uv/):** fast Python package manager (user-local, not global)
 3. **Creates a Python venv** and runs `uv sync` — installs cmake, ninja, huggingface-cli from `pyproject.toml`
 4. **Downloads models** from Hugging Face (public checkpoints download without a token)
-5. **Downloads pre-built binaries** from the pinned [GitHub Release](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b10828-a153697) (or builds from source if you prefer)
+5. **Downloads pre-built binaries** from the pinned [GitHub Release](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b12178-03ec600) (or builds from source if you prefer)
 6. **Sets up MLX** (Apple Silicon): installs the native mlx-vlm environment for Bonsai 2; earlier-family runtime details are in the [Bonsai 1 guide](Bonsai1_README.md#mlx-runtime)
 7. **Installs Open WebUI** into the venv for the agentic demo (skip with `BONSAI_OPENWEBUI=0`)
 8. **Builds the code-interpreter venv** (`.venv-jupyter`): Jupyter + matplotlib / pandas / numpy / scipy / sympy / yfinance for the Open WebUI code interpreter (skip with `BONSAI_CODE_INTERPRETER=0`)
@@ -484,7 +484,7 @@ Requires Visual Studio Build Tools or full Visual Studio with C++ workload.
 
 ## llama.cpp Pre-built Binary Downloads
 
-All binaries are available from the pinned [GitHub Release](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b10828-a153697), also used by both setup scripts. The latest release may still be missing platform binaries while builds finish.
+All binaries are available from the pinned [GitHub Release](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b12178-03ec600), also used by both setup scripts. The latest release may still be missing platform binaries while builds finish.
 
 | Platform                          |
 |-----------------------------------|
