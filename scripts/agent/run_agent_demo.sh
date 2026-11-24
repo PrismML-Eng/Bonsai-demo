@@ -34,7 +34,7 @@
 #   tail -f agent-runs/<name>/stdout.log  (wc -l agent-runs/<name>/wire.jsonl with AGENT_TRACE=1); the deliverable
 #   lands in agent-runs/<name>/workspace/.
 set -euo pipefail
-MODE=${1:?round0 | feedback <prev-run> <feedback.md> [name] | task <task.md> [name]}
+MODE=${1:?round0 | feedback <prev-run> <feedback.md> [name] | task <task.md> [name] | game <name> [run-name]}
 A="$(cd "$(dirname "$0")" && pwd)"; DEMO_DIR="$(cd "$A/../.." && pwd)"
 VENV="$DEMO_DIR/.venv-hermes"; [ -x "$VENV/bin/python" ] || { echo "run ./scripts/agent/install_hermes.sh first"; exit 1; }
 UP="${AGENT_UPSTREAM:-127.0.0.1:8080}"; UPH=${UP%:*}; UPP=${UP##*:}
@@ -42,6 +42,14 @@ case "$MODE" in
   round0)   TASK="$DEMO_DIR/demos/skateboard/skate-runner/prompts/round0.md"; NAME=${2:-sk16_skateboard_1}; SEED_DIR=""; CFG_DEFAULT=hermes-config-round0.yaml ;;
   feedback) PREV=${2:?previous run dir}; TASK=${3:?feedback .md}; NAME=${4:-$(basename "$PREV")_fb}; SEED_DIR="$PREV/workspace"; CFG_DEFAULT=hermes-config-feedback.yaml ;;
   task)     TASK=${2:?task .md}; NAME=${3:-task_$(date +%Y%m%dT%H%M%S)}; SEED_DIR=""; CFG_DEFAULT=hermes-config-round0.yaml ;;
+  game)     G=${2:?game name, one of: $(ls "$DEMO_DIR/demos/games" | grep -v README | tr '\n' ' ')}; TASK="$DEMO_DIR/demos/games/$G/prompt.md"
+            NAME=${3:-${G}_$(date +%Y%m%dT%H%M%S)}; SEED_DIR=""; CFG_DEFAULT=hermes-config-games.yaml
+            # the games' recorded settings: 262144 context, reasoning kept across turns (needs the proxy), xhigh,
+            # empty-reply resample (patched Hermes). Each can be overridden with the variable named here.
+            : "${AGENT_CTX:=262144}"; : "${AGENT_PRESERVE:=1}"; : "${AGENT_EFFORT:=xhigh}"; : "${HERMES_EMPTY_RECOVERY:=resample}"
+            GAME_MAXTOK_FROM_SERVER=1   # per-reply cap = the server profile's -n (game16 32768, game48 65536), sent per request
+            AGENT_TRACE=1               # by the proxy, as the games were generated (see the max_tokens note below)
+            export HERMES_EMPTY_RECOVERY ;;
   *) echo "unknown mode $MODE"; exit 1 ;;
 esac
 CFG="${AGENT_CONFIG:-$A/$CFG_DEFAULT}"
@@ -66,6 +74,22 @@ MODEL="${AGENT_MODEL:-$(python3 -c 'import json,sys; print(json.load(open(sys.ar
 grep -q "\"$MODEL\"" "$TMPM" || { echo "ABORT: $UP does not serve '$MODEL' (it serves: $(python3 -c 'import json,sys; print([m["id"] for m in json.load(open(sys.argv[1]))["data"]])' "$TMPM"))"; exit 1; }
 SERVED=$(curl -sf --max-time 10 "http://$UP/props" | python3 -c 'import json,sys; d=json.load(sys.stdin); g=d.get("default_generation_settings") or {}; n=int(g.get("n_ctx") or d.get("n_ctx") or 0); print(n//max(1,int(d.get("total_slots") or 1)))' 2>/dev/null || echo 0)
 CTX="${AGENT_CTX:-131072}"
+# Per-reply output cap. Hermes sends max_tokens from its config on every request, and a request's max_tokens overrides
+# the server's -n. Hermes also places compaction at threshold x (context - config max_tokens). The games were generated
+# with config max_tokens 65536 (compaction at ~167k) and the per-reply cap set on each request by the proxy, so game
+# mode does the same: the config keeps 65536 and the proxy injects the server's -n (n_predict) as max_tokens.
+# Other modes: AGENT_MAX_TOKENS rewrites the config value.
+MAXTOK="${AGENT_MAX_TOKENS:-}"
+if [ "${GAME_MAXTOK_FROM_SERVER:-0}" = 1 ]; then
+  [ -n "$MAXTOK" ] || MAXTOK=$(curl -sf --max-time 10 "http://$UP/props" | python3 -c 'import json,sys; d=json.load(sys.stdin); g=d.get("default_generation_settings") or {}; n=(g.get("params") or {}).get("n_predict", g.get("n_predict", -1)); print(n if isinstance(n,int) and n>0 else "")' 2>/dev/null || echo "")
+  [ -n "$MAXTOK" ] || { echo "ABORT: the server reports no -n (n_predict); start it with AGENT_PROFILE=game16|game48, or set AGENT_MAX_TOKENS"; exit 2; }
+  INJECT_MAXTOK="$MAXTOK"; CFG_MAXTOK=""
+  # game48 (64k replies): raise the config's max_tokens too, so compaction (0.872 x (ctx - max_tokens)) sits at ~171k
+  # and prompt + reply stay inside 262k; game16 keeps the file's 32768 (compaction at ~200k)
+  [ "$MAXTOK" -gt 32768 ] 2>/dev/null && CFG_MAXTOK="$MAXTOK"
+else
+  INJECT_MAXTOK=""; CFG_MAXTOK="$MAXTOK"
+fi
 [ "$SERVED" -ge "$CTX" ] || { echo "ABORT: server slot context $SERVED < declared $CTX (start the server with BONSAI_CTX>=$CTX or lower AGENT_CTX)"; exit 2; }
 mkdir -p "$DEMO_DIR/agent-runs"
 # Atomic creation prevents another invocation from claiming the same run between checks.
@@ -82,7 +106,10 @@ trap cleanup EXIT
 curl -sf --max-time 10 "http://$UP/props" > "$RUN/server-props.json"
 
 # 2. seed and (optionally) the wire proxy
-TRACE="${AGENT_TRACE:-0}"; SEED="${AGENT_SEED-42}"; EFFORT="${AGENT_EFFORT:-}"
+TRACE="${AGENT_TRACE:-0}"; SEED="${AGENT_SEED-42}"; EFFORT="${AGENT_EFFORT:-}"; PRESERVE="${AGENT_PRESERVE:-0}"
+# AGENT_PRESERVE=1: reasoning kept across turns. Hermes drops it from its history, so the proxy puts it back
+# (logproxy.py PRESERVE_REASONING) and the template is told to render it (preserve_thinking); that needs the proxy.
+[ "$PRESERVE" = 1 ] && TRACE=1
 INJECT='{}'; BASE="http://$UP/v1"
 if [ "$TRACE" = 1 ]; then
   PROXY_PORT=$(python3 -c 'import socket,random
@@ -90,9 +117,10 @@ for p in range(10000+random.randint(0,1500),13000):
     s=socket.socket()
     try: s.bind(("127.0.0.1",p)); s.close(); print(p); break
     except OSError: pass')
-  INJECT=$(SEED="$SEED" EFFORT="$EFFORT" python3 -c "import json,os; d={}; s=os.environ.get('SEED',''); e=os.environ.get('EFFORT','');
-d.update({'seed':int(s)} if s else {}); d.update({'chat_template_kwargs':{'reasoning_effort':e}} if e else {}); print(json.dumps(d))")
-  SEED="$SEED" EFFORT="$EFFORT" INJECT_BODY="$INJECT" python3 "$A/logproxy.py" "$PROXY_PORT" "$UPH" "$UPP" "$RUN/wire.jsonl" > "$RUN/proxy.log" 2>&1 &
+  INJECT=$(SEED="$SEED" EFFORT="$EFFORT" PRESERVE="$PRESERVE" MAXTOK="$INJECT_MAXTOK" python3 -c "import json,os; d={}; s=os.environ.get('SEED',''); e=os.environ.get('EFFORT','');
+k={'reasoning_effort':e} if e else {}; k.update({'preserve_thinking':True} if os.environ.get('PRESERVE')=='1' else {})
+d.update({'seed':int(s)} if s else {}); d.update({'chat_template_kwargs':k} if k else {}); m=os.environ.get('MAXTOK',''); d.update({'max_tokens':int(m)} if m else {}); print(json.dumps(d))")
+  SEED="$SEED" EFFORT="$EFFORT" INJECT_BODY="$INJECT" PRESERVE_REASONING="$PRESERVE" python3 "$A/logproxy.py" "$PROXY_PORT" "$UPH" "$UPP" "$RUN/wire.jsonl" > "$RUN/proxy.log" 2>&1 &
   echo $! > "$RUN/proxy.pid"; sleep 2
   curl -sf --max-time 10 "http://127.0.0.1:$PROXY_PORT/v1/models" >/dev/null || { echo "ABORT: proxy not relaying"; exit 3; }
   BASE="http://127.0.0.1:$PROXY_PORT/v1"
@@ -114,7 +142,11 @@ MADE_HOME=1
 [ "$HH" = "$RUN/home" ] || ln -s "$HH" "$RUN/home"
 [ -d "$DEMO_DIR/.hermes-agent/skills" ] && cp -a "$DEMO_DIR/.hermes-agent/skills" "$HH/skills"
 [ -d "$A/skills" ] && cp -a "$A/skills"/. "$HH/skills"/
-sed -e "s/^  default: .*/  default: ${MODEL}/" -e "s#base_url: http://localhost:[0-9]*/v1#base_url: ${BASE}#" -e "s/^  context_length: .*/  context_length: ${CTX}/" "$CFG" > "$HH/config.yaml"
+# non-game modes: the skateboard recordings ran at stock one-shot Hermes's 90 calls (their configs' 16/8 were never read);
+# with hermes_prism_oneshot_max_turns.patch the config value is honoured, so pin 90 to keep those runs reproducible
+[ "${GAME_MAXTOK_FROM_SERVER:-0}" = 1 ] || FORCE_TURNS="${AGENT_MAX_TURNS:-90}"
+[ -n "${AGENT_MAX_TURNS:-}" ] && FORCE_TURNS="$AGENT_MAX_TURNS"
+sed ${FORCE_TURNS:+-e "s/^  max_turns: [0-9]*/  max_turns: ${FORCE_TURNS}/"} -e "s/^  default: .*/  default: ${MODEL}/" -e "s#base_url: http://localhost:[0-9]*/v1#base_url: ${BASE}#" -e "s/^  context_length: .*/  context_length: ${CTX}/" ${CFG_MAXTOK:+-e "s/^  max_tokens: .*/  max_tokens: ${CFG_MAXTOK}/"} "$CFG" > "$HH/config.yaml"
 
 # 4. Claim a fresh workspace atomically; never remove or reuse existing work.
 mkdir -p "$ROOT"
@@ -123,7 +155,7 @@ MADE_WORK=1
 WORK="$WORK_PARENT/workspace"; mkdir "$WORK"; ln -s "$WORK" "$RUN/workspace"
 [ -n "$SEED_DIR" ] && cp -a "$SEED_DIR"/. "$WORK"/ && rm -f "$WORK/TASK.md"
 cp "$TASK" "$WORK/TASK.md"
-{ echo "model=$MODEL"; echo "upstream=$UP"; echo "base_url=$BASE"; echo "trace=$TRACE"; echo "seed=${SEED:-none} ($([ "$TRACE" = 1 ] && echo injected-per-request || echo server -s))"; echo "inject=$INJECT"; echo "config=$(basename "$CFG")"; echo "declared_ctx=$CTX"; echo "server_ctx_per_slot=$SERVED"; echo "task=$TASK"; [ -n "$SEED_DIR" ] && echo "seeded_from=$SEED_DIR"; echo "hermes=$(git -C "$DEMO_DIR/.hermes-agent" rev-parse --short HEAD 2>/dev/null)"; echo "hermes_home=$HH"; echo "workspace=$WORK"; echo "agent_browser=$( { [ -x "$DEMO_DIR/.agent-browser/node_modules/.bin/agent-browser" ] && "$DEMO_DIR/.agent-browser/node_modules/.bin/agent-browser" --version; } 2>/dev/null || echo unpinned-npx)"; echo "started=$(date -u +%FT%TZ)"; } > "$RUN/run.txt"
+{ echo "model=$MODEL"; echo "upstream=$UP"; echo "base_url=$BASE"; echo "trace=$TRACE"; echo "preserve_reasoning=$PRESERVE"; echo "hermes_empty_recovery=${HERMES_EMPTY_RECOVERY:-off}"; echo "seed=${SEED:-none} ($([ "$TRACE" = 1 ] && echo injected-per-request || echo server -s))"; echo "inject=$INJECT"; echo "config=$(basename "$CFG")"; echo "max_turns=$(sed -n "s/^  max_turns: \([0-9]*\).*/\1/p" "$HH/config.yaml")"; echo "declared_ctx=$CTX"; echo "max_tokens=${INJECT_MAXTOK:+$INJECT_MAXTOK per request (proxy), config }$(sed -n "s/^  max_tokens: //p" "$HH/config.yaml")"; echo "server_ctx_per_slot=$SERVED"; echo "task=$TASK"; [ -n "$SEED_DIR" ] && echo "seeded_from=$SEED_DIR"; echo "hermes=$(git -C "$DEMO_DIR/.hermes-agent" rev-parse --short HEAD 2>/dev/null)"; echo "hermes_home=$HH"; echo "workspace=$WORK"; echo "agent_browser=$( { [ -x "$DEMO_DIR/.agent-browser/node_modules/.bin/agent-browser" ] && "$DEMO_DIR/.agent-browser/node_modules/.bin/agent-browser" --version; } 2>/dev/null || echo unpinned-npx)"; echo "started=$(date -u +%FT%TZ)"; } > "$RUN/run.txt"
 
 # 5. launch Hermes detached; the task text is read from a file so it never sits in argv. The pinned
 #    agent-browser (install_hermes.sh) goes first on PATH so Hermes does not fall back to npx.

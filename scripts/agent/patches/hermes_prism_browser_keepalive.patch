@@ -1,0 +1,249 @@
+From 07f67c9cd9bb3c83ba39fc02d0c984307ba2b65f Mon Sep 17 00:00:00 2001
+From: PrismML <noreply@prismml.ai>
+Date: Fri, 30 Oct 2026 18:06:28 -0400
+Subject: [PATCH] Prism: local browser keepalive (no about:blank captures after
+ idle gaps)
+
+In local mode the inactivity cleanup thread closed a browser session idle for
+browser.inactivity_timeout (120 s), and the agent-browser daemon exited on the
+same idle timer. The next non-navigation call (browser_vision, browser_console,
+...) then silently created a new session whose tab is about:blank: a white
+screenshot, location.href "about:blank", unknown refs. A model that thinks for
+more than two minutes between browser calls hits this on most calls (in our
+game-building runs, 9.8% of screenshots were this white capture). Each new session
+also re-sent the Browserbase "running WITHOUT residential proxies" warning.
+
+- Local headless-Chromium sessions are not reaped for inactivity; they live until
+  the agent closes (cleanup_browser at close / atexit, orphan reaper). The daemon
+  idle timer becomes HERMES_BROWSER_LOCAL_DAEMON_IDLE_S (default 6 h).
+  HERMES_BROWSER_LOCAL_KEEPALIVE=0 restores stock behaviour.
+- The last navigated URL is remembered. Before snapshot/click/type/scroll/press/
+  console/get_images/vision, a lost page (no live session, or the tab on
+  about:blank) is re-opened on that URL and the result carries harness_note
+  ("HARNESS NOTE: the browser tab was reset to about:blank (a harness issue, not
+  your page). Reloaded <url> ..."). Navigating to about:blank (or going back to
+  it) is the model's choice and is not undone.
+- browser_vision waits for the load event plus two requestAnimationFrame ticks
+  (<= 3 s) before it captures.
+- No stealth_warning / stealth_features for local Chromium sessions.
+---
+ tools/browser_tool.py | 154 +++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 153 insertions(+), 1 deletion(-)
+
+diff --git a/tools/browser_tool.py b/tools/browser_tool.py
+index 82c248a..12d741c 100644
+--- a/tools/browser_tool.py
++++ b/tools/browser_tool.py
+@@ -1508,6 +1508,8 @@ def _cleanup_inactive_browser_sessions():
+     with _cleanup_lock:
+         for task_id, last_time in list(_session_last_activity.items()):
+             if current_time - last_time > BROWSER_SESSION_INACTIVITY_TIMEOUT:
++                if _prism_keepalive_session(_active_sessions.get(task_id)):
++                    continue  # prism keepalive: a local session lives until the agent closes (see _prism_keepalive_session)
+                 sessions_to_cleanup.append(task_id)
+ 
+     for task_id in sessions_to_cleanup:
+@@ -1812,6 +1814,134 @@ def _update_session_activity(task_id: str):
+ atexit.register(_stop_browser_cleanup_thread)
+ 
+ 
++# =============================================================================
++# prism browser-keepalive (hermes_prism_browser_keepalive.patch)
++# =============================================================================
++# Stock behaviour in local mode: a session idle for browser.inactivity_timeout (120 s) is closed by the cleanup thread
++# above (and the agent-browser daemon exits on the same idle timer).  The next non-navigation call (browser_vision,
++# browser_console, ...) then silently creates a NEW session whose tab is about:blank: browser_vision returns a white
++# screenshot, browser_console reports location.href "about:blank", earlier refs are unknown.  A model that thinks for
++# more than two minutes between browser calls hits this on most calls (S3 gamedev lane, 10-28..10-30: 9.8% of all
++# screenshots were this white about:blank capture).  The fix:
++#   * local sessions are not reaped for inactivity; they live until the agent closes (cleanup_browser at close/atexit,
++#     orphan reaper).  The daemon idle timer becomes HERMES_BROWSER_LOCAL_DAEMON_IDLE_S (default 6 h) so a daemon
++#     orphaned by a SIGKILLed agent still exits eventually.  HERMES_BROWSER_LOCAL_KEEPALIVE=0 restores stock behaviour;
++#   * the last URL the model navigated to is remembered; before a non-navigation tool runs, a tab found on about:blank
++#     (Chrome restarted / killed, session lost) is re-opened on that URL and the tool result says so explicitly
++#     (harness_note) instead of returning a blank page;
++#   * browser_vision waits for document load plus two animation frames before it captures;
++#   * the Browserbase "residential proxies" stealth warning is not added for local Chromium (it made the model believe
++#     it ran in a GPU-less cloud browser).
++_prism_last_url: Dict[str, str] = {}  # bare task_id -> last URL the model navigated to (local mode)
++_PRISM_SETTLE_JS = (
++    "new Promise(function(r){var t=setTimeout(function(){r('timeout')},3000);"
++    "function f(){requestAnimationFrame(function(){requestAnimationFrame(function(){clearTimeout(t);r(document.readyState)})})}"
++    "if(document.readyState==='complete'){f()}else{addEventListener('load',f,{once:true})}})"
++)
++
++
++def _prism_keepalive_enabled() -> bool:
++    return os.environ.get("HERMES_BROWSER_LOCAL_KEEPALIVE", "1").strip().lower() not in ("0", "false", "no", "off")
++
++
++def _prism_keepalive_session(session_info: Optional[Dict[str, Any]]) -> bool:
++    """True for a local headless-Chromium session (no CDP / cloud URL) while keepalive is on."""
++    return bool(
++        _prism_keepalive_enabled()
++        and session_info
++        and not session_info.get("cdp_url")
++        and (session_info.get("features") or {}).get("local")
++    )
++
++
++def _prism_daemon_idle_ms() -> str:
++    return str(max(env_int("HERMES_BROWSER_LOCAL_DAEMON_IDLE_S", 6 * 3600), BROWSER_SESSION_INACTIVITY_TIMEOUT) * 1000)
++
++
++def _prism_settle(session_key: str) -> None:
++    """Wait (<= 3 s in page) for the load event and two requestAnimationFrame ticks, so a capture shows a rendered frame."""
++    try:
++        _run_browser_command(session_key, "eval", [_PRISM_SETTLE_JS], timeout=15)
++    except Exception as e:  # never fail the tool over the settle
++        logger.debug("prism settle failed for %s: %s", session_key, e)
++
++
++def _prism_current_url(session_key: str) -> Optional[str]:
++    r = _run_browser_command(session_key, "eval", ["location.href"], timeout=15)
++    if not r.get("success"):
++        return None
++    v = (r.get("data") or {}).get("result")
++    return str(v).strip().strip('"').strip("'") if v is not None else None
++
++
++def _prism_ensure_page(task_id: Optional[str]) -> Optional[str]:
++    """Before a non-navigation tool: if the model's page was lost (no live session, or the tab is on about:blank),
++    re-open the last navigated URL.  Returns a note for the tool result, or None when nothing was wrong."""
++    if not _prism_keepalive_enabled() or not _is_local_mode() or _is_camofox_mode():
++        return None
++    tid = task_id or "default"
++    url = _prism_last_url.get(tid)
++    if not url:
++        return None
++    key = _last_session_key(tid)
++    with _cleanup_lock:
++        alive = key in _active_sessions
++    cur = _prism_current_url(key) if alive else None
++    if alive and cur and cur != "about:blank":
++        return None
++    if not alive:
++        why = "the browser session had been closed, so the tab came back as about:blank"
++    elif cur == "about:blank":
++        why = "the browser tab was reset to about:blank"
++    else:
++        why = "the browser stopped responding"
++    logger.warning("prism browser-keepalive: %s for task %s; reopening %s", why, tid, url)
++    r = _run_browser_command(key, "open", [url], timeout=_get_open_command_timeout(first_open=not alive))
++    if not r.get("success"):
++        return (f"HARNESS NOTE: {why} (a harness issue, not your page), and reopening {url} failed: "
++                f"{r.get('error', 'unknown error')}. Call browser_navigate to load the page again.")
++    _last_active_session_key[tid] = key
++    with _cleanup_lock:
++        if key in _active_sessions:
++            _active_sessions[key]["_first_nav"] = False
++    _prism_settle(key)
++    return (f"HARNESS NOTE: {why} (a harness issue, not your page). Reloaded {url} before this call; in-page state "
++            f"(game progress, element refs from earlier snapshots) was reset.")
++
++
++def _prism_with_note(result: Any, note: Optional[str]) -> Any:
++    if not note:
++        return result
++    if isinstance(result, dict):  # native-vision envelope
++        result = dict(result)
++        result["text_summary"] = f"{note} {result.get('text_summary', '')}".strip()
++        result.setdefault("meta", {})["harness_note"] = note
++        return result
++    if isinstance(result, str):
++        try:
++            d = json.loads(result)
++        except Exception:
++            d = None
++        if isinstance(d, dict):
++            return json.dumps({"harness_note": note, **d}, ensure_ascii=False)
++        return f"{note}\n{result}"
++    return result
++
++
++def _prism_guard(fn):
++    """Wrap a non-navigation browser tool with _prism_ensure_page."""
++    @functools.wraps(fn)
++    def wrapper(*args, task_id: Optional[str] = None, **kwargs):
++        try:
++            note = _prism_ensure_page(task_id)
++        except Exception as e:
++            logger.debug("prism ensure_page failed: %s", e)
++            note = None
++        return _prism_with_note(fn(*args, task_id=task_id, **kwargs), note)
++    wrapper._prism_guarded = True
++    return wrapper
++
++
+ # ============================================================================
+ # Tool Schemas
+ # ============================================================================
+@@ -2392,6 +2522,8 @@ def _run_browser_command(
+         # commands arrive within the window.  Added in agent-browser 0.24.
+         if "AGENT_BROWSER_IDLE_TIMEOUT_MS" not in browser_env:
+             idle_ms = str(BROWSER_SESSION_INACTIVITY_TIMEOUT * 1000)
++            if _prism_keepalive_session(session_info):
++                idle_ms = _prism_daemon_idle_ms()
+             browser_env["AGENT_BROWSER_IDLE_TIMEOUT_MS"] = idle_ms
+ 
+         # Inject --no-sandbox when needed (issue #15765):
+@@ -2861,6 +2993,10 @@ def browser_navigate(url: str, task_id: Optional[str] = None) -> str:
+         # Failed opens and blocked redirects must not retarget follow-up clicks
+         # or snapshots to a newly-created but irrelevant session.
+         _last_active_session_key[effective_task_id] = nav_session_key
++        if final_url and final_url != "about:blank":
++            _prism_last_url[effective_task_id] = final_url
++        else:
++            _prism_last_url.pop(effective_task_id, None)  # the model chose about:blank: nothing to restore
+         _copy_fallback_warning(response, result)
+ 
+         # Detect common "blocked" page patterns from title/url
+@@ -2882,7 +3018,7 @@ def browser_navigate(url: str, task_id: Optional[str] = None) -> str:
+             )
+ 
+         # Include feature info on first navigation so model knows what's active
+-        if is_first_nav and "features" in session_info:
++        if is_first_nav and "features" in session_info and not (session_info["features"] or {}).get("local"):
+             features = session_info["features"]
+             active_features = [k for k, v in features.items() if v]
+             if not features.get("proxies"):
+@@ -3206,6 +3342,11 @@ def browser_back(task_id: Optional[str] = None) -> str:
+             "success": True,
+             "url": data.get("url", "")
+         }
++        _bare = task_id or "default"
++        if response["url"] == "about:blank":
++            _prism_last_url.pop(_bare, None)  # history went back to about:blank: the model's own choice
++        elif response["url"]:
++            _prism_last_url[_bare] = response["url"]
+         return json.dumps(_copy_fallback_warning(response, result), ensure_ascii=False)
+     else:
+         response = {
+@@ -4020,6 +4161,7 @@ def browser_vision(question: str, annotate: bool = False, task_id: Optional[str]
+                 screenshot_args.append("--annotate")
+             screenshot_args.append("--full")
+             screenshot_args.append(str(screenshot_path))
++            _prism_settle(effective_task_id)
+             result = _run_browser_command(
+                 effective_task_id,
+                 "screenshot",
+@@ -4712,6 +4854,16 @@ if __name__ == "__main__":
+     print("  snapshot = browser_snapshot(task_id='my_task')")
+ 
+ 
++# prism browser-keepalive: restore a lost page before any non-navigation browser tool
++browser_snapshot = _prism_guard(browser_snapshot)
++browser_click = _prism_guard(browser_click)
++browser_type = _prism_guard(browser_type)
++browser_scroll = _prism_guard(browser_scroll)
++browser_press = _prism_guard(browser_press)
++browser_console = _prism_guard(browser_console)
++browser_get_images = _prism_guard(browser_get_images)
++browser_vision = _prism_guard(browser_vision)
++
+ # ---------------------------------------------------------------------------
+ # Registry
+ # ---------------------------------------------------------------------------
+-- 
+2.50.1 (Apple Git-155)
+
