@@ -203,7 +203,10 @@ def _model_params(model_id):
     rather than overriding sampling with 27B values."""
     params = {"system": SYSTEM_PROMPT}
     name = model_id.lower()
-    if "bonsai-2-" in name:  # not "bonsai-27b", the earlier 27B
+    if "bonsai-2.5-" in name:
+        # Bonsai 2.5: the model card's thinking-mode settings.
+        params.update({"temperature": 1.0, "top_p": 0.95, "top_k": 20, "min_p": 0})
+    elif "bonsai-2-" in name:  # not "bonsai-27b", the earlier 27B
         # Bonsai 2: the model card's thinking-mode settings.
         params.update({"temperature": 1.0, "top_p": 0.95, "top_k": 20, "min_p": 0.05})
     elif "27b" in name:

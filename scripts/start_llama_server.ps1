@@ -3,14 +3,15 @@ $ErrorActionPreference = "Stop"
 
 
 $BonsaiModel  = if ($env:BONSAI_MODEL)  { $env:BONSAI_MODEL.ToUpperInvariant() } else { "27B" }
-$BonsaiFamily = if ($env:BONSAI_FAMILY) { $env:BONSAI_FAMILY.ToLowerInvariant() } else { "bonsai2" }
+# Bonsai 2.5 is 27B; with no family set, other sizes keep resolving to Bonsai 2.
+$BonsaiFamily = if ($env:BONSAI_FAMILY) { $env:BONSAI_FAMILY.ToLowerInvariant() } elseif ($BonsaiModel -eq "27B") { "bonsai25" } else { "bonsai2" }
 
 if ($BonsaiModel -notin @("27B", "9B", "8B", "4B", "2B", "1.7B")) {
     Write-Host "[ERR] Unknown BONSAI_MODEL='$BonsaiModel'. Valid values: 27B, 9B, 8B, 4B, 2B, 1.7B" -ForegroundColor Red
     exit 1
 }
-if ($BonsaiFamily -notin @("bonsai2", "bonsai", "ternary")) {
-    Write-Host "[ERR] Unknown BONSAI_FAMILY='$BonsaiFamily'. Valid values: bonsai2, bonsai, ternary" -ForegroundColor Red
+if ($BonsaiFamily -notin @("bonsai25", "bonsai2", "bonsai", "ternary")) {
+    Write-Host "[ERR] Unknown BONSAI_FAMILY='$BonsaiFamily'. Valid values: bonsai25, bonsai2, bonsai, ternary" -ForegroundColor Red
     exit 1
 }
 if ($BonsaiFamily -in @("bonsai", "ternary") -and $BonsaiModel -in @("9B", "2B")) {
@@ -21,6 +22,13 @@ if ($BonsaiFamily -in @("bonsai", "ternary") -and $BonsaiModel -in @("9B", "2B")
 # never going to exist and the error blames setup. Mirrors BONSAI2_SIZES in
 # scripts/common.sh.
 $Bonsai2Sizes = if ($env:BONSAI2_SIZES) { $env:BONSAI2_SIZES -split '\s+' } else { @("27B", "9B", "4B", "2B") }
+$Bonsai25Sizes = if ($env:BONSAI25_SIZES) { $env:BONSAI25_SIZES -split '\s+' } else { @("27B") }
+if ($BonsaiFamily -eq "bonsai25" -and $BonsaiModel -notin $Bonsai25Sizes) {
+    Write-Host "[ERR] Bonsai 2.5 is 27B." -ForegroundColor Red
+    Write-Host "      Bonsai 2.5:   `$env:BONSAI_MODEL='27B'; .\scripts\start_llama_server.ps1" -ForegroundColor Yellow
+    Write-Host "      Other sizes:  `$env:BONSAI_FAMILY='bonsai2'; .\scripts\start_llama_server.ps1" -ForegroundColor Yellow
+    exit 1
+}
 if ($BonsaiFamily -eq "bonsai2" -and $BonsaiModel -notin $Bonsai2Sizes) {
     Write-Host "[ERR] Bonsai 2 sizes: $Bonsai2Sizes." -ForegroundColor Red
     Write-Host "      Bonsai 2:     `$env:BONSAI_MODEL='27B'; .\scripts\start_llama_server.ps1" -ForegroundColor Yellow
@@ -45,7 +53,10 @@ try {
 # launch, not just the ones where the KV4 bias block below sets it.
 $priorRotDisable = $env:LLAMA_ATTN_ROT_DISABLE
 
-if ($BonsaiFamily -eq "bonsai2") {
+if ($BonsaiFamily -eq "bonsai25") {
+    $ModelDir = Join-Path $DemoDir "models\bonsai25-gguf\$BonsaiModel"
+    $FamilyDisplay = "Bonsai-2.5"
+} elseif ($BonsaiFamily -eq "bonsai2") {
     $ModelDir = Join-Path $DemoDir "models\bonsai2-gguf\$BonsaiModel"
     $FamilyDisplay = "Bonsai-2"
 } elseif ($BonsaiFamily -eq "ternary") {
@@ -74,7 +85,18 @@ foreach ($cand in $BinCandidates) {
     if (Test-Path (Join-Path $DemoDir $cand)) { $BinRel = $cand; break }
 }
 $Pq2Ready = $BinRel -notlike "bin\vulkan\*"
-if ($BonsaiFamily -eq "bonsai2") {
+# PTQ1_0 decodes fastest on CUDA-class GPUs; PQ2_0 everywhere else.
+$Ptq1Preferred = $BinRel -like "bin\cuda\*" -or $BinRel -like "bin\hip\*"
+if ($BonsaiFamily -eq "bonsai25") {
+    # Bonsai 2.5 ships each band with and without the built-in MTP draft head
+    # (*-mtp.gguf, +0.2 GiB; inert unless drafting is enabled), so the -mtp
+    # file is always preferred. Band choice is backend-aware.
+    $tryPatterns = if ($Ptq1Preferred) {
+        @("*-PTQ1_0-mtp.gguf", "*-PTQ1_0.gguf", "*-PQ2_0-mtp.gguf", "*-PQ2_0.gguf")
+    } else {
+        @("*-PQ2_0-mtp.gguf", "*-PQ2_0.gguf", "*-PTQ1_0-mtp.gguf", "*-PTQ1_0.gguf")
+    }
+} elseif ($BonsaiFamily -eq "bonsai2") {
     # Every Bonsai 2 band needs the fork's kernels, so there is no group-64 fallback.
     $tryPatterns = @("*-PQ2_0.gguf", "*-PTQ1_0.gguf")
 } elseif ($BonsaiFamily -eq "ternary") {
@@ -147,9 +169,12 @@ Write-Host ""
 
 $ChatTemplateKwargs = if ($PSVersionTable.PSEdition -eq 'Desktop') { '{\"enable_thinking\": false}' } else { '{"enable_thinking": false}' }
 
-# Sampling for the 27B path: Bonsai 2 uses the model card's thinking-mode values, the
-# earlier families keep the profile they were tested on. Mirrors start_llama_server.sh.
-$SamplingArgs = if ($BonsaiFamily -eq "bonsai2") {
+# Sampling for the 27B path: Bonsai 2.5 and 2 use their model cards' thinking-mode
+# values, the earlier families keep the profile they were tested on. Mirrors
+# start_llama_server.sh.
+$SamplingArgs = if ($BonsaiFamily -eq "bonsai25") {
+    @("--temp", "1.0", "--top-p", "0.95", "--top-k", "20", "--min-p", "0")
+} elseif ($BonsaiFamily -eq "bonsai2") {
     if ($BonsaiModel -in @("9B", "4B", "2B")) {
         Get-SmallBonsaiSampling
     } else {
@@ -185,7 +210,21 @@ if ($BonsaiModel -eq "27B" -or $BonsaiFamily -eq "bonsai2") {
     # lives on this standalone server, not the agentic Open WebUI path.
     $Ctx = $CtxDefault
     $SpecArgs = @()
-    if ($env:BONSAI_SPECULATIVE -eq "1" -and $BonsaiFamily -eq "bonsai2") {
+    # Bonsai 2.5: the *-mtp.gguf model carries a built-in multi-token-prediction
+    # draft head (no sidecar; output matches plain decoding; the prompt cache
+    # keeps working). ON by default on CUDA/HIP (~1.5-1.8x decode), off on
+    # Vulkan/CPU (unmeasured); BONSAI_SPECULATIVE=1/0 forces it.
+    $MtpCapable = $Model.Name -like "*-mtp.gguf"
+    $MtpDefaultOn = $BinRel -like "bin\cuda\*" -or $BinRel -like "bin\hip\*"
+    if ($MtpCapable -and $env:BONSAI_SPECULATIVE -ne "0" -and ($env:BONSAI_SPECULATIVE -eq "1" -or $MtpDefaultOn)) {
+        $Nmax = if ($env:BONSAI_SPEC_NMAX) { $env:BONSAI_SPEC_NMAX } else { "3" }
+        $Pmin = if ($env:BONSAI_SPEC_PMIN) { $env:BONSAI_SPEC_PMIN } else { "0.1" }
+        $SpecArgs = @("--spec-type", "draft-mtp", "--spec-draft-n-max", $Nmax, "--spec-draft-p-min", $Pmin)
+        Write-Host "  Speculative: built-in MTP head (draft-mtp, n-max $Nmax, p-min $Pmin; BONSAI_SPECULATIVE=0 disables)" -ForegroundColor Green
+    } elseif ($env:BONSAI_SPECULATIVE -eq "1" -and $BonsaiFamily -eq "bonsai25") {
+        Write-Host "[WARN] BONSAI_SPECULATIVE=1 but the model on disk has no built-in MTP head (*-mtp.gguf); running without speculation." -ForegroundColor Yellow
+        Write-Host "       Re-run setup.ps1 to fetch the -mtp build." -ForegroundColor Yellow
+    } elseif ($env:BONSAI_SPECULATIVE -eq "1" -and $BonsaiFamily -eq "bonsai2") {
         Write-Host "[WARN] Automatic Bonsai 2 drafting is not configured in this launcher; running without speculation." -ForegroundColor Yellow
         Write-Host "       Unset BONSAI_SPECULATIVE to hide this warning. See SPECULATIVE.md for availability." -ForegroundColor Yellow
     } elseif ($env:BONSAI_SPECULATIVE -eq "1") {

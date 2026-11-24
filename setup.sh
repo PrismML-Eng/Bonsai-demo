@@ -110,7 +110,7 @@ _version_ge() {
 
 # ── Model selection ──
 BONSAI_MODEL="${BONSAI_MODEL:-27B}"
-BONSAI_FAMILY="${BONSAI_FAMILY:-bonsai2}"
+# BONSAI_FAMILY was resolved by scripts/common.sh (size-aware default).
 
 echo ""
 echo "========================================="
@@ -290,9 +290,12 @@ fi
 if [ "$OS" = "Darwin" ] && ! bonsai_should_skip_mlx; then
     step "Setting up MLX (Apple Silicon) ..."
 
-    # Bonsai 2 uses native wheels in .venv-vlm for both generation and serving.
+    # Bonsai 2.x uses native wheels in .venv-vlm for both generation and serving.
     # Earlier families still use the fork in .venv; "all" installs both paths.
-    if [ "$BONSAI_FAMILY" != "bonsai2" ]; then
+    # (Inline case, not common.sh's bonsai2_gen: this block also runs extracted
+    # on its own in tests/test_mlx_setup_paths.py.)
+    case "$BONSAI_FAMILY" in bonsai25|bonsai2) _b2gen=1 ;; *) _b2gen=0 ;; esac
+    if [ "$_b2gen" = "0" ]; then
         # MLX builds Metal GPU kernels, which requires the full Xcode app *and*
         # the Metal Toolchain component. Two user-facing failure modes are handled:
         #   1. Only CLT installed (no metal binary at all)
@@ -363,7 +366,7 @@ raise SystemExit(0 if v >= (0, 31) else 1)
         fi
     fi
 
-    # Native Bonsai 2 support, including the small models, uses mlx-vlm 0.7.8.
+    # Native Bonsai 2.x support, including the small models, uses mlx-vlm 0.7.8.
     # Keep stock MLX separate from the 1-bit fork installed in .venv.
     # Skip with BONSAI_MLX_VLM=0.
     if [ "${BONSAI_MLX_VLM:-1}" != "0" ]; then
@@ -377,7 +380,7 @@ raise SystemExit(0 if v >= (0, 31) else 1)
             && "$VLM_VENV/bin/python" -c "import mlx_vlm" 2>/dev/null; then
             info "mlx-vlm venv ready (.venv-vlm)."
         else
-            warn "mlx-vlm setup failed; Bonsai 2 MLX requires this environment. Use llama.cpp or retry setup."
+            warn "mlx-vlm setup failed; Bonsai 2.x MLX requires this environment. Use llama.cpp or retry setup."
         fi
     fi
 fi

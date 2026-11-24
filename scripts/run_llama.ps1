@@ -3,14 +3,15 @@ $ErrorActionPreference = "Stop"
 
 
 $BonsaiModel  = if ($env:BONSAI_MODEL)  { $env:BONSAI_MODEL.ToUpperInvariant() } else { "27B" }
-$BonsaiFamily = if ($env:BONSAI_FAMILY) { $env:BONSAI_FAMILY.ToLowerInvariant() } else { "bonsai2" }
+# Bonsai 2.5 is 27B; with no family set, other sizes keep resolving to Bonsai 2.
+$BonsaiFamily = if ($env:BONSAI_FAMILY) { $env:BONSAI_FAMILY.ToLowerInvariant() } elseif ($BonsaiModel -eq "27B") { "bonsai25" } else { "bonsai2" }
 
 if ($BonsaiModel -notin @("27B", "9B", "8B", "4B", "2B", "1.7B")) {
     Write-Host "[ERR] Unknown BONSAI_MODEL='$BonsaiModel'. Valid values: 27B, 9B, 8B, 4B, 2B, 1.7B" -ForegroundColor Red
     exit 1
 }
-if ($BonsaiFamily -notin @("bonsai2", "bonsai", "ternary")) {
-    Write-Host "[ERR] Unknown BONSAI_FAMILY='$BonsaiFamily'. Valid values: bonsai2, bonsai, ternary" -ForegroundColor Red
+if ($BonsaiFamily -notin @("bonsai25", "bonsai2", "bonsai", "ternary")) {
+    Write-Host "[ERR] Unknown BONSAI_FAMILY='$BonsaiFamily'. Valid values: bonsai25, bonsai2, bonsai, ternary" -ForegroundColor Red
     exit 1
 }
 if ($BonsaiFamily -in @("bonsai", "ternary") -and $BonsaiModel -in @("9B", "2B")) {
@@ -21,6 +22,13 @@ if ($BonsaiFamily -in @("bonsai", "ternary") -and $BonsaiModel -in @("9B", "2B")
 # never going to exist and the error blames setup. Mirrors BONSAI2_SIZES in
 # scripts/common.sh.
 $Bonsai2Sizes = if ($env:BONSAI2_SIZES) { $env:BONSAI2_SIZES -split '\s+' } else { @("27B", "9B", "4B", "2B") }
+$Bonsai25Sizes = if ($env:BONSAI25_SIZES) { $env:BONSAI25_SIZES -split '\s+' } else { @("27B") }
+if ($BonsaiFamily -eq "bonsai25" -and $BonsaiModel -notin $Bonsai25Sizes) {
+    Write-Host "[ERR] Bonsai 2.5 is 27B." -ForegroundColor Red
+    Write-Host "      Bonsai 2.5:   `$env:BONSAI_MODEL='27B'; .\scripts\run_llama.ps1" -ForegroundColor Yellow
+    Write-Host "      Other sizes:  `$env:BONSAI_FAMILY='bonsai2'; .\scripts\run_llama.ps1" -ForegroundColor Yellow
+    exit 1
+}
 if ($BonsaiFamily -eq "bonsai2" -and $BonsaiModel -notin $Bonsai2Sizes) {
     Write-Host "[ERR] Bonsai 2 sizes: $Bonsai2Sizes." -ForegroundColor Red
     Write-Host "      Bonsai 2:     `$env:BONSAI_MODEL='27B'; .\scripts\run_llama.ps1" -ForegroundColor Yellow
@@ -31,7 +39,10 @@ if ($BonsaiFamily -eq "bonsai2" -and $BonsaiModel -notin $Bonsai2Sizes) {
 $DemoDir = Split-Path $PSScriptRoot -Parent
 Set-Location $DemoDir
 
-if ($BonsaiFamily -eq "bonsai2") {
+if ($BonsaiFamily -eq "bonsai25") {
+    $ModelDir = Join-Path $DemoDir "models\bonsai25-gguf\$BonsaiModel"
+    $FamilyDisplay = "Bonsai-2.5"
+} elseif ($BonsaiFamily -eq "bonsai2") {
     $ModelDir = Join-Path $DemoDir "models\bonsai2-gguf\$BonsaiModel"
     $FamilyDisplay = "Bonsai-2"
 } elseif ($BonsaiFamily -eq "ternary") {
@@ -59,7 +70,16 @@ foreach ($cand in $BinCandidates) {
     if (Test-Path (Join-Path $DemoDir $cand)) { $BinRel = $cand; break }
 }
 $Pq2Ready = $BinRel -notlike "bin\vulkan\*"
-if ($BonsaiFamily -eq "bonsai2") {
+$Ptq1Preferred = $BinRel -like "bin\cuda\*" -or $BinRel -like "bin\hip\*"
+if ($BonsaiFamily -eq "bonsai25") {
+    # The -mtp build is preferred (its draft head is inert in llama-cli);
+    # band choice is backend-aware, as in start_llama_server.ps1.
+    $tryPatterns = if ($Ptq1Preferred) {
+        @("*-PTQ1_0-mtp.gguf", "*-PTQ1_0.gguf", "*-PQ2_0-mtp.gguf", "*-PQ2_0.gguf")
+    } else {
+        @("*-PQ2_0-mtp.gguf", "*-PQ2_0.gguf", "*-PTQ1_0-mtp.gguf", "*-PTQ1_0.gguf")
+    }
+} elseif ($BonsaiFamily -eq "bonsai2") {
     # Every Bonsai 2 band needs the fork's kernels, so there is no group-64 fallback.
     $tryPatterns = @("*-PQ2_0.gguf", "*-PTQ1_0.gguf")
 } elseif ($BonsaiFamily -eq "ternary") {
@@ -103,10 +123,11 @@ $Ngl = if ($env:BONSAI_NGL) {
     "99"
 }
 
-# Bonsai 2: the base model's own sampling defaults, thinking stays enabled.
+# Bonsai 2.x: the model cards' thinking-mode sampling, thinking stays enabled.
 # 27B of the earlier families: reference-demo sampling, thinking also stays on.
 # Older sizes keep the exact flag set they were tested with.
-if ($BonsaiFamily -eq "bonsai2") {
+if ($BonsaiFamily -in @("bonsai25", "bonsai2")) {
+    $MinP = if ($BonsaiFamily -eq "bonsai25") { "0" } else { "0.05" }
     $CommonArgs = @(
         "-m", $Model.FullName,
         "-ngl", $Ngl, "-fa", "on",
@@ -114,7 +135,7 @@ if ($BonsaiFamily -eq "bonsai2") {
         "--temp", "1.0",
         "--top-p", "0.95",
         "--top-k", "20",
-        "--min-p", "0.05"
+        "--min-p", $MinP
     )
     if ($BonsaiModel -in @("9B", "4B", "2B")) {
         $CommonArgs = @("-m", $Model.FullName, "-ngl", $Ngl, "-fa", "on", "--log-disable") + (Get-SmallBonsaiSampling)

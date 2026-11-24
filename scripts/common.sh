@@ -4,10 +4,17 @@
 
 # ── Model selection ──
 # Set BONSAI_MODEL to choose size:   27B (default), 8B, 4B, 1.7B, or all
-# Set BONSAI_FAMILY to choose family: bonsai2 (default), ternary, bonsai (1-bit), or all
+# Set BONSAI_FAMILY to choose family: bonsai25 (default), bonsai2, ternary, bonsai (1-bit), or all
 # "all" is only meaningful for setup/download — it expands to every size / every family.
 BONSAI_MODEL="${BONSAI_MODEL:-27B}"
-BONSAI_FAMILY="${BONSAI_FAMILY:-bonsai2}"
+if [ -z "${BONSAI_FAMILY:-}" ]; then
+    # Bonsai 2.5 is 27B. With no family set, any other size keeps resolving to
+    # Bonsai 2, so BONSAI_MODEL=4B alone still works.
+    case "$BONSAI_MODEL" in
+        27B) BONSAI_FAMILY="bonsai25" ;;
+        *)   BONSAI_FAMILY="bonsai2" ;;
+    esac
+fi
 
 # Derived paths default to empty so an invalid family or "all" never produces
 # a stale/glob-able path (e.g. `ls /*.gguf`). Concrete paths are only set when
@@ -21,6 +28,14 @@ BONSAI_DISPLAY="(family=${BONSAI_FAMILY} size=${BONSAI_MODEL})"
 case "$BONSAI_MODEL" in
     27B|9B|8B|4B|2B|1.7B)
         case "$BONSAI_FAMILY" in
+            bonsai25)
+                GGUF_MODEL_DIR="models/bonsai25-gguf/${BONSAI_MODEL}"
+                MLX_MODEL_DIR="models/Ternary-Bonsai-2.5-${BONSAI_MODEL}-mlx-2bit"
+                # selection is backend-aware (PTQ1_0 vs PQ2_0, MTP variants first);
+                # see select_model_gguf below
+                GGUF_QUANT_PATTERN=""
+                BONSAI_DISPLAY="Bonsai-2.5-${BONSAI_MODEL}"
+                ;;
             bonsai2)
                 GGUF_MODEL_DIR="models/bonsai2-gguf/${BONSAI_MODEL}"
                 MLX_MODEL_DIR="models/Ternary-Bonsai-2-${BONSAI_MODEL}-mlx-2bit"
@@ -57,6 +72,24 @@ bonsai2_size_available() {
     done
     return 1
 }
+BONSAI25_SIZES="${BONSAI25_SIZES:-27B}"
+bonsai25_size_available() {
+    [ "$1" = "all" ] && return 0
+    for _b25s in $BONSAI25_SIZES; do
+        [ "$1" = "$_b25s" ] && return 0
+    done
+    return 1
+}
+
+# True for the Bonsai 2.x generations (bonsai2, bonsai25): they share the fork
+# runtime, the rotated-basis weight formats and the native MLX loader, so most
+# runtime branches treat them the same.
+bonsai2_gen() {
+    case "$BONSAI_FAMILY" in
+        bonsai2|bonsai25) return 0 ;;
+        *) return 1 ;;
+    esac
+}
 
 # Validate BONSAI_MODEL + BONSAI_FAMILY — call at the top of every run/server script
 assert_valid_model() {
@@ -71,15 +104,21 @@ assert_valid_model() {
         case "$BONSAI_MODEL" in 9B|2B) err "${BONSAI_MODEL} requires BONSAI_FAMILY=bonsai2"; exit 1 ;; esac
     fi
     case "$BONSAI_FAMILY" in
-        bonsai2|bonsai|ternary|all) ;;
+        bonsai25|bonsai2|bonsai|ternary|all) ;;
         *)
-            err "Unknown BONSAI_FAMILY='${BONSAI_FAMILY}'. Valid values: bonsai2, ternary, bonsai, all"
-            echo "  Example: export BONSAI_FAMILY=bonsai2"
+            err "Unknown BONSAI_FAMILY='${BONSAI_FAMILY}'. Valid values: bonsai25, bonsai2, ternary, bonsai, all"
+            echo "  Example: export BONSAI_FAMILY=bonsai25"
             exit 1 ;;
     esac
+    if [ "$BONSAI_FAMILY" = "bonsai25" ] && ! bonsai25_size_available "$BONSAI_MODEL"; then
+        err "Bonsai 2.5 is 27B."
+        echo "  Bonsai 2.5:            BONSAI_MODEL=27B ./scripts/run_llama.sh"
+        echo "  Other sizes:           BONSAI_FAMILY=bonsai2 BONSAI_MODEL=${BONSAI_MODEL} ./scripts/run_llama.sh"
+        exit 1
+    fi
     if [ "$BONSAI_FAMILY" = "bonsai2" ] && ! bonsai2_size_available "$BONSAI_MODEL"; then
         err "Bonsai 2 sizes: $BONSAI2_SIZES."
-        echo "  Bonsai 2:              BONSAI_MODEL=27B ./scripts/run_llama.sh"
+        echo "  Bonsai 2:              BONSAI_FAMILY=bonsai2 BONSAI_MODEL=27B ./scripts/run_llama.sh"
         echo "  Other sizes:           BONSAI_FAMILY=ternary BONSAI_MODEL=${BONSAI_MODEL} ./scripts/run_llama.sh"
         exit 1
     fi
@@ -131,9 +170,30 @@ backend_from_bin() {
 #                           on pre-v7 repos this name is the DEPRECATED legacy file,
 #                           but those repos always carry a *g64.gguf so it is never
 #                           reached there unless only the legacy file is on disk)
+# Backends where the PTQ1_0 (dense trits, 5.9 GB) band decodes faster than
+# PQ2_0 on the current runtime. Metal/Vulkan/SYCL/CPU run the PQ2_0 band.
+ptq1_0_preferred_backend() {
+    case "$1" in
+        cuda|rocm|hip) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
 select_model_gguf() {
     _smg_dir="$1"; _smg_backend="${2:-}"
-    if [ "$BONSAI_FAMILY" = "bonsai2" ]; then
+    if [ "$BONSAI_FAMILY" = "bonsai25" ]; then
+        # Bonsai 2.5 ships each band with and without the built-in MTP draft
+        # head (*-mtp.gguf, +0.2 GiB). The head is inert unless the server
+        # enables drafting, so the -mtp file is always preferred; plain files
+        # are accepted when that is what is on disk. Band choice is
+        # backend-aware: PTQ1_0 decodes fastest on CUDA-class GPUs, PQ2_0
+        # everywhere else.
+        if [ -n "$_smg_backend" ] && ptq1_0_preferred_backend "$_smg_backend"; then
+            _smg_patterns="*-PTQ1_0-mtp.gguf *-PTQ1_0.gguf *-PQ2_0-mtp.gguf *-PQ2_0.gguf"
+        else
+            _smg_patterns="*-PQ2_0-mtp.gguf *-PQ2_0.gguf *-PTQ1_0-mtp.gguf *-PTQ1_0.gguf"
+        fi
+    elif [ "$BONSAI_FAMILY" = "bonsai2" ]; then
         # Every Bonsai 2 band needs the fork's kernels, so there is no
         # mainline-compatible fallback to prefer; PQ2_0 first, then dense PTQ1_0.
         _smg_patterns="*-PQ2_0.gguf *-PTQ1_0.gguf"
@@ -355,6 +415,40 @@ PYEOF
     esac
 }
 
+# ── MTP speculative decoding (Bonsai 2.5) ──
+# The *-mtp.gguf files carry a built-in multi-token-prediction draft head: the
+# model drafts a few tokens ahead and checks them itself in one pass, so output
+# matches plain decoding and only speed changes. No sidecar file is needed;
+# llama-server enables it with --spec-type draft-mtp.
+#
+# Whether drafting pays off is per-device, so both the on/off default and the
+# draft settings key on the backend (measured settings; see SPECULATIVE.md):
+#   cuda/rocm/hip  on   n-max 3, p-min 0.1   (~1.5-1.8x decode)
+#   mac (Metal)    on   n-max 1, p-min 0.6   (~1.1x decode)
+#   vulkan/cpu     off  n-max 3, p-min 0.1   (unmeasured; opt in to try)
+# BONSAI_SPECULATIVE=1/0 forces it on/off; BONSAI_SPEC_NMAX / BONSAI_SPEC_PMIN
+# override the per-device numbers.
+bonsai_mtp_default_on() {
+    case "$1" in
+        cuda|rocm|hip|mac) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+bonsai_mtp_nmax() {
+    if [ -n "${BONSAI_SPEC_NMAX:-}" ]; then echo "$BONSAI_SPEC_NMAX"; return; fi
+    case "$1" in
+        mac) echo 1 ;;
+        *)   echo 3 ;;
+    esac
+}
+bonsai_mtp_pmin() {
+    if [ -n "${BONSAI_SPEC_PMIN:-}" ]; then echo "$BONSAI_SPEC_PMIN"; return; fi
+    case "$1" in
+        mac) echo 0.6 ;;
+        *)   echo 0.1 ;;
+    esac
+}
+
 # MLX is Apple Silicon only; skip on Intel Mac or when BONSAI_SKIP_MLX=1.
 bonsai_should_skip_mlx() {
     case "${BONSAI_SKIP_MLX:-}" in
@@ -394,24 +488,24 @@ ensure_venv() {
     fi
 }
 
-# Bonsai 2 needs native Hadamard-aware mlx-vlm, not the older generic loader.
+# Bonsai 2.x needs native Hadamard-aware mlx-vlm, not the older generic loader.
 require_bonsai2_mlx_vlm() {
     _vlm_py="$1/.venv-vlm/bin/python"
     if [ "${BONSAI_MLX_VLM:-1}" = "0" ] || [ ! -x "$_vlm_py" ]; then
-        err "Bonsai 2 requires .venv-vlm with native model support. Run ./setup.sh with BONSAI_MLX_VLM=1."
+        err "${BONSAI_DISPLAY} requires .venv-vlm with native model support. Run ./setup.sh with BONSAI_MLX_VLM=1."
         exit 1
     fi
     "$_vlm_py" "$1/scripts/check_mlx_vlm.py" || exit 1
     if ! "$_vlm_py" -c "from mlx_vlm.models.prism_hadamard_qwen35 import Model"; then
-        err "Native Bonsai 2 MLX loader unavailable. Re-run ./setup.sh."
+        err "Native ${BONSAI_DISPLAY} MLX loader unavailable. Re-run ./setup.sh."
         exit 1
     fi
 }
 
 # /v1/models identifies models, not the loader or its transform support.
 reject_unverified_bonsai2_mlx_server() {
-    if [ "$BONSAI_FAMILY" = "bonsai2" ]; then
-        err "A server already answers on MLX port $1; its Bonsai 2 loader cannot be verified."
+    if bonsai2_gen; then
+        err "A server already answers on MLX port $1; its ${BONSAI_DISPLAY} loader cannot be verified."
         echo "  Stop that server and retry so this launcher can start the tested native mlx-vlm runtime." >&2
         exit 1
     fi

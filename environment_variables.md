@@ -7,7 +7,7 @@ Every script in this repo is driven by environment variables — model selection
 | Variable | Default | Valid values | Purpose |
 |----------|---------|--------------|---------|
 | **Model & setup** | | | |
-| `BONSAI_FAMILY` | `bonsai2` | `bonsai2`, `ternary`, `bonsai`, `all` | Model family. `bonsai2` = Bonsai 2; `ternary` = earlier Ternary-Bonsai; `bonsai` = 1-bit Bonsai. `all` expands to all three families (setup/download only). |
+| `BONSAI_FAMILY` | `bonsai25` for 27B, else `bonsai2` | `bonsai25`, `bonsai2`, `ternary`, `bonsai`, `all` | Model family. Unset, it follows the size: 27B gets Bonsai 2.5, any other size Bonsai 2. `bonsai25` = Bonsai 2.5; `bonsai2` = Bonsai 2; `ternary` = earlier Ternary-Bonsai; `bonsai` = 1-bit Bonsai. `all` expands to every family (setup/download only). |
 | `BONSAI_MODEL` | `27B` | `27B`, `9B`, `8B`, `4B`, `2B`, `1.7B`, `all` | Bonsai 2: 27B/9B/4B/2B; earlier families: 27B/8B/4B/1.7B. `all` expands to available sizes per family (setup/download only). |
 | `BONSAI_TOKEN` | — | HF read-only token | Optional for authenticated Hugging Face downloads; public repositories can download anonymously. |
 | `BONSAI_SKIP_GGUF` | unset | `1` | Skip the GGUF download entirely (macOS MLX-only setups, saves disk space). The llama.cpp scripts then point you at the MLX ones instead (see "Running the Model" below). |
@@ -23,9 +23,10 @@ Every script in this repo is driven by environment variables — model selection
 | `BONSAI_NGL` | auto-detect | any int; `0` = CPU-only | Override GPU layer offload. Auto-detect keys on installed tooling, so weak iGPUs can be better with `0`. |
 | `BONSAI_IMAGE_MAX_TOKENS` | `1024` on Metal/Vulkan/CPU; uncapped on CUDA/ROCm | number; `0` = uncapped | Cap on vision tokens per image (27B). `0` restores full detail (best for OCR / screenshots / small text) but is slower on large images. |
 | `BONSAI_MMPROJ_CPU` | unset | `1` | Keep the 27B vision projector in system RAM instead of VRAM (`--no-mmproj-offload`), freeing ~0.9 GiB for KV/context; slower image prefill. |
-| `BONSAI_SPECULATIVE` | `0` | `1` | Enable speculative decoding with the paired DSpark drafter for previous-generation `ternary`/`bonsai` 27B only. Automatic Bonsai 2 drafter selection is not configured here; its family launchers warn and run without speculation. The shell launcher’s explicit `BONSAI_GGUF` custom-model path retains experimental drafter discovery. Previous-generation measurements (CUDA: 1.8-2.4x decode for ternary, 1.4-1.75x for 1-bit, code/math best; not recommended on Apple Silicon — only ternary code/math gains there). Opt-in, server-only. [SPECULATIVE.md](SPECULATIVE.md) |
+| `BONSAI_SPECULATIVE` | auto | `0`, `1` | **Bonsai 2.5:** drafting with the built-in MTP head is ON by default on CUDA/ROCm and Metal; `0` disables, `1` forces it on (Vulkan/CPU opt in). See [SPECULATIVE.md](SPECULATIVE.md). **Earlier families:** `1` enables the paired DSpark drafter for previous-generation `ternary`/`bonsai` 27B only. Automatic Bonsai 2 drafter selection is not configured here; its family launchers warn and run without speculation. The shell launcher’s explicit `BONSAI_GGUF` custom-model path retains experimental drafter discovery. Previous-generation measurements (CUDA: 1.8-2.4x decode for ternary, 1.4-1.75x for 1-bit, code/math best; not recommended on Apple Silicon — only ternary code/math gains there). Opt-in, server-only. [SPECULATIVE.md](SPECULATIVE.md) |
 | `PORT` | `8080` | Port for `start_llama_server.sh`. |
-| `BONSAI_SPEC_NMAX` | `4` | int | dspark draft n-max override (PowerShell scripts only). |
+| `BONSAI_SPEC_NMAX` | per device | int | Draft n-max override (Bonsai 2.5 MTP on sh+ps1; dspark on ps1). |
+| `BONSAI_SPEC_PMIN` | per device | float | Bonsai 2.5 MTP draft p-min override. |
 | `BONSAI_KV4` | `0` | `1` | 4-bit (Q4_0) KV cache, ~3.5x less KV memory for very long contexts; decode slightly slower than F16. Optional calibration bias via `./scripts/make_kv_bias.sh`. [KV-CACHE.md](KV-CACHE.md) |
 | **Agentic demo (`start_agent_server.sh`, AGENT-DEMO.md)** | | | |
 | `AGENT_REASONING_BUDGET` | `16384` | tokens, `-1` = unlimited | Thinking budget per turn (`--reasoning-budget`); the server force-closes thinking at this count. |

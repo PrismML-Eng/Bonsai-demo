@@ -75,16 +75,28 @@ jobs:
           # otherwise return as this step's own exit code
           exit 0
 
-      - name: Default resolves to Bonsai-2-27B (no env vars set)
+      - name: Default resolves to Bonsai-2.5-27B (no env vars set)
         run: |
           unset BONSAI_FAMILY BONSAI_MODEL
           . scripts/common.sh
-          [ "$BONSAI_FAMILY"   = "bonsai2" ]                  || { echo "FAIL: default family=$BONSAI_FAMILY"; exit 1; }
+          [ "$BONSAI_FAMILY"   = "bonsai25" ]                 || { echo "FAIL: default family=$BONSAI_FAMILY"; exit 1; }
           [ "$BONSAI_MODEL"    = "27B" ]                      || { echo "FAIL: default size=$BONSAI_MODEL"; exit 1; }
-          [ "$GGUF_MODEL_DIR"  = "models/bonsai2-gguf/27B" ]  || { echo "FAIL: gguf dir=$GGUF_MODEL_DIR"; exit 1; }
-          [ "$MLX_MODEL_DIR"   = "models/Ternary-Bonsai-2-27B-mlx-2bit" ] || { echo "FAIL: mlx dir=$MLX_MODEL_DIR"; exit 1; }
-          [ "$BONSAI_DISPLAY"  = "Bonsai-2-27B" ]             || { echo "FAIL: display=$BONSAI_DISPLAY"; exit 1; }
-          echo "OK: no-env default resolves to Bonsai-2-27B"
+          [ "$GGUF_MODEL_DIR"  = "models/bonsai25-gguf/27B" ] || { echo "FAIL: gguf dir=$GGUF_MODEL_DIR"; exit 1; }
+          [ "$MLX_MODEL_DIR"   = "models/Ternary-Bonsai-2.5-27B-mlx-2bit" ] || { echo "FAIL: mlx dir=$MLX_MODEL_DIR"; exit 1; }
+          [ "$BONSAI_DISPLAY"  = "Bonsai-2.5-27B" ]           || { echo "FAIL: display=$BONSAI_DISPLAY"; exit 1; }
+          echo "OK: no-env default resolves to Bonsai-2.5-27B"
+
+      - name: A smaller size with no family still resolves to Bonsai 2
+        run: |
+          for _s in 9B 4B 2B; do
+            (
+              unset BONSAI_FAMILY; export BONSAI_MODEL="$_s"
+              . scripts/common.sh
+              [ "$BONSAI_FAMILY" = "bonsai2" ] || { echo "FAIL: $_s family=$BONSAI_FAMILY"; exit 1; }
+              assert_valid_model
+            ) || exit 1
+          done
+          echo "OK: size-only selection resolves to Bonsai 2"
 
       - name: All concrete (family x size) combos resolve correctly
         run: |
@@ -100,6 +112,7 @@ jobs:
             ) || exit 1
             echo "  OK: $f $s"
           }
+          _check bonsai25 27B  models/bonsai25-gguf/27B  models/Ternary-Bonsai-2.5-27B-mlx-2bit Bonsai-2.5-27B
           _check bonsai2 27B   models/bonsai2-gguf/27B   models/Ternary-Bonsai-2-27B-mlx-2bit Bonsai-2-27B
           _check bonsai2 9B models/bonsai2-gguf/9B models/Ternary-Bonsai-2-9B-mlx-2bit Bonsai-2-9B
           _check bonsai2 4B models/bonsai2-gguf/4B models/Ternary-Bonsai-2-4B-mlx-2bit Bonsai-2-4B
@@ -127,6 +140,7 @@ jobs:
             echo "  OK: $f $s (paths empty, assert_valid_model passed)"
           }
           _check_all all     8B
+          _check_all bonsai25 all
           _check_all bonsai2 all
           _check_all bonsai  all
           _check_all ternary all
@@ -174,6 +188,13 @@ jobs:
             fi
           done
           echo "OK: bonsai2 rejects other sizes"
+          for _s in 9B 8B 4B 2B 1.7B; do
+            if ( export BONSAI_FAMILY=bonsai25 BONSAI_MODEL="$_s"; . scripts/common.sh; assert_valid_model ) >/dev/null 2>&1; then
+              echo "FAIL: bonsai25 accepted size $_s"
+              exit 1
+            fi
+          done
+          echo "OK: bonsai25 rejects other sizes"
 
       - name: Invalid BONSAI_FAMILY rejected
         run: |

@@ -1,6 +1,39 @@
-# Speculative decoding (experimental)
+# Speculative decoding
 
-**Bonsai 2 27B (the default) has no official DSpark drafter released yet.**
+## Bonsai 2.5 27B: built-in MTP draft head (default where it pays)
+
+Every Bonsai 2.5 GGUF is also published as a `*-mtp.gguf` build that carries a
+built-in multi-token-prediction (MTP) draft head: one extra layer that guesses
+the next few tokens, which the model then checks itself in one pass. Output
+matches plain decoding; only speed changes. There is no sidecar drafter file and
+no conversion step, and unlike the DSpark path below it keeps prompt-cache reuse
+working.
+
+The demo downloads the `-mtp` build and `start_llama_server.sh` /
+`start_llama_server.ps1` enable drafting by default where it measured faster:
+
+| Backend | Default | Settings (`--spec-draft-n-max`, `--spec-draft-p-min`) | Measured decode gain |
+|---|---|---|---|
+| CUDA / ROCm | on | 3, 0.1 | ~1.5-1.8x |
+| Metal (Apple Silicon) | on | 1, 0.6 | ~1.1x |
+| Vulkan / CPU | off (opt in with `BONSAI_SPECULATIVE=1`) | 3, 0.1 | unmeasured |
+
+Knobs: `BONSAI_SPECULATIVE=0` disables, `BONSAI_SPECULATIVE=1` forces it on,
+`BONSAI_SPEC_NMAX` / `BONSAI_SPEC_PMIN` override the per-device settings. The
+flags behind it are `--spec-type draft-mtp --spec-draft-n-max N
+--spec-draft-p-min P` on the fork's `llama-server`.
+
+Notes:
+- Drafting makes its own pass over the prompt, so prefill is somewhat slower
+  with it on; decode is where it pays. On long-prompt, short-answer workloads
+  try `BONSAI_SPECULATIVE=0` and compare.
+- Verify engagement via the API response `timings` (`draft_n` > 0).
+- The head is inert when drafting is off: the `-mtp` file behaves exactly like
+  the plain file (llama-cli included), at +0.2 GiB on disk.
+
+## Earlier families (DSpark drafters)
+
+**Bonsai 2 27B has no official DSpark drafter released yet.**
 `BONSAI_SPECULATIVE=1` warns and runs without speculation when using the demo's
 `bonsai2` family, even if a drafter file is present in its model directory.
 The paired drafters and speed measurements below apply to the previous-generation

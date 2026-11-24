@@ -13,7 +13,8 @@ $ReleaseTag = "prism-b10828-a153697"
 $BaseUrl = "https://github.com/PrismML-Eng/llama.cpp/releases/download/$ReleaseTag"
 
 $BonsaiModel  = if ($env:BONSAI_MODEL)  { $env:BONSAI_MODEL }  else { "27B" }
-$BonsaiFamily = if ($env:BONSAI_FAMILY) { $env:BONSAI_FAMILY } else { "bonsai2" }
+# Bonsai 2.5 is 27B; with no family set, other sizes keep resolving to Bonsai 2.
+$BonsaiFamily = if ($env:BONSAI_FAMILY) { $env:BONSAI_FAMILY } elseif ($BonsaiModel.ToUpperInvariant() -eq "27B") { "bonsai25" } else { "bonsai2" }
 
 $BonsaiModel = if ($BonsaiModel.ToLowerInvariant() -eq "all") { "all" } else { $BonsaiModel.ToUpperInvariant() }
 $BonsaiFamily = $BonsaiFamily.ToLowerInvariant()
@@ -22,8 +23,8 @@ if ($BonsaiModel -notin @("27B", "9B", "8B", "4B", "2B", "1.7B", "all")) {
     Write-Host "[ERR] Unknown BONSAI_MODEL='$BonsaiModel'. Valid values: 27B, 9B, 8B, 4B, 2B, 1.7B, all" -ForegroundColor Red
     exit 1
 }
-if ($BonsaiFamily -notin @("bonsai2", "bonsai", "ternary", "all")) {
-    Write-Host "[ERR] Unknown BONSAI_FAMILY='$BonsaiFamily'. Valid values: bonsai2, ternary, bonsai, all" -ForegroundColor Red
+if ($BonsaiFamily -notin @("bonsai25", "bonsai2", "bonsai", "ternary", "all")) {
+    Write-Host "[ERR] Unknown BONSAI_FAMILY='$BonsaiFamily'. Valid values: bonsai25, bonsai2, ternary, bonsai, all" -ForegroundColor Red
     exit 1
 }
 if ($BonsaiFamily -in @("bonsai", "ternary") -and $BonsaiModel -in @("9B", "2B")) {
@@ -34,6 +35,13 @@ if ($BonsaiFamily -in @("bonsai", "ternary") -and $BonsaiModel -in @("9B", "2B")
 # still report success, leaving no runnable model. "all" stays valid and fans
 # out to whatever each family has. Mirrors BONSAI2_SIZES in scripts/common.sh.
 $Bonsai2Sizes = if ($env:BONSAI2_SIZES) { $env:BONSAI2_SIZES -split '\s+' } else { @("27B", "9B", "4B", "2B") }
+$Bonsai25Sizes = if ($env:BONSAI25_SIZES) { $env:BONSAI25_SIZES -split '\s+' } else { @("27B") }
+if ($BonsaiFamily -eq "bonsai25" -and $BonsaiModel -ne "all" -and $BonsaiModel -notin $Bonsai25Sizes) {
+    Write-Host "[ERR] Bonsai 2.5 is 27B." -ForegroundColor Red
+    Write-Host "      Bonsai 2.5:   `$env:BONSAI_MODEL='27B'; .\setup.ps1" -ForegroundColor Yellow
+    Write-Host "      Other sizes:  `$env:BONSAI_FAMILY='bonsai2'; .\setup.ps1" -ForegroundColor Yellow
+    exit 1
+}
 if ($BonsaiFamily -eq "bonsai2" -and $BonsaiModel -ne "all" -and $BonsaiModel -notin $Bonsai2Sizes) {
     Write-Host "[ERR] Bonsai 2 sizes: $Bonsai2Sizes." -ForegroundColor Red
     Write-Host "      Bonsai 2:     `$env:BONSAI_MODEL='27B'; .\setup.ps1" -ForegroundColor Yellow
@@ -244,7 +252,24 @@ function Download-GgufModel($Family, $Size) {
     # Each GGUF repo ships multiple quants (e.g. F16 + Q2_0); only fetch the
     # quant the demo is built around so the directory deterministically holds
     # one .gguf and we skip multi-GB reference weights we don't need.
-    if ($Family -eq "bonsai2") {
+    if ($Family -eq "bonsai25") {
+        if ($Size -ne "27B") {
+            Write-Host "[INFO] Bonsai 2.5 is 27B; skipping $Size." -ForegroundColor Yellow
+            return
+        }
+        $repo = "prism-ml/Ternary-Bonsai-2.5-${Size}-GGUF"
+        $dir = Join-Path $PSScriptRoot "models\bonsai25-gguf\$Size"
+        $display = "Bonsai-2.5-$Size"
+        # Every Bonsai 2.5 band needs the fork's kernels. Fetch the band the
+        # installed backend runs fastest, in its -mtp build (built-in draft
+        # head, +0.2 GiB, inert unless drafting is enabled). Mirrors
+        # select_model_gguf in scripts/common.sh.
+        $cudaLike = (Test-Path (Join-Path $PSScriptRoot "bin\cuda")) -or (Test-Path (Join-Path $PSScriptRoot "bin\hip"))
+        $otherBin = (Test-Path (Join-Path $PSScriptRoot "bin\vulkan")) -or (Test-Path (Join-Path $PSScriptRoot "bin\cpu"))
+        $patterns = if ($cudaLike) { @("*-PTQ1_0-mtp.gguf") }
+                    elseif ($otherBin) { @("*-PQ2_0-mtp.gguf") }
+                    else { @("*-PQ2_0-mtp.gguf", "*-PTQ1_0-mtp.gguf") }
+    } elseif ($Family -eq "bonsai2") {
         if ($Size -notin $Bonsai2Sizes) {
             Write-Host "[INFO] No Bonsai 2 $Size; skipping." -ForegroundColor Yellow
             return
@@ -277,7 +302,7 @@ function Download-GgufModel($Family, $Size) {
     # the legacy Q4_1 sidecar cannot load on v7 builds. Bonsai 2 has no dspark
     # drafter, so requiring one would keep every complete install off the fast path.
     # Mirrors scripts/download_models.sh.
-    if ($Family -eq "bonsai2") {
+    if ($Family -in @("bonsai25", "bonsai2")) {
         $mmprojPattern = "*mmproj-Q8_0.gguf"
         $drafterPattern = $null
     } else {
@@ -371,7 +396,7 @@ function Download-GgufModel($Family, $Size) {
 }
 
 # Expand "all" for family and size into concrete lists, then iterate.
-$families = if ($BonsaiFamily -eq "all") { @("bonsai2", "bonsai", "ternary") } else { @($BonsaiFamily) }
+$families = if ($BonsaiFamily -eq "all") { @("bonsai25", "bonsai2", "bonsai", "ternary") } else { @($BonsaiFamily) }
 $sizes    = if ($BonsaiModel  -eq "all") { @("27B", "9B", "8B", "4B", "2B", "1.7B") } else { @($BonsaiModel) }
 foreach ($fam in $families) {
     foreach ($sz in $sizes) {
