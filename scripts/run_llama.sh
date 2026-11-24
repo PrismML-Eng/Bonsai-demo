@@ -46,8 +46,8 @@ for _a in "$@"; do
     case "$_a" in -p|--prompt) _ONESHOT="-st" ;; esac
 done
 
-# Bonsai 2: the model card's thinking-mode sampling (temp 1.0, top-p 0.95, top-k 20, min-p 0.05),
-# thinking stays enabled.
+# Bonsai 2 small sizes (9B/4B/2B): their tested profile; BONSAI_THINKING=0
+# switches to the non-thinking settings.
 if bonsai2_small_profile; then
     if [ "${BONSAI_THINKING:-1}" = "0" ]; then
         set -- --chat-template-kwargs '{"enable_thinking":false}' "$@"
@@ -57,10 +57,15 @@ if bonsai2_small_profile; then
         --presence-penalty "$BONSAI_PRESENCE" --repeat-penalty 1 --repeat-last-n 64 \
         $_ONESHOT "$@"
 fi
-if [ "$BONSAI_FAMILY" = "bonsai2" ]; then
+# Bonsai 2.x 27B: the model cards' thinking-mode sampling (temp 1.0, top-p 0.95,
+# top-k 20; min-p 0 on 2.5, 0.05 on 2), thinking stays enabled. llama-cli does
+# no drafting; a built-in MTP head in the 2.5 file is simply inert here.
+if bonsai2_gen; then
+    _minp=0.05
+    [ "$BONSAI_FAMILY" = "bonsai25" ] && _minp=0
     # shellcheck disable=SC2086
     exec "$BIN" -m "$MODEL" -ngl "$NGL" -fa on -c "$CTX_SIZE_DEFAULT" --log-disable \
-        --temp 1.0 --top-p 0.95 --top-k 20 --min-p 0.05 \
+        --temp 1.0 --top-p 0.95 --top-k 20 --min-p "$_minp" \
         $_ONESHOT "$@"
 fi
 

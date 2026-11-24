@@ -53,7 +53,7 @@ case "$BONSAI_HOST" in
         ;;
 esac
 
-if [ "$BONSAI_BACKEND" = "mlx" ] && [ "$BONSAI_FAMILY" = "bonsai2" ]; then
+if [ "$BONSAI_BACKEND" = "mlx" ] && bonsai2_gen; then
     require_bonsai2_mlx_vlm "$(resolve_demo_dir)"
 fi
 
@@ -181,9 +181,11 @@ else
         # 27B: --jinja enables native OpenAI-style tool calling; --mmproj
         # enables image input; reference-demo sampling. The 27B is a thinking
         # model and thinking stays on. Older sizes keep their tested flag set.
-        # Sampling matches start_llama_server.sh: Bonsai 2 uses the model card's
-        # values, the earlier families keep the profile they were tested on.
-        if [ "$BONSAI_FAMILY" = "bonsai2" ]; then
+        # Sampling matches start_llama_server.sh: Bonsai 2.5 and 2 use their
+        # model cards' values, the earlier families keep their tested profile.
+        if [ "$BONSAI_FAMILY" = "bonsai25" ]; then
+            _SAMPLING="--temp 1.0 --top-p 0.95 --top-k 20 --min-p 0"
+        elif [ "$BONSAI_FAMILY" = "bonsai2" ]; then
             _SAMPLING="--temp 1.0 --top-p 0.95 --top-k 20 --min-p 0.05"
         else
             _SAMPLING="--temp 0.7 --top-p 0.95 --top-k 20 --min-p 0"
@@ -233,7 +235,7 @@ if [ "$BONSAI_BACKEND" = "mlx" ]; then
         reject_unverified_bonsai2_mlx_server "$MLX_PORT"
         _MLX_PREEXISTING=true
         info "MLX server already running on port $MLX_PORT"
-    elif [ -d "$DEMO_DIR/$MLX_MODEL_DIR" ] && { [ "$BONSAI_FAMILY" = "bonsai2" ] || python -c "import mlx_lm" 2>/dev/null; }; then
+    elif [ -d "$DEMO_DIR/$MLX_MODEL_DIR" ] && { bonsai2_gen || python -c "import mlx_lm" 2>/dev/null; }; then
         step "Starting MLX server on port $MLX_PORT (${BONSAI_DISPLAY}) ..."
         export HF_HOME="$DEMO_DIR/.hf_cache"
         mkdir -p "$HF_HOME/hub"
@@ -242,7 +244,7 @@ if [ "$BONSAI_BACKEND" = "mlx" ]; then
         # Disable with BONSAI_MLX_VLM=0.
         _VLM_PY="$DEMO_DIR/.venv-vlm/bin/python"
         # The 27B is a thinking model and thinking stays on.
-        if [ "$BONSAI_MODEL" = "27B" ] && { [ "$BONSAI_FAMILY" = "ternary" ] || [ "$BONSAI_FAMILY" = "bonsai2" ]; } \
+        if [ "$BONSAI_MODEL" = "27B" ] && { [ "$BONSAI_FAMILY" = "ternary" ] || bonsai2_gen; } \
             && [ "${BONSAI_MLX_VLM:-1}" != "0" ] && [ -x "$_VLM_PY" ] \
             && "$_VLM_PY" -c "import mlx_vlm" 2>/dev/null; then
             _MLX_VISION=true

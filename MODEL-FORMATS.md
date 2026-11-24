@@ -32,6 +32,24 @@ The legacy format stored a group-128 layout under the same type id that mainline
 standardized as group-64. prism-v7 follows mainline: type id 42 is read as group-64,
 and the fork's group-128 layout lives under its own name and id, PQ2_0 (142).
 
+## Bonsai 2.5 formats
+
+Bonsai 2.5 27B uses the same three packings as Bonsai 2 (table below), with two
+additions:
+
+- Every band is also published as a `*-mtp.gguf` build (+0.2 GiB) with a built-in
+  multi-token-prediction draft head for speculative decoding
+  ([SPECULATIVE.md](SPECULATIVE.md)). The head is inert unless the server enables
+  drafting, so the `-mtp` file is a drop-in replacement for the plain one; the demo
+  downloads only the `-mtp` build.
+- On the current fork runtime, `PTQ1_0` decodes fastest on CUDA-class GPUs as well
+  as being the smallest file, so the demo downloads `PTQ1_0-mtp` there and
+  `PQ2_0-mtp` on the other backends.
+
+Files on [the repo](https://huggingface.co/prism-ml/Ternary-Bonsai-2.5-27B-GGUF):
+`Ternary-Bonsai-2.5-27B-{PTQ1_0,PQ2_0,Q2_0}[-mtp].gguf` plus the
+`mmproj-Q8_0` / `mmproj-BF16` vision projectors.
+
 ## Bonsai 2 formats
 
 | Packing | Runtime | Trade-off |

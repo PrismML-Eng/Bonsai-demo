@@ -2,7 +2,8 @@
 # Download Bonsai / Ternary-Bonsai models from HuggingFace.
 #
 # Usage:
-#   ./scripts/download_models.sh                                         # Bonsai 2 27B (default)
+#   ./scripts/download_models.sh                                         # Bonsai 2.5 27B (default)
+#   BONSAI_FAMILY=bonsai2 ./scripts/download_models.sh                   # Bonsai 2 27B
 #   BONSAI_FAMILY=ternary BONSAI_MODEL=4B ./scripts/download_models.sh   # Ternary-Bonsai 4B
 #   BONSAI_FAMILY=bonsai ./scripts/download_models.sh                    # Bonsai (1-bit) 27B
 #   BONSAI_FAMILY=ternary BONSAI_MODEL=1.7B ./scripts/download_models.sh # Ternary-Bonsai 1.7B
@@ -88,6 +89,31 @@ download_one() {
     # Each GGUF repo ships multiple quants (e.g. F16 + Q2_0); we only want the
     # quant the demo is built around, so restrict the download via allow_patterns.
     case "$_family" in
+        bonsai25)
+            # Bonsai 2.5 lives in one repo per artifact kind (not per size).
+            # Every band needs the fork's kernels. Download only the band the
+            # installed backend will run (see select_model_gguf in common.sh),
+            # always in its -mtp build: the built-in draft head costs ~0.2 GiB,
+            # is inert unless drafting is enabled, and the plain file is a
+            # strict subset of it.
+            bonsai25_size_available "$_size" || { info "Bonsai 2.5 is 27B; skipping ${_size}."; return 0; }
+            _gguf_repo="prism-ml/Ternary-Bonsai-2.5-${_size}-GGUF"
+            _mlx_repo="prism-ml/Ternary-Bonsai-2.5-${_size}-mlx-2bit"
+            _gguf_dir="models/bonsai25-gguf/${_size}"
+            _mlx_dir="models/Ternary-Bonsai-2.5-${_size}-mlx-2bit"
+            _display="Bonsai-2.5-${_size}"
+            _dl_backend=""
+            for _bd in bin/mac bin/cuda bin/rocm bin/hip bin/vulkan bin/cpu; do
+                [ -d "$_bd" ] && _dl_backend="${_bd#bin/}" && break
+            done
+            if [ -z "$_dl_backend" ]; then
+                _gguf_pattern="*-PQ2_0-mtp.gguf,*-PTQ1_0-mtp.gguf"
+            elif ptq1_0_preferred_backend "$_dl_backend"; then
+                _gguf_pattern="*-PTQ1_0-mtp.gguf"
+            else
+                _gguf_pattern="*-PQ2_0-mtp.gguf"
+            fi
+            ;;
         bonsai2)
             # Download the demo's default PQ2_0 packing and projector.
             # PQ2_0 needs our fork; Q2_0 works with current upstream llama.cpp.
@@ -139,8 +165,9 @@ download_one() {
     _dl_patterns="$_gguf_pattern"
     _mmproj_pattern=""
     _drafter_pattern=""
-    if [ "$_family" = "bonsai2" ]; then
-        # the projector ships in the same repo; Bonsai 2 has no dspark drafter
+    if [ "$_family" = "bonsai25" ] || [ "$_family" = "bonsai2" ]; then
+        # the projector ships in the same repo; the Bonsai 2.x generations have
+        # no sidecar drafter (2.5's draft head is inside the -mtp model file)
         _mmproj_pattern="*mmproj-Q8_0.gguf"
         _dl_patterns="$_gguf_pattern,$_mmproj_pattern"
     elif [ "$_size" = "27B" ]; then
@@ -184,7 +211,7 @@ download_one() {
                 err "Failed to download GGUF ${_display} from ${_gguf_repo}."
                 exit 1
             fi
-            if ! _gguf_any_present; then
+            if ! _gguf_any_present && [ "$_family" = "ternary" ]; then
                 # newer repos ship the official group-64 file as plain *-Q2_0.gguf
                 # and carry no *g64 name; fall back to that exact pattern.
                 step "No PQ2_0/g64 file in ${_gguf_repo}; falling back to *-Q2_0.gguf (official group-64 on current repos) ..."
@@ -195,6 +222,9 @@ download_one() {
                 # mark the dir: its plain-named Q2_0 is the OFFICIAL group-64 file, so
                 # the selector and the presence fast-path may trust that name here
                 touch "$_gguf_dir/.official-q2_0"
+            elif ! _gguf_any_present; then
+                err "Download reported success but no usable model file was written to ${_gguf_dir}/."
+                exit 1
             fi
             if [ -n "$_mmproj_pattern" ] && ! ls "$_gguf_dir"/$_mmproj_pattern >/dev/null 2>&1; then
                 warn "No ${_mmproj_pattern} file in ${_gguf_repo} — image input will be disabled for ${_display}."
@@ -222,7 +252,7 @@ mkdir -p models
 
 # Expand "all" for family and size into concrete lists, then iterate.
 case "$BONSAI_FAMILY" in
-    all) _families="bonsai2 bonsai ternary" ;;
+    all) _families="bonsai25 bonsai2 bonsai ternary" ;;
     *)   _families="$BONSAI_FAMILY" ;;
 esac
 case "$BONSAI_MODEL" in

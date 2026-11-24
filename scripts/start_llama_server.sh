@@ -108,9 +108,12 @@ fi
 echo ""
 
 # 27B: --jinja enables native OpenAI-style tool calling; --mmproj enables
-# image input. Sampling: Bonsai 2 uses the model card's values (temp 1.0,
-# top-p 0.95, top-k 20, min-p 0.05); the earlier 27B keeps the reference demo's 0.7.
-if [ "$BONSAI_FAMILY" = "bonsai2" ]; then
+# image input. Sampling: Bonsai 2.5 and 2 use their model cards' thinking-mode
+# values; the earlier 27B keeps the reference demo's 0.7.
+if [ "$BONSAI_FAMILY" = "bonsai25" ]; then
+    # model card, thinking mode: temp 1.0, top-p 0.95, top-k 20, min-p 0
+    SAMPLING="--temp 1.0 --top-p 0.95 --top-k 20 --min-p 0"
+elif [ "$BONSAI_FAMILY" = "bonsai2" ]; then
     # model card, thinking mode: temp 1.0, top-p 0.95, top-k 20, min-p 0.05 (llama.cpp's default; passed explicitly)
     SAMPLING="--temp 1.0 --top-p 0.95 --top-k 20 --min-p 0.05"
 else
@@ -132,18 +135,40 @@ if [ "$_full_profile" = "1" ]; then
     # user can still edit/disable them in Settings -> MCP Client).
     _webui_cfg="$SCRIPT_DIR/webui-config.json"
 
-    # Speculative decoding (opt-in, BONSAI_SPECULATIVE=1): pair the target with
-    # its dspark drafter for ~1.8-2x decode on code/reasoning workloads. It
-    # disables prompt-cache reuse and forces a single slot (-np 1), so it is off
-    # by default and lives on this standalone server, not the agentic Open WebUI
-    # path (which relies on the prompt cache).
+    # Speculative decoding. Two shapes, chosen by family:
+    #
+    # Bonsai 2.5 — the *-mtp.gguf model carries a built-in multi-token-
+    # prediction draft head: no sidecar file, output matches plain decoding,
+    # and the prompt cache keeps working. ON by default where it measured
+    # faster (CUDA/ROCm ~1.5-1.8x decode, Metal ~1.1x), off elsewhere;
+    # BONSAI_SPECULATIVE=1/0 forces it. Details: SPECULATIVE.md.
+    #
+    # Earlier families — opt-in (BONSAI_SPECULATIVE=1) sidecar DSpark drafter,
+    # ~1.8-2x decode on code/reasoning. It disables prompt-cache reuse and
+    # forces a single slot (-np 1), so it stays off by default and lives on
+    # this standalone server, not the agentic Open WebUI path.
     MD=""
     _spec_flags=""
     _ctx="$CTX_SIZE_DEFAULT"
-    if [ "${BONSAI_SPECULATIVE:-0}" = "1" ] && [ "$BONSAI_FAMILY" = "bonsai2" ] && [ -z "${BONSAI_GGUF:-}" ]; then
-        warn "Automatic Bonsai 2 drafting is not configured in this launcher; running without speculation."
-        echo "  Unset BONSAI_SPECULATIVE to hide this warning. See SPECULATIVE.md for availability."
-    elif [ "${BONSAI_SPECULATIVE:-0}" = "1" ]; then
+    _mtp_capable=0
+    case "$(basename "$MODEL")" in *-mtp.gguf) _mtp_capable=1 ;; esac
+    _spec_requested="${BONSAI_SPECULATIVE:-}"
+    if [ "$_mtp_capable" = "1" ] && [ "$_spec_requested" != "0" ]; then
+        if [ "$_spec_requested" = "1" ] || bonsai_mtp_default_on "$BACKEND"; then
+            _nmax="$(bonsai_mtp_nmax "$BACKEND")"
+            _pmin="$(bonsai_mtp_pmin "$BACKEND")"
+            _spec_flags="--spec-type draft-mtp --spec-draft-n-max $_nmax --spec-draft-p-min $_pmin"
+            echo "  Speculative: built-in MTP head (draft-mtp, n-max $_nmax, p-min $_pmin; BONSAI_SPECULATIVE=0 disables)"
+        fi
+    elif [ "$_spec_requested" = "1" ] && bonsai2_gen && [ -z "${BONSAI_GGUF:-}" ]; then
+        if [ "$BONSAI_FAMILY" = "bonsai25" ]; then
+            warn "BONSAI_SPECULATIVE=1 but the model on disk has no built-in MTP head (*-mtp.gguf); running without speculation."
+            echo "  Re-run ./scripts/download_models.sh to fetch the -mtp build."
+        else
+            warn "Automatic Bonsai 2 drafting is not configured in this launcher; running without speculation."
+            echo "  Unset BONSAI_SPECULATIVE to hide this warning. See SPECULATIVE.md for availability."
+        fi
+    elif [ "$_spec_requested" = "1" ]; then
         # v7 builds read only converted (arch=dflash) drafters; the published legacy
         # *dspark-Q4_1/bf16 files must be run through gguf-dspark-to-dflash first.
         # See SPECULATIVE.md for the two commands. Converted files keep "dspark-dflash"

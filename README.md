@@ -14,22 +14,49 @@ Backend and model format compatibility: [BACKEND-SUPPORT.md](BACKEND-SUPPORT.md)
 
 <p align="center">
   <b>Models:</b>
-  <a href="https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-gguf">Bonsai 2 27B GGUF</a> ·
-  <a href="https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-mlx-2bit">Bonsai 2 27B MLX</a>
+  <a href="https://huggingface.co/prism-ml/Ternary-Bonsai-2.5-27B-GGUF">Bonsai 2.5 27B GGUF</a> ·
+  <a href="https://huggingface.co/prism-ml/Ternary-Bonsai-2.5-27B-mlx-2bit">Bonsai 2.5 27B MLX</a> ·
+  <a href="https://huggingface.co/collections/prism-ml/bonsai-25-27b">Collection</a>
 </p>
 
 ---
 
-Run **Bonsai 2 2B, 4B, 9B, and 27B** locally on Mac (Metal), Linux/Windows (CUDA, Vulkan, ROCm), or CPU.
+Run **Bonsai 2.5 27B**, and the **Bonsai 2** family (2B, 4B, 9B, 27B), locally on Mac (Metal),
+Linux/Windows (CUDA, Vulkan, ROCm), or CPU.
 
 For the earlier **Bonsai 1-bit and Ternary-Bonsai** models (27B, 8B, 4B, 1.7B), see
 [Bonsai1_README.md](Bonsai1_README.md). For troubleshooting, see [FAQ.md](FAQ.md).
 
+## 🌱 New: Bonsai 2.5 27B
+
+**Bonsai 2.5 27B is this demo's default**: the agentic release of the Bonsai 27B line, built for
+long-horizon, tool-driven work, at 5.9 GB. Full details and benchmark tables:
+[whitepaper](bonsai-2-5-27b-whitepaper.pdf).
+
+- **The strongest agentic model under 10 GB.** FP16-level agentic tool calling (77.2 vs. 77.7
+  across five benchmarks) and 90% of the FP16 agentic coding score, up from 63% for Bonsai 2.
+  It leads every conventional low-bit GGUF build under 10 GB on both, despite being the smallest.
+- **Faster decode out of the box:** every Bonsai 2.5 GGUF ships with a built-in
+  multi-token-prediction (MTP) draft head. The server enables it by default where it pays
+  (1.5-1.8x decode on NVIDIA GPUs); output matches plain decoding. See
+  [SPECULATIVE.md](SPECULATIVE.md).
+- **1.76 bits per weight** in the `PTQ1_0` packing, the band CUDA-class GPUs now decode fastest;
+  other backends download `PQ2_0`. The repo's `Q2_0` files also run on stock llama.cpp
+  ([upstream support](#upstream-support)). See [MODEL-FORMATS.md](MODEL-FORMATS.md).
+- Vision, native tool calls, thinking, and the 262K-token context carry over from Bonsai 2.
+
+Sampling (thinking mode, from the [model card](https://huggingface.co/prism-ml/Ternary-Bonsai-2.5-27B-GGUF)):
+`temperature 1.0, top_p 0.95, top_k 20, min_p 0`. The start scripts apply it. Reasoning effort is
+`xhigh` by default; `medium` is the shorter, faster setting.
+
+To run the earlier Bonsai 2 instead: `BONSAI_FAMILY=bonsai2 ./setup.sh` (its sizes and settings
+are below).
+
 ## 🌱 Bonsai 2: 2B, 4B, 9B, and 27B
 
-**Bonsai 2 now includes 2B, 4B, and 9B models alongside 27B.** Pick a smaller model
-for a lighter local setup; 27B remains the demo's default. GGUF and MLX checkpoints
-are available for each size.
+**Bonsai 2 includes 2B, 4B, and 9B models alongside 27B.** Pick a smaller model
+for a lighter local setup (`BONSAI_MODEL=4B`). GGUF and MLX
+checkpoints are available for each size.
 
 The following benchmark and memory highlights describe **27B**; see each smaller
 model's card for its specifications:
@@ -51,13 +78,13 @@ model's card for its specifications:
 This demo downloads `PQ2_0` and the matching fork binaries by default.
 All three packings contain the same model weights, with different memory/speed trade-offs.
 
-Quick Start below gets you there in two commands: `./setup.sh` downloads Bonsai 2 27B, then
+Quick Start below gets you there in two commands: `./setup.sh` downloads Bonsai 2.5 27B, then
 `./scripts/start_llama_server.sh` gives you chat, vision and tools at http://localhost:8080.
 
 ### Choose a smaller model
 
 ```bash
-export BONSAI_MODEL=4B    # 2B, 4B, 9B, or 27B
+export BONSAI_MODEL=4B    # 2B, 4B, or 9B (Bonsai 2); add BONSAI_FAMILY=bonsai2 for its 27B
 ./setup.sh
 ./scripts/start_llama_server.sh
 ```
@@ -122,9 +149,10 @@ Or ask one question from the terminal without a server:
 ./scripts/run_llama.sh -p "What is the capital of France?"
 ```
 
-`setup.sh` fetches the llama.cpp binaries for your machine and the Bonsai 2 27B
-weights, 7.8 GB in the `PQ2_0` packing this demo defaults to plus its vision
-projector. It also sets up Open WebUI and the code interpreter, which add a few GB
+`setup.sh` fetches the llama.cpp binaries for your machine and the Bonsai 2.5 27B
+weights: ~7.6 GB in the `PQ2_0` packing most backends default to (built-in draft
+head included) plus the vision projector, or ~6.4 GB in the smaller `PTQ1_0`
+packing on CUDA-class GPUs. It also sets up Open WebUI and the code interpreter, which add a few GB
 more and most of the wait. Skip those with `BONSAI_OPENWEBUI=0` and
 `BONSAI_CODE_INTERPRETER=0`.
 
@@ -151,9 +179,23 @@ See [community-benchmarks/](community-benchmarks/) for results on different hard
 
 ## Models
 
-**Bonsai 2 27B is the default**: plain `./setup.sh` downloads it. It supports images as well as text.
+**Bonsai 2.5 27B is the default**: plain `./setup.sh` downloads it. It supports images as well as text.
 
-### Bonsai 2 (ternary, default)
+### Bonsai 2.5 (ternary, default)
+
+Available in GGUF and MLX 2-bit formats. Use our fork for `PQ2_0` / `PTQ1_0` (what setup
+installs); the repo's `Q2_0` files run on official llama.cpp b11556 or newer. Every GGUF
+band also ships a `*-mtp.gguf` build with the built-in MTP draft head, which is what this
+demo downloads.
+
+| Model | GGUF | MLX (2-bit) |
+|---|---|---|
+| Bonsai 2.5 27B | [GGUF](https://huggingface.co/prism-ml/Ternary-Bonsai-2.5-27B-GGUF) | [MLX](https://huggingface.co/prism-ml/Ternary-Bonsai-2.5-27B-mlx-2bit) |
+
+The Bonsai 2.5 MLX pack is text-only; for image input use the llama.cpp backend, or
+Bonsai 2 on MLX.
+
+### Bonsai 2 (ternary)
 
 Available in GGUF and MLX 2-bit formats. Use official llama.cpp b11556 or newer for `Q2_0`,
 or our fork for `PQ2_0` / `PTQ1_0`. Setup installs the fork for its default `PQ2_0` download.
@@ -183,31 +225,35 @@ This does not update LM Studio's separately bundled MLX runtime.
 
 ### Environment variables
 
-**No model-selection variables are needed for Bonsai 2 27B:** that's what plain `./setup.sh` downloads and runs.
+**No model-selection variables are needed for Bonsai 2.5 27B:** that's what plain `./setup.sh` downloads and runs.
 
 Every launcher is configured through environment variables. The most common ones:
 
 | Variable | Default | Values | Purpose |
 |----------|---------|--------|---------|
-| `BONSAI_MODEL` | `27B` | `2B`, `4B`, `9B`, `27B` for Bonsai 2 | Select model size. |
+| `BONSAI_MODEL` | `27B` | `27B` for Bonsai 2.5; `2B`, `4B`, `9B`, `27B` for Bonsai 2 | Select model size. |
 | `BONSAI_THINKING` | `1` | `0`, `1` | Small-model GGUF launchers and MLX one-shot profile; MLX server clients set the mode and sampling per request. |
-| `BONSAI_FAMILY` | `bonsai2` | `bonsai2` | Earlier families: [Bonsai 1 guide](Bonsai1_README.md#setup-and-running). |
+| `BONSAI_FAMILY` | `bonsai25` for 27B, else `bonsai2` | `bonsai25`, `bonsai2` | Earlier families: [Bonsai 1 guide](Bonsai1_README.md#setup-and-running). |
 | `BONSAI_NGL` | auto-detect | int; `0` = CPU-only | GPU layer offload. |
 | `BONSAI_CTX` | auto (RAM-tiered) | `0`, or ≤ `262144` | Context length (`0`/unset = automatic safe size). |
 | `BONSAI_HOST` | `127.0.0.1` | any bind address | Server bind address. A non-loopback value exposes the server — see the security note in the full reference. |
 | `BONSAI_KV4` | `0` | `1` | 4-bit KV cache for long contexts ([KV-CACHE.md](KV-CACHE.md)). |
+| `BONSAI_SPECULATIVE` | auto | `0`, `1` | Bonsai 2.5 MTP drafting: on by default on CUDA-class GPUs and Metal, `0` disables, `1` forces it elsewhere ([SPECULATIVE.md](SPECULATIVE.md)). |
 
 **Full reference** — all variables (model/setup, server, MLX, Open WebUI, tools, and platform coverage): **[environment_variables.md](environment_variables.md)**.
 
 ## Upstream support
 
-- **llama.cpp:** Bonsai 2 (2B, 4B, 9B and 27B) works in official `Q2_0` format on
-  upstream llama.cpp from release [b11556](https://github.com/ggml-org/llama.cpp/releases/tag/b11556) onward, which merged the
+- **llama.cpp:** Bonsai 2.5 and Bonsai 2 (2B, 4B, 9B and 27B) work in official `Q2_0`
+  format on upstream llama.cpp from release [b11556](https://github.com/ggml-org/llama.cpp/releases/tag/b11556) onward, which merged the
   model/Hadamard integration. Older engines may recognize the format but miss the
-  required transforms.
-- **PrismML fork:** still required for `PQ2_0` and `PTQ1_0`, and for the MTP and
-  DFlash2 drafters on the model cards. Other experimental features may also need
-  our fork; follow the instructions for the specific checkpoint and runtime.
+  required transforms. `PTQ1_0` is under upstream review
+  ([#29672](https://github.com/ggml-org/llama.cpp/pull/29672) format and CPU,
+  [#29676](https://github.com/ggml-org/llama.cpp/pull/29676) CUDA).
+- **PrismML fork:** still required for `PQ2_0` and `PTQ1_0`, for Bonsai 2.5's built-in
+  MTP drafting, and for the MTP and DFlash2 drafters on the Bonsai 2 model cards. Other
+  experimental features may also need our fork; follow the instructions for the specific
+  checkpoint and runtime.
 - **MLX:** the 1-bit support and Hadamard changes have merged upstream. Support
   should reach mlx-lm and other MLX engines as they integrate the model support
   and ship updated runtimes. A core MLX merge alone does not make every engine
@@ -235,7 +281,7 @@ The setup script handles everything for you, even on a fresh machine:
 2. **Installs [uv](https://docs.astral.sh/uv/):** fast Python package manager (user-local, not global)
 3. **Creates a Python venv** and runs `uv sync` — installs cmake, ninja, huggingface-cli from `pyproject.toml`
 4. **Downloads models** from Hugging Face (public checkpoints download without a token)
-5. **Downloads pre-built binaries** from the pinned [GitHub Release](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b10777-e3de715) (or builds from source if you prefer)
+5. **Downloads pre-built binaries** from the pinned [GitHub Release](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b10828-a153697) (or builds from source if you prefer)
 6. **Sets up MLX** (Apple Silicon): installs the native mlx-vlm environment for Bonsai 2; earlier-family runtime details are in the [Bonsai 1 guide](Bonsai1_README.md#mlx-runtime)
 7. **Installs Open WebUI** into the venv for the agentic demo (skip with `BONSAI_OPENWEBUI=0`)
 8. **Builds the code-interpreter venv** (`.venv-jupyter`): Jupyter + matplotlib / pandas / numpy / scipy / sympy / yfinance for the Open WebUI code interpreter (skip with `BONSAI_CODE_INTERPRETER=0`)
@@ -438,7 +484,7 @@ Requires Visual Studio Build Tools or full Visual Studio with C++ workload.
 
 ## llama.cpp Pre-built Binary Downloads
 
-All binaries are available from the pinned [GitHub Release](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b10777-e3de715), also used by both setup scripts. The latest release may still be missing platform binaries while builds finish.
+All binaries are available from the pinned [GitHub Release](https://github.com/PrismML-Eng/llama.cpp/releases/tag/prism-b10828-a153697), also used by both setup scripts. The latest release may still be missing platform binaries while builds finish.
 
 | Platform                          |
 |-----------------------------------|

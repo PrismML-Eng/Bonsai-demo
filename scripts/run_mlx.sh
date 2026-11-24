@@ -19,7 +19,7 @@ assert_mlx_downloaded
 MODEL="$MLX_MODEL_DIR"
 PROMPT=""
 
-# Only Bonsai 2 has a vision tower and a thinking phase, and only its generator takes
+# Only Bonsai 2.x has a vision tower and a thinking phase, and only its generator takes
 # top-k and min-p. The earlier families go to mlx_generate.py, which would abort in argparse on
 # these options, so refuse them here with a message that says why.
 _BONSAI2_ONLY=" --image --top-k --min-p --no-think --stats --presence-penalty --presence-context-size --repetition-penalty "
@@ -31,11 +31,11 @@ _BONSAI2_ONLY=" --image --top-k --min-p --no-think --stats --presence-penalty --
 # front every original argument has been seen and what follows is the collected set.
 set -- "$@" "--end-of-args--"
 while [ "$1" != "--end-of-args--" ]; do
-    if [ "$BONSAI_FAMILY" != "bonsai2" ]; then
+    if ! bonsai2_gen; then
         case "$_BONSAI2_ONLY" in
             *" $1 "*)
-                err "$1 is a Bonsai 2 option; ${BONSAI_DISPLAY} on MLX does not support it."
-                echo "  Drop it, or use the default family:  BONSAI_FAMILY=bonsai2 $0 -p \"...\" $1" >&2
+                err "$1 is a Bonsai 2.x option; ${BONSAI_DISPLAY} on MLX does not support it."
+                echo "  Drop it, or use the default family:  $0 -p \"...\" $1" >&2
                 exit 1
                 ;;
         esac
@@ -53,8 +53,9 @@ if [ -z "$PROMPT" ]; then
     PROMPT="What is Capital of France?"
 fi
 
-# Native Bonsai 2 support uses stock MLX in .venv-vlm; .venv is for 1-bit.
-if [ "$BONSAI_FAMILY" = "bonsai2" ]; then
+# Native Bonsai 2.x support uses stock MLX in .venv-vlm; .venv is for 1-bit.
+# Note: the Bonsai 2.5 MLX pack is text-only; --image works on Bonsai 2 only.
+if bonsai2_gen; then
     if bonsai2_small_profile; then
         set -- --sampling-profile small "$@"
         if [ "${BONSAI_THINKING:-1}" = "0" ]; then

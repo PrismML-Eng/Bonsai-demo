@@ -22,14 +22,19 @@
 #                                same as seeding every request; the demo was recorded with seed 42
 set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-: "${BONSAI_FAMILY:=bonsai2}"; : "${BONSAI_MODEL:=27B}"
+: "${BONSAI_MODEL:=27B}"
+if [ -z "${BONSAI_FAMILY:-}" ]; then
+    case "$BONSAI_MODEL" in 27B) BONSAI_FAMILY=bonsai25 ;; *) BONSAI_FAMILY=bonsai2 ;; esac
+fi
 export BONSAI_FAMILY BONSAI_MODEL
 export BONSAI_CTX="${BONSAI_CTX:-131072}"
 BUDGET="${AGENT_REASONING_BUDGET:-16384}"
 AGENT_SERVER_SEED="${AGENT_SERVER_SEED-42}"; SEED_FLAG=""; [ -n "$AGENT_SERVER_SEED" ] && SEED_FLAG="-s $AGENT_SERVER_SEED"
 # the model id is part of the agent's system prompt; the recorded one is the default so a rerun matches
-ALIAS="${AGENT_MODEL_ALIAS:-bonsai2-27b-pq2-v16_2}"
-MINP="${AGENT_MIN_P:-0.05}"
+_alias_default="bonsai25-27b-v1"; _minp_default=0
+if [ "$BONSAI_FAMILY" = "bonsai2" ]; then _alias_default="bonsai2-27b-pq2-v16_2"; _minp_default=0.05; fi
+ALIAS="${AGENT_MODEL_ALIAS:-$_alias_default}"
+MINP="${AGENT_MIN_P:-$_minp_default}"
 echo "=== agent profile: ctx $BONSAI_CTX, thinking budget $BUDGET, min-p $MINP, reasoning-format deepseek, 1 slot${AGENT_SERVER_SEED:+, seed $AGENT_SERVER_SEED} ==="
 # shellcheck disable=SC2086
 exec sh "$SCRIPT_DIR/start_llama_server.sh" \

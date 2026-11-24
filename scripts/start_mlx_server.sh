@@ -34,15 +34,20 @@ echo ""
 # ternary 2-bit runs on stock mlx; binary 1-bit still needs the PrismML fork,
 # so it stays on text-only mlx_lm below. Disable with BONSAI_MLX_VLM=0.
 # The 27B is a thinking model and thinking stays on.
-# Bonsai 2 must use the tested native loader; never fall back to mlx_lm.
-if [ "$BONSAI_FAMILY" = "bonsai2" ]; then
+# Bonsai 2.x must use the tested native loader; never fall back to mlx_lm.
+# (The Bonsai 2.5 MLX pack is text-only; the same server works, without images.)
+if bonsai2_gen; then
     require_bonsai2_mlx_vlm "$DEMO_DIR"
 fi
 
 VLM_PY="$DEMO_DIR/.venv-vlm/bin/python"
-if { [ "$BONSAI_FAMILY" = "bonsai2" ] || { [ "$BONSAI_MODEL" = "27B" ] && [ "$BONSAI_FAMILY" = "ternary" ] && [ "${BONSAI_MLX_VLM:-1}" != "0" ]; }; } && [ -x "$VLM_PY" ] \
+if { bonsai2_gen || { [ "$BONSAI_MODEL" = "27B" ] && [ "$BONSAI_FAMILY" = "ternary" ] && [ "${BONSAI_MLX_VLM:-1}" != "0" ]; }; } && [ -x "$VLM_PY" ] \
     && "$VLM_PY" -c "import mlx_vlm" 2>/dev/null; then
-    step "Serving with mlx-vlm (image input enabled)."
+    if [ "$BONSAI_FAMILY" = "bonsai25" ]; then
+        step "Serving with mlx-vlm (the Bonsai 2.5 MLX pack is text-only)."
+    else
+        step "Serving with mlx-vlm (image input enabled)."
+    fi
     info "Set sampling and enable_thinking per request; see SMALL-MODELS.md."
     exec "$VLM_PY" -m mlx_vlm.server \
         --model "$MODEL" \
