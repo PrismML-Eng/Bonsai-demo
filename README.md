@@ -336,6 +336,24 @@ For Windows PowerShell:
 
 The scripts auto-detect your GPU (Metal, CUDA, ROCm, Vulkan) and offload all layers. If the detection picks a GPU you do not want, for example Vulkan on a machine whose only GPU is a weak integrated one, set `BONSAI_NGL=0` for CPU-only inference, or any layer count for partial offload (PowerShell: `$env:BONSAI_NGL = "0"`).
 
+#### Single-user servers on GPUs with limited VRAM
+
+For one request at a time, start the demo server with one request slot.
+
+```bash
+./scripts/start_llama_server.sh -np 1
+```
+
+```powershell
+.\scripts\start_llama_server.ps1 -np 1
+```
+
+The Prism llama.cpp server can open four request slots in automatic mode and share
+one unified KV cache between them. One RTX 3080 10 GB user reported total GPU memory
+use dropping from about 9.5 GB to 7.8 GB with `-np 1`, including desktop usage.
+The savings depend on your build and settings. Use automatic parallelism if you
+need to serve concurrent requests. [Hugging Face report](https://huggingface.co/prism-ml/Ternary-Bonsai-2.5-27B-GGUF/discussions/1).
+
 #### Thinking
 
 Bonsai 2 serves with thinking **enabled** by default. For small models, switch the sampling profile too when disabling thinking; see [SMALL-MODELS.md](SMALL-MODELS.md). To adjust it per conversation in the chat UI (no restart): click the lightbulb in the message box and pick a **Reasoning effort**: Off, Low (512 tokens), Medium (2,048), High (8,192), or Max (unlimited). The pick persists per browser and is sent with every request.
