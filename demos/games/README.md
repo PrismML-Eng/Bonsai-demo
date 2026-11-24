@@ -8,7 +8,7 @@ settings to run it again.
 
 | game | prompt | setting | play |
 |---|---|---|---|
-| [Neon Racer](neon-racer/) | 3D night-city street racer, three laps | 48k thinking budget, three runs | [run 1](neon-racer/game-run1/racer.html) · [run 2](neon-racer/game-run2/racer.html) · [run 3](neon-racer/game-run3/racer.html) |
+| [Neon Racer](neon-racer/) | 3D night-city street racer, three laps | 48k thinking budget (runs 1–3), 16k with 150 calls (run 4) | [run 4](neon-racer/game-run4/racer.html) · [run 1](neon-racer/game-run1/racer.html) · [run 2](neon-racer/game-run2/racer.html) · [run 3](neon-racer/game-run3/racer.html) |
 
 Open the pages from a local clone. If your browser restricts local files, serve this folder with
 `python3 -m http.server 8768` and open `http://localhost:8768/`.
@@ -48,7 +48,7 @@ ended fewer runs at the call cap. A rerun is a new sample either way, so we did 
 
 What to expect when you run one: with the patched Hermes and these configs the model writes a working game most of the
 time, but never the same one twice. The `game16` profile (16k thinking, 32k per reply) is enough for most prompts in
-our runs; Neon Racer happens to come from `game48` runs. With reasoning kept across turns (the `game`
+our runs; Neon Racer runs 1–3 come from `game48`, run 4 from `game16` with the call limit raised to 150. With reasoning kept across turns (the `game`
 default) the history grows by about 2.5k tokens per call, so longer runs are compacted at about 200k (roughly 40% of
 runs in our 120-call tests). With `AGENT_PRESERVE=0` it grows about half as fast and compaction is rarely needed.
 
