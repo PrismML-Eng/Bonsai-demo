@@ -6,6 +6,7 @@ loads it in a headless browser, plays it, looks at a screenshot, and ships it. T
 plain-English feedback. Everything here is what the model produced, unedited, and everything needed to
 run it again is in this folder.
 
+- **New: [games from one prompt](demos/games/README.md)**: Neon Racer, a 3D night-city street racer, with more to follow. Each game comes with the playable page, the exact prompt and `run_agent_demo.sh game <name>` to run it again.
 - Separate RTX PRO 6000 run: [Skatepark: from first draft to rider and controls](demos/skateboard/night-skatepark/README.md), four rounds with recorded traces, playable results and a video.
 - 59-second clip: [`demos/skateboard/skate-runner/demo_clip_seed42_59s.mp4`](demos/skateboard/skate-runner/demo_clip_seed42_59s.mp4)
 - Skateboard, five rounds: [demos/skateboard/skate-city/pages/](demos/skateboard/skate-city/pages/) round0 to round4 · the brief and the four feedback lines: [demos/skateboard/skate-city/prompts/](demos/skateboard/skate-city/prompts/) · 75-second cut: [`demos/skateboard/skate-city/skateboard_feedback_75s.mp4`](demos/skateboard/skate-city/skateboard_feedback_75s.mp4)

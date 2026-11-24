@@ -1,0 +1,36 @@
+Prism patch (2026-11-24): `hermes -z` (one-shot mode) honours agent.max_turns.
+
+hermes_cli/oneshot.py builds its AIAgent without max_iterations, so AIAgent's default of 90 tool-calling
+iterations applied in one-shot mode whatever config.yaml set under agent.max_turns (the interactive CLI and
+gateway pass it through). The Prism demo / data-collection harness runs Hermes through `hermes -z`
+(hermes_z.py), so the configured 120-call limit was silently 90.
+
+Fix: oneshot reads agent.max_turns from the loaded config, falls back to the HERMES_MAX_ITERATIONS env var,
+then to 90 (old behaviour), and passes it as AIAgent(max_iterations=...). Nothing else changes.
+Base tree: hermes-agent c387be0 + hermes_prism_empty_recovery.patch + hermes_prism_browser_keepalive.patch.
+
+--- a/hermes_cli/oneshot.py	2026-07-17 03:21:13.000000000 +0800
++++ b/hermes_cli/oneshot.py	2026-11-24 14:00:24.932616230 +0800
+@@ -319,6 +319,14 @@
+ 
+     cfg = load_config()
+ 
++    # Prism 2026-11-24: honour agent.max_turns. Stock oneshot built AIAgent without max_iterations, so
++    # AIAgent's default (90) applied whatever config.yaml said. Order: agent.max_turns, HERMES_MAX_ITERATIONS, 90.
++    _agent_cfg = cfg.get("agent") if isinstance(cfg.get("agent"), dict) else {}
++    try:
++        _max_iterations = max(1, int(_agent_cfg.get("max_turns") or os.getenv("HERMES_MAX_ITERATIONS") or 90))
++    except (TypeError, ValueError):
++        _max_iterations = 90
++
+     # Resolve effective model: explicit arg → env var → config.
+     model_cfg = cfg.get("model") or {}
+     if isinstance(model_cfg, str):
+@@ -396,6 +404,7 @@
+         provider=runtime.get("provider"),
+         api_mode=runtime.get("api_mode"),
+         model=effective_model,
++        max_iterations=_max_iterations,
+         enabled_toolsets=toolsets_list,
+         quiet_mode=True,
+         platform="cli",

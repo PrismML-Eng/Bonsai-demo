@@ -54,6 +54,24 @@ def parse_response(raw:bytes):
 INJECT_KW = {}
 # Optional remote upstream instead of host:port, e.g. UPSTREAM_URL=https://openrouter.ai/api  (+ UPSTREAM_KEY bearer).
 UPSTREAM_URL = os.environ.get("UPSTREAM_URL")
+# PRESERVE_REASONING=1 ("reasoning kept across turns", the setting of the games in demos/games/): Hermes never writes
+# reasoning back into its history, so every earlier assistant turn would render as an empty <think></think>. With this
+# on, the proxy remembers each response's reasoning and re-inserts it as `reasoning_content` on the matching assistant
+# message of later requests. A message with tool calls is matched by its tool-call ids (unique per response, and stable
+# when Hermes compacts the history); a message without tool calls by its text (the nth repeat gets the nth reasoning).
+# Pair it with chat_template_kwargs {"preserve_thinking": true} so the template renders it. Off (default) = unchanged.
+PRESERVE_REASONING = os.environ.get("PRESERVE_REASONING", "0") == "1"
+_REASON = {}      # text key -> [reasoning, ...] in response order (messages without tool-call ids)
+_REASON_ID = {}   # tool-call id -> reasoning
+def _rkey(msg):
+    calls = []
+    for tc in (msg.get("tool_calls") or []):
+        fn = tc.get("function") or {}
+        a = fn.get("arguments")
+        try: a = json.dumps(json.loads(a), sort_keys=True) if isinstance(a, str) else json.dumps(a, sort_keys=True)
+        except Exception: a = (a or "").strip() if isinstance(a, str) else str(a)
+        calls.append((fn.get("name") or "", a))
+    return json.dumps([(msg.get("content") or "").strip(), calls])
 UPSTREAM_KEY = os.environ.get("UPSTREAM_KEY")
 # Optional JSON object merged into every /chat/completions body, e.g. {"reasoning":{"max_tokens":12288},"provider":{"order":["Venice"],"allow_fallbacks":false}}
 INJECT_BODY = {}
@@ -95,6 +113,29 @@ class H(BaseHTTPRequestHandler):
                 body=json.dumps(_rq).encode()
             except Exception as _e:
                 sys.stderr.write("inject failed: %r\n"%(_e,))
+        self._preserve=None
+        if PRESERVE_REASONING and body and self.path.endswith("/chat/completions"):
+            try:
+                _rq=json.loads(body); _hit=0; _miss=0; _seen={}
+                for _m in (_rq.get("messages") or []):
+                    if _m.get("role")!="assistant": continue
+                    _ids=[tc.get("id") for tc in (_m.get("tool_calls") or []) if tc.get("id")]
+                    if _ids:
+                        if _m.get("reasoning_content"): continue
+                        _r=next((_REASON_ID[i] for i in _ids if i in _REASON_ID), None)
+                        if _r: _m["reasoning_content"]=_r; _hit+=1
+                        else: _miss+=1
+                        continue
+                    _k=_rkey(_m); _n=_seen.get(_k,0); _seen[_k]=_n+1
+                    if _m.get("reasoning_content"): continue
+                    _l=_REASON.get(_k) or []
+                    _r=_l[_n] if _n<len(_l) else None
+                    if _r: _m["reasoning_content"]=_r; _hit+=1
+                    else: _miss+=1
+                self._preserve={"reinserted":_hit,"missing":_miss}
+                body=json.dumps(_rq).encode()
+            except Exception as _e:
+                sys.stderr.write("preserve failed: %r\n"%(_e,))
         _up=(UHOST,UPORT)
         if FIRST_UP and body and self.path.endswith("/chat/completions"):
             try:
@@ -171,12 +212,16 @@ class H(BaseHTTPRequestHandler):
                     rq=json.loads(body)
                     usage,finish,msg,streamed=parse_response(b"".join(chunks))
                     TURN[0]+=1
+                    if PRESERVE_REASONING and isinstance(msg,dict) and rq.get("tools"):   # agent replies only; empty reasoning kept to hold the count
+                        _ids=[tc.get("id") for tc in (msg.get("tool_calls") or []) if tc.get("id")]
+                        for _i in _ids: _REASON_ID[_i]=msg.get("reasoning_content") or ""
+                        if not _ids: _REASON.setdefault(_rkey(msg),[]).append(msg.get("reasoning_content") or "")
                     rec={"ts":time.time(),"turn":TURN[0],"model":rq.get("model"),
                          "n_messages":len(rq.get("messages") or []),"has_tools":bool(rq.get("tools")),
                          "sampling":{k:rq.get(k) for k in ("temperature","top_p","top_k","min_p","max_tokens","stream","presence_penalty","frequency_penalty","repeat_penalty","repeat_last_n","reasoning_effort","reasoning","seed") if k in rq},
                          "chat_template_kwargs":rq.get("chat_template_kwargs"),
                          "usage":usage,"finish_reason":finish,"streamed":streamed,
-                         "messages":rq.get("messages"),"tools":rq.get("tools"),"response_message":msg,"upstream":getattr(self,"_upstream",None),"provider":globals().get("_LAST_PROVIDER")}
+                         "messages":rq.get("messages"),"tools":rq.get("tools"),"response_message":msg,"upstream":getattr(self,"_upstream",None),"provider":globals().get("_LAST_PROVIDER"),"preserve_reasoning":getattr(self,"_preserve",None)}
                     with open(OUT,"a",encoding="utf-8") as f: f.write(json.dumps(rec,ensure_ascii=False)+"\n")
                 except Exception: pass
     def do_POST(self): self._proxy("POST")

@@ -4,6 +4,16 @@
 #
 #   ./scripts/agent/install_hermes.sh            # pinned commit (default)
 #   HERMES_REF=main ./scripts/agent/install_hermes.sh   # live main, at your own risk
+#   HERMES_PRISM_PATCHES=0 ./scripts/agent/install_hermes.sh   # stock c387be0, as AGENT-DEMO.md recorded it
+#
+# On the pinned commit the three patches in scripts/agent/patches/ are applied (idempotently). Both are what the games in
+# demos/games/ were generated with; the skateboard recordings in AGENT-DEMO.md predate them:
+#   hermes_prism_empty_recovery.patch    HERMES_EMPTY_RECOVERY=resample: an empty model reply is resampled instead of
+#                                        stacking empty assistant messages (inactive unless that variable is set)
+#   hermes_prism_browser_keepalive.patch the local browser session is kept alive across long thinking gaps, so a
+#                                        screenshot after >120 s idle is not of about:blank (HERMES_BROWSER_LOCAL_KEEPALIVE=0 turns it off)
+#   hermes_prism_oneshot_max_turns.patch `hermes -z` honours agent.max_turns (stock one-shot always stops at 90 calls);
+#                                        the game config allows 120, the other modes are pinned to 90 by run_agent_demo.sh
 set -e
 DEMO_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 HERMES_REF="${HERMES_REF:-c387be0}"     # hermes-agent 0.18.2, 2026-07-16 — what recorded AGENT-DEMO.md
@@ -12,6 +22,13 @@ command -v uv >/dev/null 2>&1 || { echo "uv not found; install it first: curl -L
 if [ ! -d "$SRC/.git" ]; then git clone -q https://github.com/NousResearch/hermes-agent.git "$SRC"; fi
 git -C "$SRC" fetch -q origin && git -C "$SRC" checkout -q "$HERMES_REF"
 echo "hermes-agent at $(git -C "$SRC" rev-parse --short HEAD): $(git -C "$SRC" log -1 --format=%s | cut -c1-70)"
+if [ "${HERMES_PRISM_PATCHES:-1}" = 1 ] && [ "$HERMES_REF" = c387be0 ]; then
+  for p in "$DEMO_DIR"/scripts/agent/patches/*.patch; do
+    if git -C "$SRC" apply --reverse --check "$p" 2>/dev/null; then echo "patch already applied: $(basename "$p")"
+    else git -C "$SRC" apply "$p" && echo "patch applied: $(basename "$p")" || { echo "patch failed: $(basename "$p") (HERMES_PRISM_PATCHES=0 for stock)"; exit 1; }; fi
+  done
+elif [ "${HERMES_PRISM_PATCHES:-1}" = 1 ]; then echo "note: patches are for c387be0 only; HERMES_REF=$HERMES_REF installed unpatched"
+else git -C "$SRC" diff --quiet || echo "warning: $SRC has local changes (a previous patched install?); git -C $SRC checkout -- . && git -C $SRC clean -fd for stock"; fi
 [ -x "$VENV/bin/python" ] || uv venv -q --python 3.12 "$VENV"
 uv pip install -q --python "$VENV/bin/python" -e "$SRC[all]" 2>/dev/null || uv pip install -q --python "$VENV/bin/python" -e "$SRC"
 "$VENV/bin/python" -c "import hermes_cli.main" && echo "hermes importable"
