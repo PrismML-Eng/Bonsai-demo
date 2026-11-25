@@ -32,7 +32,8 @@
 #   -s 42                        fixed sampler seed (AGENT_SERVER_SEED; empty = none). With one slot this is the
 #                                same as seeding every request; the demo was recorded with seed 42. A fixed seed makes
 #                                an identical request return the same reply, so in game mode (empty replies are
-#                                resampled with the identical request) the proxy gives a repeated request a new seed
+#                                resampled with the identical request) the proxy gives the resample request, which
+#                                the patched Hermes marks, a new seed
 set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 : "${BONSAI_MODEL:=27B}"

@@ -51,8 +51,10 @@ so the same settings write a different game.
 | MTP draft head | off; `AGENT_MTP=1` on the server turns on the GGUF's built-in draft head (faster decode on CUDA/ROCm, same sampling settings; see [SPECULATIVE.md](../../SPECULATIVE.md)) | same |
 
 The proxy injects seed 42 into every request (`AGENT_SEED`, empty for none). An empty-reply resample is the identical
-request, so the proxy sends a repeated request with a new seed (42 + n for the n-th repeat); with the same seed the
-server would return the same empty reply again. `AGENT_RESEED=0` turns that off. Each run records the resamples in
+request, and with the same seed the server would return the same empty reply again. The patched Hermes therefore marks
+each resample request (header `X-Agent-Resample: <n>`), and the proxy sends only those with a new seed (42 + n for the
+n-th resample) and drops the header. Every other request keeps its seed, even when it repeats an earlier one.
+`AGENT_RESEED=0` turns the re-seeding off. Each run records the resamples in
 `agent-runs/<name>/empty_recovery.jsonl` and the cut tool calls in `agent-runs/<name>/cut_recovery.jsonl`.
 
 Knobs for other settings: `AGENT_N_PREDICT` and `AGENT_MTP` on the server; `AGENT_MAX_TURNS`,

@@ -10,21 +10,23 @@ truncation-style user nudge (HERMES_EMPTY_NUDGES, 1), then the stock terminal ex
 (no "(empty)" post-tool nudge, no _thinking_prefill). Events go to
 HERMES_EMPTY_RECOVERY_LOG. Unset = stock behaviour.
 
-A resample is the identical request, so it only differs from the first sample if
-the sampler seed differs: do not pin a fixed seed for these requests (Bonsai-demo's
-logproxy.py gives a repeated request a new seed).
+A resample is the identical request, so with a fixed sampler seed the server
+would return the same empty reply. Each resample request therefore carries the
+header "X-Agent-Resample: <n>" (n = resample number); nothing else is marked. A
+proxy in front of the server can give exactly those requests a different seed
+(Bonsai-demo's logproxy.py does, and strips the header).
 ---
- agent/conversation_loop.py                   |  79 +++++++++++++
- agent/turn_context.py                        |   2 +
- tests/run_agent/test_prism_empty_recovery.py | 110 +++++++++++++++++++
- 3 files changed, 191 insertions(+)
+ agent/conversation_loop.py                   |  95 +++++++++++++++
+ agent/turn_context.py                        |   3 +
+ tests/run_agent/test_prism_empty_recovery.py | 120 +++++++++++++++++++
+ 3 files changed, 218 insertions(+)
  create mode 100644 tests/run_agent/test_prism_empty_recovery.py
 
 diff --git a/agent/conversation_loop.py b/agent/conversation_loop.py
-index 420d12670e..91989097bc 100644
+index 420d12670e..43121274ed 100644
 --- a/agent/conversation_loop.py
 +++ b/agent/conversation_loop.py
-@@ -426,6 +426,48 @@ def _stored_prompt_matches_runtime(agent, prompt: str) -> bool:
+@@ -426,6 +426,56 @@ def _stored_prompt_matches_runtime(agent, prompt: str) -> bool:
      return True
  
  
@@ -68,12 +70,32 @@ index 420d12670e..91989097bc 100644
 +def _reset_empty_recovery(agent) -> None:
 +    agent._empty_recovery_resamples = 0
 +    agent._empty_recovery_nudges = 0
++    agent._empty_recovery_resample_marker = 0
++
++
++# A resample is the identical request. With a fixed sampler seed the server would return the same empty reply, so the
++# request that resamples is marked with this header (value = the resample number); a proxy in front of the server can
++# give that request, and only that request, a different seed (Bonsai-demo's logproxy.py does). Other requests carry no
++# marker and are never re-seeded.
++EMPTY_RECOVERY_RESAMPLE_HEADER = "X-Agent-Resample"
 +
 +
  def _get_continuation_prompt(is_partial_stub: bool, dropped_tools: Optional[List[str]] = None) -> str:
      if is_partial_stub and dropped_tools:
          tool_list = ", ".join(dropped_tools[:3])
-@@ -4843,6 +4885,7 @@ def run_conversation(
+@@ -1206,6 +1256,11 @@ def run_conversation(
+                 # Copilot x-initiator: the first API call of a user turn is
+                 # marked "user" so Copilot bills a premium request; tool-loop
+                 # follow-ups keep the default "agent" header (#3040).
++                # Prism empty-response recovery: mark a resample request (see EMPTY_RECOVERY_RESAMPLE_HEADER)
++                if getattr(agent, "_empty_recovery_resample_marker", 0):
++                    _xh = dict(api_kwargs.get("extra_headers") or {})
++                    _xh[EMPTY_RECOVERY_RESAMPLE_HEADER] = str(agent._empty_recovery_resample_marker)
++                    api_kwargs["extra_headers"] = _xh
+                 if getattr(agent, "_is_user_initiated_turn", False) and agent._is_copilot_url():
+                     _xh = dict(api_kwargs.get("extra_headers") or {})
+                     _xh["x-initiator"] = "user"
+@@ -4843,6 +4898,7 @@ def run_conversation(
                  # flag so it can fire again if the model goes empty on
                  # a LATER tool round.
                  agent._post_tool_empty_retried = False
@@ -81,7 +103,7 @@ index 420d12670e..91989097bc 100644
  
                  messages.append(assistant_msg)
                  agent._emit_interim_assistant_message(assistant_msg)
-@@ -5011,6 +5054,41 @@ def run_conversation(
+@@ -5011,6 +5067,44 @@ def run_conversation(
                          agent._response_was_previewed = False
                          break
  
@@ -102,17 +124,20 @@ index 420d12670e..91989097bc 100644
 +                        _er_ng = getattr(agent, "_empty_recovery_nudges", 0)
 +                        if _er_rs < int(os.environ.get("HERMES_EMPTY_RESAMPLES", "2")):
 +                            agent._empty_recovery_resamples = _er_rs + 1
++                            agent._empty_recovery_resample_marker = _er_rs + 1  # header on the resample request
 +                            _empty_recovery_log(agent, "resample", **_er_fields)
 +                            agent._buffer_status(f"↻ Empty response — resampling ({_er_rs + 1})")
 +                            agent._session_messages = messages
 +                            continue
 +                        if _er_ng < int(os.environ.get("HERMES_EMPTY_NUDGES", "1")):
 +                            agent._empty_recovery_nudges = _er_ng + 1
++                            agent._empty_recovery_resample_marker = 0  # the nudge is a new request, not a resample
 +                            _empty_recovery_log(agent, "nudge", **_er_fields)
 +                            agent._buffer_status("↻ Empty response — nudging to continue")
 +                            messages.append({"role": "user", "content": EMPTY_RECOVERY_NUDGE})
 +                            agent._session_messages = messages
 +                            continue
++                        agent._empty_recovery_resample_marker = 0
 +                        _empty_recovery_log(agent, "exhausted", **_er_fields)
 +                        # straight to the stock terminal exit: no "(empty)" post-tool nudge, no prefill, no retries
 +                        agent._post_tool_empty_retried = True
@@ -123,7 +148,7 @@ index 420d12670e..91989097bc 100644
                      # If the previous turn already delivered real content alongside
                      # HOUSEKEEPING tool calls (e.g. "You're welcome!" + memory save),
                      # the model has nothing more to say. Use the earlier content
-@@ -5249,6 +5327,7 @@ def run_conversation(
+@@ -5249,6 +5343,7 @@ def run_conversation(
                  # Reset retry counter/signature on successful content
                  agent._empty_content_retries = 0
                  agent._thinking_prefill_retries = 0
@@ -132,24 +157,25 @@ index 420d12670e..91989097bc 100644
                  # switch notice (if a fallback activated this turn) before
                  # dropping the noisy retry buffer, so a provider/model switch
 diff --git a/agent/turn_context.py b/agent/turn_context.py
-index 75c41a848c..407bf92f34 100644
+index 75c41a848c..31df23fa3a 100644
 --- a/agent/turn_context.py
 +++ b/agent/turn_context.py
-@@ -232,6 +232,8 @@ def build_turn_context(
+@@ -232,6 +232,9 @@ def build_turn_context(
      agent._codex_incomplete_retries = 0
      agent._thinking_prefill_retries = 0
      agent._post_tool_empty_retried = False
 +    agent._empty_recovery_resamples = 0
 +    agent._empty_recovery_nudges = 0
++    agent._empty_recovery_resample_marker = 0
      agent._last_content_with_tools = None
      agent._last_content_tools_all_housekeeping = False
      agent._mute_post_response = False
 diff --git a/tests/run_agent/test_prism_empty_recovery.py b/tests/run_agent/test_prism_empty_recovery.py
 new file mode 100644
-index 0000000000..17ca908224
+index 0000000000..930b825cf1
 --- /dev/null
 +++ b/tests/run_agent/test_prism_empty_recovery.py
-@@ -0,0 +1,110 @@
+@@ -0,0 +1,120 @@
 +"""Prism patch: HERMES_EMPTY_RECOVERY=resample replaces the stacked `_thinking_prefill` / "(empty)" recovery.
 +
 +The failure it fixes: after a tool result the model emits a reasoning-only reply (for example a forced </think> at the
@@ -162,7 +188,7 @@ index 0000000000..17ca908224
 +
 +import pytest
 +
-+from agent.conversation_loop import EMPTY_RECOVERY_NUDGE
++from agent.conversation_loop import EMPTY_RECOVERY_NUDGE, EMPTY_RECOVERY_RESAMPLE_HEADER
 +from tests.run_agent.test_run_agent import _mock_response, _mock_tool_call, agent  # noqa: F401  (fixture)
 +
 +
@@ -191,6 +217,12 @@ index 0000000000..17ca908224
 +    return result, sent
 +
 +
++def _markers(agent):
++    """The resample header of every request sent (None = unmarked)."""
++    return [(c.kwargs.get("extra_headers") or {}).get(EMPTY_RECOVERY_RESAMPLE_HEADER)
++            for c in agent.client.chat.completions.create.call_args_list]
++
++
 +def _no_consecutive_assistant(msgs):
 +    roles = [m.get("role") for m in msgs]
 +    return not any(a == b == "assistant" for a, b in zip(roles, roles[1:]))
@@ -215,6 +247,7 @@ index 0000000000..17ca908224
 +    assert not any(m.get("_thinking_prefill") for m in result["messages"])
 +    log = [json.loads(l) for l in open(tmp_path / "empty_recovery.jsonl")]
 +    assert [r["kind"] for r in log] == ["resample"] and log[0]["reasoning_chars"] > 0
++    assert _markers(agent) == [None, None, "1"]  # only the resample is marked
 +
 +
 +def test_resample_twice_then_nudge_then_success(agent, monkeypatch, tmp_path):
@@ -227,6 +260,7 @@ index 0000000000..17ca908224
 +    # the nudge stays in the transcript (it was part of the context the model answered)
 +    assert any(m.get("content") == EMPTY_RECOVERY_NUDGE for m in result["messages"])
 +    assert [json.loads(l)["kind"] for l in open(tmp_path / "empty_recovery.jsonl")] == ["resample", "resample", "nudge"]
++    assert _markers(agent) == [None, None, "1", "2", None]  # the nudge is a new request: unmarked
 +
 +
 +def test_exhausted_goes_to_terminal_without_prefill(agent, monkeypatch, tmp_path):
@@ -249,6 +283,7 @@ index 0000000000..17ca908224
 +    )
 +    result, sent = _run(agent, seq)
 +    assert result["final_response"] == "Done."
++    assert _markers(agent) == [None, None, "1", "2", None, "1", "2"]  # counter and marker reset after the success
 +
 +
 +def test_unset_keeps_stock_behaviour(agent, monkeypatch, tmp_path):
@@ -260,3 +295,4 @@ index 0000000000..17ca908224
 +    agent.save_trajectories = False
 +    result, sent = _run(agent, _tool_then(_mock_response(**EMPTY), _mock_response(content="Done.", finish_reason="stop")))
 +    assert sent[2] != sent[1]  # stock: "(empty)" assistant + user nudge appended
++    assert _markers(agent) == [None] * len(sent)

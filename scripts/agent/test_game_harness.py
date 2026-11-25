@@ -5,8 +5,9 @@
                                                                        #   with the patched Hermes (install_hermes.sh)
 
 Proxy (logproxy.py):
-  * a request identical to an earlier one (an empty-reply resample) gets a different seed, so a seeded server can
-    return a different reply; RESEED_REPEATS=0 keeps the old behaviour (same seed, same reply);
+  * a request marked as an empty-reply resample (header X-Agent-Resample, sent by the patched Hermes) gets a
+    different seed, so a seeded server can return a different reply; the header is not forwarded; unmarked requests
+    keep their seed even when they repeat an earlier request; RESEED_REPEATS=0 leaves marked requests alone too;
   * the cut turn of the cut tool-call recovery keeps its own reasoning (PRESERVE_REASONING=1) or drops it, and the
     "prism_cut_reasoning" key never reaches the server.
 End to end (run_agent_demo.sh game, patched Hermes, proxy, fake server):
@@ -45,8 +46,8 @@ class FakeServer:
     """Scripted chat server. Agent requests (those with tools) are answered by `script(n, body)`, n = 1, 2, ...; every
     request body is recorded. /props reports n_predict like llama-server started with AGENT_PROFILE=game16."""
 
-    def __init__(self, script, n_predict=49152):
-        self.script, self.requests, self.n = script, [], 0
+    def __init__(self, script, n_predict=49152, delay_first=0):
+        self.script, self.requests, self.headers, self.n = script, [], [], 0
         fake = self
 
         class H(BaseHTTPRequestHandler):
@@ -68,11 +69,11 @@ class FakeServer:
 
             def do_POST(self):
                 body = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
-                fake.requests.append(body)
+                fake.requests.append(body); fake.headers.append({k.lower(): v for k, v in self.headers.items()})
                 if body.get("tools"):
                     fake.n += 1
-                    if fake.n == 1:
-                        time.sleep(6)  # the runner requires Hermes to be alive 4 s after launch
+                    if fake.n == 1 and delay_first:
+                        time.sleep(delay_first)  # the runner requires Hermes to be alive 4 s after launch
                     reply = fake.script(fake.n, body)
                 else:
                     reply = {"content": "ok"}
@@ -150,9 +151,12 @@ class Proxy:
             except Exception:
                 time.sleep(0.1)
 
-    def chat(self, body):
+    def chat(self, body, resample=None):
+        h = {"Content-Type": "application/json"}
+        if resample:
+            h["X-Agent-Resample"] = str(resample)
         req = urllib.request.Request(f"http://127.0.0.1:{self.port}/v1/chat/completions", data=json.dumps(body).encode(),
-                                     headers={"Content-Type": "application/json"}, method="POST")
+                                     headers=h, method="POST")
         return json.loads(urllib.request.urlopen(req, timeout=30).read())
 
     def close(self):
@@ -172,32 +176,53 @@ class ProxyTests(unittest.TestCase):
     def _wire(self):
         return [json.loads(l) for l in (self.tmp / "wire.jsonl").read_text().splitlines()]
 
-    def test_repeated_request_gets_a_new_seed(self):
+    REQ = {"model": MODEL, "messages": [{"role": "user", "content": "go"}], "tools": TOOLS}
+
+    def _content(self, reply):
+        return reply["choices"][0]["message"]["content"]
+
+    def test_marked_resample_gets_a_new_seed(self):
         fake = FakeServer(lambda n, b: seeded_script(2, b)); self.addCleanup(fake.close)
         proxy = self._proxy(fake, INJECT_BODY=json.dumps({"seed": 42, "max_tokens": 49152}))
-        req = {"model": MODEL, "messages": [{"role": "user", "content": "go"}], "tools": TOOLS}
-        replies = [proxy.chat(req)["choices"][0]["message"]["content"] for _ in range(3)]
+        replies = [self._content(proxy.chat(self.REQ, resample=n)) for n in (None, 1, 2)]
         self.assertEqual([r.get("seed") for r in fake.requests], [42, 43, 44])
         self.assertEqual(replies, ["", "done.", "done."])
-        self.assertEqual([w["repeat"] for w in self._wire()], [0, 1, 2])
-        proxy.chat(dict(req, messages=req["messages"] + [{"role": "user", "content": "more"}]))
-        self.assertEqual(fake.requests[-1]["seed"], 42)  # a new request keeps the injected seed
+        self.assertEqual([w["resample"] for w in self._wire()], [None, 1, 2])
+        proxy.chat(self.REQ)
+        self.assertEqual(fake.requests[-1]["seed"], 42)  # unmarked: the injected seed, although the body repeats
 
-    def test_repeat_without_injected_seed_gets_a_random_one(self):
+    def test_identical_successful_requests_keep_an_explicit_seed(self):
+        """Control: two identical unmarked requests with an explicit seed 42 that both succeed go out with seed 42."""
+        fake = FakeServer(lambda n, b: {"content": "done."}); self.addCleanup(fake.close)
+        proxy = self._proxy(fake)
+        req = dict(self.REQ, seed=42)
+        replies = [self._content(proxy.chat(req)) for _ in range(2)]
+        self.assertEqual(replies, ["done.", "done."])
+        self.assertEqual([r.get("seed") for r in fake.requests], [42, 42])
+        self.assertEqual(fake.requests[0], fake.requests[1])
+
+    def test_resample_marker_is_not_forwarded(self):
+        fake = FakeServer(lambda n, b: {"content": "done."}); self.addCleanup(fake.close)
+        proxy = self._proxy(fake)
+        proxy.chat(dict(self.REQ, seed=7), resample=1)
+        self.assertNotIn("x-agent-resample", fake.headers[-1])
+        self.assertNotIn("X-Agent-Resample", json.dumps(fake.requests[-1]))
+        self.assertEqual(fake.requests[-1]["seed"], 8)
+
+    def test_marked_resample_without_seed_gets_a_random_one(self):
         fake = FakeServer(lambda n, b: seeded_script(2, b)); self.addCleanup(fake.close)
         proxy = self._proxy(fake)
-        req = {"model": MODEL, "messages": [{"role": "user", "content": "go"}], "tools": TOOLS}
-        proxy.chat(req); proxy.chat(req)
+        proxy.chat(self.REQ); proxy.chat(self.REQ, resample=1)
         self.assertNotIn("seed", fake.requests[0])
         self.assertIsInstance(fake.requests[1].get("seed"), int)
 
-    def test_reseed_off_repeats_the_same_reply(self):
+    def test_reseed_off_keeps_the_seed_on_marked_requests(self):
         fake = FakeServer(lambda n, b: seeded_script(2, b)); self.addCleanup(fake.close)
         proxy = self._proxy(fake, INJECT_BODY=json.dumps({"seed": 42}), RESEED_REPEATS=0)
-        req = {"model": MODEL, "messages": [{"role": "user", "content": "go"}], "tools": TOOLS}
-        replies = [proxy.chat(req)["choices"][0]["message"]["content"] for _ in range(3)]
+        replies = [self._content(proxy.chat(self.REQ, resample=n)) for n in (None, 1, 2)]
         self.assertEqual([r.get("seed") for r in fake.requests], [42, 42, 42])
         self.assertEqual(replies, ["", "", ""])
+        self.assertTrue(all("x-agent-resample" not in h for h in fake.headers))
 
     def _cut_history(self):
         return [{"role": "user", "content": "go"},
@@ -241,7 +266,7 @@ class GameRunTests(unittest.TestCase):
         (self.demo / ".venv-hermes").symlink_to(Path(HERMES_VENV).resolve())
 
     def run_game(self, script, **env):
-        fake = FakeServer(script); self.addCleanup(fake.close)
+        fake = FakeServer(script, delay_first=6); self.addCleanup(fake.close)
         e = {k: v for k, v in os.environ.items() if not k.startswith(("AGENT_", "HERMES_"))}
         e.update(AGENT_UPSTREAM=f"127.0.0.1:{fake.port}", AGENT_WORKSPACE_ROOT=str(self.root / "ws"), **env)
         out = subprocess.run(["bash", str(self.demo / "scripts/agent/run_agent_demo.sh"), "game", "neon-racer", "t1"],
@@ -275,6 +300,9 @@ class GameRunTests(unittest.TestCase):
         rec = self._jsonl(run / "empty_recovery.jsonl")
         self.assertEqual([r["kind"] for r in rec], ["resample"], rec)
         self.assertEqual([r.get("seed") for r in fake.agent_requests()], [42, 42, 43])
+        wire = [w for w in self._jsonl(run / "wire.jsonl") if w["has_tools"]]
+        self.assertEqual([w["resample"] for w in wire], [None, None, 1])  # only Hermes's resample is marked
+        self.assertTrue(all("x-agent-resample" not in h for h in fake.headers))  # and the marker is not forwarded
         self.assertIn("done.", (run / "stdout.log").read_text())
         self.assertEqual((run / "workspace" / "racer.html").read_text(), "<html>ok</html>\n")
 

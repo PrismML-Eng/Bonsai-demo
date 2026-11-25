@@ -50,10 +50,10 @@ index 45a88f8dec..094ee3e96f 100644
                              # Successfully repaired — use the fixed args
                              arguments = repaired
 diff --git a/agent/conversation_loop.py b/agent/conversation_loop.py
-index 91989097bc..361477d5ba 100644
+index 43121274ed..1e06323214 100644
 --- a/agent/conversation_loop.py
 +++ b/agent/conversation_loop.py
-@@ -666,6 +666,9 @@ def run_conversation(
+@@ -674,6 +674,9 @@ def run_conversation(
      codex_ack_continuations = 0
      length_continue_retries = 0
      truncated_tool_call_retries = 0
@@ -63,7 +63,7 @@ index 91989097bc..361477d5ba 100644
      truncated_response_parts: List[str] = []
      compression_attempts = 0
      _turn_exit_reason = "unknown"  # Diagnostic: why the loop ended
-@@ -2045,6 +2048,38 @@ def run_conversation(
+@@ -2058,6 +2061,38 @@ def run_conversation(
                              _is_stub_stall = (
                                  getattr(response, "id", "") == PARTIAL_STREAM_STUB_ID
                              )
@@ -102,7 +102,7 @@ index 91989097bc..361477d5ba 100644
                              if truncated_tool_call_retries < 4:
                                  truncated_tool_call_retries += 1
                                  if _is_stub_stall:
-@@ -2072,7 +2107,8 @@ def run_conversation(
+@@ -2085,7 +2120,8 @@ def run_conversation(
                                  if _tc_requested_cap is not None:
                                      _tc_boost = max(_tc_boost, _tc_requested_cap)
                                  _tc_boost_cap = max(32768, _tc_requested_cap or 0)
@@ -112,7 +112,7 @@ index 91989097bc..361477d5ba 100644
                                  # Don't append the broken response to messages;
                                  # just re-run the same API call from the current
                                  # message state, giving the model another chance.
-@@ -4357,6 +4393,11 @@ def run_conversation(
+@@ -4370,6 +4406,11 @@ def run_conversation(
              continue
  
          if _retry.restart_with_length_continuation:
@@ -124,7 +124,7 @@ index 91989097bc..361477d5ba 100644
              # Progressively boost the output token budget on each retry.
              # Retry 1 → 2× base, retry 2 → 4× base, retry 3 → 8× base,
              # retry 4 → 16× base, then cap at 32 768.
-@@ -4743,6 +4784,30 @@ def run_conversation(
+@@ -4756,6 +4797,30 @@ def run_conversation(
                          for tc in assistant_message.tool_calls
                          if tc.function.name in {n for n, _ in invalid_json_args}
                      )
@@ -155,7 +155,7 @@ index 91989097bc..361477d5ba 100644
                      if _truncated:
                          agent._vprint(
                              f"{agent.log_prefix}⚠️  Truncated tool call arguments detected "
-@@ -4944,6 +5009,7 @@ def run_conversation(
+@@ -4957,6 +5022,7 @@ def run_conversation(
                  # execution so a single truncation doesn't poison the
                  # entire conversation.
                  truncated_tool_call_retries = 0

@@ -8,7 +8,7 @@ generation), and logs in a finally block so a client disconnect still produces a
 
 Usage: logproxy.py <listen_port> <upstream_host> <upstream_port> <out.jsonl>
 """
-import hashlib, http.client, json, os, random, sys, threading, time, urllib.request, urllib.error
+import http.client, json, os, random, sys, time, urllib.request, urllib.error
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 LISTEN=int(sys.argv[1]); UHOST=sys.argv[2]; UPORT=int(sys.argv[3]); OUT=sys.argv[4]
 TURN=[0]
@@ -79,23 +79,18 @@ _ib = os.environ.get("INJECT_BODY")
 if _ib:
     try: INJECT_BODY = json.loads(_ib); sys.stderr.write("logproxy: injecting body %s\n" % (INJECT_BODY,))
     except Exception as e: sys.stderr.write("logproxy: bad INJECT_BODY (%r)\n" % (e,))
-# RESEED_REPEATS (default 1): a /chat/completions request that is byte-identical to an earlier one (apart from its seed)
-# is sent with a different seed: the injected seed + n for the n-th repeat, or a random seed when none is injected.
-# Hermes resends an identical request when it resamples an empty reply (HERMES_EMPTY_RECOVERY=resample); with a fixed
-# seed (INJECT_BODY {"seed": 42}, or llama-server -s 42) the server would return the same empty reply again. The first
-# occurrence of every request keeps the injected seed. RESEED_REPEATS=0 turns this off.
+# RESEED_REPEATS (default 1): a request that the patched Hermes marks as an empty-reply resample (header
+# "X-Agent-Resample: <n>", hermes_prism_empty_recovery.patch) is sent with a different seed: the request's seed (after
+# INJECT_BODY) + n, or a random seed when it has none. A resample is the identical request, so with a fixed seed
+# (INJECT_BODY {"seed": 42}, or llama-server -s 42) the server would return the same empty reply again. Only marked
+# requests are re-seeded; every other request keeps its seed, repeated or not. The header is never forwarded.
+# RESEED_REPEATS=0 forwards marked requests with their seed unchanged.
 RESEED_REPEATS = os.environ.get("RESEED_REPEATS", "1") != "0"
-_SEEN_REQ = {}    # sha1 of the request body without its seed -> times seen
-_SEEN_LOCK = threading.Lock()
-def _reseed(rq):
-    """-> the repeat index n (0 = first time) and, for n > 0, sets rq["seed"] to a seed not used for this request yet."""
-    key = hashlib.sha1(json.dumps({k: v for k, v in rq.items() if k != "seed"}, sort_keys=True).encode()).hexdigest()
-    with _SEEN_LOCK:
-        n = _SEEN_REQ.get(key, 0); _SEEN_REQ[key] = n + 1
-    if n:
-        base = rq.get("seed")
-        rq["seed"] = (int(base) + n) % (2**32 - 1) if isinstance(base, int) else random.randrange(1, 2**31)
-    return n
+RESAMPLE_HEADER = "X-Agent-Resample"
+def _reseed(rq, n):
+    """Sets rq["seed"] for the n-th resample (n >= 1) of a request."""
+    base = rq.get("seed")
+    rq["seed"] = (int(base) + n) % (2**32 - 1) if isinstance(base, int) and not isinstance(base, bool) else random.randrange(1, 2**31)
 # Optional: route the PLANNING turn (a request whose messages are only system+user) to a
 # different upstream, e.g. a llama-server started with a larger --reasoning-budget.
 # FIRST_TURN_UPSTREAM="host:port" (as reachable from this machine).
@@ -179,17 +174,19 @@ class H(BaseHTTPRequestHandler):
             try:
                 _rq=json.loads(body); _rq.update(INJECT_BODY); body=json.dumps(_rq).encode()
             except Exception as _e: sys.stderr.write("inject body failed: %r\n"%(_e,))
-        self._repeat=None
-        if RESEED_REPEATS and body and self.path.endswith("/chat/completions"):
+        self._resample=None
+        _mark=(self.headers.get(RESAMPLE_HEADER) or "").strip()
+        if _mark and body and self.path.endswith("/chat/completions"):
             try:
-                _rq=json.loads(body); self._repeat=_reseed(_rq)
-                if self._repeat: body=json.dumps(_rq).encode()
+                self._resample=max(1,int(_mark))
+                if RESEED_REPEATS:
+                    _rq=json.loads(body); _reseed(_rq,self._resample); body=json.dumps(_rq).encode()
             except Exception as _e: sys.stderr.write("reseed failed: %r\n"%(_e,))
         if UPSTREAM_URL:
             url=UPSTREAM_URL.rstrip("/")+self.path; self._upstream=UPSTREAM_URL
         else:
             url="http://%s:%d%s"%(_up[0],_up[1],self.path)
-        _hdrs={k:v for k,v in self.headers.items() if k.lower() not in ("host","content-length","accept-encoding")}
+        _hdrs={k:v for k,v in self.headers.items() if k.lower() not in ("host","content-length","accept-encoding",RESAMPLE_HEADER.lower())}
         if UPSTREAM_KEY: _hdrs["Authorization"]="Bearer "+UPSTREAM_KEY
         req=urllib.request.Request(url,data=body or None,method=method,headers=_hdrs)
         chunks=[]; self._sent=False
@@ -259,7 +256,7 @@ class H(BaseHTTPRequestHandler):
                          "sampling":{k:rq.get(k) for k in ("temperature","top_p","top_k","min_p","max_tokens","stream","presence_penalty","frequency_penalty","repeat_penalty","repeat_last_n","reasoning_effort","reasoning","seed") if k in rq},
                          "chat_template_kwargs":rq.get("chat_template_kwargs"),
                          "usage":usage,"finish_reason":finish,"streamed":streamed,
-                         "messages":rq.get("messages"),"tools":rq.get("tools"),"response_message":msg,"upstream":getattr(self,"_upstream",None),"provider":globals().get("_LAST_PROVIDER"),"preserve_reasoning":getattr(self,"_preserve",None),"repeat":getattr(self,"_repeat",None)}
+                         "messages":rq.get("messages"),"tools":rq.get("tools"),"response_message":msg,"upstream":getattr(self,"_upstream",None),"provider":globals().get("_LAST_PROVIDER"),"preserve_reasoning":getattr(self,"_preserve",None),"resample":getattr(self,"_resample",None)}
                     with open(OUT,"a",encoding="utf-8") as f: f.write(json.dumps(rec,ensure_ascii=False)+"\n")
                 except Exception: pass
     def do_POST(self): self._proxy("POST")

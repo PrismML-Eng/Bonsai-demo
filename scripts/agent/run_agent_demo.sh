@@ -22,8 +22,9 @@
 #   AGENT_HOME_ROOT  where the run's private HERMES_HOME is created (default: agent-runs/, i.e. <run>/home)
 #   AGENT_MAX_TURNS  tool-call limit written into the run's Hermes config (default: game 150 from its config, others 90)
 #   AGENT_COMPACT_THRESHOLD  compression.threshold written into the run's Hermes config (default: the config file's)
-#   AGENT_RESEED     1 (default) = with AGENT_TRACE=1 the proxy gives a request identical to an earlier one (an
-#                    empty-reply resample) a different seed, so the resample can differ; 0 = off
+#   AGENT_RESEED     1 (default) = with AGENT_TRACE=1 the proxy gives a request that the patched Hermes marks as an
+#                    empty-reply resample (header X-Agent-Resample) a different seed, so the resample can differ;
+#                    unmarked requests always keep their seed; 0 = off
 #
 # The working directory path, model id and skill list are part of the system prompt Hermes builds.
 # The workspace is portable rather than tied to the recording machine. The run name, model alias
