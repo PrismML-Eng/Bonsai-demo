@@ -1,8 +1,8 @@
-From 07f67c9cd9bb3c83ba39fc02d0c984307ba2b65f Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: PrismML <noreply@prismml.ai>
-Date: Fri, 30 Oct 2026 18:06:28 -0400
-Subject: [PATCH] Prism: local browser keepalive (no about:blank captures after
- idle gaps)
+Date: Wed, 25 Nov 2026 14:18:13 -0500
+Subject: [PATCH 2/4] Prism: local browser keepalive (no about:blank captures
+ after idle gaps)
 
 In local mode the inactivity cleanup thread closed a browser session idle for
 browser.inactivity_timeout (120 s), and the agent-browser daemon exited on the
@@ -31,7 +31,7 @@ also re-sent the Browserbase "running WITHOUT residential proxies" warning.
  1 file changed, 153 insertions(+), 1 deletion(-)
 
 diff --git a/tools/browser_tool.py b/tools/browser_tool.py
-index 82c248a..12d741c 100644
+index 82c248a3f7..b035840a59 100644
 --- a/tools/browser_tool.py
 +++ b/tools/browser_tool.py
 @@ -1508,6 +1508,8 @@ def _cleanup_inactive_browser_sessions():
@@ -54,7 +54,7 @@ index 82c248a..12d741c 100644
 +# above (and the agent-browser daemon exits on the same idle timer).  The next non-navigation call (browser_vision,
 +# browser_console, ...) then silently creates a NEW session whose tab is about:blank: browser_vision returns a white
 +# screenshot, browser_console reports location.href "about:blank", earlier refs are unknown.  A model that thinks for
-+# more than two minutes between browser calls hits this on most calls (S3 gamedev lane, 10-28..10-30: 9.8% of all
++# more than two minutes between browser calls hits this on most calls (in our game-building runs 9.8% of all
 +# screenshots were this white about:blank capture).  The fix:
 +#   * local sessions are not reaped for inactivity; they live until the agent closes (cleanup_browser at close/atexit,
 +#     orphan reaper).  The daemon idle timer becomes HERMES_BROWSER_LOCAL_DAEMON_IDLE_S (default 6 h) so a daemon
@@ -244,6 +244,3 @@ index 82c248a..12d741c 100644
  # ---------------------------------------------------------------------------
  # Registry
  # ---------------------------------------------------------------------------
--- 
-2.50.1 (Apple Git-155)
-

@@ -1,8 +1,8 @@
-From cace52fd59b0a3092c1371e2b0e0f7c9aaf0787b Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: PrismML <noreply@prismml.ai>
-Date: Tue, 27 Oct 2026 12:35:47 -0400
-Subject: [PATCH] Prism: HERMES_EMPTY_RECOVERY=resample (no stacked assistant
- messages on empty replies)
+Date: Wed, 25 Nov 2026 14:18:03 -0500
+Subject: [PATCH 1/4] Prism: HERMES_EMPTY_RECOVERY=resample (no stacked
+ assistant messages on empty replies)
 
 An empty reply (finish_reason=stop, no content, no tool call) is never appended:
 the same request is re-sampled up to HERMES_EMPTY_RESAMPLES (2) times, then one
@@ -10,7 +10,9 @@ truncation-style user nudge (HERMES_EMPTY_NUDGES, 1), then the stock terminal ex
 (no "(empty)" post-tool nudge, no _thinking_prefill). Events go to
 HERMES_EMPTY_RECOVERY_LOG. Unset = stock behaviour.
 
-Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+A resample is the identical request, so it only differs from the first sample if
+the sampler seed differs: do not pin a fixed seed for these requests (Bonsai-demo's
+logproxy.py gives a repeated request a new seed).
 ---
  agent/conversation_loop.py                   |  79 +++++++++++++
  agent/turn_context.py                        |   2 +
@@ -19,7 +21,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
  create mode 100644 tests/run_agent/test_prism_empty_recovery.py
 
 diff --git a/agent/conversation_loop.py b/agent/conversation_loop.py
-index 420d126..9198909 100644
+index 420d12670e..91989097bc 100644
 --- a/agent/conversation_loop.py
 +++ b/agent/conversation_loop.py
 @@ -426,6 +426,48 @@ def _stored_prompt_matches_runtime(agent, prompt: str) -> bool:
@@ -130,7 +132,7 @@ index 420d126..9198909 100644
                  # switch notice (if a fallback activated this turn) before
                  # dropping the noisy retry buffer, so a provider/model switch
 diff --git a/agent/turn_context.py b/agent/turn_context.py
-index 75c41a8..407bf92 100644
+index 75c41a848c..407bf92f34 100644
 --- a/agent/turn_context.py
 +++ b/agent/turn_context.py
 @@ -232,6 +232,8 @@ def build_turn_context(
@@ -144,16 +146,16 @@ index 75c41a8..407bf92 100644
      agent._mute_post_response = False
 diff --git a/tests/run_agent/test_prism_empty_recovery.py b/tests/run_agent/test_prism_empty_recovery.py
 new file mode 100644
-index 0000000..9b35627
+index 0000000000..17ca908224
 --- /dev/null
 +++ b/tests/run_agent/test_prism_empty_recovery.py
 @@ -0,0 +1,110 @@
 +"""Prism patch: HERMES_EMPTY_RECOVERY=resample replaces the stacked `_thinking_prefill` / "(empty)" recovery.
 +
-+The failure it fixes (gamegen collection + demos, 2026-10-25..27): after a tool result the model emits a
-+reasoning-only reply (llama.cpp forced </think> then EOS, or a gate_serve empty answer). Stock Hermes appends an
-+"(empty)" assistant + user nudge and then reasoning-only prefill assistant messages -> two trailing assistant
-+messages -> llama.cpp HTTP 400, and synthetic assistant turns in the trajectory.
++The failure it fixes: after a tool result the model emits a reasoning-only reply (for example a forced </think> at the
++server's reasoning budget followed by end of sequence). Stock Hermes appends an "(empty)" assistant + user nudge and then
++reasoning-only prefill assistant messages -> two trailing assistant messages -> llama.cpp HTTP 400, and synthetic
++assistant turns in the trajectory.
 +"""
 +import json
 +from unittest.mock import patch
@@ -258,6 +260,3 @@ index 0000000..9b35627
 +    agent.save_trajectories = False
 +    result, sent = _run(agent, _tool_then(_mock_response(**EMPTY), _mock_response(content="Done.", finish_reason="stop")))
 +    assert sent[2] != sent[1]  # stock: "(empty)" assistant + user nudge appended
--- 
-2.50.1 (Apple Git-155)
-

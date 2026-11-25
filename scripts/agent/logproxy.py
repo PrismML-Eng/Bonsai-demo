@@ -8,7 +8,7 @@ generation), and logs in a finally block so a client disconnect still produces a
 
 Usage: logproxy.py <listen_port> <upstream_host> <upstream_port> <out.jsonl>
 """
-import http.client, os, json, os,sys,time,urllib.request,urllib.error
+import hashlib, http.client, json, os, random, sys, threading, time, urllib.request, urllib.error
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 LISTEN=int(sys.argv[1]); UHOST=sys.argv[2]; UPORT=int(sys.argv[3]); OUT=sys.argv[4]
 TURN=[0]
@@ -79,6 +79,23 @@ _ib = os.environ.get("INJECT_BODY")
 if _ib:
     try: INJECT_BODY = json.loads(_ib); sys.stderr.write("logproxy: injecting body %s\n" % (INJECT_BODY,))
     except Exception as e: sys.stderr.write("logproxy: bad INJECT_BODY (%r)\n" % (e,))
+# RESEED_REPEATS (default 1): a /chat/completions request that is byte-identical to an earlier one (apart from its seed)
+# is sent with a different seed: the injected seed + n for the n-th repeat, or a random seed when none is injected.
+# Hermes resends an identical request when it resamples an empty reply (HERMES_EMPTY_RECOVERY=resample); with a fixed
+# seed (INJECT_BODY {"seed": 42}, or llama-server -s 42) the server would return the same empty reply again. The first
+# occurrence of every request keeps the injected seed. RESEED_REPEATS=0 turns this off.
+RESEED_REPEATS = os.environ.get("RESEED_REPEATS", "1") != "0"
+_SEEN_REQ = {}    # sha1 of the request body without its seed -> times seen
+_SEEN_LOCK = threading.Lock()
+def _reseed(rq):
+    """-> the repeat index n (0 = first time) and, for n > 0, sets rq["seed"] to a seed not used for this request yet."""
+    key = hashlib.sha1(json.dumps({k: v for k, v in rq.items() if k != "seed"}, sort_keys=True).encode()).hexdigest()
+    with _SEEN_LOCK:
+        n = _SEEN_REQ.get(key, 0); _SEEN_REQ[key] = n + 1
+    if n:
+        base = rq.get("seed")
+        rq["seed"] = (int(base) + n) % (2**32 - 1) if isinstance(base, int) else random.randrange(1, 2**31)
+    return n
 # Optional: route the PLANNING turn (a request whose messages are only system+user) to a
 # different upstream, e.g. a llama-server started with a larger --reasoning-budget.
 # FIRST_TURN_UPSTREAM="host:port" (as reachable from this machine).
@@ -114,11 +131,26 @@ class H(BaseHTTPRequestHandler):
             except Exception as _e:
                 sys.stderr.write("inject failed: %r\n"%(_e,))
         self._preserve=None
+        # Cut tool-call recovery (hermes_prism_cut_recovery.patch): the turn whose tool call was cut by the output limit
+        # comes back without its tool call and carries its own reasoning under "prism_cut_reasoning". The key never
+        # reaches the server: with PRESERVE_REASONING=1 it becomes that message's reasoning_content (the cut turn keeps
+        # its thinking like every other turn, and it does not take a text-matched slot below); otherwise it is dropped.
+        _cut=0; _cut_in=0; _cut_idx=set()
+        if body and b"prism_cut_reasoning" in body and self.path.endswith("/chat/completions"):
+            try:
+                _rq=json.loads(body)
+                for _i,_m in enumerate(_rq.get("messages") or []):
+                    if not isinstance(_m,dict) or "prism_cut_reasoning" not in _m: continue
+                    _cr=_m.pop("prism_cut_reasoning"); _cut+=1; _cut_idx.add(_i)   # skipped by the re-insertion below
+                    if PRESERVE_REASONING and _cr and not _m.get("reasoning_content"): _m["reasoning_content"]=_cr; _cut_in+=1
+                body=json.dumps(_rq).encode(); self._preserve={"cut_turns":_cut,"cut_reinserted":_cut_in}
+            except Exception as _e:
+                sys.stderr.write("cut-turn handling failed: %r\n"%(_e,))
         if PRESERVE_REASONING and body and self.path.endswith("/chat/completions"):
             try:
                 _rq=json.loads(body); _hit=0; _miss=0; _seen={}
-                for _m in (_rq.get("messages") or []):
-                    if _m.get("role")!="assistant": continue
+                for _i,_m in enumerate(_rq.get("messages") or []):
+                    if _m.get("role")!="assistant" or _i in _cut_idx: continue
                     _ids=[tc.get("id") for tc in (_m.get("tool_calls") or []) if tc.get("id")]
                     if _ids:
                         if _m.get("reasoning_content"): continue
@@ -132,7 +164,7 @@ class H(BaseHTTPRequestHandler):
                     _r=_l[_n] if _n<len(_l) else None
                     if _r: _m["reasoning_content"]=_r; _hit+=1
                     else: _miss+=1
-                self._preserve={"reinserted":_hit,"missing":_miss}
+                self._preserve={"reinserted":_hit,"missing":_miss,**({"cut_turns":_cut,"cut_reinserted":_cut_in} if _cut else {})}
                 body=json.dumps(_rq).encode()
             except Exception as _e:
                 sys.stderr.write("preserve failed: %r\n"%(_e,))
@@ -147,6 +179,12 @@ class H(BaseHTTPRequestHandler):
             try:
                 _rq=json.loads(body); _rq.update(INJECT_BODY); body=json.dumps(_rq).encode()
             except Exception as _e: sys.stderr.write("inject body failed: %r\n"%(_e,))
+        self._repeat=None
+        if RESEED_REPEATS and body and self.path.endswith("/chat/completions"):
+            try:
+                _rq=json.loads(body); self._repeat=_reseed(_rq)
+                if self._repeat: body=json.dumps(_rq).encode()
+            except Exception as _e: sys.stderr.write("reseed failed: %r\n"%(_e,))
         if UPSTREAM_URL:
             url=UPSTREAM_URL.rstrip("/")+self.path; self._upstream=UPSTREAM_URL
         else:
@@ -221,7 +259,7 @@ class H(BaseHTTPRequestHandler):
                          "sampling":{k:rq.get(k) for k in ("temperature","top_p","top_k","min_p","max_tokens","stream","presence_penalty","frequency_penalty","repeat_penalty","repeat_last_n","reasoning_effort","reasoning","seed") if k in rq},
                          "chat_template_kwargs":rq.get("chat_template_kwargs"),
                          "usage":usage,"finish_reason":finish,"streamed":streamed,
-                         "messages":rq.get("messages"),"tools":rq.get("tools"),"response_message":msg,"upstream":getattr(self,"_upstream",None),"provider":globals().get("_LAST_PROVIDER"),"preserve_reasoning":getattr(self,"_preserve",None)}
+                         "messages":rq.get("messages"),"tools":rq.get("tools"),"response_message":msg,"upstream":getattr(self,"_upstream",None),"provider":globals().get("_LAST_PROVIDER"),"preserve_reasoning":getattr(self,"_preserve",None),"repeat":getattr(self,"_repeat",None)}
                     with open(OUT,"a",encoding="utf-8") as f: f.write(json.dumps(rec,ensure_ascii=False)+"\n")
                 except Exception: pass
     def do_POST(self): self._proxy("POST")
