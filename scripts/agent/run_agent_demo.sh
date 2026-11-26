@@ -54,7 +54,7 @@ case "$MODE" in
             # demos/games/README.md lists the overrides that reproduce the settings of each published game.
             : "${AGENT_CTX:=262144}"; : "${AGENT_PRESERVE:=1}"; : "${AGENT_EFFORT:=xhigh}"; : "${HERMES_EMPTY_RECOVERY:=resample}"
             : "${HERMES_PRISM_CUT_RECOVERY:=1}"
-            GAME_MAXTOK_FROM_SERVER=1   # per-reply cap = the server profile's -n (game16 49152, game48 65536), in the config
+            GAME_MAXTOK_FROM_SERVER=1   # per-reply cap = the game profile's -n (game16 49152, game48 65536), in the config
             AGENT_TRACE=1               # and on every request (by the proxy); see the max_tokens note below
             export HERMES_EMPTY_RECOVERY HERMES_PRISM_CUT_RECOVERY ;;
   *) echo "unknown mode $MODE"; exit 1 ;;
@@ -86,13 +86,33 @@ SERVED=$(curl -sf --max-time 10 "http://$UP/props" | python3 -c 'import json,sys
 CTX="${AGENT_CTX:-131072}"
 # Per-reply output cap. Hermes sends max_tokens from its config on every request, and a request's max_tokens overrides
 # the server's -n. Hermes also places compaction at threshold x (context - config max_tokens). Game mode makes all three
-# agree: the server's -n (n_predict) is written into the config as model.max_tokens and the proxy sets it as max_tokens
-# on every request. game16 (-n 49152) with the config's threshold 0.93907518 compacts at 0.93907518 x (262144 - 49152)
-# = ~200k tokens. Other modes: AGENT_MAX_TOKENS rewrites the config value.
-MAXTOK="${AGENT_MAX_TOKENS:-}"
+# agree: the cap is written into the config as model.max_tokens and the proxy sets it as max_tokens on every request.
+# game16 (49152) with the config's threshold 0.93907518 compacts at 0.93907518 x (262144 - 49152) = ~200k tokens.
+# Where the cap comes from, first match wins: AGENT_MAX_TOKENS; the server's /props n_predict if positive; AGENT_N_PREDICT;
+# the -n of AGENT_PROFILE (game16 | game48, default game16) from game_profiles.sh, the same source start_agent_server.sh
+# uses. The demo's llama-server build reports n_predict -1 in /props whatever -n is, so with it the profile value is
+# used: start the runner with the same AGENT_PROFILE / AGENT_N_PREDICT as the server. Other modes: AGENT_MAX_TOKENS
+# rewrites the config value.
+MAXTOK="${AGENT_MAX_TOKENS:-}"; MAXTOK_SRC=""
+[ -z "$MAXTOK" ] || [[ "$MAXTOK" =~ ^[1-9][0-9]*$ ]] || { echo "ABORT: AGENT_MAX_TOKENS must be a positive integer"; exit 1; }
 if [ "${GAME_MAXTOK_FROM_SERVER:-0}" = 1 ]; then
-  [ -n "$MAXTOK" ] || MAXTOK=$(curl -sf --max-time 10 "http://$UP/props" | python3 -c 'import json,sys; d=json.load(sys.stdin); g=d.get("default_generation_settings") or {}; n=(g.get("params") or {}).get("n_predict", g.get("n_predict", -1)); print(n if isinstance(n,int) and n>0 else "")' 2>/dev/null || echo "")
-  [ -n "$MAXTOK" ] || { echo "ABORT: the server reports no -n (n_predict); start it with AGENT_PROFILE=game16|game48, or set AGENT_MAX_TOKENS"; exit 2; }
+  PROPS_N=$(curl -sf --max-time 10 "http://$UP/props" | python3 -c 'import json,sys; d=json.load(sys.stdin); g=d.get("default_generation_settings") or {}; n=(g.get("params") or {}).get("n_predict", g.get("n_predict", -1)); print(n if isinstance(n,int) and n>0 else "")' 2>/dev/null || echo "")
+  if [ -n "$MAXTOK" ]; then
+    MAXTOK_SRC="AGENT_MAX_TOKENS"
+    if [ -n "$PROPS_N" ] && [ "$PROPS_N" != "$MAXTOK" ]; then
+      echo "note: the server reports -n $PROPS_N; AGENT_MAX_TOKENS=$MAXTOK is sent per request and overrides it"
+    fi
+  elif [ -n "$PROPS_N" ]; then
+    MAXTOK="$PROPS_N"; MAXTOK_SRC="server /props n_predict"
+  elif [ -n "${AGENT_N_PREDICT:-}" ]; then
+    [[ "$AGENT_N_PREDICT" =~ ^[1-9][0-9]*$ ]] || { echo "ABORT: AGENT_N_PREDICT must be a positive integer"; exit 1; }
+    MAXTOK="$AGENT_N_PREDICT"; MAXTOK_SRC="AGENT_N_PREDICT (server /props reports no -n)"
+  else
+    . "$A/game_profiles.sh"
+    MAXTOK=$(game_profile_n_predict "${AGENT_PROFILE:-game16}") || { echo "ABORT: unknown AGENT_PROFILE '${AGENT_PROFILE}' (game16 | game48), or set AGENT_MAX_TOKENS"; exit 2; }
+    MAXTOK_SRC="AGENT_PROFILE=${AGENT_PROFILE:-game16} -n from game_profiles.sh (server /props reports no -n)"
+  fi
+  echo "per-reply cap: $MAXTOK tokens (source: $MAXTOK_SRC)"
   INJECT_MAXTOK="$MAXTOK"; CFG_MAXTOK="$MAXTOK"
 else
   INJECT_MAXTOK=""; CFG_MAXTOK="$MAXTOK"
@@ -162,7 +182,7 @@ MADE_WORK=1
 WORK="$WORK_PARENT/workspace"; mkdir "$WORK"; ln -s "$WORK" "$RUN/workspace"
 [ -n "$SEED_DIR" ] && cp -a "$SEED_DIR"/. "$WORK"/ && rm -f "$WORK/TASK.md"
 cp "$TASK" "$WORK/TASK.md"
-{ echo "model=$MODEL"; echo "upstream=$UP"; echo "base_url=$BASE"; echo "trace=$TRACE"; echo "preserve_reasoning=$PRESERVE"; echo "hermes_empty_recovery=${HERMES_EMPTY_RECOVERY:-off}"; echo "hermes_cut_recovery=$([ "${HERMES_PRISM_CUT_RECOVERY:-}" = 1 ] && echo on || echo off)"; echo "reseed_repeats=$([ "$TRACE" = 1 ] && [ "${AGENT_RESEED:-1}" != 0 ] && echo on || echo off)"; echo "seed=${SEED:-none} ($([ "$TRACE" = 1 ] && echo injected-per-request || echo server -s))"; echo "inject=$INJECT"; echo "config=$(basename "$CFG")"; echo "max_turns=$(sed -n "s/^  max_turns: \([0-9]*\).*/\1/p" "$HH/config.yaml")"; echo "compaction_threshold=$(sed -n "s/^  threshold: //p" "$HH/config.yaml")"; echo "declared_ctx=$CTX"; echo "max_tokens=${INJECT_MAXTOK:+$INJECT_MAXTOK per request (proxy), config }$(sed -n "s/^  max_tokens: //p" "$HH/config.yaml")"; echo "server_ctx_per_slot=$SERVED"; echo "task=$TASK"; [ -n "$SEED_DIR" ] && echo "seeded_from=$SEED_DIR"; echo "hermes=$(git -C "$DEMO_DIR/.hermes-agent" rev-parse --short HEAD 2>/dev/null)"; echo "hermes_home=$HH"; echo "workspace=$WORK"; echo "agent_browser=$( { [ -x "$DEMO_DIR/.agent-browser/node_modules/.bin/agent-browser" ] && "$DEMO_DIR/.agent-browser/node_modules/.bin/agent-browser" --version; } 2>/dev/null || echo unpinned-npx)"; echo "started=$(date -u +%FT%TZ)"; } > "$RUN/run.txt"
+{ echo "model=$MODEL"; echo "upstream=$UP"; echo "base_url=$BASE"; echo "trace=$TRACE"; echo "preserve_reasoning=$PRESERVE"; echo "hermes_empty_recovery=${HERMES_EMPTY_RECOVERY:-off}"; echo "hermes_cut_recovery=$([ "${HERMES_PRISM_CUT_RECOVERY:-}" = 1 ] && echo on || echo off)"; echo "reseed_repeats=$([ "$TRACE" = 1 ] && [ "${AGENT_RESEED:-1}" != 0 ] && echo on || echo off)"; echo "seed=${SEED:-none} ($([ "$TRACE" = 1 ] && echo injected-per-request || echo server -s))"; echo "inject=$INJECT"; echo "config=$(basename "$CFG")"; echo "max_turns=$(sed -n "s/^  max_turns: \([0-9]*\).*/\1/p" "$HH/config.yaml")"; echo "compaction_threshold=$(sed -n "s/^  threshold: //p" "$HH/config.yaml")"; echo "declared_ctx=$CTX"; echo "max_tokens=${INJECT_MAXTOK:+$INJECT_MAXTOK per request (proxy), config }$(sed -n "s/^  max_tokens: //p" "$HH/config.yaml")"; [ -n "$MAXTOK_SRC" ] && echo "max_tokens_source=$MAXTOK_SRC"; echo "server_ctx_per_slot=$SERVED"; echo "task=$TASK"; [ -n "$SEED_DIR" ] && echo "seeded_from=$SEED_DIR"; echo "hermes=$(git -C "$DEMO_DIR/.hermes-agent" rev-parse --short HEAD 2>/dev/null)"; echo "hermes_home=$HH"; echo "workspace=$WORK"; echo "agent_browser=$( { [ -x "$DEMO_DIR/.agent-browser/node_modules/.bin/agent-browser" ] && "$DEMO_DIR/.agent-browser/node_modules/.bin/agent-browser" --version; } 2>/dev/null || echo unpinned-npx)"; echo "started=$(date -u +%FT%TZ)"; } > "$RUN/run.txt"
 
 # 5. launch Hermes detached; the task text is read from a file so it never sits in argv. The pinned
 #    agent-browser (install_hermes.sh) goes first on PATH so Hermes does not fall back to npx.

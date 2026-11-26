@@ -30,10 +30,10 @@ no cut tool-call recovery (it did not exist yet). Run 1 dropped reasoning betwee
 ```bash
 AGENT_PROFILE=game48 AGENT_SERVER_SEED= ./scripts/start_agent_server.sh
 # run 1
-AGENT_SEED= AGENT_PRESERVE=0 AGENT_MAX_TURNS=90 AGENT_COMPACT_THRESHOLD=0.85 HERMES_PRISM_CUT_RECOVERY=0 \
+AGENT_PROFILE=game48 AGENT_SEED= AGENT_PRESERVE=0 AGENT_MAX_TURNS=90 AGENT_COMPACT_THRESHOLD=0.85 HERMES_PRISM_CUT_RECOVERY=0 \
   ./scripts/agent/run_agent_demo.sh game neon-racer
 # run 2
-AGENT_SEED= AGENT_MAX_TURNS=90 AGENT_COMPACT_THRESHOLD=0.85 HERMES_PRISM_CUT_RECOVERY=0 \
+AGENT_PROFILE=game48 AGENT_SEED= AGENT_MAX_TURNS=90 AGENT_COMPACT_THRESHOLD=0.85 HERMES_PRISM_CUT_RECOVERY=0 \
   ./scripts/agent/run_agent_demo.sh game neon-racer
 ```
 
@@ -45,7 +45,8 @@ tool-call recovery, served with the MTP draft head.
 
 ```bash
 AGENT_PROFILE=game16 AGENT_N_PREDICT=32768 AGENT_MTP=1 AGENT_SERVER_SEED= ./scripts/start_agent_server.sh
-AGENT_SEED= AGENT_COMPACT_THRESHOLD=0.872 HERMES_PRISM_CUT_RECOVERY=0 ./scripts/agent/run_agent_demo.sh game neon-racer
+AGENT_N_PREDICT=32768 AGENT_SEED= AGENT_COMPACT_THRESHOLD=0.872 HERMES_PRISM_CUT_RECOVERY=0 \
+  ./scripts/agent/run_agent_demo.sh game neon-racer
 ```
 
 In every case `agent-runs/<name>/run.txt` shows the settings the run used (calls, compaction threshold, per-reply cap

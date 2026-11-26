@@ -22,7 +22,7 @@ Chrome blocks from `file://`), serve this folder with `python3 -m http.server 87
 # terminal 1: the server, game setting (16k thinking budget, 49,152 tokens per reply)
 AGENT_PROFILE=game16 ./scripts/start_agent_server.sh
 # terminal 2
-./scripts/agent/run_agent_demo.sh game neon-racer
+./scripts/agent/run_agent_demo.sh game neon-racer   # with game48 on the server: AGENT_PROFILE=game48 here too
 grep -m1 -o '"max_tokens": [0-9]*' agent-runs/neon-racer_*/wire.jsonl   # 49152
 ```
 
@@ -41,7 +41,7 @@ so the same settings write a different game.
 | | `game16` (default) | `game48` |
 |---|---|---|
 | server | `AGENT_PROFILE=game16`: context 262,144, thinking budget 16,384, **49,152 tokens per reply** (`-n`) | `AGENT_PROFILE=game48`: context 262,144, thinking budget 49,152, 65,536 tokens per reply |
-| per-reply cap | the server's `-n`, also written into the Hermes config (`model.max_tokens`) and sent by the proxy as every request's `max_tokens`, so all three agree | same (65,536) |
+| per-reply cap | the server's `-n`, also written into the Hermes config (`model.max_tokens`) and sent by the proxy as every request's `max_tokens`, so all three agree. The runner cannot read `-n` back (this llama.cpp build reports `n_predict -1` in `/props`), so it takes the cap from `AGENT_MAX_TOKENS`, else `AGENT_N_PREDICT`, else the `-n` of `AGENT_PROFILE` (default game16) in `scripts/agent/game_profiles.sh`, the file the server launcher uses; `run.txt` records the source | same (65,536; run with `AGENT_PROFILE=game48`) |
 | tool calls | up to 150 (`agent.max_turns`) | same |
 | compaction | once the prompt reaches 0.93907518 × (262,144 − 49,152) ≈ 200k tokens | 0.93907518 × (262,144 − 65,536) ≈ 185k |
 | sampling | temp 1.0 · top-p 0.95 · top-k 20 · **min-p 0** | same |

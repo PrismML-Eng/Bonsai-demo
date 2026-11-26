@@ -42,10 +42,11 @@ if [ -z "${BONSAI_FAMILY:-}" ]; then
 fi
 export BONSAI_FAMILY BONSAI_MODEL
 NPRED_FLAG=""
+. "$SCRIPT_DIR/agent/game_profiles.sh"   # the game profiles' -n, shared with run_agent_demo.sh
 case "${AGENT_PROFILE:-}" in
     "") ;;
-    game16) : "${BONSAI_CTX:=262144}"; : "${AGENT_REASONING_BUDGET:=16384}"; : "${AGENT_MIN_P:=0}"; : "${AGENT_N_PREDICT:=49152}"; : "${AGENT_MTP:=0}" ;;
-    game48) : "${BONSAI_CTX:=262144}"; : "${AGENT_REASONING_BUDGET:=49152}"; : "${AGENT_MIN_P:=0}"; : "${AGENT_N_PREDICT:=65536}"; : "${AGENT_MTP:=0}" ;;
+    game16) : "${BONSAI_CTX:=262144}"; : "${AGENT_REASONING_BUDGET:=16384}"; : "${AGENT_MIN_P:=0}"; : "${AGENT_N_PREDICT:=$(game_profile_n_predict game16)}"; : "${AGENT_MTP:=0}" ;;
+    game48) : "${BONSAI_CTX:=262144}"; : "${AGENT_REASONING_BUDGET:=49152}"; : "${AGENT_MIN_P:=0}"; : "${AGENT_N_PREDICT:=$(game_profile_n_predict game48)}"; : "${AGENT_MTP:=0}" ;;
     *) echo "unknown AGENT_PROFILE '$AGENT_PROFILE' (game16 | game48)"; exit 1 ;;
 esac
 if [ -n "${AGENT_N_PREDICT:-}" ]; then

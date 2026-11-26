@@ -44,9 +44,10 @@ def free_port():
 
 class FakeServer:
     """Scripted chat server. Agent requests (those with tools) are answered by `script(n, body)`, n = 1, 2, ...; every
-    request body is recorded. /props reports n_predict like llama-server started with AGENT_PROFILE=game16."""
+    request body is recorded. /props reports n_predict -1 by default, as the demo's llama-server build does whatever -n
+    is; pass n_predict to emulate a server that reports its -n."""
 
-    def __init__(self, script, n_predict=49152, delay_first=0):
+    def __init__(self, script, n_predict=-1, delay_first=0):
         self.script, self.requests, self.headers, self.n = script, [], [], 0
         fake = self
 
@@ -265,8 +266,8 @@ class GameRunTests(unittest.TestCase):
         shutil.copy2(DEMO / "demos" / "games" / "neon-racer" / "prompt.md", self.demo / "demos" / "games" / "neon-racer")
         (self.demo / ".venv-hermes").symlink_to(Path(HERMES_VENV).resolve())
 
-    def run_game(self, script, **env):
-        fake = FakeServer(script, delay_first=6); self.addCleanup(fake.close)
+    def run_game(self, script, n_predict=-1, **env):
+        fake = FakeServer(script, n_predict=n_predict, delay_first=6); self.addCleanup(fake.close)
         e = {k: v for k, v in os.environ.items() if not k.startswith(("AGENT_", "HERMES_"))}
         e.update(AGENT_UPSTREAM=f"127.0.0.1:{fake.port}", AGENT_WORKSPACE_ROOT=str(self.root / "ws"), **env)
         out = subprocess.run(["bash", str(self.demo / "scripts/agent/run_agent_demo.sh"), "game", "neon-racer", "t1"],
@@ -311,6 +312,37 @@ class GameRunTests(unittest.TestCase):
         rec = self._jsonl(run / "empty_recovery.jsonl")
         self.assertEqual([r["kind"] for r in rec], ["resample", "resample", "nudge", "exhausted"], rec)
         self.assertEqual({r.get("seed") for r in fake.agent_requests()}, {42})
+
+    def _cap(self, fake, run):
+        """-> (config model.max_tokens, proxy-injected max_tokens per agent request, run.txt source)"""
+        cfg = (run / "home" / "config.yaml").read_text()
+        conf = int(cfg.split("\n  max_tokens: ", 1)[1].split("\n", 1)[0])
+        info = dict(l.split("=", 1) for l in (run / "run.txt").read_text().splitlines() if "=" in l)
+        return conf, {r.get("max_tokens") for r in fake.agent_requests()}, info.get("max_tokens_source", "")
+
+    def test_props_without_n_predict_falls_back_to_game16(self):
+        """The demo's llama-server reports n_predict -1 in /props: game mode uses game16's -n (49152) instead of aborting."""
+        fake, run = self.run_game(lambda n, b: {"content": "done."})
+        conf, sent, src = self._cap(fake, run)
+        self.assertEqual((conf, sent), (49152, {49152}))
+        self.assertIn("AGENT_PROFILE=game16", src)
+
+    def test_props_without_n_predict_uses_agent_profile(self):
+        fake, run = self.run_game(lambda n, b: {"content": "done."}, AGENT_PROFILE="game48")
+        conf, sent, src = self._cap(fake, run)
+        self.assertEqual((conf, sent), (65536, {65536}))
+        self.assertIn("AGENT_PROFILE=game48", src)
+
+    def test_positive_props_n_predict_is_used(self):
+        fake, run = self.run_game(lambda n, b: {"content": "done."}, n_predict=32768)
+        conf, sent, src = self._cap(fake, run)
+        self.assertEqual((conf, sent), (32768, {32768}))
+        self.assertEqual(src, "server /props n_predict")
+
+    def test_agent_max_tokens_comes_first(self):
+        fake, run = self.run_game(lambda n, b: {"content": "done."}, n_predict=49152, AGENT_MAX_TOKENS="40000")
+        conf, sent, src = self._cap(fake, run)
+        self.assertEqual((conf, sent, src), (40000, {40000}, "AGENT_MAX_TOKENS"))
 
     def test_cut_tool_call_gets_the_note(self):
         fake, run = self.run_game(cut_script)
