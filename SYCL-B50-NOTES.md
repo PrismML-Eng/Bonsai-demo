@@ -60,7 +60,9 @@ $env:GGML_SYCL_T2_W8A8_MIN      = '1024'
 （`--spec-type draft-mtp --spec-draft-n-max 3 --spec-draft-p-min 0.1`，无 sidecar）：
 短提示解码 24.4 → **30-32 t/s（+26-31%）**，`timings.draft_n` 258-267 确认生效；
 `LLAMA_MTP_CHAIN=1` 无增益；**n-max 5 + chain 在 262K 上下文下 DEVICE_LOST**（16 GB
-装不下草稿 KV/scratch），3/0.1 是安全上限。冷启动预填 413→1429 ms（草稿头过一遍
+装不下草稿 KV/scratch），3/0.1 是安全上限。2026-11-26 复测：**-c 131072 下 n-max 4/5
+都稳定**（崩溃确属 262K 特有），但 30.8-33.6 t/s 与 3/0.1 持平——提速天花板就在
+30-33，日常配置保持 3/0.1。冷启动预填 413→1429 ms（草稿头过一遍
 prompt），热缓存不受影响。详见 `community-benchmarks/bonsai25/sycl-arc-pro-b50-16gb-windows.md`。
 
 **Bonsai 2（全尺寸 sidecar drafter）：不要开。** 已发布的 MTP drafter（`Ternary-Bonsai-2-27B-PQ2_0-MTP-Q8_0.gguf`）是**全尺寸 27B Q8_0（7.6 GB）**——比 6.5 GB 的 target 还重，带宽账永远不可能赢：
@@ -136,6 +138,10 @@ powershell -c "(Get-Counter '\GPU Process Memory(*)\Dedicated Usage').CounterSam
 - 本机 `bin/sycl` 停在 `prism-b10787`；**仓库已 pin 到 `prism-b12178-03ec600`**
   （Bonsai 2.5 发布随附，2026-11-24）。**b12178 已在 B50 实测为回归**（解码 -11%、
   预填 -23%、MTP 路径坏，见第八节），继续用 b10787。
+- **b12220 复测（2026-11-26，仓库 pin 分支）：解码回归仍在**（tg128 24.0→22.3），
+  pp512 稳态 472（b10787 是 727，-35%）；**MTP 路径已修好**（draft-mtp 可用，
+  探针 29.7/36.7 t/s，与 b10787 的 30-32 持平）——但裸解码和预填都更差，
+  整体仍不升。包留在 `bin/sycl-b12220/` 供后续回归测试。
 - 升级触发条件：release 说明或提交里出现 `ggml-vulkan` / `ggml-sycl` / `ternsycl` / 官方小型 drafter。
 - 下载走本机代理 `127.0.0.1:7897`（github.com/hf 直连被重置），release 资产用 api.github.com 核对 SHA256；
   HF 权重核对用响应头的 `X-Linked-ETag`（即官方 SHA256）。
@@ -156,6 +162,7 @@ powershell -c "(Get-Counter '\GPU Process Memory(*)\Dedicated Usage').CounterSam
 | `models/bonsai25-gguf/27B/` | Bonsai 2.5 权重（`Ternary-Bonsai-2.5-27B-PQ2_0-mtp.gguf` 等） |
 | `mtp_matrix.sh` / `mtp_round3.sh` + `*.log` | MTP 服务器矩阵与 llama-bench 原始输出（报告数据源） |
 | `bin/sycl-b12178/` | b12178 CPU+SYCL 包（实测回归，留作后续回归测试） |
+| `bin/sycl-b12220/` | b12220 CPU+SYCL 包（解码回归仍在、MTP 已修，见第六节） |
 
 ---
 
