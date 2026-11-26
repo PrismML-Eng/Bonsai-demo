@@ -118,7 +118,7 @@ b10809-b10831 的 CUDA 提交密集打磨 MTP/DFlash2 工具链＝小 drafter �
 
 | 坑 | 规避 |
 |---|---|
-| ModelManager 读 `D:\Software\ModelManager\panel\servers.json`（面板安装目录），不是 `%APPDATA%`（那是旧副本）也不是仓库版 | 改配置改面板目录那份；改前先关面板（退出会覆盖），改完重启 |
+| ModelManager 配置优先级：env `MODEL_MANAGER_CONFIG` > 同目录 `servers.json`（portable.flag）> `%APPDATA%`。本机 env 指向 `D:\Libraries\Documents\GitHub\ModelManager\config\servers.json`——改这份才是活的 | 改前先关面板（退出会覆盖），改完重启；面板也有热重载按钮 |
 | ModelManager 停止按钮 | `Kill(entireProcessTree)`，对 powershell 包装脚本（SYCL 环境变量注入用）有效 |
 | llama-cli 诊断会挂死驱动 | 排查看服务器 `-lv 4` 日志，别再起第二个 Vulkan 进程对撞 |
 
