@@ -46,8 +46,7 @@ if ($env:BONSAI_SYCL_MTP -ne '0') {
     --mmproj "$ModelDir\Ternary-Bonsai-2.5-27B-mmproj-Q8_0.gguf" `
     --host $BindHost --port $Port `
     -c 262144 -ngl 99 -fa on `
-    -ctk q4_0 -ctv q4_0 `
-    --load-mode mlock `
+    -ctk q4_0 -ctv q4_0 `   # do NOT add --load-mode mlock: 262K + mlock + MTP crashes at load (DEVICE_LOST); mlock only safe at <=131K
     --temp 1.0 --top-p 0.95 --top-k 20 --min-p 0 --jinja `
     --image-max-tokens 1024 `
     --webui-config-file "$Demo\scripts\webui-config.json" `

@@ -35,9 +35,11 @@ llama-server.exe `
   -c 262144 `              # 模型上限 256K；KV 池按需增长，空上下文不浪费
   -ngl 99 -fa on `         # 65/65 层全在 GPU
   -ctk q4_0 -ctv q4_0 `    # ★必须：XMX 解码注意力只认 q4_0 KV；f16 会静默掉回慢路径
+  # --load-mode mlock：2.5+MTP 下 262K 会 DEVICE_LOST（2026-11-26 实测，两次复现）；
+  # ≤131K 上下文时 mlock 安全。262K 日常配置不要加。
   --temp 1.0 --top-p 0.95 --top-k 20 --min-p 0.05 --jinja `   # demo 的 Bonsai 2 官方采样档
   --image-max-tokens 1024 `  # 大图降到 1024 vision tokens；OCR/截图要全精度改 0（更慢）
-  --load-mode mlock          # 权重钉死在系统内存，防换页抖动
+  # --load-mode mlock：仅 ≤131K 安全；2.5+MTP+262K 加载即 DEVICE_LOST（见坑表）
 ```
 
 **环境变量（启动前必须设置，少一个就掉速）**：
@@ -88,6 +90,7 @@ b10809-b10831 的 CUDA 提交密集打磨 MTP/DFlash2 工具链＝小 drafter �
 | 坑 | 现象 | 规避 |
 |---|---|---|
 | f16 KV + 长上下文 | 262K×64KiB=16 GB 光 KV 就爆卡 → 驱动静默倒内存 → 整机卡死 | 永远 `-ctk/-ctv q4_0`（256K KV 仅 ~4.5 GB） |
+| mlock + 262K + MTP | 加载时 `UR_RESULT_ERROR_DEVICE_LOST`（memset buffer_clear），两次复现 | 262K 配置别加 `--load-mode mlock`；≤131K 时安全 |
 | 多服务器并行 | 两个 27B 级服务各 ~13 GB，合计 >16 GB → 互相拖死 | `gpu-main` 互斥组；一卡一服务 |
 | 任务管理器显存 | SYCL/Level Zero 分配不可见，显示远低于实际 | 以 `llama-server -lv 4` 日志的 buffer size 为准 |
 | WUDFHost 假警报 | GPU 计数器里 WUDFHost 显示 ~9.6 GB，像"神秘进程" | 驱动宿主进程，非真实占用，忽略 |
