@@ -1,0 +1,8 @@
+{
+  "type": "plugin",
+  "runner": "node",
+  "owner": "prism-ml",
+  "name": "bonsai-2-27b",
+  "revision": 1,
+  "tags": ["generator", "bonsai", "llama.cpp"]
+}
