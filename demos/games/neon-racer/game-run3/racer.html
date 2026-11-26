@@ -103,7 +103,7 @@
     if (d) { d.style.display = 'flex'; d.innerHTML = 'PROMISE REJECTED: ' + (e.reason && e.reason.message ? e.reason.message : e.reason) + '<br><small>' + (e.reason && e.reason.stack ? e.reason.stack.split('\n').slice(0, 6).join('<br>') : '') + '</small>'; }
   });
 </script>
-<script src="three.min.js"></script>
+<script src="../../vendor/three-r160/build/three.min.js"></script>
 <script>
 (() => {
   const THREE = window.THREE;

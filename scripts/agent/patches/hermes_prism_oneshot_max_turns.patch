@@ -1,21 +1,33 @@
-Prism patch (2026-11-24): `hermes -z` (one-shot mode) honours agent.max_turns.
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: PrismML <noreply@prismml.ai>
+Date: Wed, 25 Nov 2026 14:18:39 -0500
+Subject: [PATCH 3/4] Prism: `hermes -z` (one-shot mode) honours
+ agent.max_turns
 
-hermes_cli/oneshot.py builds its AIAgent without max_iterations, so AIAgent's default of 90 tool-calling
-iterations applied in one-shot mode whatever config.yaml set under agent.max_turns (the interactive CLI and
-gateway pass it through). The Prism demo / data-collection harness runs Hermes through `hermes -z`
-(hermes_z.py), so the configured 120-call limit was silently 90.
+hermes_cli/oneshot.py builds its AIAgent without max_iterations, so AIAgent's
+default of 90 tool-calling iterations applied in one-shot mode whatever
+config.yaml set under agent.max_turns (the interactive CLI and the gateway pass
+it through). Bonsai-demo runs Hermes through `hermes -z` (scripts/agent/hermes_z.py),
+so a configured limit above 90 was silently 90.
 
-Fix: oneshot reads agent.max_turns from the loaded config, falls back to the HERMES_MAX_ITERATIONS env var,
-then to 90 (old behaviour), and passes it as AIAgent(max_iterations=...). Nothing else changes.
-Base tree: hermes-agent c387be0 + hermes_prism_empty_recovery.patch + hermes_prism_browser_keepalive.patch.
+Fix: oneshot reads agent.max_turns from the loaded config, falls back to the
+HERMES_MAX_ITERATIONS env var, then to 90 (old behaviour), and passes it as
+AIAgent(max_iterations=...). Nothing else changes.
+---
+ hermes_cli/oneshot.py                      |  9 +++++
+ tests/hermes_cli/test_oneshot_max_turns.py | 47 ++++++++++++++++++++++
+ 2 files changed, 56 insertions(+)
+ create mode 100644 tests/hermes_cli/test_oneshot_max_turns.py
 
---- a/hermes_cli/oneshot.py	2026-07-17 03:21:13.000000000 +0800
-+++ b/hermes_cli/oneshot.py	2026-11-24 14:00:24.932616230 +0800
-@@ -319,6 +319,14 @@
+diff --git a/hermes_cli/oneshot.py b/hermes_cli/oneshot.py
+index e7db628a7c..908625c1b2 100644
+--- a/hermes_cli/oneshot.py
++++ b/hermes_cli/oneshot.py
+@@ -319,6 +319,14 @@ def _run_agent(
  
      cfg = load_config()
  
-+    # Prism 2026-11-24: honour agent.max_turns. Stock oneshot built AIAgent without max_iterations, so
++    # Prism patch: honour agent.max_turns. Stock oneshot built AIAgent without max_iterations, so
 +    # AIAgent's default (90) applied whatever config.yaml said. Order: agent.max_turns, HERMES_MAX_ITERATIONS, 90.
 +    _agent_cfg = cfg.get("agent") if isinstance(cfg.get("agent"), dict) else {}
 +    try:
@@ -26,7 +38,7 @@ Base tree: hermes-agent c387be0 + hermes_prism_empty_recovery.patch + hermes_pri
      # Resolve effective model: explicit arg → env var → config.
      model_cfg = cfg.get("model") or {}
      if isinstance(model_cfg, str):
-@@ -396,6 +404,7 @@
+@@ -396,6 +404,7 @@ def _run_agent(
          provider=runtime.get("provider"),
          api_mode=runtime.get("api_mode"),
          model=effective_model,
@@ -34,3 +46,56 @@ Base tree: hermes-agent c387be0 + hermes_prism_empty_recovery.patch + hermes_pri
          enabled_toolsets=toolsets_list,
          quiet_mode=True,
          platform="cli",
+diff --git a/tests/hermes_cli/test_oneshot_max_turns.py b/tests/hermes_cli/test_oneshot_max_turns.py
+new file mode 100644
+index 0000000000..676b0070c8
+--- /dev/null
++++ b/tests/hermes_cli/test_oneshot_max_turns.py
+@@ -0,0 +1,47 @@
++"""Prism patch: `hermes -z` (one-shot) passes agent.max_turns to AIAgent as max_iterations (stock used AIAgent's 90)."""
++import pytest
++
++import hermes_cli.config
++import hermes_cli.oneshot as oneshot
++import hermes_cli.runtime_provider
++import run_agent
++
++
++@pytest.fixture
++def captured(monkeypatch):
++    seen = {}
++
++    class FakeAgent:
++        def __init__(self, **kwargs):
++            seen.update(kwargs)
++
++        def run_conversation(self, prompt):
++            return {"final_response": "ok"}
++
++    monkeypatch.setattr(run_agent, "AIAgent", FakeAgent)
++    monkeypatch.setattr(hermes_cli.runtime_provider, "resolve_runtime_provider",
++                        lambda **kw: {"api_key": "k", "base_url": "http://127.0.0.1:1/v1", "provider": "custom"})
++    monkeypatch.setattr(oneshot, "_create_session_db_for_oneshot", lambda: None)
++    monkeypatch.setattr(oneshot, "get_fallback_chain", lambda cfg: [])
++    monkeypatch.delenv("HERMES_MAX_ITERATIONS", raising=False)
++    monkeypatch.delenv("HERMES_INFERENCE_MODEL", raising=False)
++    return seen
++
++
++def _run(monkeypatch, cfg):
++    monkeypatch.setattr(hermes_cli.config, "load_config", lambda: cfg)
++    oneshot._run_agent("hi", model="m", provider="custom", toolsets=["file"], use_config_toolsets=False)
++
++
++def test_config_max_turns_is_used(monkeypatch, captured):
++    _run(monkeypatch, {"model": {"default": "m"}, "agent": {"max_turns": 150}})
++    assert captured["max_iterations"] == 150
++
++
++def test_env_fallback_then_default(monkeypatch, captured):
++    monkeypatch.setenv("HERMES_MAX_ITERATIONS", "33")
++    _run(monkeypatch, {"model": {"default": "m"}})
++    assert captured["max_iterations"] == 33
++    monkeypatch.delenv("HERMES_MAX_ITERATIONS")
++    _run(monkeypatch, {"model": {"default": "m"}, "agent": {"max_turns": "not a number"}})
++    assert captured["max_iterations"] == 90

@@ -1,0 +1,442 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: PrismML <noreply@prismml.ai>
+Date: Wed, 25 Nov 2026 14:18:49 -0500
+Subject: [PATCH 4/4] Prism: HERMES_PRISM_CUT_RECOVERY=1 (a tool call cut by
+ the output limit is not resent blind)
+
+Stock Hermes, when a reply's tool call is cut by the output limit
+(finish_reason "length"), resends the identical request up to 4 times without
+telling the model, then ends the run with "Response truncated due to output
+length limit". A model that tries to write a whole game in one write_file call
+is usually cut again at the same point.
+
+With HERMES_PRISM_CUT_RECOVERY=1, a cut tool call (not a network stub stall):
+- is not executed; the cut assistant turn is kept with its visible text only (no
+  partial tool call) and carries its own reasoning under "prism_cut_reasoning"
+  (Bonsai-demo's logproxy.py turns that into reasoning_content when reasoning is
+  kept across turns, and drops it otherwise);
+- is followed by one user note naming the tool, its target path and the output
+  tokens used, asking for the work in tool calls under ~8K tokens each;
+- the loop continues with a new API call.
+The same applies when a router rewrites finish_reason to "tool_calls" but the
+arguments are truncated JSON: the stream builder does not "repair" truncated
+arguments into an executable call, and the invalid-JSON path gets the same note
+instead of the immediate stop. At most HERMES_PRISM_CR_MAX (4) recoveries per
+segment (the counter resets after a tool call executes); after that the stock end
+behaviour runs. Events go to HERMES_PRISM_CUT_RECOVERY_LOG (JSONL). Unset = stock.
+---
+ agent/chat_completion_helpers.py           |   5 +
+ agent/conversation_loop.py                 |  68 ++++++++-
+ agent/prism_cut_recovery.py                | 113 +++++++++++++++
+ tests/run_agent/test_prism_cut_recovery.py | 152 +++++++++++++++++++++
+ 4 files changed, 337 insertions(+), 1 deletion(-)
+ create mode 100644 agent/prism_cut_recovery.py
+ create mode 100644 tests/run_agent/test_prism_cut_recovery.py
+
+diff --git a/agent/chat_completion_helpers.py b/agent/chat_completion_helpers.py
+index 45a88f8dec..094ee3e96f 100644
+--- a/agent/chat_completion_helpers.py
++++ b/agent/chat_completion_helpers.py
+@@ -2550,6 +2550,11 @@ def interruptible_streaming_api_call(agent, api_kwargs: dict, *, on_first_delta=
+                         # returns "{}" for unrepairable args, which is far
+                         # better than a crashed session.
+                         repaired = _repair_tool_call_arguments(arguments, tool_name)
++                        # Prism patch: cut tool-call recovery (rewritten finish_reason): never execute a "repaired"
++                        # truncated call; flag it so the reply takes the length / cut-recovery path. Off unless HERMES_PRISM_CUT_RECOVERY=1.
++                        if repaired != "{}" and os.getenv("HERMES_PRISM_CUT_RECOVERY", "") == "1" and not arguments.rstrip().endswith(("}", "]")):
++                            logger.warning("prism cut recovery: truncated args for %s not repaired (finish_reason=%r)", tool_name, finish_reason)
++                            repaired = "{}"
+                         if repaired != "{}":
+                             # Successfully repaired — use the fixed args
+                             arguments = repaired
+diff --git a/agent/conversation_loop.py b/agent/conversation_loop.py
+index 43121274ed..1e06323214 100644
+--- a/agent/conversation_loop.py
++++ b/agent/conversation_loop.py
+@@ -674,6 +674,9 @@ def run_conversation(
+     codex_ack_continuations = 0
+     length_continue_retries = 0
+     truncated_tool_call_retries = 0
++    # Prism patch: cut tool-call recovery (HERMES_PRISM_CUT_RECOVERY=1): per segment / per run
++    prism_cut_recoveries = 0
++    prism_cut_recoveries_total = 0
+     truncated_response_parts: List[str] = []
+     compression_attempts = 0
+     _turn_exit_reason = "unknown"  # Diagnostic: why the loop ended
+@@ -2058,6 +2061,38 @@ def run_conversation(
+                             _is_stub_stall = (
+                                 getattr(response, "id", "") == PARTIAL_STREAM_STUB_ID
+                             )
++                            # Prism patch: cut tool-call recovery: off unless HERMES_PRISM_CUT_RECOVERY=1.
++                            # A real output-cap cut (not a network stub stall) is NOT resent identically: the cut turn
++                            # (visible text + its reasoning, no partial tool call) and a NOTE asking for <= ~8K-token
++                            # parts are appended and the loop continues; after HERMES_PRISM_CR_MAX (4) per segment the
++                            # stock end behaviour below runs.
++                            if not _is_stub_stall and os.getenv("HERMES_PRISM_CUT_RECOVERY", "") == "1":
++                                try:
++                                    import agent.prism_cut_recovery as _prism_cr
++                                    if prism_cut_recoveries < _prism_cr.max_per_segment():
++                                        _cr_asst, _cr_note, _cr_rec = _prism_cr.build(
++                                            agent, assistant_message, response, api_call_count,
++                                            prism_cut_recoveries + 1, prism_cut_recoveries_total + 1,
++                                        )
++                                        prism_cut_recoveries += 1
++                                        prism_cut_recoveries_total += 1
++                                        messages.append(_cr_asst)
++                                        messages.append(_cr_note)
++                                        agent._session_messages = messages
++                                        _cr_rec["path"] = "length"
++                                        _prism_cr.log(_cr_rec)
++                                        agent._vprint(
++                                            f"{agent.log_prefix}✂️  Tool call cut by the output limit — not resent; "
++                                            f"split-the-work note injected ({prism_cut_recoveries}/{_prism_cr.max_per_segment()})",
++                                            force=True,
++                                        )
++                                        _retry.restart_with_length_continuation = True
++                                        break
++                                    _prism_cr.log({"ts": time.time(), "event": "exhausted", "api_call_count": api_call_count,
++                                                   "n_segment": prism_cut_recoveries, "n_total": prism_cut_recoveries_total})
++                                    truncated_tool_call_retries = 4  # -> stock end behaviour below
++                                except Exception:
++                                    logger.warning("prism cut recovery failed; stock resend path", exc_info=True)
+                             if truncated_tool_call_retries < 4:
+                                 truncated_tool_call_retries += 1
+                                 if _is_stub_stall:
+@@ -2085,7 +2120,8 @@ def run_conversation(
+                                 if _tc_requested_cap is not None:
+                                     _tc_boost = max(_tc_boost, _tc_requested_cap)
+                                 _tc_boost_cap = max(32768, _tc_requested_cap or 0)
+-                                agent._ephemeral_max_output_tokens = min(_tc_boost, _tc_boost_cap)
++                                if os.getenv("HERMES_PRISM_CUT_RECOVERY", "") != "1":  # Prism patch: cut tool-call recovery: dead boost skipped (see below)
++                                    agent._ephemeral_max_output_tokens = min(_tc_boost, _tc_boost_cap)
+                                 # Don't append the broken response to messages;
+                                 # just re-run the same API call from the current
+                                 # message state, giving the model another chance.
+@@ -4370,6 +4406,11 @@ def run_conversation(
+             continue
+ 
+         if _retry.restart_with_length_continuation:
++            # Prism patch: cut tool-call recovery: with HERMES_PRISM_CUT_RECOVERY=1 the boost below is skipped. It has no
++            # effect when max_tokens is set in config.yaml: min(max(max_tokens*2^k, requested), max(32768, requested)) is the
++            # requested max_tokens, and the server caps the reply at its own -n in any case.
++            if os.getenv("HERMES_PRISM_CUT_RECOVERY", "") == "1":
++                continue
+             # Progressively boost the output token budget on each retry.
+             # Retry 1 → 2× base, retry 2 → 4× base, retry 3 → 8× base,
+             # retry 4 → 16× base, then cap at 32 768.
+@@ -4756,6 +4797,30 @@ def run_conversation(
+                         for tc in assistant_message.tool_calls
+                         if tc.function.name in {n for n, _ in invalid_json_args}
+                     )
++                    if _truncated and os.getenv("HERMES_PRISM_CUT_RECOVERY", "") == "1":
++                        # Prism patch: cut tool-call recovery (invalid-JSON path, finish_reason rewritten): same
++                        # note as the length path instead of the immediate stop; nothing from this reply executes; shared bounded counter.
++                        try:
++                            import agent.prism_cut_recovery as _prism_cr
++                            if prism_cut_recoveries < _prism_cr.max_per_segment():
++                                _cr_asst, _cr_note, _cr_rec = _prism_cr.build(
++                                    agent, assistant_message, response, api_call_count,
++                                    prism_cut_recoveries + 1, prism_cut_recoveries_total + 1,
++                                )
++                                prism_cut_recoveries += 1
++                                prism_cut_recoveries_total += 1
++                                _cr_rec["path"] = f"invalid_json_finish_{finish_reason}"
++                                messages.append(_cr_asst)
++                                messages.append(_cr_note)
++                                agent._session_messages = messages
++                                agent._invalid_json_retries = 0
++                                _prism_cr.log(_cr_rec)
++                                agent._vprint(f"{agent.log_prefix}✂️  Truncated tool-call args (finish_reason={finish_reason!r}) — not executed; split-the-work note injected", force=True)
++                                continue
++                            _prism_cr.log({"ts": time.time(), "event": "exhausted", "path": f"invalid_json_finish_{finish_reason}", "api_call_count": api_call_count,
++                                           "n_segment": prism_cut_recoveries, "n_total": prism_cut_recoveries_total})
++                        except Exception:
++                            logger.warning("prism cut recovery (invalid-JSON path) failed; stock stop", exc_info=True)
+                     if _truncated:
+                         agent._vprint(
+                             f"{agent.log_prefix}⚠️  Truncated tool call arguments detected "
+@@ -4957,6 +5022,7 @@ def run_conversation(
+                 # execution so a single truncation doesn't poison the
+                 # entire conversation.
+                 truncated_tool_call_retries = 0
++                prism_cut_recoveries = 0  # Prism patch: cut tool-call recovery: new segment
+ 
+                 # Signal that a paragraph break is needed before the next
+                 # streamed text.  We don't emit it immediately because
+diff --git a/agent/prism_cut_recovery.py b/agent/prism_cut_recovery.py
+new file mode 100644
+index 0000000000..1a733979eb
+--- /dev/null
++++ b/agent/prism_cut_recovery.py
+@@ -0,0 +1,113 @@
++"""Prism patch: cut tool-call recovery. Off unless HERMES_PRISM_CUT_RECOVERY=1.
++
++Stock Hermes, on finish_reason "length" with a truncated tool call, silently resends the IDENTICAL request up to 4 times
++(the model is never told, so a long write_file is usually cut again) and then ends the run with "Response truncated due
++to output length limit". With this patch on, a cut tool call (not a network stub stall) instead:
++  1. appends the cut assistant turn: its visible text only (content), no tool_calls (the partial JSON never reaches the
++     template/server), plus "prism_cut_reasoning" = the turn's own reasoning. scripts/agent/logproxy.py in Bonsai-demo
++     pops that key and, with PRESERVE_REASONING=1, sends it as reasoning_content, so the cut turn's thinking stays in
++     context like every other turn's; with reasoning not preserved it is dropped like every other turn's.
++  2. appends one user message (worded like Hermes's own dropped_tools continuation prompt) naming the tool, its target
++     path when parseable and the output tokens used, and asking for parts of at most ~8K tokens.
++  3. re-enters the loop as a new API call (counts toward agent.max_turns like the plain-text continuation does).
++At most HERMES_PRISM_CR_MAX (default 4) recoveries per run segment (the counter resets after a tool call executes, the
++same reset stock uses for its resend counter); the next cut falls back to the stock end behaviour.
++Every firing / exhaustion is appended as one JSON line to HERMES_PRISM_CUT_RECOVERY_LOG (if set)."""
++import json
++import os
++import re
++import time
++
++NOTE_FMT = ("[System: Your previous tool call{s} ({what}) {was} cut off by the output length limit after ~{n} output tokens "
++            "and {was} NOT executed. Do NOT retry the same tool call with the same large content, and do not resend the whole "
++            "content in one call. Instead, break the content into multiple smaller tool calls: write_file the first part, then "
++            "append or patch in the rest with further tool calls. Each tool call's arguments must be under ~8K tokens.]")
++NOTE_PREFIX = "[System: Your previous tool call"
++_PATH_RE = re.compile(r'"(?:path|file_path|filepath|filename|file)"\s*:\s*"((?:[^"\\]|\\.){1,400})"')
++
++
++def enabled():
++    return os.getenv("HERMES_PRISM_CUT_RECOVERY", "") == "1"
++
++
++def max_per_segment():
++    try:
++        return max(1, int(os.getenv("HERMES_PRISM_CR_MAX", "4")))
++    except ValueError:
++        return 4
++
++
++def log(rec):
++    p = os.getenv("HERMES_PRISM_CUT_RECOVERY_LOG")
++    if not p:
++        return
++    try:
++        with open(p, "a") as f:
++            f.write(json.dumps(rec) + "\n")
++    except OSError:
++        pass
++
++
++def _get(o, k, default=None):
++    if isinstance(o, dict):
++        return o.get(k, default)
++    return getattr(o, k, default)
++
++
++def _calls(assistant_message):
++    out = []
++    for tc in (_get(assistant_message, "tool_calls") or []):
++        fn = _get(tc, "function") or {}
++        name = _get(fn, "name") or "?"
++        args = _get(fn, "arguments") or ""
++        if not isinstance(args, str):
++            try:
++                args = json.dumps(args)
++            except Exception:
++                args = str(args)
++        out.append((name, args))
++    return out
++
++
++def _target(args):
++    m = _PATH_RE.search(args or "")
++    if not m:
++        return None
++    try:
++        return json.loads('"' + m.group(1) + '"')
++    except Exception:
++        return m.group(1)
++
++
++def _completion_tokens(response, fallback):
++    u = _get(response, "usage")
++    for k in ("completion_tokens", "output_tokens"):
++        v = _get(u, k) if u is not None else None
++        if isinstance(v, int) and v > 0:
++            return v
++    return fallback
++
++
++def build(agent, assistant_message, response, api_call_count, n_segment, n_total):
++    """-> (assistant dict, note dict, log record) for one cut tool call."""
++    calls = _calls(assistant_message)
++    names = [c[0] for c in calls] or ["?"]
++    target = None
++    for _, a in reversed(calls):  # the last call is the one the cap cut
++        target = _target(a)
++        if target:
++            break
++    ntok = _completion_tokens(response, getattr(agent, "max_tokens", None) or 0)
++    what = ", ".join(names[:3]) + (f", target {target}" if target else "")
++    plural = len(calls) > 1
++    note = NOTE_FMT.format(s="s" if plural else "", what=what, was="were" if plural else "was", n=f"{ntok:,}")
++    content = _get(assistant_message, "content")
++    visible = content if isinstance(content, str) else ""
++    reasoning = _get(assistant_message, "reasoning_content") or _get(assistant_message, "reasoning") or ""
++    asst = {"role": "assistant", "content": visible, "prism_cut_reasoning": reasoning if isinstance(reasoning, str) else ""}
++    msg = {"role": "user", "content": note, "_prism_cut_recovery": n_total}
++    rec = {"ts": time.time(), "event": "fired", "api_call_count": api_call_count, "n_segment": n_segment, "n_total": n_total,
++           "max_per_segment": max_per_segment(), "tools": names, "target": target, "completion_tokens": ntok,
++           "args_chars": [len(a) for _, a in calls], "visible_chars": len(visible), "reasoning_chars": len(asst["prism_cut_reasoning"]),
++           "response_id": _get(response, "id"), "note": note}
++    return asst, msg, rec
+diff --git a/tests/run_agent/test_prism_cut_recovery.py b/tests/run_agent/test_prism_cut_recovery.py
+new file mode 100644
+index 0000000000..557c2fee5c
+--- /dev/null
++++ b/tests/run_agent/test_prism_cut_recovery.py
+@@ -0,0 +1,152 @@
++"""Prism patch: HERMES_PRISM_CUT_RECOVERY=1 replaces the silent identical resend of a tool call cut by the output limit.
++
++Stock Hermes resends the same request when a reply's tool call is truncated (finish_reason "length"), without telling the
++model, and ends the run after four cuts. With the patch on, the cut turn is kept without its partial tool call, a note
++asks for the work in smaller parts, and the loop continues; nothing from the cut reply is executed.
++"""
++import json
++from types import SimpleNamespace as NS
++from unittest.mock import patch
++
++import agent.prism_cut_recovery as cr
++from tests.run_agent.test_run_agent import _mock_response, _mock_tool_call, agent  # noqa: F401  (fixture)
++
++PARTIAL = json.dumps({"path": "src/game.js", "content": "x" * 5000})[:-7]  # unterminated JSON
++
++
++def _setup(agent, monkeypatch, tmp_path, on=True, **env):
++    agent._cached_system_prompt = "You are helpful."
++    agent._use_prompt_caching = False
++    agent.tool_delay = 0
++    agent.compression_enabled = False
++    agent.save_trajectories = False
++    agent.valid_tool_names.add("write_file")
++    if on:
++        monkeypatch.setenv("HERMES_PRISM_CUT_RECOVERY", "1")
++    else:
++        monkeypatch.delenv("HERMES_PRISM_CUT_RECOVERY", raising=False)
++    monkeypatch.setenv("HERMES_PRISM_CUT_RECOVERY_LOG", str(tmp_path / "cut_recovery.jsonl"))
++    for k, v in env.items():
++        monkeypatch.setenv(k, v)
++
++
++def _run(agent, responses):
++    agent.client.chat.completions.create.side_effect = responses
++    with (
++        patch("run_agent.handle_function_call", return_value='{"success":true}') as hfc,
++        patch.object(agent, "_persist_session"),
++        patch.object(agent, "_save_trajectory"),
++        patch.object(agent, "_cleanup_task_resources"),
++    ):
++        result = agent.run_conversation("write the game")
++    sent = [c.kwargs["messages"] for c in agent.client.chat.completions.create.call_args_list]
++    return result, sent, hfc
++
++
++def _cut(call_id="c1"):
++    return _mock_response(content="", finish_reason="length", reasoning_content="planning the whole file in one call",
++                          tool_calls=[_mock_tool_call(name="write_file", arguments=PARTIAL, call_id=call_id)],
++                          usage={"prompt_tokens": 100, "completion_tokens": 49152, "total_tokens": 49252})
++
++
++def _write(part, call_id):
++    return _mock_response(content="", finish_reason="tool_calls", tool_calls=[
++        _mock_tool_call(name="write_file", arguments=json.dumps({"path": "src/game.js", "content": part}), call_id=call_id)])
++
++
++def _log(tmp_path):
++    p = tmp_path / "cut_recovery.jsonl"
++    return [json.loads(l) for l in open(p)] if p.exists() else []
++
++
++# ── build(): the appended turns ──────────────────────────────────────────────
++
++def test_build_turn_and_note():
++    msg = NS(content="", reasoning_content="R" * 100, tool_calls=[_mock_tool_call(name="write_file", arguments=PARTIAL)])
++    a, n, rec = cr.build(NS(max_tokens=49152), msg, NS(id="r1", usage=NS(completion_tokens=49152)), 37, 1, 1)
++    assert a["role"] == "assistant" and a["content"] == "" and "tool_calls" not in a
++    assert a["prism_cut_reasoning"] == "R" * 100
++    assert PARTIAL[:40] not in json.dumps([a, n])  # the partial JSON never reaches the history
++    assert n["role"] == "user" and n["content"].startswith(
++        "[System: Your previous tool call (write_file, target src/game.js) was cut off by the output length limit "
++        "after ~49,152 output tokens and was NOT executed.")
++    assert "under ~8K tokens" in n["content"]
++    assert rec["target"] == "src/game.js" and rec["completion_tokens"] == 49152 and rec["tools"] == ["write_file"]
++
++
++def test_build_two_calls_and_no_usage():
++    msg = NS(content="Writing it now.", reasoning_content=None, tool_calls=[
++        _mock_tool_call(name="terminal", arguments='{"command":"ls"}'),
++        _mock_tool_call(name="write_file", arguments='{"path":"index.html","content":"<h')])
++    a, n, _ = cr.build(NS(max_tokens=49152), msg, NS(id="x", usage=None), 5, 2, 2)
++    assert n["content"].startswith("[System: Your previous tool calls (terminal, write_file, target index.html) were cut off")
++    assert "~49,152 output tokens" in n["content"] and a["content"] == "Writing it now."
++
++
++def test_build_unparseable_target():
++    msg = NS(content=None, tool_calls=[_mock_tool_call(name="patch", arguments='{"mode":"replace","old_str')])
++    _, n, rec = cr.build(NS(max_tokens=0), msg, NS(id="x", usage=NS(completion_tokens=31000)), 5, 1, 3)
++    assert n["content"].startswith("[System: Your previous tool call (patch) was cut off") and rec["target"] is None
++
++
++def test_env_gate_and_default_max(monkeypatch):
++    monkeypatch.delenv("HERMES_PRISM_CUT_RECOVERY", raising=False)
++    monkeypatch.delenv("HERMES_PRISM_CR_MAX", raising=False)
++    assert not cr.enabled()
++    monkeypatch.setenv("HERMES_PRISM_CUT_RECOVERY", "1")
++    assert cr.enabled() and cr.max_per_segment() == 4
++
++
++# ── the loop ────────────────────────────────────────────────────────────────
++
++def test_cut_gets_note_not_identical_resend(agent, monkeypatch, tmp_path):
++    _setup(agent, monkeypatch, tmp_path)
++    result, sent, hfc = _run(agent, [_cut(), _write("PART1", "c2"), _mock_response(content="Done.", finish_reason="stop")])
++    assert result["final_response"] == "Done."
++    assert len(sent) == 3
++    assert sent[1][:-2] == sent[0]  # the request after the cut = the same history + cut turn + note
++    cut_turn, note = sent[1][-2], sent[1][-1]
++    assert cut_turn["role"] == "assistant" and not cut_turn.get("tool_calls") and cut_turn["prism_cut_reasoning"]
++    assert note["role"] == "user" and note["content"].startswith("[System: Your previous tool call (write_file, target src/game.js)")
++    assert "_prism_cut_recovery" not in note  # internal marker stripped before the API call
++    assert PARTIAL[:40] not in json.dumps(sent)
++    hfc.assert_called_once()  # only the complete write executed
++    assert [(r["event"], r["path"]) for r in _log(tmp_path)] == [("fired", "length")]
++
++
++def test_exhausted_falls_back_to_stock_end(agent, monkeypatch, tmp_path):
++    _setup(agent, monkeypatch, tmp_path)
++    result, sent, hfc = _run(agent, [_cut(f"c{i}") for i in range(10)])
++    notes = [sum(1 for m in s if str(m.get("content", "")).startswith(cr.NOTE_PREFIX)) for s in sent]
++    assert notes[:5] == [0, 1, 2, 3, 4]
++    assert result["completed"] is False and "truncated" in (result.get("error") or "").lower()
++    hfc.assert_not_called()
++    assert [r["event"] for r in _log(tmp_path)][:5] == ["fired"] * 4 + ["exhausted"]
++
++
++def test_counter_resets_after_an_executed_tool_call(agent, monkeypatch, tmp_path):
++    _setup(agent, monkeypatch, tmp_path, HERMES_PRISM_CR_MAX="1")
++    seq = [_cut("c1"), _write("PART1", "c2"), _cut("c3"), _write("PART2", "c4"), _mock_response(content="Done.", finish_reason="stop")]
++    result, sent, hfc = _run(agent, seq)
++    assert result["final_response"] == "Done." and hfc.call_count == 2
++    assert [r["event"] for r in _log(tmp_path)] == ["fired", "fired"]
++
++
++def test_rewritten_finish_reason_gets_the_note(agent, monkeypatch, tmp_path):
++    """A router that rewrites "length" to "tool_calls": truncated args get the same note instead of the stock stop."""
++    _setup(agent, monkeypatch, tmp_path)
++    bad = _mock_response(content="", finish_reason="tool_calls",
++                         tool_calls=[_mock_tool_call(name="write_file", arguments=PARTIAL, call_id="c1")])
++    result, sent, hfc = _run(agent, [bad, _write("PART1", "c2"), _mock_response(content="Done.", finish_reason="stop")])
++    assert result["final_response"] == "Done."
++    assert sent[1][-1]["content"].startswith(cr.NOTE_PREFIX)
++    hfc.assert_called_once()
++    assert [r["path"] for r in _log(tmp_path)] == ["invalid_json_finish_tool_calls"]
++
++
++def test_unset_keeps_stock_resend(agent, monkeypatch, tmp_path):
++    _setup(agent, monkeypatch, tmp_path, on=False)
++    result, sent, hfc = _run(agent, [_cut(), _write("WHOLE", "c2"), _mock_response(content="Done.", finish_reason="stop")])
++    assert result["final_response"] == "Done."
++    assert sent[1] == sent[0]  # stock: the identical request again
++    assert _log(tmp_path) == []

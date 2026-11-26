@@ -1,13 +1,12 @@
 # Hermes config for the game demos in demos/games/ (run_agent_demo.sh game <name>). Differs from hermes-config-round0.yaml
-# only in: context 262144, max_tokens 32768, compaction at 0.872, max_turns 120, tool_use_enforcement false.
-# run_agent_demo.sh rewrites model.default/base_url/context_length. Hermes compacts once the prompt reaches
-# threshold x (context - max_tokens) = 0.872 x (262144 - 32768) = ~200k tokens; with AGENT_PROFILE=game48 the launcher sets
-# max_tokens 65536 (trigger ~171k) so prompt + a 64k reply still fit in 262k. In game mode the proxy also sends the
-# server profile's -n (game16 32768, game48 65536) as each request's max_tokens.
-# The published games were made with the earlier setting (90 calls, compaction at ~167k); see demos/games/README.md.
+# only in: context 262144, max_tokens 49152, compaction threshold 0.93907518, max_turns 150, tool_use_enforcement false.
+# run_agent_demo.sh rewrites model.default/base_url/context_length, and in game mode sets model.max_tokens to the server
+# profile's -n (game16 49152, game48 65536), which the proxy also sends as each request's max_tokens. Hermes compacts once
+# the prompt reaches threshold x (context - max_tokens) = 0.93907518 x (262144 - 49152) = ~200k tokens with game16.
+# The published games used other values for some of these; demos/games/README.md lists the overrides per game.
 model:
   context_length: 262144
-  max_tokens: 32768
+  max_tokens: 49152
   default: bonsai2-27b-pq2-v16_2
   provider: custom
   base_url: http://localhost:8080/v1
@@ -38,7 +37,7 @@ tool_loop_guardrails:
     idempotent_no_progress: 5
 compression:
   enabled: true
-  threshold: 0.872
+  threshold: 0.93907518
   codex_gpt55_autoraise: true
   target_ratio: 0.2
   protect_last_n: 20
@@ -64,7 +63,7 @@ streaming:
 skills:
   creation_nudge_interval: 15
 agent:
-  max_turns: 120  # tool-calling iterations. Stock `hermes -z` (one-shot, as run_agent_demo.sh uses it) ignores this and
+  max_turns: 150  # tool-calling iterations. Stock `hermes -z` (one-shot, as run_agent_demo.sh uses it) ignores this and
                   # stops at 90; hermes_prism_oneshot_max_turns.patch (applied by install_hermes.sh) makes it read it
   tool_use_enforcement: false
   coding_context: off
