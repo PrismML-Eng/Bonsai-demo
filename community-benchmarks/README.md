@@ -2,6 +2,17 @@
 
 Benchmark results submitted by the community, organized by model. **We are especially looking for Bonsai 2 27B numbers right now**: any hardware, any backend, five minutes with `llama-bench`. See [How to Submit](#how-to-submit).
 
+## Bonsai 2.5 27B
+
+The agentic release of the 27B line (the setup default). Results sorted by TG128;
+keep each packing on its own row. These are community measurements on the stated
+hardware and build, not controlled comparisons across machines. See the linked
+reports for commands, raw output, memory use, and configuration.
+
+| Format | Hardware | Backend | PP512 (t/s) | TG128 (t/s) | Details |
+|--------|----------|---------|------------:|------------:|---------|
+| `PQ2_0-mtp` | Intel Arc Pro B50 16 GB | llama.cpp SYCL (Windows, PrismML fork prism-b10787) | 727 | 24.22 | [link](bonsai25/sycl-arc-pro-b50-16gb-windows.md) |
+
 ## Bonsai 2 27B
 
 The current generation (`bonsai2`, the setup default). Results are sorted by TG128;
@@ -122,6 +133,7 @@ not directly comparable; each report should identify its harness and workload.
 
 ## Model Families
 
+- **[Bonsai 2.5](bonsai25/)**: the agentic release of the 27B line, in GGUF (`PTQ1_0`, `PQ2_0`, `Q2_0`, each also as `*-mtp` builds with a built-in MTP draft head) and MLX 2-bit.
 - **[Bonsai 2](bonsai2/)**: the current generation (27B) in GGUF (`PTQ1_0` and `PQ2_0`) and MLX 2-bit. The GGUF formats require this demo's llama.cpp fork; MLX uses the model's Hadamard-aware runtime.
 - **[Bonsai (1-bit)](bonsai/)**: the 1-bit Bonsai family (27B, 8B, 4B, 1.7B) in GGUF and MLX 1-bit formats.
 - **[Ternary-Bonsai](ternary-bonsai/)**: the ternary Bonsai family (27B, 8B, 4B, 1.7B) in GGUF (`PQ2_0` and `Q2_0` group-64) and MLX (2-bit) formats.
@@ -136,6 +148,7 @@ These end-to-end, vision and mock-tool results are separate from the throughput 
 
 1. Run `./setup.sh` on macOS/Linux or `.\setup.ps1` in Windows PowerShell to download models and binaries (the default family is Bonsai 2; `BONSAI_FAMILY=ternary` or `BONSAI_FAMILY=bonsai` for the older families)
 2. Go into the subfolder for your model family and follow its `README.md`:
+   - [bonsai25/README.md](bonsai25/README.md)
    - [bonsai2/README.md](bonsai2/README.md)
    - [bonsai/README.md](bonsai/README.md)
    - [ternary-bonsai/README.md](ternary-bonsai/README.md)
